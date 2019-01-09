@@ -1,15 +1,19 @@
 import os
-import StringIO
 import subprocess
 import tempfile
+
 from base64 import b64encode
 
 from django.conf import settings
 from django.core.files.storage import default_storage as storage
 
+import six
+
 from PIL import Image
 
 import olympia.core.logger
+
+from olympia.lib.safe_xml import lxml
 
 
 log = olympia.core.logger.getLogger('z.versions.utils')
@@ -46,7 +50,7 @@ def encode_header_image(path):
     try:
         with storage.open(path, 'rb') as image:
             header_blob = image.read()
-            with Image.open(StringIO.StringIO(header_blob)) as header_image:
+            with Image.open(six.StringIO(header_blob)) as header_image:
                 (width, height) = header_image.size
             src = 'data:image/%s;base64,%s' % (
                 header_image.format.lower(), b64encode(header_blob))
@@ -120,4 +124,4 @@ def process_color_value(prop, value):
     prop = CHROME_COLOR_TO_CSS.get(prop, prop)
     if isinstance(value, list) and len(value) == 3:
         return prop, u'rgb(%s, %s, %s)' % tuple(value)
-    return prop, unicode(value)
+    return prop, six.text_type(value)

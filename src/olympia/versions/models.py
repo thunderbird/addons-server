@@ -2,6 +2,8 @@
 import datetime
 import os
 
+from base64 import b64encode
+
 import django.dispatch
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -11,6 +13,8 @@ from django.utils.functional import cached_property
 from django.utils.translation import ugettext
 
 import jinja2
+import six
+import waffle
 
 from django_extensions.db.fields.json import JSONField
 from django_statsd.clients import statsd
@@ -18,8 +22,8 @@ from django_statsd.clients import statsd
 import olympia.core.logger
 
 from olympia import activity, amo
-from olympia.amo.fields import PositiveAutoField
 from olympia.amo.decorators import use_primary_db
+from olympia.amo.fields import PositiveAutoField
 from olympia.amo.models import (
     BasePreview, ManagerBase, ModelBase, OnChangeMixin)
 from olympia.amo.templatetags.jinja_helpers import (
@@ -31,6 +35,7 @@ from olympia.applications.models import AppVersion
 from olympia.constants.licenses import LICENSES_BY_BUILTIN
 from olympia.files import utils
 from olympia.files.models import File, cleanup_file
+from olympia.lib.git import AddonGitRepository
 from olympia.translations.fields import (
     LinkifiedField, PurifiedField, TranslatedField, save_signal)
 
@@ -815,7 +820,7 @@ class License(ModelBase):
 
     def __unicode__(self):
         license = self._constant or self
-        return unicode(license.name)
+        return six.text_type(license.name)
 
     @property
     def _constant(self):
@@ -842,7 +847,7 @@ class ApplicationsVersions(models.Model):
         unique_together = (("application", "version"),)
 
     def get_application_display(self):
-        return unicode(amo.APPS_ALL[self.application].pretty)
+        return six.text_type(amo.APPS_ALL[self.application].pretty)
 
     def __unicode__(self):
         if (self.version.is_compatible_by_default and

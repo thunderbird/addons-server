@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import base64
 import json
-import urlparse
+import mock
+import six
 
 from os import path
 
@@ -946,7 +947,7 @@ class TestAccountViewSetUpdate(TestCase):
         assert response.content != original
         modified_json = json.loads(response.content)
         self.user = self.user.reload()
-        for prop, value in self.update_data.iteritems():
+        for prop, value in six.iteritems(self.update_data):
             assert modified_json[prop] == value
             assert getattr(self.user, prop) == value
 
@@ -971,7 +972,7 @@ class TestAccountViewSetUpdate(TestCase):
         assert response.content != original
         modified_json = json.loads(response.content)
         random_user = random_user.reload()
-        for prop, value in self.update_data.iteritems():
+        for prop, value in six.iteritems(self.update_data):
             assert modified_json[prop] == value
             assert getattr(random_user, prop) == value
 

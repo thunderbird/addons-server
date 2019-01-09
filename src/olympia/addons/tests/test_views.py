@@ -9,17 +9,19 @@ from django.core import mail
 from django.core.cache import cache
 from django.test.utils import override_settings
 from django.test.client import Client
+from django.test.utils import override_settings
 from django.utils.http import urlunquote
 
 import mock
 import pytest
+import six
 import waffle
 
 from elasticsearch import Elasticsearch
 from mock import patch
 from pyquery import PyQuery as pq
-from waffle.testutils import override_switch
 from rest_framework.test import APIRequestFactory
+from waffle.testutils import override_switch
 
 from olympia import amo
 from olympia.abuse.models import AbuseReport
@@ -79,7 +81,7 @@ def _test_hovercards(self, doc, addons, src=''):
         hc = btn.parents('.addon.hovercard')
         assert hc.find('a').attr('href') == (
             urlparams(addon.get_url_path(), src=src))
-        assert hc.find('h3').text() == unicode(addon.name)
+        assert hc.find('h3').text() == six.text_type(addon.name)
 
 
 class TestHomepage(TestCase):
@@ -163,7 +165,7 @@ class TestHomepageFeatures(TestCase):
             '#upandcoming': browse_extensions + '?sort=hotness',
             '#featured-collections': browse_collections + '?sort=featured',
         }
-        for id_, url in sections.iteritems():
+        for id_, url in six.iteritems(sections):
             # Check that the "See All" link points to the correct page.
             assert doc.find('%s .seeall' % id_).attr('href') == url
 
@@ -458,7 +460,7 @@ class TestDetailPage(TestCase):
         For add-ons incompatible with the current app, redirect to one
         that's supported.
         """
-        comp_app = self.addon.compatible_apps.keys()[0]
+        comp_app = list(self.addon.compatible_apps.keys())[0]
         not_comp_app = [a for a in amo.APP_USAGE
                         if a not in self.addon.compatible_apps.keys()][0]
 
@@ -1026,7 +1028,7 @@ class TestDetailPage(TestCase):
 
     def test_categories(self):
         links = self.get_more_pq()('#related ul:first').find('a')
-        expected = [(unicode(c.name), c.get_url_path())
+        expected = [(six.text_type(c.name), c.get_url_path())
                     for c in self.addon.categories.filter(
                         application=amo.FIREFOX.id)]
         amo.tests.check_links(expected, links)
@@ -3011,7 +3013,7 @@ class TestAddonSearchView(ESTestCase):
         # Exclude addon1 and addon2 by pk.
         data = self.perform_search(
             self.url, {'exclude_addons': u','.join(
-                map(unicode, (addon2.pk, addon1.pk)))})
+                map(six.text_type, (addon2.pk, addon1.pk)))})
 
         assert len(data['results']) == 1
         assert data['count'] == 1
@@ -3020,7 +3022,7 @@ class TestAddonSearchView(ESTestCase):
         # Exclude addon1 by pk and addon3 by slug.
         data = self.perform_search(
             self.url, {'exclude_addons': u','.join(
-                (unicode(addon1.pk), addon3.slug))})
+                (six.text_type(addon1.pk), addon3.slug))})
 
         assert len(data['results']) == 1
         assert data['count'] == 1

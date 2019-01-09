@@ -4,6 +4,7 @@ from django.utils.encoding import smart_text
 from django.utils.translation import trim_whitespace
 
 import mock
+import six
 
 from pyquery import PyQuery as pq
 
@@ -129,8 +130,8 @@ class TestPromos(TestCase):
         assert response.status_code == 200
         assert response.content
         content = smart_text(response.content)
-        assert unicode(self.addon1.name) in content
-        assert unicode(self.addon2.name) in content
+        assert six.text_type(self.addon1.name) in content
+        assert six.text_type(self.addon2.name) in content
         assert 'This &amp; That' in content
 
     def test_no_params(self):
@@ -178,8 +179,8 @@ class TestPromos(TestCase):
         assert response.status_code == 200
         assert response.content
         content = smart_text(response.content)
-        assert unicode(self.addon1.name) not in content
-        assert unicode(self.addon2.name) not in content
+        assert six.text_type(self.addon1.name) not in content
+        assert six.text_type(self.addon2.name) not in content
         assert 'This &amp; That' in content
 
     def test_pane_platform_filtering(self):

@@ -17,6 +17,7 @@ from django.utils.translation import ugettext, ugettext_lazy as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
+import six
 import waffle
 
 from django_statsd.clients import statsd
@@ -1593,8 +1594,8 @@ def _submit_finish(request, addon, version):
         # We can use locale-prefixed URLs because the submitter probably
         # speaks the same language by the time he/she reads the email.
         context = {
-            'addon_name': unicode(addon.name),
-            'app': unicode(request.APP.pretty),
+            'addon_name': six.text_type(addon.name),
+            'app': six.text_type(request.APP.pretty),
             'detail_url': absolutify(addon.get_url_path()),
             'version_url': absolutify(addon.get_dev_url('versions')),
             'edit_url': absolutify(addon.get_dev_url('edit')),

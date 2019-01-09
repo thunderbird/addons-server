@@ -1,6 +1,9 @@
 from django.core.serializers import serialize as object_serialize
 from django.utils.translation import ugettext, ugettext_lazy as _
 
+import six
+import waffle
+
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
@@ -43,9 +46,9 @@ class CollectionAkismetSpamValidator(object):
         if any((report.comment_check() for report in reports)):
             # We have to serialize and send it off to a task because the DB
             # transaction will be rolled back because of the ValidationError.
-            save_akismet_report.delay(object_serialize("json", reports))
-            raise serializers.ValidationError(ugettext(
-                'The text entered has been flagged as spam.'))
+                save_akismet_report.delay(object_serialize("json", reports))
+                raise serializers.ValidationError(ugettext(
+                    'The text entered has been flagged as spam.'))
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -54,6 +57,7 @@ class CollectionSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     author = BaseUserSerializer(default=serializers.CurrentUserDefault())
     public = serializers.BooleanField(source='listed', default=True)
+    uuid = serializers.UUIDField(format='hex', required=False)
 
     class Meta:
         model = Collection
@@ -82,7 +86,7 @@ class CollectionSerializer(serializers.ModelSerializer):
         # if we have a localised dict of values validate them all.
         if isinstance(value, dict):
             return {locale: self.validate_name(sub_value)
-                    for locale, sub_value in value.iteritems()}
+                    for locale, sub_value in six.iteritems(value)}
         if value.strip() == u'':
             raise serializers.ValidationError(
                 ugettext(u'Name cannot be empty.'))
@@ -92,7 +96,7 @@ class CollectionSerializer(serializers.ModelSerializer):
         return value
 
     def validate_description(self, value):
-        if has_links(clean_nl(unicode(value))):
+        if has_links(clean_nl(six.text_type(value))):
             # There's some links, we don't want them.
             raise serializers.ValidationError(
                 ugettext(u'No links are allowed.'))

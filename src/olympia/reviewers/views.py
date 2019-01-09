@@ -14,6 +14,8 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils.translation import ugettext
 from django.views.decorators.cache import never_cache
 
+import six
+
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -24,9 +26,7 @@ import olympia.core.logger
 from olympia import amo
 from olympia.abuse.models import AbuseReport
 from olympia.access import acl
-from olympia.activity.models import ActivityLog, AddonLog, CommentLog
 from olympia.accounts.views import API_TOKEN_COOKIE
-
 from olympia.activity.models import (
     ActivityLog, CommentLog)
 from olympia.addons.decorators import (
@@ -46,9 +46,8 @@ from olympia.reviewers.forms import (
     RatingFlagFormSet, RatingModerationLogForm, ReviewForm, ReviewLogForm,
     WhiteboardForm)
 from olympia.reviewers.models import (
-    AutoApprovalSummary, PerformanceGraph,
-    RereviewQueueTheme, ReviewerScore, ReviewerSubscription,
-    ViewFullReviewQueue, ViewPendingQueue, Whiteboard,
+    AutoApprovalSummary, PerformanceGraph, RereviewQueueTheme, ReviewerScore,
+    ReviewerSubscription, ViewFullReviewQueue, ViewPendingQueue, Whiteboard,
     clear_reviewing_cache, get_flags, get_reviewing_cache,
     get_reviewing_cache_key, set_reviewing_cache)
 from olympia.reviewers.serializers import AddonReviewerFlagsSerializer
@@ -565,7 +564,7 @@ def queue_counts(admin_reviewer, extension_reviews, theme_reviews):
                 admin_reviewer=admin_reviewer).count),
         'expired_info_requests': expired.count,
     }
-    return {queue: count() for (queue, count) in counts.iteritems()}
+    return {queue: count() for (queue, count) in six.iteritems(counts)}
 
 
 @legacy_addons_or_themes_reviewer_required
@@ -1040,7 +1039,7 @@ def queue_viewing(request):
 def queue_version_notes(request, addon_id):
     addon = get_object_or_404(Addon.objects, pk=addon_id)
     version = addon.latest_version
-    return {'releasenotes': unicode(version.releasenotes),
+    return {'releasenotes': six.text_type(version.releasenotes),
             'approvalnotes': version.approvalnotes}
 
 

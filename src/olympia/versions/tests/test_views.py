@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import six
 
 from django.conf import settings
 from django.core.files import temp
@@ -523,11 +524,11 @@ class TestDownloadSource(TestCase):
         assert response[settings.XSENDFILE_HEADER]
         assert 'Content-Disposition' in response
         filename = self.filename
-        if not isinstance(filename, unicode):
+        if not isinstance(filename, six.text_type):
             filename = filename.decode('utf8')
         assert filename in response['Content-Disposition'].decode('utf8')
         path = self.version.source.path
-        if not isinstance(path, unicode):
+        if not isinstance(path, six.text_type):
             path = path.decode('utf8')
         assert response[settings.XSENDFILE_HEADER].decode('utf8') == path
 
@@ -550,11 +551,11 @@ class TestDownloadSource(TestCase):
         assert response[settings.XSENDFILE_HEADER]
         assert 'Content-Disposition' in response
         filename = self.filename
-        if not isinstance(filename, unicode):
+        if not isinstance(filename, six.text_type):
             filename = filename.decode('utf8')
         assert filename in response['Content-Disposition'].decode('utf8')
         path = self.version.source.path
-        if not isinstance(path, unicode):
+        if not isinstance(path, six.text_type):
             path = path.decode('utf8')
         assert response[settings.XSENDFILE_HEADER].decode('utf8') == path
 

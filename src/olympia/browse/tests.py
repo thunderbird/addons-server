@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
 
-from urlparse import urlparse
-
 from django.conf import settings
 from django.core.cache import cache
 from django.test.utils import override_settings
@@ -11,9 +9,11 @@ from django.utils.translation import trim_whitespace
 
 import mock
 import pytest
+import six
 
 from dateutil.parser import parse as parse_dt
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import urlparse
 from waffle.testutils import override_switch
 
 from olympia import amo
@@ -30,6 +30,7 @@ from olympia.browse.views import (
     MIN_COUNT_FOR_LANDING, PAGINATE_PERSONAS_BY, AddonFilter, ThemeFilter,
     locale_display_name)
 from olympia.constants.applications import THUNDERBIRD
+from olympia.lib.cache import memoize_key
 from olympia.translations.models import Translation
 from olympia.versions.models import Version
 
@@ -38,25 +39,26 @@ pytestmark = pytest.mark.django_db
 
 
 def _test_listing_sort(self, sort, key=None, reverse=True, sel_class='opt'):
-    r = self.client.get(self.url, dict(sort=sort))
-    assert r.status_code == 200
-    sel = pq(r.content)('#sorter ul > li.selected')
+    response = self.client.get(self.url, dict(sort=sort))
+    assert response.status_code == 200
+    sel = pq(response.content)('#sorter ul > li.selected')
     assert sel.find('a').attr('class') == sel_class
-    assert r.context['sorting'] == sort
-    a = list(r.context['addons'].object_list)
+    assert response.context['sorting'] == sort
+    addons = list(response.context['addons'].object_list)
     if key:
-        assert a == sorted(a, key=lambda x: getattr(x, key), reverse=reverse)
-    return a
+        assert addons == sorted(
+            addons, key=lambda x: getattr(x, key), reverse=reverse)
+    return addons
 
 
 def _test_default_sort(self, sort, key=None, reverse=True, sel_class='opt'):
-    r = self.client.get(self.url)
-    assert r.status_code == 200
-    assert r.context['sorting'] == sort
+    response = self.client.get(self.url)
+    assert response.status_code == 200
+    assert response.context['sorting'] == sort
 
-    r = self.client.get(self.url, dict(sort='xxx'))
-    assert r.status_code == 200
-    assert r.context['sorting'] == sort
+    response = self.client.get(self.url, dict(sort='xxx'))
+    assert response.status_code == 200
+    assert response.context['sorting'] == sort
     _test_listing_sort(self, sort, key, reverse, sel_class)
 
 
@@ -389,7 +391,7 @@ class TestFeeds(TestCase):
             slug, title = options
             url = '%s?sort=%s' % (self.url, slug)
             assert item.attr('href') == url
-            assert item.text() == unicode(title)
+            assert item.text() == six.text_type(title)
             self._check_feed(url, self.rss_url, slug)
 
     def test_extensions_feed(self):
@@ -770,7 +772,7 @@ class TestSearchToolsPages(BaseSearchToolsTest):
         for prefix, app in (
                 ('/en-US/firefox', amo.FIREFOX.pretty),
                 ('/en-US/seamonkey', amo.SEAMONKEY.pretty)):
-            app = unicode(app)  # get the proxied unicode obj
+            app = six.text_type(app)  # get the proxied unicode obj
             response = self.client.get('%s/search-tools/' % prefix)
             assert response.status_code == 200
             doc = pq(response.content)
@@ -1050,6 +1052,167 @@ class TestFeaturedFeed(TestCase):
             "customizing Firefox.")
         assert len(doc('rss channel item')) == (
             Addon.objects.featured(amo.FIREFOX).count())
+
+
+class TestPersonas(TestCase):
+    fixtures = ('base/appversion', 'base/featured',
+                'addons/featured', 'addons/persona')
+
+    def setUp(self):
+        super(TestPersonas, self).setUp()
+        self.landing_url = reverse('browse.personas')
+        self.upandcoming_url = '{path}?sort=up-and-coming'.format(
+            path=self.landing_url)
+        self.created_url = '{path}?sort=created'.format(path=self.landing_url)
+        self.grid_template = 'browse/personas/grid.html'
+        self.landing_template = 'browse/personas/category_landing.html'
+
+    def create_personas(self, number, persona_extras=None):
+        persona_extras = persona_extras or {}
+        addon = Addon.objects.get(id=15679)
+        for i in range(number):
+            a = Addon(type=amo.ADDON_PERSONA)
+            a.name = 'persona-%s' % i
+            a.all_categories = []
+            a.save()
+            v = Version.objects.get(addon=addon)
+            v.addon = a
+            v.pk = None
+            v.save()
+            p = Persona(addon_id=a.id, persona_id=i, **persona_extras)
+            p.save()
+            a.persona = p
+            a._current_version = v
+            a.status = amo.STATUS_PUBLIC
+            a.save()
+
+    def test_try_new_frontend_banner_presence(self):
+        response = self.client.get(self.landing_url)
+        assert 'AMO is getting a new look.' not in response.content
+
+        with override_switch('try-new-frontend', active=True):
+            response = self.client.get(self.landing_url)
+            assert 'AMO is getting a new look.' in response.content
+
+    def test_does_not_500_in_development(self):
+        with self.settings(DEBUG=True):
+            self.test_personas_grid()
+            self.test_personas_landing()
+
+    def test_personas_grid(self):
+        """
+        Show grid page if there are fewer than
+        MIN_COUNT_FOR_LANDING+1 Personas.
+        """
+        base = Addon.objects.public().filter(type=amo.ADDON_PERSONA)
+        assert base.count() == 2
+        response = self.client.get(self.landing_url)
+        self.assertTemplateUsed(response, self.grid_template)
+        assert response.status_code == 200
+        assert response.context['is_homepage']
+
+    def test_personas_landing(self):
+        """
+        Show landing page if there are greater than
+        MIN_COUNT_FOR_LANDING popular Personas.
+        """
+        self.create_personas(MIN_COUNT_FOR_LANDING,
+                             persona_extras={'popularity': 100})
+        base = Addon.objects.public().filter(type=amo.ADDON_PERSONA)
+        assert base.count() == MIN_COUNT_FOR_LANDING + 2
+        r = self.client.get(self.landing_url)
+        self.assertTemplateUsed(r, self.landing_template)
+
+        # Whatever the `category.count` is.
+        category = Category(
+            type=amo.ADDON_PERSONA, slug='abc',
+            count=MIN_COUNT_FOR_LANDING + 1, application=amo.FIREFOX.id)
+        category.save()
+        response = self.client.get(self.landing_url)
+        self.assertTemplateUsed(response, self.landing_template)
+
+    def test_personas_grid_sorting(self):
+        """Ensure we hit a grid page if there is a sorting."""
+        category = Category(
+            type=amo.ADDON_PERSONA, slug='abc', application=amo.FIREFOX.id)
+        category.save()
+        category_url = reverse('browse.personas', args=[category.slug])
+        r = self.client.get(category_url + '?sort=created')
+        self.assertTemplateUsed(r, self.grid_template)
+
+        # Whatever the `category.count` is.
+        category.update(count=MIN_COUNT_FOR_LANDING + 1)
+        r = self.client.get(category_url + '?sort=created')
+        self.assertTemplateUsed(r, self.grid_template)
+
+    def test_personas_category_landing_frozen(self):
+        # Check to make sure add-on is there.
+        r = self.client.get(self.landing_url)
+
+        personas = pq(r.content).find('.persona-preview')
+        assert personas.length == 2
+
+        # Freeze the add-on
+        FrozenAddon.objects.create(addon_id=15663)
+
+        # Make sure it's not there anymore
+        res = self.client.get(self.landing_url)
+
+        personas = pq(res.content).find('.persona-preview')
+        assert personas.length == 1
+
+    def test_only_popular_persona_are_shown_in_up_and_coming(self):
+        r = self.client.get(self.upandcoming_url)
+        personas = pq(r.content).find('.persona-preview')
+        assert personas.length == 2
+        p = Persona.objects.get(pk=559)
+        p.popularity = 99
+        p.save()
+        r = self.client.get(self.upandcoming_url)
+        personas = pq(r.content).find('.persona-preview')
+        assert personas.length == 1
+
+    @override_settings(PERSONA_DEFAULT_PAGES=2)
+    def test_pagination_in_up_and_coming(self):
+        # If the number is < MIN_COUNT_FOR_LANDING + 1 we keep
+        # the base pagination.
+        r = self.client.get(self.upandcoming_url)
+        assert str(r.context['addons']) == '<Page 1 of 1>'
+        # Otherwise we paginate on 10, hardcoded.
+        self.create_personas(PAGINATE_PERSONAS_BY,
+                             persona_extras={'popularity': 100})
+        r = self.client.get(self.upandcoming_url)
+        assert str(r.context['addons']) == '<Page 1 of 2>'
+        # Even if the number of retrieved personas is higher than
+        # 10 pages we shouldn't have a bump in page numbers.
+        self.create_personas(
+            PAGINATE_PERSONAS_BY * settings.PERSONA_DEFAULT_PAGES,
+            persona_extras={'popularity': 100})
+        r = self.client.get(self.upandcoming_url)
+        assert str(r.context['addons']) == '<Page 1 of 2>'
+
+    def test_pagination_in_created(self):
+        r = self.client.get(self.created_url)
+        assert str(r.context['addons']) == '<Page 1 of 1>'
+        self.create_personas(PAGINATE_PERSONAS_BY)
+        r = self.client.get(self.created_url)
+        assert str(r.context['addons']) == '<Page 1 of 2>'
+
+    @override_switch('disable-lwt-uploads', active=False)
+    def test_submit_theme_link_lwt_enabled(self):
+        response = self.client.get(self.created_url)
+        doc = pq(response.content)
+        assert doc('div.submit-theme p a').attr('href') == (
+            reverse('devhub.themes.submit')
+        )
+
+    @override_switch('disable-lwt-uploads', active=True)
+    def test_submit_theme_link_lwt_disabled(self):
+        response = self.client.get(self.created_url)
+        doc = pq(response.content)
+        assert doc('div.submit-theme p a').attr('href') == (
+            reverse('devhub.submit.agreement')
+        )
 
 
 class TestStaticThemeRedirects(TestCase):

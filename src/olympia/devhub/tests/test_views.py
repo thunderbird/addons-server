@@ -221,7 +221,7 @@ class TestDashboard(HubTest):
         assert e10s_flag.text() == 'Compatible'
 
     def test_dev_news(self):
-        for i in xrange(7):
+        for i in range(7):
             bp = BlogPost(title='hi %s' % i,
                           date_posted=datetime.now() - timedelta(days=i))
             bp.save()

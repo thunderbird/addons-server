@@ -16,11 +16,13 @@ from django.template import defaultfilters
 from django.test.utils import override_settings
 
 import mock
+import six
 
 from freezegun import freeze_time
 from lxml.html import HTMLParser, fromstring
 from mock import Mock, patch
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import parse_qs
 
 from olympia import amo, core, ratings
 from olympia.abuse.models import AbuseReport
@@ -114,7 +116,7 @@ class TestRatingsModerationLog(ReviewerTest):
         reviews.
         """
         review = self.make_review()
-        for i in xrange(2):
+        for i in range(2):
             ActivityLog.create(amo.LOG.APPROVE_RATING, review, review.addon)
             ActivityLog.create(amo.LOG.DELETE_RATING, review.id, review.addon)
         response = self.client.get(self.url, {'filter': 'deleted'})
@@ -1077,7 +1079,7 @@ class QueueTest(ReviewerTest):
         results = OrderedDict()
         channel = (amo.RELEASE_CHANNEL_LISTED if self.listed else
                    amo.RELEASE_CHANNEL_UNLISTED)
-        for name, attrs in files.iteritems():
+        for name, attrs in six.iteritems(files):
             if not subset or name in subset:
                 version_kw = attrs.get('version_kw', {})
                 version_kw.update(
@@ -1151,7 +1153,7 @@ class QueueTest(ReviewerTest):
         for idx, addon in enumerate(self.expected_addons):
             latest_version = self.get_addon_latest_version(addon)
             assert latest_version
-            name = '%s %s' % (unicode(addon.name),
+            name = '%s %s' % (six.text_type(addon.name),
                               latest_version.version)
             if self.channel_name == 'listed':
                 # We typically don't include the channel name if it's the
@@ -1245,7 +1247,7 @@ class TestQueueBasics(QueueTest):
             2: '-addon_type_id',    # Type.
             3: 'waiting_time_min',  # Waiting Time.
         }
-        for idx, sort in sorts.iteritems():
+        for idx, sort in six.iteritems(sorts):
             # Get column link.
             a = tr('th').eq(idx).find('a')
             # Update expected GET parameters with sort type.
@@ -2428,7 +2430,7 @@ class BaseTestQueueSearch(SearchTest):
         results = {}
         channel = (amo.RELEASE_CHANNEL_LISTED if self.listed else
                    amo.RELEASE_CHANNEL_UNLISTED)
-        for name, attrs in files.iteritems():
+        for name, attrs in six.iteritems(files):
             if not subset or name in subset:
                 version_kw = attrs.get('version_kw', {})
                 version_kw.update(
@@ -2903,7 +2905,7 @@ class TestReview(ReviewBase):
         comments = rows.siblings('td')
         assert comments.length == 2
 
-        for idx in xrange(comments.length):
+        for idx in range(comments.length):
             td = comments.eq(idx)
             assert td.find('.history-comment').text() == 'something'
             assert td.find('th').text() == {
@@ -2977,7 +2979,7 @@ class TestReview(ReviewBase):
         assert '0.1' in ths.eq(0).text()
         assert '0.2' in ths.eq(1).text()
         assert '0.3' in ths.eq(2).text()
-        for idx in xrange(2):
+        for idx in range(2):
             assert 'Deleted' in ths.eq(idx).text()
 
         bodies = table.children('.listing-body')
@@ -4812,7 +4814,7 @@ class TestLeaderboard(ReviewerTest):
         assert get_cells() == (
             [users[2].name,
              users[1].name,
-             unicode(amo.REVIEWED_LEVELS[0]['name']),
+             six.text_type(amo.REVIEWED_LEVELS[0]['name']),
              users[0].name])
 
         self._award_points(users[0], 1)
@@ -4821,7 +4823,7 @@ class TestLeaderboard(ReviewerTest):
             [users[2].name,
              users[1].name,
              users[0].name,
-             unicode(amo.REVIEWED_LEVELS[0]['name'])])
+             six.text_type(amo.REVIEWED_LEVELS[0]['name'])])
 
         self._award_points(users[0], -1)
         self._award_points(users[2], (amo.REVIEWED_LEVELS[1]['points'] -
@@ -4829,9 +4831,9 @@ class TestLeaderboard(ReviewerTest):
 
         assert get_cells() == (
             [users[2].name,
-             unicode(amo.REVIEWED_LEVELS[1]['name']),
+             six.text_type(amo.REVIEWED_LEVELS[1]['name']),
              users[1].name,
-             unicode(amo.REVIEWED_LEVELS[0]['name']),
+             six.text_type(amo.REVIEWED_LEVELS[0]['name']),
              users[0].name])
 
 
@@ -4871,7 +4873,7 @@ class TestPolicyView(ReviewerTest):
             '{addon} :: EULA'.format(addon=self.addon.name))
         self.assertContains(response, u'End-User License Agreement')
         self.assertContains(response, u'Eulá!')
-        self.assertContains(response, unicode(self.review_url))
+        self.assertContains(response, six.text_type(self.review_url))
 
     def test_eula_with_channel(self):
         unlisted_review_url = reverse(
@@ -4887,7 +4889,7 @@ class TestPolicyView(ReviewerTest):
         response = self.client.get(self.eula_url + '?channel=unlisted')
         assert response.status_code == 200
         self.assertContains(response, u'Eulá!')
-        self.assertContains(response, unicode(unlisted_review_url))
+        self.assertContains(response, six.text_type(unlisted_review_url))
 
     def test_privacy(self):
         assert not bool(self.addon.privacy_policy)
@@ -4904,7 +4906,7 @@ class TestPolicyView(ReviewerTest):
             '{addon} :: Privacy Policy'.format(addon=self.addon.name))
         self.assertContains(response, 'Privacy Policy')
         self.assertContains(response, u'Prívacy Pólicy?')
-        self.assertContains(response, unicode(self.review_url))
+        self.assertContains(response, six.text_type(self.review_url))
 
     def test_privacy_with_channel(self):
         unlisted_review_url = reverse(
@@ -4920,7 +4922,7 @@ class TestPolicyView(ReviewerTest):
         response = self.client.get(self.privacy_url + '?channel=unlisted')
         assert response.status_code == 200
         self.assertContains(response, u'Prívacy Pólicy?')
-        self.assertContains(response, unicode(unlisted_review_url))
+        self.assertContains(response, six.text_type(unlisted_review_url))
 
 
 class TestAddonReviewerViewSet(TestCase):

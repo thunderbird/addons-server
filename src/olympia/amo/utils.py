@@ -10,11 +10,14 @@ import operator
 import os
 import random
 import re
+import scandir
 import shutil
+import six
+import string
+import subprocess
 import time
 import unicodedata
 import urllib
-import urlparse
 import string
 import subprocess
 import scandir
@@ -186,12 +189,12 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
     if not recipient_list:
         return True
 
-    if isinstance(recipient_list, basestring):
+    if isinstance(recipient_list, six.string_types):
         raise ValueError('recipient_list should be a list, not a string.')
 
     # Check against user notification settings
     if perm_setting:
-        if isinstance(perm_setting, str):
+        if isinstance(perm_setting, six.string_types):
             perm_setting = notifications.NOTIFICATIONS_BY_SHORT[perm_setting]
         perms = dict(UserNotification.objects
                                      .filter(user__email__in=recipient_list,
@@ -217,8 +220,8 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
         from_email = settings.DEFAULT_FROM_EMAIL
 
     if cc:
-        # If not basestring, assume it is already a list.
-        if isinstance(cc, basestring):
+        # If not six.string_types, assume it is already a list.
+        if isinstance(cc, six.string_types):
             cc = [cc]
 
     if not headers:
@@ -409,9 +412,10 @@ def chunked(seq, n):
 def urlencode(items):
     """A Unicode-safe URLencoder."""
     try:
-        return urllib.urlencode(items)
+        return six.moves.urllib_parse.urlencode(items)
     except UnicodeEncodeError:
-        return urllib.urlencode([(k, force_bytes(v)) for k, v in items])
+        return six.moves.urllib_parse.urlencode(
+            [(k, force_bytes(v)) for k, v in items])
 
 
 def randslice(qs, limit, exclude=None):
@@ -706,7 +710,7 @@ class HttpResponseSendFile(HttpResponse):
         super(HttpResponseSendFile, self).__init__('', status=status,
                                                    content_type=content_type)
         header_path = self.path
-        if isinstance(header_path, unicode):
+        if isinstance(header_path, six.text_type):
             header_path = header_path.encode('utf8')
         if settings.XSENDFILE:
             self[settings.XSENDFILE_HEADER] = header_path
@@ -777,7 +781,7 @@ def escape_all(value):
     Only linkify full urls, including a scheme, if "linkify_only_full" is True.
 
     """
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         value = jinja2.escape(force_text(value))
         value = linkify_with_outgoing(value)
         return value
@@ -785,7 +789,7 @@ def escape_all(value):
         for i, lv in enumerate(value):
             value[i] = escape_all(lv)
     elif isinstance(value, dict):
-        for k, lv in value.iteritems():
+        for k, lv in six.iteritems(value):
             value[k] = escape_all(lv)
     elif isinstance(value, Translation):
         value = jinja2.escape(force_text(value))
@@ -872,7 +876,7 @@ def attach_trans_dict(model, objs):
         converted_translation = new_class()
         converted_translation.__dict__ = translation.__dict__
         return (converted_translation.locale.lower(),
-                unicode(converted_translation))
+                six.text_type(converted_translation))
 
     # Build and attach translations for each field on each object.
     for obj in objs:

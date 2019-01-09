@@ -6,13 +6,14 @@ from django.test.client import RequestFactory
 from django.test.utils import override_settings
 
 import pytest
+import six
 
 from mock import patch
 from pyquery import PyQuery as pq
 
 from olympia.amo.middleware import (
-    AuthenticationMiddlewareWithoutAPI, ScrubRequestOnException,
-    RequestIdMiddleware)
+    AuthenticationMiddlewareWithoutAPI, RequestIdMiddleware,
+    ScrubRequestOnException)
 from olympia.amo.tests import TestCase, reverse_ns
 from olympia.amo.urlresolvers import reverse
 from olympia.zadmin.models import Config
@@ -135,7 +136,7 @@ def test_request_id_middleware(client):
     """Test that we add a request id to every response"""
     response = client.get(reverse('home'))
     assert response.status_code == 200
-    assert isinstance(response['X-AMO-Request-ID'], basestring)
+    assert isinstance(response['X-AMO-Request-ID'], six.string_types)
 
     # Test that we set `request.request_id` too
 

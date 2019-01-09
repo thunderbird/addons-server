@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 from django.test.utils import override_settings
+
+import six
+
+from rest_framework import serializers
 from rest_framework.test import APIRequestFactory
 
 from olympia import amo
@@ -87,7 +91,7 @@ class TestPublicUserProfileSerializer(TestCase):
     def test_basic(self):
         data = self.serialize()
         for prop, val in self.user_kwargs.items():
-            assert data[prop] == unicode(val), prop
+            assert data[prop] == six.text_type(val), prop
         return data
 
     def test_addons(self):
@@ -213,6 +217,17 @@ class TestUserProfileSerializer(TestPublicUserProfileSerializer,
         with override_settings(DRF_API_GATES=gates):
             data = super(TestUserProfileSerializer, self).test_basic()
             assert 'fxa_edit_email_url' not in data
+
+    def test_validate_homepage(self):
+        domain = u'example.org'
+        allowed_url = u'http://github.com'
+        serializer = self.serializer(context={'request': self.request})
+
+        with override_settings(DOMAIN=domain):
+            with self.assertRaises(serializers.ValidationError):
+                serializer.validate_homepage(u'http://{}'.format(domain))
+            # It should not raise when value is allowed.
+            assert serializer.validate_homepage(allowed_url) == allowed_url
 
 
 class TestUserNotificationSerializer(TestCase):

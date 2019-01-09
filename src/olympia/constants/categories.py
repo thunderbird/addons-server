@@ -1,6 +1,7 @@
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
+import six
 from olympia.constants.applications import (
     ANDROID, FIREFOX, SEAMONKEY, THUNDERBIRD)
 from olympia.constants.base import (
@@ -30,7 +31,7 @@ class StaticCategory(object):
         object.__setattr__(self, 'description', description)
 
     def __unicode__(self):
-        return unicode(self.name)
+        return six.text_type(self.name)
 
     def __repr__(self):
         return u'<%s: %s (%s)>' % (

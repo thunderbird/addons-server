@@ -13,6 +13,8 @@ from django.utils.translation import ugettext, ugettext_lazy as _lazy
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 
+import six
+
 from django_statsd.clients import statsd
 from rest_framework import serializers
 from rest_framework.viewsets import ModelViewSet
@@ -601,7 +603,7 @@ class CollectionAddonViewSet(ModelViewSet):
         self.lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         lookup_value = self.kwargs.get(self.lookup_url_kwarg)
         # if the lookup is not a number, its probably the slug instead.
-        if lookup_value and not unicode(lookup_value).isdigit():
+        if lookup_value and not six.text_type(lookup_value).isdigit():
             self.lookup_field = '%s__slug' % self.lookup_field
         return super(CollectionAddonViewSet, self).get_object()
 

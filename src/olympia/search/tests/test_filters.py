@@ -3,6 +3,8 @@ import copy
 
 from django.test.client import RequestFactory
 
+import six
+
 from elasticsearch_dsl import Search
 from mock import Mock, patch
 from rest_framework import serializers
@@ -286,18 +288,19 @@ class TestSearchParameterFilter(FilterTestsBase):
 
     def test_search_by_type_invalid(self):
         with self.assertRaises(serializers.ValidationError) as context:
-            self._filter(data={'type': unicode(amo.ADDON_EXTENSION + 666)})
+            self._filter(
+                data={'type': six.text_type(amo.ADDON_EXTENSION + 666)})
 
         with self.assertRaises(serializers.ValidationError) as context:
             self._filter(data={'type': 'nosuchtype'})
         assert context.exception.detail == ['Invalid "type" parameter.']
 
     def test_search_by_type_id(self):
-        qs = self._filter(data={'type': unicode(amo.ADDON_EXTENSION)})
+        qs = self._filter(data={'type': six.text_type(amo.ADDON_EXTENSION)})
         must = qs['query']['bool']['must']
         assert {'terms': {'type': [amo.ADDON_EXTENSION]}} in must
 
-        qs = self._filter(data={'type': unicode(amo.ADDON_PERSONA)})
+        qs = self._filter(data={'type': six.text_type(amo.ADDON_PERSONA)})
         must = qs['query']['bool']['must']
         assert {'terms': {'type': [amo.ADDON_PERSONA]}} in must
 
@@ -318,18 +321,18 @@ class TestSearchParameterFilter(FilterTestsBase):
 
     def test_search_by_app_invalid(self):
         with self.assertRaises(serializers.ValidationError) as context:
-            self._filter(data={'app': unicode(amo.FIREFOX.id + 666)})
+            self._filter(data={'app': six.text_type(amo.FIREFOX.id + 666)})
 
         with self.assertRaises(serializers.ValidationError) as context:
             self._filter(data={'app': 'nosuchapp'})
         assert context.exception.detail == ['Invalid "app" parameter.']
 
     def test_search_by_app_id(self):
-        qs = self._filter(data={'app': unicode(amo.FIREFOX.id)})
+        qs = self._filter(data={'app': six.text_type(amo.FIREFOX.id)})
         must = qs['query']['bool']['must']
         assert {'term': {'app': amo.FIREFOX.id}} in must
 
-        qs = self._filter(data={'app': unicode(amo.THUNDERBIRD.id)})
+        qs = self._filter(data={'app': six.text_type(amo.THUNDERBIRD.id)})
         must = qs['query']['bool']['must']
         assert {'term': {'app': amo.THUNDERBIRD.id}} in must
 
@@ -371,19 +374,22 @@ class TestSearchParameterFilter(FilterTestsBase):
 
     def test_search_by_platform_invalid(self):
         with self.assertRaises(serializers.ValidationError) as context:
-            self._filter(data={'platform': unicode(amo.PLATFORM_WIN.id + 42)})
+            self._filter(
+                data={'platform': six.text_type(amo.PLATFORM_WIN.id + 42)})
 
         with self.assertRaises(serializers.ValidationError) as context:
             self._filter(data={'platform': 'nosuchplatform'})
         assert context.exception.detail == ['Invalid "platform" parameter.']
 
     def test_search_by_platform_id(self):
-        qs = self._filter(data={'platform': unicode(amo.PLATFORM_WIN.id)})
+        qs = self._filter(
+            data={'platform': six.text_type(amo.PLATFORM_WIN.id)})
         must = qs['query']['bool']['must']
         assert {'terms': {'platforms': [
             amo.PLATFORM_WIN.id, amo.PLATFORM_ALL.id]}} in must
 
-        qs = self._filter(data={'platform': unicode(amo.PLATFORM_LINUX.id)})
+        qs = self._filter(
+            data={'platform': six.text_type(amo.PLATFORM_LINUX.id)})
         must = qs['query']['bool']['must']
         assert {'terms': {'platforms': [
             amo.PLATFORM_LINUX.id, amo.PLATFORM_ALL.id]}} in must

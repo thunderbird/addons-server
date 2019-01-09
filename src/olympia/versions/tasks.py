@@ -4,29 +4,41 @@ from itertools import izip_longest
 
 from django.template import loader
 
+import six
+
+import olympia.core.logger
+
 from olympia import amo
+from olympia.addons.tasks import index_addons
 from olympia.amo.celery import task
 from olympia.amo.decorators import use_primary_db
-from olympia.amo.utils import pngcrush_image
+from olympia.amo.utils import extract_colors_from_image, pngcrush_image
 from olympia.devhub.tasks import resize_image
-from olympia.versions.models import VersionPreview
+from olympia.files.models import File
+from olympia.files.utils import get_background_images
+from olympia.versions.models import Version, VersionPreview
+from olympia.lib.git import AddonGitRepository
 
 from .utils import (
     AdditionalBackground, process_color_value,
     encode_header_image, write_svg_to_png)
 
+log = olympia.core.logger.getLogger('z.versions.task')
 
-def _build_static_theme_preview_context(theme_manifest, header_root):
+
+def _build_static_theme_preview_context(theme_manifest, file_):
     # First build the context shared by both the main preview and the thumb
     context = {'amo': amo}
-    context.update(
-        {process_color_value(prop, color)
-         for prop, color in theme_manifest.get('colors', {}).items()})
+    context.update(dict(
+        process_color_value(prop, color)
+        for prop, color in theme_manifest.get('colors', {}).items()))
     images_dict = theme_manifest.get('images', {})
     header_url = images_dict.get(
         'headerURL', images_dict.get('theme_frame', ''))
-    header_src, header_width, header_height = encode_header_image(
-        os.path.join(header_root, header_url))
+    file_ext = os.path.splitext(header_url)[1]
+    backgrounds = get_background_images(file_, theme_manifest)
+    header_src, header_width, header_height = encode_header(
+        backgrounds.get(header_url), file_ext)
     context.update(
         header_src=header_src,
         header_src_height=header_height,
@@ -40,7 +52,7 @@ def _build_static_theme_preview_context(theme_manifest, header_root):
                          .get('additional_backgrounds_tiling', []))
     additional_backgrounds = [
         AdditionalBackground(path, alignment, tiling, header_root)
-        for (path, alignment, tiling) in izip_longest(
+        for (path, alignment, tiling) in six.moves.zip_longest(
             additional_srcs, additional_alignments, additional_tiling)
         if path is not None]
     context.update(additional_backgrounds=additional_backgrounds)
@@ -56,6 +68,7 @@ def generate_static_theme_preview(theme_manifest, header_root, version_pk):
     sizes = sorted(
         amo.THEME_PREVIEW_SIZES.values(),
         lambda x, y: x['position'] - y['position'])
+    colors = None
     for size in sizes:
         # Create a Preview for this size.
         preview = VersionPreview.objects.create(
@@ -77,3 +90,25 @@ def generate_static_theme_preview(theme_manifest, header_root, version_pk):
 def delete_preview_files(pk, **kw):
     VersionPreview.delete_preview_files(
         sender=None, instance=VersionPreview.objects.get(pk=pk))
+
+
+@task
+def extract_version_to_git(version_id):
+    """Extract a `File` into our git storage backend."""
+    version = Version.objects.get(pk=version_id)
+
+    log.info('Extracting {version_id} into git backend'.format(
+        version_id=version_id))
+
+    repo = AddonGitRepository.extract_and_commit_from_version(version=version)
+
+    log.info('Extracted {version} into {git_path}'.format(
+        version=version_id, git_path=repo.git_repository_path))
+
+    if version.source:
+        repo = AddonGitRepository.extract_and_commit_source_from_version(
+            version=version)
+
+        log.info(
+            'Extracted source files from {version} into {git_path}'.format(
+                version=version_id, git_path=repo.git_repository_path))
