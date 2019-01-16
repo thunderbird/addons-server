@@ -1861,8 +1861,9 @@ def get_raven_release():
 
     if os.path.exists(version_json):
         try:
-            with open(version_json, 'rb') as fobj:
-                data = json.loads(fobj.read())
+            with open(version_json) as fobj:
+                contents = fobj.read()
+                data = json.loads(contents)
                 version = data.get('version') or data.get('commit')
         except (IOError, KeyError):
             version = None

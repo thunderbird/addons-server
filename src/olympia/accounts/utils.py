@@ -1,3 +1,4 @@
+import binascii
 import json
 import os
 
