@@ -8,6 +8,7 @@ from datetime import datetime
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection, models
+from django.utils.encoding import python_2_unicode_compatible
 
 import six
 
@@ -16,7 +17,7 @@ from olympia.access import acl
 from olympia.addons.models import Addon
 from olympia.addons.utils import clear_get_featured_ids_cache
 from olympia.amo.fields import PositiveAutoField
-from olympia.amo.models import ManagerBase, ModelBase, BaseQuerySet
+from olympia.amo.models import BaseQuerySet, ManagerBase, ModelBase
 from olympia.amo.templatetags.jinja_helpers import (
     absolutify, user_media_path, user_media_url)
 from olympia.amo.urlresolvers import reverse
@@ -86,6 +87,7 @@ class CollectionManager(ManagerBase):
         return self.filter(author=user.pk)
 
 
+@python_2_unicode_compatible
 class Collection(ModelBase):
     id = PositiveAutoField(primary_key=True)
     TYPE_CHOICES = amo.COLLECTION_CHOICES.items()
@@ -135,7 +137,7 @@ class Collection(ModelBase):
         db_table = 'collections'
         unique_together = (('author', 'slug'),)
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s (%s)' % (self.name, self.addon_count)
 
     def save(self, **kw):
@@ -410,6 +412,7 @@ models.signals.post_delete.connect(CollectionAddon.post_delete,
                                    dispatch_uid='coll.post_delete')
 
 
+@python_2_unicode_compatible
 class FeaturedCollection(ModelBase):
     id = PositiveAutoField(primary_key=True)
     application = models.PositiveIntegerField(choices=amo.APPS_CHOICES,
@@ -420,7 +423,7 @@ class FeaturedCollection(ModelBase):
     class Meta:
         db_table = 'featured_collections'
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s (%s: %s)' % (self.collection, self.application,
                                  self.locale)
 

@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.utils.encoding import force_bytes, python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 
 import six
@@ -9,6 +10,7 @@ from olympia.constants.base import (
     ADDON_SLUGS, ADDON_STATICTHEME, ADDON_THEME)
 
 
+@python_2_unicode_compatible
 class StaticCategory(object):
     """Helper to populate `CATEGORIES` and provide some helpers.
 
@@ -30,12 +32,12 @@ class StaticCategory(object):
         object.__setattr__(self, 'weight', weight)
         object.__setattr__(self, 'description', description)
 
-    def __unicode__(self):
+    def __str__(self):
         return six.text_type(self.name)
 
     def __repr__(self):
-        return u'<%s: %s (%s)>' % (
-            self.__class__.__name__, self.__unicode__(), self.application)
+        return '<%s: %s (%s)>' % (
+            self.__class__.__name__, force_bytes(self), self.application)
 
     def get_url_path(self):
         try:
