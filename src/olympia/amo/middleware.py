@@ -1,7 +1,6 @@
 import contextlib
 import re
 import socket
-import urllib
 import uuid
 
 from django.conf import settings
@@ -18,6 +17,9 @@ from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.deprecation import MiddlewareMixin
 from django.utils.encoding import force_bytes, iri_to_uri
 from django.utils.translation import activate, ugettext_lazy as _
+
+from rest_framework import permissions
+from six.moves.urllib.parse import quote
 
 import MySQLdb as mysql
 from corsheaders.middleware import CorsMiddleware as _CorsMiddleware
@@ -68,7 +70,7 @@ class LocaleAndAppURLMiddleware(MiddlewareMixin):
 
         if full_path != request.path:
             query_string = request.META.get('QUERY_STRING', '')
-            full_path = urllib.quote(full_path.encode('utf-8'))
+            full_path = quote(full_path.encode('utf-8'))
 
             if query_string:
                 query_string = query_string.decode('utf-8', 'ignore')

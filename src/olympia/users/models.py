@@ -399,7 +399,8 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
             log.info('Anonymizing username for {}'.format(self.pk))
         else:
             log.info('Generating username for {}'.format(self.email))
-        self.username = 'anonymous-{}'.format(os.urandom(16).encode('hex'))
+        self.username = 'anonymous-{}'.format(
+            force_text(binascii.b2a_hex(os.urandom(16))))
         return self.username
 
     @property
