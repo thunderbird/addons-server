@@ -403,7 +403,7 @@ def chunked(seq, n):
     [6, 7]
     """
     seq = iter(seq)
-    while 1:
+    while True:
         rv = list(itertools.islice(seq, 0, n))
         if not rv:
             break
@@ -461,7 +461,7 @@ def slugify(s, ok=SLUG_OK, lower=True, spaces=False, delimiter='-'):
     return new.lower() if lower else new
 
 
-def normalize_string(value, strip_puncutation=False):
+def normalize_string(value, strip_punctuation=False):
     """Normalizes a unicode string.
 
      * decomposes unicode characters
@@ -471,9 +471,9 @@ def normalize_string(value, strip_puncutation=False):
     value = unicodedata.normalize('NFD', force_text(value))
     value = value.encode('utf-8', 'ignore')
 
-    if strip_puncutation:
-        value = value.translate(None, string.punctuation)
-    return force_text(' '.join(value.split()))
+    if strip_punctuation:
+        value = value.translate(None, force_bytes(string.punctuation))
+    return force_text(b' '.join(value.split()))
 
 
 def slug_validator(s, ok=SLUG_OK, lower=True, spaces=False, delimiter='-',
@@ -730,7 +730,7 @@ class HttpResponseSendFile(HttpResponse):
             self['Content-Length'] = os.path.getsize(self.path)
 
             def wrapper():
-                while 1:
+                while True:
                     data = fp.read(chunk)
                     if not data:
                         break
@@ -842,22 +842,6 @@ class LocalFileStorage(FileSystemStorage):
         return os.path.normpath(os.path.join(self.location, force_bytes(name)))
 
 
-def translations_for_field(field):
-    """Return all the translations for a given field.
-
-    This returns a dict of locale:localized_string, not Translation objects.
-
-    """
-    if field is None:
-        return {}
-
-    translation_id = getattr(field, 'id')
-    qs = Translation.objects.filter(id=translation_id,
-                                    localized_string__isnull=False)
-    translations = dict(qs.values_list('locale', 'localized_string'))
-    return translations
-
-
 def attach_trans_dict(model, objs):
     """Put all translations into a translations dict."""
     # Get the ids of all the translations we need to fetch.
@@ -868,8 +852,10 @@ def attach_trans_dict(model, objs):
     # Get translations in a dict, ids will be the keys. It's important to
     # consume the result of sorted_groupby, which is an iterator.
     qs = Translation.objects.filter(id__in=ids, localized_string__isnull=False)
-    all_translations = dict((k, list(v)) for k, v in
-                            sorted_groupby(qs, lambda trans: trans.id))
+    all_translations = {
+        field_id: sorted(list(translations), key=lambda t: t.locale)
+        for field_id, translations in sorted_groupby(qs, lambda t: t.id)
+    }
 
     def get_locale_and_string(translation, new_class):
         """Convert the translation to new_class (making PurifiedTranslations

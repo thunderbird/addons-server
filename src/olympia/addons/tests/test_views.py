@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.test.utils import override_settings
 from django.test.client import Client
 from django.test.utils import override_settings
+from django.utils.encoding import force_bytes, force_text
 from django.utils.http import urlunquote
 
 import mock
@@ -52,7 +53,7 @@ from olympia.versions.models import (
 def norm(s):
     """Normalize a string so that whitespace is uniform and remove whitespace
     between tags."""
-    s = re.sub(r'\s+', ' ', str(s)).strip()
+    s = re.sub(r'\s+', ' ', six.text_type(s)).strip()
     return re.sub(r'>\s+<', '><', s)
 
 
@@ -68,8 +69,10 @@ def check_cat_sidebar(url, addon):
     cache.clear()
     for type_ in [amo.ADDON_EXTENSION, amo.ADDON_THEME, amo.ADDON_SEARCH]:
         addon.update(type=type_)
-        r = Client().get(url)
-        assert pq(r.content)('#side-nav').attr('data-addontype') == str(type_)
+        response = Client().get(url)
+        assert (
+            pq(response.content)('#side-nav').attr('data-addontype') ==
+            six.text_type(type_))
 
 
 def _test_hovercards(self, doc, addons, src=''):
@@ -112,8 +115,8 @@ class TestHomepage(TestCase):
         assert 'Add-ons for Thunderbird' == doc('title').text()
 
     def test_welcome_msg(self):
-        r = self.client.get('/en-US/firefox/')
-        welcome = pq(r.content)('#site-welcome').remove('a.close')
+        response = self.client.get('/en-US/firefox/')
+        welcome = pq(response.content)('#site-welcome').remove('a.close')
         assert welcome.text() == (
             'Welcome to Firefox Add-ons.\nChoose from thousands of extra '
             'features and styles to make Firefox your own.')
@@ -126,11 +129,11 @@ class TestHomepage(TestCase):
     def test_try_new_frontend_banner_presence(self):
         self.url = '/en-US/firefox/'
         response = self.client.get(self.url)
-        assert 'AMO is getting a new look.' not in response.content
+        assert b'AMO is getting a new look.' not in response.content
 
         with override_switch('try-new-frontend', active=True):
             response = self.client.get(self.url)
-            assert 'AMO is getting a new look.' in response.content
+            assert b'AMO is getting a new look.' in response.content
 
 
 class TestHomepageFeatures(TestCase):
@@ -259,41 +262,41 @@ class TestLicensePage(TestCase):
 
     def test_explicit_version(self):
         url = reverse('addons.license', args=['a3615', self.version.version])
-        r = self.client.get(url)
-        assert r.status_code == 200
-        assert r.context['version'] == self.version
+        response = self.client.get(url)
+        assert response.status_code == 200
+        assert response.context['version'] == self.version
 
     def test_implicit_version(self):
         url = reverse('addons.license', args=['a3615'])
-        r = self.client.get(url)
-        assert r.status_code == 200
-        assert r.context['version'] == self.addon.current_version
+        response = self.client.get(url)
+        assert response.status_code == 200
+        assert response.context['version'] == self.addon.current_version
 
     def test_no_license(self):
         self.version.update(license=None)
         url = reverse('addons.license', args=['a3615'])
-        r = self.client.get(url)
-        assert r.status_code == 404
+        response = self.client.get(url)
+        assert response.status_code == 404
 
     def test_no_version(self):
         self.addon.versions.all().delete()
         url = reverse('addons.license', args=['a3615'])
-        r = self.client.get(url)
-        assert r.status_code == 404
+        response = self.client.get(url)
+        assert response.status_code == 404
 
     def test_unlisted_version(self):
         self.version.update(channel=amo.RELEASE_CHANNEL_UNLISTED)
         assert self.version.license
         url = reverse('addons.license', args=['a3615'])
-        r = self.client.get(url)
-        assert r.status_code == 404
+        response = self.client.get(url)
+        assert response.status_code == 404
 
     def test_duplicate_version_number(self):
         Version.objects.create(addon=self.addon, version=self.version.version)
         url = reverse('addons.license', args=['a3615', self.version.version])
-        r = self.client.get(url)
-        assert r.status_code == 200
-        assert r.context['version'] == self.addon.current_version
+        response = self.client.get(url)
+        assert response.status_code == 200
+        assert response.context['version'] == self.addon.current_version
 
     def test_cat_sidebar(self):
         check_cat_sidebar(reverse('addons.license', args=['a3615']),
@@ -306,15 +309,15 @@ class TestICloudRedirect(TestCase):
 
     @override_switch('icloud_bookmarks_redirect', active=True)
     def test_redirect_with_waffle(self):
-        r = self.client.get('/en-US/firefox/addon/icloud-bookmarks/')
-        assert r.status_code == 302
-        assert r.get('location') == '/blocked/i1214/'
+        response = self.client.get('/en-US/firefox/addon/icloud-bookmarks/')
+        assert response.status_code == 302
+        assert response.get('location') == '/blocked/i1214/'
 
     @override_switch('icloud_bookmarks_redirect', active=False)
     def test_redirect_without_waffle(self):
-        r = self.client.get('/en-US/firefox/addon/icloud-bookmarks/')
-        assert r.status_code == 200
-        assert r.context['addon'] is not None
+        response = self.client.get('/en-US/firefox/addon/icloud-bookmarks/')
+        assert response.status_code == 200
+        assert response.context['addon'] is not None
 
 
 class TestDetailPage(TestCase):
@@ -334,11 +337,11 @@ class TestDetailPage(TestCase):
 
     def test_try_new_frontend_banner_presence(self):
         response = self.client.get(self.url)
-        assert 'AMO is getting a new look.' not in response.content
+        assert b'AMO is getting a new look.' not in response.content
 
         with override_switch('try-new-frontend', active=True):
             response = self.client.get(self.url)
-            assert 'AMO is getting a new look.' in response.content
+            assert b'AMO is getting a new look.' in response.content
 
     @pytest.mark.xfail(reason=(
         'ETags currently don\'t work for add-on detail page. This is testing '
@@ -359,12 +362,12 @@ class TestDetailPage(TestCase):
         assert response.content
 
     def test_site_title(self):
-        r = self.client.get(self.url)
-        assert pq(r.content)('h1.site-title').text() == 'Add-ons'
+        response = self.client.get(self.url)
+        assert pq(response.content)('h1.site-title').text() == 'Add-ons'
 
     def test_addon_headings(self):
-        r = self.client.get(self.url)
-        doc = pq(r.content)
+        response = self.client.get(self.url)
+        doc = pq(response.content)
         assert doc('h2:first').text() == 'About this Add-on'
         assert doc('.metadata .home').text() == 'Add-on home page'
 
@@ -385,14 +388,14 @@ class TestDetailPage(TestCase):
         assert response.status_code == 404
 
     def test_review_microdata_personas(self):
-        a = Addon.objects.get(id=15663)
-        a.name = '<script>alert("fff")</script>'
-        a.save()
+        addon = Addon.objects.get(id=15663)
+        addon.name = '<script>alert("fff")</script>'
+        addon.save()
         response = self.client.get(reverse('addons.detail', args=['a15663']))
         assert (
-            '&lt;script&gt;alert(&quot;fff&quot;)&lt;/script&gt;' in
+            b'&lt;script&gt;alert(&quot;fff&quot;)&lt;/script&gt;' in
             response.content)
-        assert '<script>' not in response.content
+        assert b'<script>' not in response.content
 
     def test_report_abuse_links_to_form_age(self):
         response = self.client.get_ajax(
@@ -435,8 +438,8 @@ class TestDetailPage(TestCase):
         self.addon.previews.all().delete()
         self.addon.save()
 
-        r = self.client.get(self.url)
-        doc = pq(r.content)
+        response = self.client.get(self.url)
+        doc = pq(response.content)
 
         assert doc('#more-about').length == 0
         assert doc('.article.userinput').length == 0
@@ -467,16 +470,19 @@ class TestDetailPage(TestCase):
         # no SeaMonkey version => redirect
         prefixer = amo.urlresolvers.get_url_prefix()
         prefixer.app = not_comp_app.short
-        r = self.client.get(reverse('addons.detail', args=[self.addon.slug]))
-        assert r.status_code == 301
-        assert r['Location'].find(not_comp_app.short) == -1
-        assert r['Location'].find(comp_app.short) >= 0
+        response = self.client.get(
+            reverse('addons.detail', args=[self.addon.slug]))
+
+        assert response.status_code == 301
+        assert response['Location'].find(not_comp_app.short) == -1
+        assert response['Location'].find(comp_app.short) >= 0
 
         # compatible app => 200
         prefixer = amo.urlresolvers.get_url_prefix()
         prefixer.app = comp_app.short
-        r = self.client.get(reverse('addons.detail', args=[self.addon.slug]))
-        assert r.status_code == 200
+        response = self.client.get(
+            reverse('addons.detail', args=[self.addon.slug]))
+        assert response.status_code == 200
 
     def test_external_urls(self):
         """Check that external URLs are properly escaped."""
@@ -577,8 +583,8 @@ class TestDetailPage(TestCase):
         assert doc('li.webext-permissions-list').text() == (
             u'Access your data for '
             u'<script>alert("//")</script>')
-        assert '<script>alert(' not in response.content
-        assert '&lt;script&gt;alert(' in response.content
+        assert b'<script>alert(' not in response.content
+        assert b'&lt;script&gt;alert(' in response.content
 
     def test_permissions_xss_multiple_url(self):
         file_ = self.addon.current_version.all_files[0]
@@ -592,10 +598,10 @@ class TestDetailPage(TestCase):
             u'Access your data on the following websites:\n'
             u'<script>alert("//")</script>\n'
             u'<script>foo("https://")</script>')
-        assert '<script>alert(' not in response.content
-        assert '<script>foo(' not in response.content
-        assert '&lt;script&gt;alert(' in response.content
-        assert '&lt;script&gt;foo(' in response.content
+        assert b'<script>alert(' not in response.content
+        assert b'<script>foo(' not in response.content
+        assert b'&lt;script&gt;alert(' in response.content
+        assert b'&lt;script&gt;foo(' in response.content
 
     def test_simple_html_is_rendered_in_privacy(self):
         self.addon.privacy_policy = """
@@ -615,8 +621,9 @@ class TestDetailPage(TestCase):
             """
         self.addon.save()
 
-        r = self.client.get(reverse('addons.privacy', args=[self.addon.slug]))
-        doc = pq(r.content)
+        response = self.client.get(
+            reverse('addons.privacy', args=[self.addon.slug]))
+        doc = pq(response.content)
 
         assert norm(doc(".policy-statement strong")) == (
             "<strong> what the hell..</strong>")
@@ -636,10 +643,11 @@ class TestDetailPage(TestCase):
             """
         self.addon.save()
 
-        r = self.client.get(reverse('addons.privacy', args=[self.addon.slug]))
-        doc = pq(r.content)
+        response = self.client.get(
+            reverse('addons.privacy', args=[self.addon.slug]))
+        doc = pq(response.content)
 
-        policy = str(doc(".policy-statement"))
+        policy = six.text_type(doc(".policy-statement"))
         assert policy.startswith(
             '<div class="policy-statement">&lt;script'), (
                 'Unexpected: %s' % policy[0:50])
@@ -651,23 +659,25 @@ class TestDetailPage(TestCase):
         assert pq(response.content)('.button').hasClass('prominent')
 
     def test_button_src_default(self):
-        r = self.client.get(self.url, follow=True)
-        assert (pq(r.content)('#addon .button').attr(
+        response = self.client.get(self.url, follow=True)
+        assert (pq(response.content)('#addon .button').attr(
             'href').endswith('?src=dp-btn-primary'))
 
     def test_button_src_trickle(self):
-        r = self.client.get(self.url + '?src=trickleortreat', follow=True)
-        assert (pq(r.content)('#addon .button').attr(
+        response = self.client.get(
+            self.url + '?src=trickleortreat', follow=True)
+        assert (pq(response.content)('#addon .button').attr(
             'href').endswith('?src=trickleortreat'))
 
     def test_version_button_src_default(self):
-        r = self.client.get(self.url, follow=True)
-        assert (pq(r.content)('#detail-relnotes .button').attr(
+        response = self.client.get(self.url, follow=True)
+        assert (pq(response.content)('#detail-relnotes .button').attr(
             'href').endswith('?src=dp-btn-version'))
 
     def test_version_button_src_trickle(self):
-        r = self.client.get(self.url + '?src=trickleortreat', follow=True)
-        assert (pq(r.content)('#detail-relnotes .button').attr(
+        response = self.client.get(
+            self.url + '?src=trickleortreat', follow=True)
+        assert (pq(response.content)('#detail-relnotes .button').attr(
             'href').endswith('?src=trickleortreat'))
 
     def test_version_more_link(self):
@@ -685,9 +695,9 @@ class TestDetailPage(TestCase):
         assert response.status_code == 404
 
     def test_no_listed_authors(self):
-        r = self.client.get(reverse('addons.detail', args=['a59']))
+        response = self.client.get(reverse('addons.detail', args=['a59']))
         # We shouldn't show an avatar since this has no listed_authors.
-        doc = pq(r.content)
+        doc = pq(response.content)
         assert 0 == len(doc('.avatar'))
 
     def test_authors_xss(self):
@@ -704,16 +714,16 @@ class TestDetailPage(TestCase):
         """
         Show compatibility info for extensions but not for search engines.
         """
-        r = self.client.get(self.addon.get_url_path())
-        assert pq(r.content)('#detail-relnotes .compat').length == 1
+        response = self.client.get(self.addon.get_url_path())
+        assert pq(response.content)('#detail-relnotes .compat').length == 1
 
         a = Addon.objects.filter(type=amo.ADDON_SEARCH)[0]
-        r = self.client.get(a.get_url_path())
-        assert pq(r.content)('#detail-relnotes .compat').length == 0
+        response = self.client.get(a.get_url_path())
+        assert pq(response.content)('#detail-relnotes .compat').length == 0
 
     def test_is_restart_required(self):
         span_is_restart_required = (
-            '<span class="is-restart-required">Requires Restart</span>')
+            b'<span class="is-restart-required">Requires Restart</span>')
         file_ = self.addon.current_version.all_files[0]
 
         assert file_.is_restart_required is False
@@ -781,22 +791,22 @@ class TestDetailPage(TestCase):
 
     def test_disabled_user_message(self):
         self.addon.update(disabled_by_user=True)
-        res = self.client.get(self.url)
-        assert res.status_code == 404
-        assert 'removed by its author' in res.content
+        response = self.client.get(self.url)
+        assert response.status_code == 404
+        assert b'removed by its author' in response.content
 
     def test_disabled_status_message(self):
         self.addon.update(status=amo.STATUS_DISABLED)
-        res = self.client.get(self.url)
-        assert res.status_code == 404
-        assert 'disabled by an administrator' in res.content
+        response = self.client.get(self.url)
+        assert response.status_code == 404
+        assert b'disabled by an administrator' in response.content
 
     def test_deleted_status_message(self):
         addon = Addon.objects.get(id=3615)
         addon.update(status=amo.STATUS_DELETED)
         url = reverse('addons.detail', args=[addon.slug])
-        res = self.client.get(url)
-        assert res.status_code == 404
+        response = self.client.get(url)
+        assert response.status_code == 404
 
     def test_more_url(self):
         response = self.client.get(self.url)
@@ -1074,8 +1084,8 @@ class TestPersonaDetailPage(TestPersonas, TestCase):
         self.create_addon_user(self.addon)
 
     def test_persona_images(self):
-        r = self.client.get(self.url)
-        doc = pq(r.content)
+        response = self.client.get(self.url)
+        doc = pq(response.content)
         assert doc('h2.addon img').attr('src') == self.persona.icon_url
         style = doc('#persona div[data-browsertheme]').attr('style')
         assert self.persona.preview_url in style, (
@@ -1085,23 +1095,24 @@ class TestPersonaDetailPage(TestPersonas, TestCase):
     def test_more_personas(self):
         other = addon_factory(type=amo.ADDON_PERSONA)
         self.create_addon_user(other)
-        r = self.client.get(self.url)
-        assert pq(r.content)('#more-artist .more-link').length == 1
+        response = self.client.get(self.url)
+        assert pq(response.content)('#more-artist .more-link').length == 1
 
     def test_not_personas(self):
         other = addon_factory(type=amo.ADDON_EXTENSION)
         self.create_addon_user(other)
-        r = self.client.get(self.url)
-        assert pq(r.content)('#more-artist .more-link').length == 0
+        response = self.client.get(self.url)
+        assert pq(response.content)('#more-artist .more-link').length == 0
 
     def test_new_more_personas(self):
         other = addon_factory(type=amo.ADDON_PERSONA)
         self.create_addon_user(other)
         self.persona.persona_id = 0
         self.persona.save()
-        r = self.client.get(self.url)
+        response = self.client.get(self.url)
         profile = UserProfile.objects.get(id=999).get_url_path()
-        assert pq(r.content)('#more-artist .more-link').attr('href') == (
+        assert (
+            pq(response.content)('#more-artist .more-link').attr('href') ==
             profile + '?src=addon-detail')
 
     def test_other_personas(self):
@@ -1115,16 +1126,17 @@ class TestPersonaDetailPage(TestPersonas, TestCase):
         assert other.status == amo.STATUS_PUBLIC
         assert not other.disabled_by_user
 
-        r = self.client.get(self.url)
-        assert list(r.context['author_personas']) == [other]
-        a = pq(r.content)('#more-artist .persona.hovercard > a')
+        response = self.client.get(self.url)
+        assert list(response.context['author_personas']) == [other]
+        a = pq(response.content)('#more-artist .persona.hovercard > a')
         assert a.length == 1
         assert a.attr('href') == other.get_url_path()
 
     def _test_by(self):
         """Test that the by... bit works."""
-        r = self.client.get(self.url)
-        assert pq(r.content)('h4.author').text().startswith('by regularuser')
+        response = self.client.get(self.url)
+        assert pq(response.content)('h4.author').text().startswith(
+            'by regularuser')
 
     def test_by(self):
         self._test_by()
@@ -1136,9 +1148,9 @@ class TestPersonaDetailPage(TestPersonas, TestCase):
 
         AddonCategory.objects.create(addon=self.addon, category=category)
 
-        r = self.client.get(self.url)
+        response = self.client.get(self.url)
         assert (
-            pq(r.content)('#more-category>h3').text() ==
+            pq(response.content)('#more-category>h3').text() ==
             'More Film and TV Themes')
 
 
@@ -1210,9 +1222,9 @@ class TestTagsBox(TestCase):
 
     def test_tag_box(self):
         """Verify that we don't show duplicate tags."""
-        r = self.client.get_ajax(reverse('addons.detail_more', args=[8680]),
-                                 follow=True)
-        doc = pq(r.content)
+        response = self.client.get_ajax(
+            reverse('addons.detail_more', args=[8680]), follow=True)
+        doc = pq(response.content)
         assert 'SEO' == doc('#tagbox ul').children().text()
 
 
@@ -1249,8 +1261,8 @@ class TestEula(TestCase):
         return reverse('addons.eula', args=[self.addon.slug] + args)
 
     def test_current_version(self):
-        r = self.client.get(self.url)
-        assert r.context['version'] == self.addon.current_version
+        response = self.client.get(self.url)
+        assert response.context['version'] == self.addon.current_version
 
     def test_simple_html_is_rendered(self):
         self.addon.eula = """
@@ -1270,8 +1282,8 @@ class TestEula(TestCase):
             """
         self.addon.save()
 
-        r = self.client.get(self.url)
-        doc = pq(r.content)
+        response = self.client.get(self.url)
+        doc = pq(response.content)
 
         assert norm(doc('.policy-statement strong')) == (
             '<strong> what the hell..</strong>')
@@ -1290,18 +1302,18 @@ class TestEula(TestCase):
             """
         self.addon.save()
 
-        r = self.client.get(self.url)
-        doc = pq(r.content)
+        response = self.client.get(self.url)
+        doc = pq(response.content)
 
-        policy = str(doc('.policy-statement'))
+        policy = six.text_type(doc('.policy-statement'))
         assert policy.startswith('<div class="policy-statement">&lt;script'), (
             'Unexpected: %s' % policy[:50])
 
     def test_old_version(self):
         old = self.addon.versions.order_by('created')[0]
         assert old != self.addon.current_version
-        r = self.client.get(self.get_url([old.all_files[0].id]))
-        assert r.context['version'] == old
+        response = self.client.get(self.get_url([old.all_files[0].id]))
+        assert response.context['version'] == old
 
     def test_deleted_version(self):
         old = self.addon.versions.order_by('created')[0]
@@ -1312,8 +1324,8 @@ class TestEula(TestCase):
 
     def test_redirect_no_eula(self):
         self.addon.update(eula=None)
-        r = self.client.get(self.url, follow=True)
-        self.assert3xx(r, self.addon.get_url_path())
+        response = self.client.get(self.url, follow=True)
+        self.assert3xx(response, self.addon.get_url_path())
 
     def test_cat_sidebar(self):
         check_cat_sidebar(self.url, self.addon)
@@ -1353,8 +1365,8 @@ class TestPrivacyPolicy(TestCase):
 
     def test_redirect_no_eula(self):
         assert self.addon.privacy_policy is None
-        r = self.client.get(self.url, follow=True)
-        self.assert3xx(r, self.addon.get_url_path())
+        response = self.client.get(self.url, follow=True)
+        self.assert3xx(response, self.addon.get_url_path())
 
     def test_cat_sidebar(self):
         self.addon.privacy_policy = 'shizzle'
@@ -1381,8 +1393,8 @@ class TestReportAbuse(TestCase):
         assert report.reporter is None
 
     def test_abuse_anonymous_fails(self):
-        r = self.client.post(self.full_page, {'text': 'spammy'})
-        assert 'recaptcha' in r.context['abuse_form'].errors
+        response = self.client.post(self.full_page, {'text': 'spammy'})
+        assert 'recaptcha' in response.context['abuse_form'].errors
 
     def test_abuse_logged_in(self):
         self.client.login(email='regular@mozilla.com')
@@ -1405,8 +1417,8 @@ class TestReportAbuse(TestCase):
 
     def test_abuse_persona(self):
         shared_url = reverse('addons.detail', args=['a15663'])
-        r = self.client.get(shared_url)
-        doc = pq(r.content)
+        response = self.client.get(shared_url)
+        doc = pq(response.content)
         assert doc("fieldset.abuse")
 
         # and now just test it works
@@ -1500,7 +1512,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.addon.update(status=amo.STATUS_NOMINATED)
         response = self.client.get(self.url)
         assert response.status_code == 401
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'Authentication credentials were not provided.')
         assert data['is_disabled_by_developer'] is False
@@ -1512,7 +1524,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 403
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'You do not have permission to perform this action.')
         assert data['is_disabled_by_developer'] is False
@@ -1538,7 +1550,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.addon.update(disabled_by_user=True)
         response = self.client.get(self.url)
         assert response.status_code == 401
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'Authentication credentials were not provided.')
         assert data['is_disabled_by_developer'] is True
@@ -1550,7 +1562,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 403
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'You do not have permission to perform this action.')
         assert data['is_disabled_by_developer'] is True
@@ -1560,7 +1572,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.addon.update(status=amo.STATUS_DISABLED)
         response = self.client.get(self.url)
         assert response.status_code == 401
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'Authentication credentials were not provided.')
         assert data['is_disabled_by_developer'] is False
@@ -1572,7 +1584,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 403
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'You do not have permission to perform this action.')
         assert data['is_disabled_by_developer'] is False
@@ -1582,7 +1594,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.make_addon_unlisted(self.addon)
         response = self.client.get(self.url)
         assert response.status_code == 401
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'Authentication credentials were not provided.')
         assert data['is_disabled_by_developer'] is False
@@ -1594,7 +1606,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 403
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'You do not have permission to perform this action.')
         assert data['is_disabled_by_developer'] is False
@@ -1607,7 +1619,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 403
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'You do not have permission to perform this action.')
         assert data['is_disabled_by_developer'] is False
@@ -1633,7 +1645,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.addon.delete()
         response = self.client.get(self.url)
         assert response.status_code == 404
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == 'Not found.'
         # `is_disabled_by_developer` and `is_disabled_by_mozilla` are only
         # added for 401/403.
@@ -1646,7 +1658,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 404
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == 'Not found.'
         # `is_disabled_by_developer` and `is_disabled_by_mozilla` are only
         # added for 401/403.
@@ -1660,7 +1672,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 404
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == 'Not found.'
         # `is_disabled_by_developer` and `is_disabled_by_mozilla` are only
         # added for 401/403.
@@ -1683,7 +1695,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self.client.login_api(user)
         response = self.client.get(self.url)
         assert response.status_code == 404
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == 'Not found.'
         # `is_disabled_by_developer` and `is_disabled_by_mozilla` are only
         # added for 401/403.
@@ -1694,7 +1706,7 @@ class AddonAndVersionViewSetDetailMixin(object):
         self._set_tested_url(self.addon.pk + 42)
         response = self.client.get(self.url)
         assert response.status_code == 404
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == 'Not found.'
         # `is_disabled_by_developer` and `is_disabled_by_mozilla` are only
         # added for 401/403.
@@ -1714,7 +1726,7 @@ class TestAddonViewSetDetail(AddonAndVersionViewSetDetailMixin, TestCase):
     def _test_url(self):
         response = self.client.get(self.url)
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['id'] == self.addon.pk
         assert result['name'] == {'en-US': u'My Addôn'}
         assert result['slug'] == self.addon.slug
@@ -1782,19 +1794,19 @@ class TestAddonViewSetDetail(AddonAndVersionViewSetDetailMixin, TestCase):
 
         response = self.client.get(self.url, {'lang': 'en-US'})
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['id'] == self.addon.pk
         assert result['name'] == {'en-US': u'My Addôn, mine'}
 
         response = self.client.get(self.url, {'lang': 'fr'})
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['id'] == self.addon.pk
         assert result['name'] == {'fr': u'Mon Addôn, le mien'}
 
         response = self.client.get(self.url, {'lang': 'de'})
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['id'] == self.addon.pk
         assert result['name'] == {'en-US': u'My Addôn, mine'}
 
@@ -1803,19 +1815,19 @@ class TestAddonViewSetDetail(AddonAndVersionViewSetDetailMixin, TestCase):
         with override_settings(DRF_API_GATES=overridden_api_gates):
             response = self.client.get(self.url, {'lang': 'en-US'})
             assert response.status_code == 200
-            result = json.loads(response.content)
+            result = json.loads(force_text(response.content))
             assert result['id'] == self.addon.pk
             assert result['name'] == u'My Addôn, mine'
 
             response = self.client.get(self.url, {'lang': 'fr'})
             assert response.status_code == 200
-            result = json.loads(response.content)
+            result = json.loads(force_text(response.content))
             assert result['id'] == self.addon.pk
             assert result['name'] == u'Mon Addôn, le mien'
 
             response = self.client.get(self.url, {'lang': 'de'})
             assert response.status_code == 200
-            result = json.loads(response.content)
+            result = json.loads(force_text(response.content))
             assert result['id'] == self.addon.pk
             assert result['name'] == u'My Addôn, mine'
 
@@ -1830,21 +1842,21 @@ class TestAddonViewSetDetail(AddonAndVersionViewSetDetailMixin, TestCase):
         # Missing app
         response = self.client.get(self.url, {'appversion': '58.0'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data == {'detail': 'Invalid "app" parameter.'}
 
         # Invalid appversion
         response = self.client.get(
             self.url, {'appversion': 'fr', 'app': 'firefox'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data == {'detail': 'Invalid "appversion" parameter.'}
 
         # Invalid app
         response = self.client.get(
             self.url, {'appversion': '58.0', 'app': 'fr'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data == {'detail': 'Invalid "app" parameter.'}
 
 
@@ -1864,7 +1876,7 @@ class TestVersionViewSetDetail(AddonAndVersionViewSetDetailMixin, TestCase):
     def _test_url(self):
         response = self.client.get(self.url)
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['id'] == self.version.pk
         assert result['version'] == self.version.version
 
@@ -2015,7 +2027,7 @@ class TestVersionViewSetList(AddonAndVersionViewSetDetailMixin, TestCase):
     def _test_url(self, **kwargs):
         response = self.client.get(self.url, data=kwargs)
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['results']
         assert len(result['results']) == 2
         result_version = result['results'][0]
@@ -2028,7 +2040,7 @@ class TestVersionViewSetList(AddonAndVersionViewSetDetailMixin, TestCase):
     def _test_url_contains_all(self, **kwargs):
         response = self.client.get(self.url, data=kwargs)
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['results']
         assert len(result['results']) == 3
         result_version = result['results'][0]
@@ -2044,7 +2056,7 @@ class TestVersionViewSetList(AddonAndVersionViewSetDetailMixin, TestCase):
     def _test_url_only_contains_old_version(self, **kwargs):
         response = self.client.get(self.url, data=kwargs)
         assert response.status_code == 200
-        result = json.loads(response.content)
+        result = json.loads(force_text(response.content))
         assert result['results']
         assert len(result['results']) == 1
         result_version = result['results'][0]
@@ -2057,7 +2069,7 @@ class TestVersionViewSetList(AddonAndVersionViewSetDetailMixin, TestCase):
     def test_bad_filter(self):
         response = self.client.get(self.url, data={'filter': 'ahahaha'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data == ['Invalid "filter" parameter specified.']
 
     def test_disabled_version_reviewer(self):
@@ -2265,7 +2277,7 @@ class TestAddonViewSetEulaPolicy(TestCase):
     def test_policy_none(self):
         response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['eula'] is None
         assert data['privacy_policy'] is None
 
@@ -2275,7 +2287,7 @@ class TestAddonViewSetEulaPolicy(TestCase):
         self.addon.save()
         response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['eula'] == {'en-US': u'My Addôn EULA', 'fr': u'Hoüla'}
         assert data['privacy_policy'] == {'en-US': u'My Prïvacy, My Policy'}
 
@@ -2340,7 +2352,7 @@ class TestAddonSearchView(ESTestCase):
         with self.assertNumQueries(0):
             response = self.client.get(url, data, **headers)
         assert response.status_code == expected_status, response.content
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         return data
 
     def test_basic(self):
@@ -3089,7 +3101,7 @@ class TestAddonAutoCompleteSearchView(ESTestCase):
         with self.assertNumQueries(0):
             response = self.client.get(url, data, **headers)
         assert response.status_code == expected_status
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         return data
 
     def test_basic(self):
@@ -3215,7 +3227,7 @@ class TestAddonFeaturedView(TestCase):
     def test_no_parameters(self):
         response = self.client.get(self.url)
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'detail': 'Invalid app, category and/or type parameter(s).'}
 
     @patch('olympia.addons.views.get_featured_ids')
@@ -3231,7 +3243,7 @@ class TestAddonFeaturedView(TestCase):
         assert (get_featured_ids_mock.call_args_list[0][1] ==
                 {'types': None, 'lang': None})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == addon1.pk
@@ -3252,7 +3264,7 @@ class TestAddonFeaturedView(TestCase):
         assert (get_featured_ids_mock.call_args_list[0][1] ==
                 {'types': [amo.ADDON_EXTENSION], 'lang': None})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == addon1.pk
@@ -3274,7 +3286,7 @@ class TestAddonFeaturedView(TestCase):
                 {'types': [amo.ADDON_EXTENSION, amo.ADDON_THEME],
                  'lang': None})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == addon1.pk
@@ -3295,7 +3307,7 @@ class TestAddonFeaturedView(TestCase):
         assert (get_featured_ids_mock.call_args_list[0][1] ==
                 {'types': [amo.ADDON_EXTENSION], 'lang': 'es'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == addon1.pk
@@ -3305,19 +3317,19 @@ class TestAddonFeaturedView(TestCase):
         response = self.client.get(
             self.url, {'app': 'foxeh', 'type': 'extension'})
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'detail': 'Invalid app, category and/or type parameter(s).'}
 
     def test_invalid_type(self):
         response = self.client.get(self.url, {'app': 'firefox', 'type': 'lol'})
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'detail': 'Invalid app, category and/or type parameter(s).'}
 
     def test_category_no_app_or_type(self):
         response = self.client.get(self.url, {'category': 'lol'})
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'detail': 'Invalid app, category and/or type parameter(s).'}
 
     def test_invalid_category(self):
@@ -3325,7 +3337,7 @@ class TestAddonFeaturedView(TestCase):
             'category': 'lol', 'app': 'firefox', 'type': 'extension'
         })
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'detail': 'Invalid app, category and/or type parameter(s).'}
 
     @patch('olympia.addons.views.get_creatured_ids')
@@ -3341,7 +3353,7 @@ class TestAddonFeaturedView(TestCase):
         assert get_creatured_ids_mock.call_args_list[0][0][0] == 72  # category
         assert get_creatured_ids_mock.call_args_list[0][0][1] is None  # lang
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == addon1.pk
@@ -3363,7 +3375,7 @@ class TestAddonFeaturedView(TestCase):
         assert get_creatured_ids_mock.call_args_list[1][0][0] == 302  # cat
         assert get_creatured_ids_mock.call_args_list[1][0][1] is None  # lang
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == addon1.pk
@@ -3383,7 +3395,7 @@ class TestAddonFeaturedView(TestCase):
         assert get_creatured_ids_mock.call_args_list[0][0][0] == 72  # cat id.
         assert get_creatured_ids_mock.call_args_list[0][0][1] == 'fr'  # lang
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == addon1.pk
@@ -3401,7 +3413,7 @@ class TestStaticCategoryView(TestCase):
         with self.assertNumQueries(0):
             response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
 
         assert len(data) == 111
 
@@ -3426,7 +3438,7 @@ class TestStaticCategoryView(TestCase):
         with self.assertNumQueries(0):
             response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
 
         assert len(data) == 111
 
@@ -3450,7 +3462,7 @@ class TestStaticCategoryView(TestCase):
             response = self.client.get(self.url, HTTP_ACCEPT_LANGUAGE='de')
 
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
 
         assert data[0]['name'] == 'RSS-Feeds, Nachrichten & Bloggen'
 
@@ -3507,7 +3519,7 @@ class TestLanguageToolsView(TestCase):
 
         response = self.client.get(self.url, {'app': 'firefox'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert len(data['results']) == 3
         expected = [dictionary, dictionary_spelling_variant, language_pack]
         assert len(data['results']) == len(expected)
@@ -3553,7 +3565,7 @@ class TestLanguageToolsView(TestCase):
             self.url,
             {'app': 'firefox', 'type': 'language', 'author': u'mozillä'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         expected = [addon1, addon2]
 
         assert len(data['results']) == len(expected)
@@ -3580,7 +3592,7 @@ class TestLanguageToolsView(TestCase):
             {'app': 'firefox', 'type': 'language',
              'author': u'mozillä,firefôx'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         expected = [addon1, addon2]
         assert len(data['results']) == len(expected)
         assert (
@@ -3724,7 +3736,7 @@ class TestLanguageToolsView(TestCase):
             response = self.client.get(
                 self.url, {'app': 'firefox', 'lang': 'fr'})
         assert response.status_code == 200
-        assert len(json.loads(response.content)['results']) == 3
+        assert len(json.loads(force_text(response.content))['results']) == 3
 
         # Same again, should be cached; no queries.
         with self.assertNumQueries(0):
@@ -3772,7 +3784,7 @@ class TestReplacementAddonView(TestCase):
 
         response = self.client.get(reverse_ns('addon-replacement-addon'))
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         results = data['results']
         assert len(results) == 3
         assert ({'guid': 'legacy2addon@moz',
@@ -3807,7 +3819,7 @@ class TestCompatOverrideView(TestCase):
             reverse_ns('addon-compat-override'),
             data={'guid': u'extrabad@thing'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert len(data['results']) == 1
         result = data['results'][0]
         assert result['addon_guid'] == 'extrabad@thing'
@@ -3819,7 +3831,7 @@ class TestCompatOverrideView(TestCase):
             reverse_ns('addon-compat-override'),
             data={'guid': u'extrabad@thing,bad@thing'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         results = data['results']
         assert len(results) == 2
 
@@ -3836,7 +3848,7 @@ class TestCompatOverrideView(TestCase):
             data={'guid': (
                 u'extrabad@thing,invalid@guid,notevenaguid$,bad@thing')})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         results = data['results']
         assert len(results) == 2
         assert results[0]['addon_guid'] == 'bad@thing'
@@ -3848,19 +3860,19 @@ class TestCompatOverrideView(TestCase):
             data={'guid': u'invalid@thing'})
         # Searching for non-matching guids, it should be an empty 200 response.
         assert response.status_code == 200
-        assert len(json.loads(response.content)['results']) == 0
+        assert len(json.loads(force_text(response.content))['results']) == 0
 
         response = self.client.get(
             reverse_ns('addon-compat-override'), data={'guid': ''})
         # Empty query is a 400 because a guid is required for overrides.
         assert response.status_code == 400
-        assert 'Empty, or no, guid parameter provided.' in response.content
+        assert b'Empty, or no, guid parameter provided.' in response.content
 
         response = self.client.get(
             reverse_ns('addon-compat-override'))
         # And no guid param should be a 400 too
         assert response.status_code == 400
-        assert 'Empty, or no, guid parameter provided.' in response.content
+        assert b'Empty, or no, guid parameter provided.' in response.content
 
     def test_performance_no_matching_guid(self):
         # There is at least one query from the paginator, counting all objects
@@ -3870,7 +3882,7 @@ class TestCompatOverrideView(TestCase):
                 reverse_ns('addon-compat-override'),
                 data={'guid': u'unknownguid'})
             assert response.status_code == 200
-            data = json.loads(response.content)
+            data = json.loads(force_text(response.content))
             assert len(data['results']) == 0
 
     def test_performance_matches_one_guid(self):
@@ -3881,7 +3893,7 @@ class TestCompatOverrideView(TestCase):
                 reverse_ns('addon-compat-override'),
                 data={'guid': u'extrabad@thing'})
             assert response.status_code == 200
-            data = json.loads(response.content)
+            data = json.loads(force_text(response.content))
             assert len(data['results']) == 1
 
     def test_performance_matches_multiple_guid(self):
@@ -3894,7 +3906,7 @@ class TestCompatOverrideView(TestCase):
                     u'extrabad@thing,invalid@guid,notevenaguid$,'
                     u'bad@thing')})
             assert response.status_code == 200
-            data = json.loads(response.content)
+            data = json.loads(force_text(response.content))
             assert len(data['results']) == 2
 
 
@@ -3920,7 +3932,7 @@ class TestAddonRecommendationView(ESTestCase):
         with self.assertNumQueries(0):
             response = self.client.get(url, data, **headers)
         assert response.status_code == expected_status, response.content
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         return data
 
     def test_basic(self):

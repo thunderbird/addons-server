@@ -12,7 +12,6 @@ import tempfile
 import zipfile
 
 from datetime import datetime, timedelta
-from six.moves import cStringIO as StringIO
 from waffle import switch_is_active
 from xml.dom import minidom
 from zipfile import ZipFile
@@ -124,7 +123,7 @@ def get_file(fileorpath):
 
 
 def make_xpi(files):
-    f = StringIO()
+    f = six.BytesIO()
     z = ZipFile(f, 'w')
     for path, data in files.items():
         z.writestr(path, data)
@@ -210,7 +209,8 @@ class RDFExtractor(object):
     def __init__(self, zip_file, certinfo=None):
         self.zip_file = zip_file
         self.certinfo = certinfo
-        self.rdf = rdflib.Graph().parse(data=zip_file.read('install.rdf'))
+        self.rdf = rdflib.Graph().parse(
+            data=force_text(zip_file.read('install.rdf')))
         self.package_type = None
         self.find_root()  # Will set self.package_type
 
@@ -371,7 +371,7 @@ class ManifestJSONExtractor(object):
         self.certinfo = certinfo
 
         if not data:
-            data = zip_file.read('manifest.json')
+            data = force_text(zip_file.read('manifest.json'))
 
         lexer = JsLexer()
 
@@ -788,7 +788,7 @@ class SafeZip(object):
         if type == 'jar':
             parts = path.split('!')
             for part in parts[:-1]:
-                jar = self.__class__(StringIO(jar.zip_file.read(part)))
+                jar = self.__class__(six.BytesIO(jar.zip_file.read(part)))
             path = parts[-1]
         return jar.read(path[1:] if path.startswith('/') else path)
 

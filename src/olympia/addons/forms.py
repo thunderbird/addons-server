@@ -256,7 +256,7 @@ class CategoryForm(forms.Form):
         categories_new = [c.id for c in self.cleaned_data['categories']]
         categories_old = [
             c.id for c in
-            addon.app_categories.get(amo.APP_IDS[application], [])]
+            addon.app_categories.get(amo.APP_IDS[application].short, [])]
 
         # Add new categories.
         for c_id in set(categories_new) - set(categories_old):
@@ -317,7 +317,7 @@ class BaseCategoryFormSet(BaseFormSet):
             apps = []
 
         for app in apps:
-            cats = self.addon.app_categories.get(app, [])
+            cats = self.addon.app_categories.get(app.short, [])
             self.initial.append({'categories': [c.id for c in cats]})
 
         for app, form in zip(apps, self.forms):
@@ -351,8 +351,8 @@ def icons():
     icons = [('image/jpeg', 'jpeg'), ('image/png', 'png'), ('', 'default')]
     dirs, files = storage.listdir(settings.ADDON_ICONS_DEFAULT_PATH)
     for fname in files:
-        if '32' in fname and 'default' not in fname:
-            icon_name = fname.split('-')[0]
+        if b'32' in fname and b'default' not in fname:
+            icon_name = fname.split(b'-')[0]
             icons.append(('icon/%s' % icon_name, icon_name))
     return sorted(icons)
 

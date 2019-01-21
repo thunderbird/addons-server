@@ -8,6 +8,7 @@ import zipfile
 
 from django.conf import settings
 from django.forms import ValidationError
+from django.utils.encoding import force_text
 
 from olympia import amo
 from olympia.addons.models import Category
@@ -240,7 +241,7 @@ class TestBuildStaticThemeXpiFromLwt(TestCase):
         build_static_theme_xpi_from_lwt(lwt, static_xpi)
 
         with zipfile.ZipFile(static_xpi, 'r', zipfile.ZIP_DEFLATED) as xpi:
-            manifest = xpi.read('manifest.json')
+            manifest = force_text(xpi.read('manifest.json'))
             manifest_json = json.loads(manifest)
             assert manifest_json['name'] == u'Amáze'
             assert manifest_json['description'] == u'It does all d£ things'
@@ -251,7 +252,7 @@ class TestBuildStaticThemeXpiFromLwt(TestCase):
             assert manifest_json['theme']['colors']['tab_background_text'] == (
                 u'#456789')
             assert (xpi.read('weta.png') ==
-                    open(self.background_png).read())
+                    open(self.background_png, 'rb').read())
 
     def test_lwt_missing_info(self):
         # Create our persona.
@@ -266,8 +267,9 @@ class TestBuildStaticThemeXpiFromLwt(TestCase):
         build_static_theme_xpi_from_lwt(lwt, static_xpi)
 
         with zipfile.ZipFile(static_xpi, 'r', zipfile.ZIP_DEFLATED) as xpi:
-            manifest = xpi.read('manifest.json')
+            manifest = force_text(xpi.read('manifest.json'))
             manifest_json = json.loads(manifest)
+
             assert manifest_json['name'] == lwt.slug
             assert 'description' not in manifest_json.keys()
             assert manifest_json['theme']['images']['theme_frame'] == (
@@ -277,7 +279,7 @@ class TestBuildStaticThemeXpiFromLwt(TestCase):
             assert manifest_json['theme']['colors']['tab_background_text'] == (
                 u'#000')
             assert (xpi.read('weta.png') ==
-                    open(self.background_png).read())
+                    open(self.background_png, 'rb').read())
 
 
 class TestBuildWebextDictionaryFromLegacy(AMOPaths, TestCase):
@@ -293,7 +295,7 @@ class TestBuildWebextDictionaryFromLegacy(AMOPaths, TestCase):
         with zipfile.ZipFile(xpi_file_path, 'r', zipfile.ZIP_DEFLATED) as xpi:
             # Check that manifest is present, contains proper version and
             # dictionaries properties.
-            manifest = xpi.read('manifest.json')
+            manifest = force_text(xpi.read('manifest.json'))
             manifest_json = json.loads(manifest)
             assert (
                 manifest_json['browser_specific_settings']['gecko']['id'] ==
