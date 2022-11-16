@@ -93,8 +93,6 @@ CEF_PRODUCT = STATSD_PREFIX
 
 NEW_FEATURES = True
 
-REDIRECT_URL = 'https://outgoing.stage.mozaws.net/v1/'
-
 ADDONS_LINTER_BIN = 'node_modules/.bin/addons-linter'
 
 XSENDFILE_HEADER = 'X-Accel-Redirect'
