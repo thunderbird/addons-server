@@ -506,6 +506,19 @@ class TestRunAddonsLinter(ValidatorTestCase):
             assert result['warnings'] == 24
             assert not result['errors']
 
+class TestAddonsLinterRegressions(ValidatorTestCase):
+
+    def test_run_linter_ensure_version_is_correct(self):
+        """
+        Regression test for https://github.com/thundernest/addons-server/issues/210
+        Addons-linter has been upgraded, so ensure this issue does not happen with their sample manifest.
+        """
+        result = tasks.validate_file_path(
+            None, get_addon_file('valid_webextension_with_good_version_string.xpi'),
+            hash_=None, listed=True)
+        assert result['success']
+        assert not result['errors']
+        assert not result['warnings']
 
 class TestValidateFilePath(ValidatorTestCase):
 
