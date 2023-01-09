@@ -233,7 +233,7 @@ class Validator(object):
             save = tasks.handle_upload_validation_result
             is_webextension = False
             is_mozilla_signed = False
-            is_experimental = False
+            is_experiment = False
 
             # We're dealing with a bare file upload. Try to extract the
             # metadata that we need to match it against a previous upload
@@ -241,7 +241,7 @@ class Validator(object):
             try:
                 addon_data = parse_addon(file_, minimal=True)
                 is_webextension = addon_data['is_webextension']
-                is_experimental = addon_data['is_experimental']
+                is_experiment = addon_data['is_experiment']
                 is_mozilla_signed = addon_data.get(
                     'is_mozilla_signed_extension', False)
             except ValidationError as form_error:
@@ -250,7 +250,7 @@ class Validator(object):
                 addon_data = None
             else:
                 file_.update(version=addon_data.get('version'))
-            validate = self.validate_upload(file_, channel, is_webextension, is_experimental)
+            validate = self.validate_upload(file_, channel, is_webextension, is_experiment)
         elif isinstance(file_, File):
             # The listed flag for a File object should always come from
             # the status of its owner Addon. If the caller tries to override
@@ -294,12 +294,12 @@ class Validator(object):
         kwargs = {
             'hash_': file.original_hash,
             'is_webextension': file.is_webextension,
-            'is_experimental': file.is_experimental
+            'is_experimental': file.get('is_experimental', False)
         }
         return tasks.validate_file.subtask([file.pk], kwargs)
 
     @staticmethod
-    def validate_upload(upload, channel, is_webextension, is_experimental=False):
+    def validate_upload(upload, channel, is_webextension, is_experiment=False):
         """Return a subtask to validate a FileUpload instance."""
         assert not upload.validation
 
@@ -307,7 +307,7 @@ class Validator(object):
             'hash_': upload.hash,
             'listed': (channel == amo.RELEASE_CHANNEL_LISTED),
             'is_webextension': is_webextension,
-            'is_experimental': is_experimental
+            'is_experiment': is_experiment
         }
         return tasks.validate_file_path.subtask([upload.path], kwargs)
 
