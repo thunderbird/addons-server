@@ -321,7 +321,7 @@ class Validator(object):
         kwargs = {
             'hash_': file.original_hash,
             'is_webextension': file.is_webextension,
-            'is_experimental': file.get('is_experimental', False)
+            'is_experiment': file.is_experiment
         }
         return tasks.validate_file.subtask([file.pk], kwargs)
 
