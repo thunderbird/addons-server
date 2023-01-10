@@ -203,7 +203,7 @@ class RDFExtractor(object):
             'type': self.find_type(),
             'version': self.find('version'),
             'is_webextension': False,
-            'is_experimental': False,
+            'is_experiment': False,
             'name': self.find('name'),
             'summary': self.find('description'),
         }
@@ -619,7 +619,7 @@ def parse_search(fileorpath, addon=None):
             'name': data['name'],
             'is_restart_required': False,
             'is_webextension': False,
-            'is_experimental': False,
+            'is_experiment': False,
             'summary': data['description'],
             'version': datetime.now().strftime('%Y%m%d')}
 

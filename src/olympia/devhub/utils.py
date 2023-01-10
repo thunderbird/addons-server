@@ -33,6 +33,9 @@ def process_validation(validation, is_compatibility=False, file_hash=None):
     compatibility messages, and limiting the number of messages displayed."""
     validation = fix_addons_linter_output(validation)
 
+    # Secondly remove any privileged errors
+    validation = remove_privileged_errors(validation)
+
     if is_compatibility:
         mangle_compatibility_messages(validation)
 
@@ -50,6 +53,30 @@ def process_validation(validation, is_compatibility=False, file_hash=None):
 
     return validation
 
+
+def remove_privileged_errors(validation):
+    """
+    New version of addons-linter includes some additional errors that we can't easily get around without pulling the code down,
+    which will happen eventually. But for now just pop them off the errors
+    """
+    # No errors to pop!
+    if validation['errors'] == 0:
+        return validation
+
+    to_remove = []
+
+    for index, error in enumerate(validation['messages']):
+        if error['id'][0] in ['PRIVILEGED_FEATURES_REQUIRED', 'MOZILLA_ADDONS_PERMISSION_REQUIRED']:
+            # Prepend to the list, this will ensure our positional pops work correctly
+            to_remove.insert(0, index)
+
+    # Iterate and remove the specific items, we're iterating in reverse order here.
+    for index in to_remove:
+        validation['messages'].pop(index)
+
+    validation['errors'] -= len(to_remove)
+
+    return validation
 
 def mangle_compatibility_messages(validation):
     """Mangle compatibility messages so that the message type matches the
