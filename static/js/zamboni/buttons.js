@@ -130,7 +130,7 @@ var installButton = function() {
     // on something with a .installer class.
     var clickHijack = function() {
         try {
-            if (!appSupported && !no_compat_necessary || !("InstallTrigger" in window)) return;
+            if (!appSupported && !no_compat_necessary || !("mozAddonManager" in navigator)) return;
         } catch (e) {
             return;
         }
@@ -301,17 +301,31 @@ jQuery.fn.installButton = function() {
  * installation is complete.
  */
 z.installAddon = function(name, url, icon, hash, callback) {
-    var params = {};
-    params[name] = {
-        URL: url,
-        IconURL: icon,
-        toString: function() { return url; }
+    /**
+     * Technically the only supported option is url,
+     * however hash is referenced in mozilla/addons-frontend, and the application
+     * @type {{url: string, hash?: string}}
+     */
+    var options = {
+        'url': url,
     };
-    if (hash) {
-        params[name].Hash = hash;
+
+    if (options) {
+        options.hash = hash;
     }
-    // InstallTrigger is a Gecko API.
-    InstallTrigger.install(params, callback);
+
+    /*
+     * mozAddonManager is a Gecko API. It's only available on hosts that are specifically defined in the application.
+     * See AddonManager.jsm, and AddonManagerWebAPI.cpp on the application side for more information.
+     */
+    navigator.mozAddonManager.createInstall(options).then(function (install) {
+        install.install().then(function () {
+            callback();
+        }).catch(function (error) {
+          console.error("Addon install has failed.", error);
+        });
+    });
+
     _gaq.push(['_trackEvent', 'AMO Addon / Theme Installs', 'addon', name]);
 };
 
