@@ -129,8 +129,12 @@ var installButton = function() {
     // Calls InstallTrigger.install or AddSearchProvider if we capture a click
     // on something with a .installer class.
     var clickHijack = function() {
+        var hasAddonManager = ("mozAddonManager" in navigator) && navigator.mozAddonManager !== null;
+        var hasInstallTrigger = ("InstallTrigger" in window) && window.InstallTrigger !== null;
+
         try {
-            if (!appSupported && !no_compat_necessary || !("mozAddonManager" in navigator)) return;
+            if (!appSupported && !no_compat_necessary) return;
+            if (!hasAddonManager && !hasInstallTrigger) return;
         } catch (e) {
             return;
         }
@@ -163,10 +167,10 @@ var installButton = function() {
                 hashes[$(this).attr('href')] = $(this).attr('data-hash');
             });
             var hash = hashes[installer.attr('href')];
-
+            var installFn = hasAddonManager ? z.installAddon : z.installAddonDeprecated;
             var f = _.haskey(z.button.after, after) ? z.button.after[after] : _.identity,
                 callback = _.bind(f, self),
-                install = search ? z.installSearch : z.installAddon;
+                install = search ? z.installSearch : installFn;
             install(name, installer[0].href, icon, hash, callback);
         });
     };
@@ -293,6 +297,29 @@ var installButton = function() {
 
 jQuery.fn.installButton = function() {
     return this.each(installButton);
+};
+
+/* Install an XPI or a JAR (or something like that).
+ *
+ * hash and callback are optional.  callback is triggered after the
+ * installation is complete.
+ *
+ * This function uses the older deprecated window.InstallTrigger function.
+ */
+z.installAddonDeprecated = function(name, url, icon, hash, callback) {
+    var params = {};
+    params[name] = {
+        URL: url,
+        IconURL: icon,
+        toString: function() { return url; }
+    };
+    if (hash) {
+        params[name].Hash = hash;
+    }
+    // InstallTrigger is a Gecko API.
+    InstallTrigger.install(params, callback);
+
+    _gaq.push(['_trackEvent', 'AMO Addon / Theme Installs', 'addon', name]);
 };
 
 /* Install an XPI or a JAR (or something like that).
