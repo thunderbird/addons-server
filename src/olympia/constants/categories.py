@@ -131,7 +131,22 @@ CATEGORIES = {
             'solid': StaticCategory(id=118, name=_(u'Solid')),
             'sports': StaticCategory(id=104, name=_(u'Sports')),
             'websites': StaticCategory(id=116, name=_(u'Websites'))
-        }
+        },
+        ADDON_STATICTHEME: {
+            'abstract': StaticCategory(id=300, name=_(u'Abstract')),
+            'causes': StaticCategory(id=320, name=_(u'Causes')),
+            'fashion': StaticCategory(id=324, name=_(u'Fashion')),
+            'film-and-tv': StaticCategory(id=326, name=_(u'Film and TV')),
+            'holiday': StaticCategory(id=328, name=_(u'Holiday')),
+            'music': StaticCategory(id=322, name=_(u'Music')),
+            'nature': StaticCategory(id=302, name=_(u'Nature')),
+            'other': StaticCategory(id=314, name=_(u'Other'), weight=333),
+            'scenery': StaticCategory(id=306, name=_(u'Scenery')),
+            'seasonal': StaticCategory(id=312, name=_(u'Seasonal')),
+            'solid': StaticCategory(id=318, name=_(u'Solid')),
+            'sports': StaticCategory(id=304, name=_(u'Sports')),
+            'websites': StaticCategory(id=316, name=_(u'Websites'))
+        },
     },
     ANDROID.id: {
         ADDON_EXTENSION: {

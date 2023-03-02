@@ -6,6 +6,7 @@
 # with files owned by root. So create a new user with the same UID,
 # and drop privileges before running any commands.
 
+
 # Get the numeric user ID of the current directory.
 uid=$(ls -nd . | awk '{ print $3 }')
 

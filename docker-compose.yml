@@ -1,12 +1,10 @@
-version: "2.3"
-
 x-env-mapping: &env
   environment:
-    - CELERY_BROKER_URL=amqp://olympia:olympia@rabbitmq/olympia
-    - CELERY_RESULT_BACKEND=redis://redis:6379/1
-    - DATABASES_DEFAULT_URL=mysql://root:@mysqld/olympia
+    - CELERY_BROKER_URL=amqp://olympia:olympia@services/olympia
+    - CELERY_RESULT_BACKEND=redis://services:6379/1
+    - DATABASES_DEFAULT_URL=mysql://root:docker@services:3306/olympia
     - ELASTICSEARCH_LOCATION=elasticsearch:9200
-    - MEMCACHE_LOCATION=memcached:11211
+    - MEMCACHE_LOCATION=services:11211
     - MYSQL_DATABASE=olympia
     - MYSQL_ROOT_PASSWORD=docker
     - OLYMPIA_SITE_URL=http://olympia.test
@@ -18,35 +16,35 @@ x-env-mapping: &env
 services:
   worker: &worker
     <<: *env
-    image: addons/addons-server
+    build: .
     command: supervisord -n -c /code/docker/supervisor-celery.conf
     entrypoint: ./scripts/start-docker.sh
     volumes:
       - .:/code
-    extra_hosts:
-     - "olympia.test:127.0.0.1"
 
   web:
     <<: *worker
     command: supervisord -n -c /code/docker/supervisor.conf
+    extra_hosts:
+      - "olympia.test:127.0.0.1"
+    ports:
+      - 8000:8000
 
-  nginx:
-    image: addons/addons-nginx
+  services:
+    <<: *worker
+    command: /code/scripts/start-docker-services.sh
+    entrypoint: '/bin/bash'
     volumes:
-      - ./static:/srv/static
-      - ./site-static:/srv/site-static
-      - ./user-media/:/srv/user-media
-
-  memcached:
-    image: memcached:1.4
-
-  mysqld:
-    image: mysql:5.7
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
-      - MYSQL_DATABASE=olympia
+      - 'mariadbvolume:/var/lib/mysql'
+      - .:/code
+    ports:
+      - 3306:3306   # Mariadb
+      - 6379:6379   # Redis
+      - 11211:11211 # Memcache
+      - 80:80       # Nginx
 
   elasticsearch:
+    platform: linux/amd64
     image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
     environment:
       # Disable all xpack related features to avoid unrelated logging
@@ -59,48 +57,9 @@ services:
       - xpack.watcher.enabled=false
       - "discovery.type=single-node"
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      # M1 mac emulation doesn't support this feature
+      - bootstrap.system_call_filter=false
     mem_limit: 2g
 
-  redis:
-    image: redis:2.8
-
-  rabbitmq:
-    image: rabbitmq:3.5
-    hostname: olympia
-    expose:
-      - "5672"
-    environment:
-      - RABBITMQ_DEFAULT_USER=olympia
-      - RABBITMQ_DEFAULT_PASS=olympia
-      - RABBITMQ_DEFAULT_VHOST=olympia
-
-  autograph:
-    image: mozilla/autograph:2.3.0
-
-  selenium-firefox:
-    <<: *env
-    image: b4handjr/selenium-firefox
-    volumes:
-      - .:/code
-    expose:
-      - "4444"
-    ports:
-      - "5900"
-    shm_size: 2g
-    links:
-      - "addons-frontend:olympia-frontend.test"
-      - "nginx:olympia.test"
-
-  addons-frontend:
-    <<: *env
-    environment:
-      - HOSTNAME=uitests
-      - WEBPACK_SERVER_HOST=olympia-frontend.test
-      - FXA_CONFIG=default
-    image: addons/addons-frontend
-    ports:
-      - "3000:3000"
-      - "3001:3001"
-    command: yarn amo:ui-tests
-    links:
-      - "nginx:olympia.test"
+volumes:
+  mariadbvolume:
