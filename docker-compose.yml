@@ -37,10 +37,11 @@ services:
     volumes:
       - 'mariadbvolume:/var/lib/mysql'
       - .:/code
-    ports:
+    expose:
       - 3306:3306   # Mariadb
       - 6379:6379   # Redis
       - 11211:11211 # Memcache
+    ports:
       - 80:80       # Nginx
 
   elasticsearch:
