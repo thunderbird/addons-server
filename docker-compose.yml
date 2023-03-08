@@ -38,15 +38,20 @@ services:
       - 'mariadbvolume:/var/lib/mysql'
       - .:/code
     expose:
-      - 3306:3306   # Mariadb
       - 6379:6379   # Redis
       - 11211:11211 # Memcache
     ports:
+      - 3306:3306   # Mariadb
       - 80:80       # Nginx
 
   elasticsearch:
     platform: linux/amd64
     image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
+    ulimits:
+        nproc: 65535
+        nofile:
+            soft: 20000
+            hard: 40000
     environment:
       # Disable all xpack related features to avoid unrelated logging
       # in docker logs. https://github.com/mozilla/addons-server/issues/8887
