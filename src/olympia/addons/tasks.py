@@ -763,6 +763,7 @@ def migrate_addons_that_require_sensitive_data_access(ids):
 
     for addon in addons:
         for index, version in enumerate(addon.versions.all()):
+            print("Checking addon {} version: {}".format(addon.guid, version))
             # We ignore versions without files
             if not version or not version.all_files[0]:
                 continue
@@ -778,9 +779,11 @@ def migrate_addons_that_require_sensitive_data_access(ids):
 
             # We found our sensitive data access, so break!
             if sensitive_data_access:
+                print("Found sensitive permissions")
                 break
 
         if sensitive_data_access:
+            print("Updating addon {}".format(addon.guid))
             addon.update(requires_sensitive_data_access=True)
 
             # If we can't skip review, then create a reviewer flag
