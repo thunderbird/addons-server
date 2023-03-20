@@ -770,6 +770,8 @@ def migrate_addons_that_require_sensitive_data_access(ids):
 
             permissions = version.all_files[0].webext_permissions_list
 
+            print("Permissions {}".format(permissions))
+
             # For the current version only, look for the skip flag
             if index == 0:
                 can_skip_review = any(i in SENSITIVE_DATA_ACCESS_SKIP_PERMISSIONS for i in permissions)
