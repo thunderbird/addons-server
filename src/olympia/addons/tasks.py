@@ -764,14 +764,11 @@ def migrate_addons_that_require_sensitive_data_access(ids):
 
     for addon in addons:
         for index, version in enumerate(addon.versions.all()):
-            print("Checking addon {} version: {}".format(addon.guid, version))
             # We ignore versions without files
             if not version or not version.all_files[0]:
                 continue
 
             permissions = version.all_files[0].webext_permissions_list
-
-            print("Permissions {}".format(permissions))
 
             # For the current version only, look for the skip flag
             if index == 0:
@@ -782,11 +779,9 @@ def migrate_addons_that_require_sensitive_data_access(ids):
 
             # We found our sensitive data access, so break!
             if sensitive_data_access:
-                print("Found sensitive permissions")
                 break
 
         if sensitive_data_access:
-            print("Updating addon {}".format(addon.guid))
             addon.update(requires_sensitive_data_access=True)
             sda_addons.append(addon.pk)
 
@@ -797,6 +792,6 @@ def migrate_addons_that_require_sensitive_data_access(ids):
                     needs_sensitive_data_access_review=True
                 )
 
-
-
-    index_addons.delay(sda_addons)
+    # Update the indexes for addons that were updated
+    if sda_addons:
+        index_addons.delay(sda_addons)
