@@ -11,7 +11,7 @@ Overview
     if you need stability.
 
 This describes the details of the requests and responses you can expect from
-the `addons.mozilla.org <https://addons.mozilla.org/en-US/firefox/>`_ API.
+the `addons.thunderbird.net <https://addons.thunderbird.net/>`_ API.
 
 --------
 Requests
@@ -183,7 +183,7 @@ Alternate API (v4dev) behavior
 
 On the addons-dev.allizom.org (dev) and addons.allizom.org servers (stage) servers
 an additional API version, `v4dev` is available. `v4dev` is not available on
-production AMO (addons.mozilla.org). In `4dev` the response if the ``lang``
+production AMO (addons.thunderbird.net). In `4dev` the response if the ``lang``
 parameter is passed is an object only containing that translation is returned.
 
 .. code-block:: json

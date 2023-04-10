@@ -475,7 +475,7 @@ on AMO.
     :>json string results[].type: The :ref:`add-on type <v3-addon-detail-type>`.
     :>json string results[].url: The (absolute) add-on detail URL.
 
-.. _`valid application versions`: https://addons.mozilla.org/en-US/firefox/pages/appversions/
+.. _`valid application versions`: https://addons.thunderbird.net/en-US/thunderbird/pages/appversions/
 
 
 -------------------
@@ -527,7 +527,7 @@ Compatibilty overrides are used within Firefox i(and other toolkit applications 
     :>json int results[].version_ranges[].applications[].id: Application id on AMO.
     :>json string results[].version_ranges[].applications[].min_version: minimum version of the application to be disabled in.
     :>json string results[].version_ranges[].applications[].max_version: maximum version of the application to be disabled in.
-    :>json string results[].version_ranges[].applications[].guid: Application `guid <https://addons.mozilla.org/en-US/firefox/pages/appversions/>`_.
+    :>json string results[].version_ranges[].applications[].guid: Application `guid <https://addons.thunderbird.net/en-US/thunderbird/pages/appversions/>`_.
 
 
 ---------------
