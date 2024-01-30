@@ -675,9 +675,9 @@ def delete_addon_not_compatible_with_thunderbird(ids, **kw):
     qs = Addon.objects.filter(id__in=ids)
     for addon in qs:
         with transaction.atomic():
-            # Only remove the old android appsupport, unsure if removing amo.FIREFOX.id appsupport might break something...
+            # Remove addon appsupport versions for android and firefox
             addon.appsupport_set.filter(
-                app__in=(amo.ANDROID.id,)).delete()
+                app__in=(amo.ANDROID.id, amo.FIREFOX.id)).delete()
             addon.delete()
 
 
