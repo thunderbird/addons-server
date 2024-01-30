@@ -90,7 +90,6 @@ tasks = {
               _current_version__files__is_webextension=True),
         ],
     },
-    # Copy of the TB clean up, but for Firefox addons
     'delete_addons_not_compatible_with_thunderbird': {
         'method': delete_addon_not_compatible_with_thunderbird,
         'qs': [Q(status=amo.STATUS_PUBLIC),
