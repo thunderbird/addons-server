@@ -17,7 +17,7 @@
         <ul>
           {% for item in log %}
             <li class="item">
-              {{ item }}
+              {{ item.to_string() }}
               <span class="activity-timestamp">
               {% trans user=item.user|user_link, ago=item.created|timesince %}
               {{ ago }} by {{ user }}
