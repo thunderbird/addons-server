@@ -466,14 +466,10 @@ class ActivityLog(ModelBase):
             return 'Something magical happened.'
 
     def __unicode__(self):
-        print(">> Asking for unicode")
-        return self.to_string()
-
-    def __str__(self):
-        print(">> Asking for str")
         return self.to_string()
 
     def __html__(self):
+        print(">> Asking for html")
         return self
 
     @classmethod
