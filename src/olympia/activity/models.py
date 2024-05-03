@@ -468,8 +468,10 @@ class ActivityLog(ModelBase):
     def __unicode__(self):
         return self.to_string()
 
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
     def __html__(self):
-        print(">> Asking for html")
         return self
 
     @classmethod
