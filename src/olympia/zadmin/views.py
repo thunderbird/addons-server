@@ -304,7 +304,7 @@ def email_devs(request):
 
 @permission_required(amo.permissions.ANY_ADMIN)
 def index(request):
-    log = ActivityLog.objects.admin_events()[:4]
+    log = ActivityLog.objects.admin_events()[:5]
     return render(request, 'zadmin/index.html', {'log': log})
 
 
