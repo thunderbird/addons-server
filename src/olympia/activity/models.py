@@ -469,6 +469,9 @@ class ActivityLog(ModelBase):
         print(">> Asking for unicode")
         return self.to_string()
 
+    def __str__(self):
+        print(">> Asking for str")
+        return self.to_string()
 
     def __html__(self):
         return self
