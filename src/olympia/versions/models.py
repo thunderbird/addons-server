@@ -257,7 +257,7 @@ class Version(OnChangeMixin, ModelBase):
                 channel == amo.RELEASE_CHANNEL_LISTED):
             dst_root = os.path.join(user_media_path('addons'), str(addon.id))
             theme_data = parsed_data.get('theme', {})
-            version_root = os.path.join(dst_root, unicode(version.id))
+            version_root = os.path.join(dst_root, six.text_type(version.id))
 
             utils.extract_header_img(
                 version.all_files[0].file_path, theme_data, version_root)
@@ -649,9 +649,9 @@ class Version(OnChangeMixin, ModelBase):
         if self.addon.type != amo.ADDON_STATICTHEME:
             return []
         background_images_folder = os.path.join(
-            user_media_path('addons'), str(self.addon.id), unicode(self.id))
+            user_media_path('addons'), str(self.addon.id), six.text_type(self.id))
         background_images_url = '/'.join(
-            (user_media_url('addons'), str(self.addon.id), unicode(self.id)))
+            (user_media_url('addons'), str(self.addon.id), six.text_type(self.id)))
         out = [
             background.replace(background_images_folder, background_images_url)
             for background in walkfiles(background_images_folder)]

@@ -20,6 +20,8 @@ from rest_framework.settings import api_settings
 from rest_framework.test import APIRequestFactory, APITestCase
 from waffle.models import Switch
 
+import six.moves.urllib_parse as urlparse
+
 from olympia import amo
 from olympia.access.acl import action_allowed_user
 from olympia.access.models import Group, GroupUser

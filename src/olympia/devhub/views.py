@@ -689,7 +689,7 @@ def bulk_compat_result(request, addon_id, addon, result_id):
 def _compat_result(request, revalidate_url, target_app, target_version,
                    validated_filename=None, validated_ts=None,
                    for_addon=None):
-    app_trans = dict((g, unicode(a.pretty)) for g, a in amo.APP_GUIDS.items())
+    app_trans = dict((g, six.text_type(a.pretty)) for g, a in amo.APP_GUIDS.items())
     ff_versions = (AppVersion.objects.filter(application=amo.FIREFOX.id,
                                              version_int__gte=4000000000000)
                    .values_list('application', 'version')

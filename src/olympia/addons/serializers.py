@@ -98,7 +98,7 @@ class LicenseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = License
-        fields = ('id', 'is_custom', 'name', 'text', 'url')
+        fields = ('id', 'name', 'text', 'url')
 
     def __init__(self, *args, **kwargs):
         super(LicenseSerializer, self).__init__(*args, **kwargs)

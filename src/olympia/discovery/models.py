@@ -69,33 +69,33 @@ class DiscoveryItem(ModelBase):
         addon_name = six.text_type(self.custom_addon_name or self.addon.name)
 
         if html:
-        authors = u', '.join(
-            author.name for author in self.addon.listed_authors)
-        url = absolutify(self.addon.get_url_path())
+            authors = u', '.join(
+                author.name for author in self.addon.listed_authors)
+            url = absolutify(self.addon.get_url_path())
 
-        # addons-frontend will add target and rel attributes to the <a> link.
-        # Note: The translated "by" in the middle of both strings is
-        # unfortunate, but the full strings are too opaque/dangerous to be
-        # handled by translators, since they are just HTML and parameters.
-        if self.custom_heading:
-            addon_link = format_html(
-                # The query string should not be encoded twice, so we add it to
-                # the template first, via '%'.
-                u'<a href="{0}?%(query)s">{1} {2} {3}</a>' % {
-                    'query': self.build_querystring()},
-                url, addon_name, ugettext(u'by'), authors)
+            # addons-frontend will add target and rel attributes to the <a> link.
+            # Note: The translated "by" in the middle of both strings is
+            # unfortunate, but the full strings are too opaque/dangerous to be
+            # handled by translators, since they are just HTML and parameters.
+            if self.custom_heading:
+                addon_link = format_html(
+                    # The query string should not be encoded twice, so we add it to
+                    # the template first, via '%'.
+                    u'<a href="{0}?%(query)s">{1} {2} {3}</a>' % {
+                        'query': self.build_querystring()},
+                    url, addon_name, ugettext(u'by'), authors)
 
-            value = conditional_escape(ugettext(self.custom_heading)).replace(
-                u'{start_sub_heading}', u'<span>').replace(
-                u'{end_sub_heading}', u'</span>').replace(
-                u'{addon_name}', addon_link)
-        else:
-            value = format_html(
-                # The query string should not be encoded twice, so we add it to
-                # the template first, via '%'.
-                u'{0} <span>{1} <a href="{2}?%(query)s">{3}</a></span>' % {
-                    'query': self.build_querystring()},
-                addon_name, ugettext(u'by'), url, authors)
+                value = conditional_escape(ugettext(self.custom_heading)).replace(
+                    u'{start_sub_heading}', u'<span>').replace(
+                    u'{end_sub_heading}', u'</span>').replace(
+                    u'{addon_name}', addon_link)
+            else:
+                value = format_html(
+                    # The query string should not be encoded twice, so we add it to
+                    # the template first, via '%'.
+                    u'{0} <span>{1} <a href="{2}?%(query)s">{3}</a></span>' % {
+                        'query': self.build_querystring()},
+                    addon_name, ugettext(u'by'), url, authors)
         else:
             if self.custom_heading:
                 value = self.custom_heading.replace(

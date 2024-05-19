@@ -1,6 +1,5 @@
 from __future__ import division
 import os
-from itertools import izip_longest
 
 from django.template import loader
 
@@ -9,13 +8,10 @@ import six
 import olympia.core.logger
 
 from olympia import amo
-from olympia.addons.tasks import index_addons
 from olympia.amo.celery import task
 from olympia.amo.decorators import use_primary_db
-from olympia.amo.utils import extract_colors_from_image, pngcrush_image
+from olympia.amo.utils import pngcrush_image
 from olympia.devhub.tasks import resize_image
-from olympia.files.models import File
-from olympia.files.utils import get_background_images
 from olympia.versions.models import Version, VersionPreview
 from olympia.lib.git import AddonGitRepository
 
@@ -26,7 +22,7 @@ from .utils import (
 log = olympia.core.logger.getLogger('z.versions.task')
 
 
-def _build_static_theme_preview_context(theme_manifest, file_):
+def _build_static_theme_preview_context(theme_manifest, header_root):
     # First build the context shared by both the main preview and the thumb
     context = {'amo': amo}
     context.update(dict(
@@ -36,9 +32,8 @@ def _build_static_theme_preview_context(theme_manifest, file_):
     header_url = images_dict.get(
         'headerURL', images_dict.get('theme_frame', ''))
     file_ext = os.path.splitext(header_url)[1]
-    backgrounds = get_background_images(file_, theme_manifest)
-    header_src, header_width, header_height = encode_header(
-        backgrounds.get(header_url), file_ext)
+    header_src, header_width, header_height = encode_header_image(
+        os.path.join(header_root, header_url))
     context.update(
         header_src=header_src,
         header_src_height=header_height,

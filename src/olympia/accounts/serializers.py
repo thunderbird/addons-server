@@ -18,7 +18,6 @@ from olympia.amo.utils import (
     ImageCheck, clean_nl, has_links, slug_validator, subscribe_newsletter,
     unsubscribe_newsletter, urlparams)
 from olympia.api.utils import is_gate_active
-from olympia.api.validators import OneOrMorePrintableCharacterValidator
 from olympia.users import notifications
 from olympia.users.models import DeniedName, UserProfile
 from olympia.users.tasks import resize_photo

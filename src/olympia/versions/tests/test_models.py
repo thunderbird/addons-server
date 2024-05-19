@@ -967,7 +967,7 @@ class TestStaticThemeFromUpload(UploadTest):
         assert generate_static_theme_preview_mock.call_count == 1
         assert version.get_background_image_urls() == [
             '%s/%s/%s/%s' % (user_media_url('addons'), str(self.addon.id),
-                             unicode(version.id), 'weta.png')
+                             six.text_type(version.id), 'weta.png')
         ]
 
     @mock.patch('olympia.versions.models.generate_static_theme_preview')
@@ -982,7 +982,7 @@ class TestStaticThemeFromUpload(UploadTest):
         assert generate_static_theme_preview_mock.call_count == 1
         assert version.get_background_image_urls() == [
             '%s/%s/%s/%s' % (user_media_url('addons'), str(self.addon.id),
-                             unicode(version.id), 'weta.png')
+                             six.text_type(version.id), 'weta.png')
         ]
 
     @mock.patch('olympia.versions.models.generate_static_theme_preview')

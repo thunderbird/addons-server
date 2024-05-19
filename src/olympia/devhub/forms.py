@@ -29,7 +29,7 @@ from olympia.applications.models import AppVersion
 from olympia.constants.categories import CATEGORIES
 from olympia.files.models import FileUpload
 from olympia.files.utils import parse_addon
-from olympia.files.utils import SafeZip, archive_member_validator, parse_addon
+from olympia.files.utils import SafeZip, parse_addon
 from olympia.translations.fields import (
     LocaleErrorMessage, TransField, TransTextarea)
 from olympia.translations.forms import TranslationFormMixin
@@ -619,71 +619,6 @@ class DescribeForm(AkismetSpamCheckFormMixin, AddonFormBase):
             delete_translation(self.instance, 'privacy_policy')
 
         return obj
-
-    def clean(self):
-        message = _('Ensure name and summary combined are at most 70 '
-                    'characters (they have {0}).')
-        super(CombinedNameSummaryCleanMixin, self).clean()
-        name_summary_locales = set(
-            list(self.cleaned_data.get('name', {}).keys()) +
-            self.cleaned_data.get('summary', {}).keys())
-        default_locale = self.instance.default_locale.lower()
-        name_values = self.cleaned_data.get('name') or {}
-        name_default = name_values.get(default_locale) or ''
-        summary_values = self.cleaned_data.get('summary') or {}
-        summary_default = summary_values.get(default_locale) or ''
-        for locale in name_summary_locales:
-            val_len = len(name_values.get(locale, name_default) +
-                          summary_values.get(locale, summary_default))
-            if val_len > 70:
-                if locale == default_locale or not self.should_auto_crop:
-                    # if we're not auto-cropping add an error.
-                    self.add_error(
-                        'name', LocaleErrorMessage(
-                            message=message.format(val_len), locale=locale))
-                else:
-                    # otherwise we need to shorten the summary (and or name?)
-                    if locale in name_values:
-                        # if only default summary need to shorten name instead.
-                        max_name_length = (68 if locale in summary_values
-                                           else 70 - len(summary_default))
-                        name = name_values[locale][:max_name_length]
-                        name_length = len(name)
-                        self.cleaned_data['name'][locale] = name
-                    else:
-                        name_length = len(name_default)
-                    if locale in summary_values:
-                        max_summary_length = 70 - name_length
-                        self.cleaned_data['summary'][locale] = (
-                            summary_values[locale][:max_summary_length])
-        return self.cleaned_data
-
-
-class DescribeFormContentOptimization(CombinedNameSummaryCleanMixin,
-                                      DescribeForm):
-    name = TransField(max_length=68, min_length=2)
-    summary = TransField(max_length=68, min_length=2)
-
-
-class DescribeFormUnlisted(AkismetSpamCheckFormMixin, AddonFormBase):
-    name = TransField(max_length=50)
-    slug = forms.CharField(max_length=30)
-    summary = TransField(widget=TransTextarea(attrs={'rows': 4}),
-                         max_length=250)
-    description = TransField(widget=TransTextarea(attrs={'rows': 4}),
-                             required=False)
-
-    fields_to_akismet_comment_check = ['name', 'summary', 'description']
-
-    class Meta:
-        model = Addon
-        fields = ('name', 'slug', 'summary', 'description')
-
-
-class DescribeFormUnlistedContentOptimization(CombinedNameSummaryCleanMixin,
-                                              DescribeFormUnlisted):
-    name = TransField(max_length=68, min_length=2)
-    summary = TransField(max_length=68, min_length=2)
 
 
 class PreviewForm(forms.ModelForm):

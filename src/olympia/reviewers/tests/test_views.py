@@ -4457,7 +4457,7 @@ class TestReview(ReviewBase):
         background_files = ['a.png', 'b.png', 'c.png']
         walkfiles_folder = os.path.join(
             user_media_path('addons'), str(self.addon.id),
-            unicode(self.addon.current_version.id))
+            six.text_type(self.addon.current_version.id))
         walkfiles_mock.return_value = [
             os.path.join(walkfiles_folder, filename)
             for filename in background_files]
@@ -4473,7 +4473,7 @@ class TestReview(ReviewBase):
         assert images.length == len(walkfiles_mock.return_value)
         background_file_folder = '/'.join([
             user_media_url('addons'), str(self.addon.id),
-            unicode(self.addon.current_version.id)])
+            six.text_type(self.addon.current_version.id)])
         background_file_urls = [
             background_file_folder + '/' + filename
             for filename in background_files]

@@ -31,8 +31,7 @@ from olympia.amo.decorators import set_modified_on, use_primary_db
 from olympia.amo.storage_utils import rm_stored_dir
 from olympia.amo.templatetags.jinja_helpers import user_media_path
 from olympia.amo.utils import (
-    ImageCheck, LocalFileStorage, StopWatch, cache_ns_key,
-    extract_colors_from_image, pngcrush_image)
+    ImageCheck, LocalFileStorage, cache_ns_key, pngcrush_image)
 from olympia.applications.models import AppVersion
 from olympia.constants.categories import CATEGORIES
 from olympia.constants.licenses import (
@@ -594,10 +593,6 @@ def _get_lwt_default_author():
 def add_static_theme_from_lwt(lwt):
     from olympia.activity.models import AddonLog
 
-    timer = StopWatch(
-        'addons.tasks.migrate_lwts_to_static_theme.add_from_lwt.')
-    timer.start()
-
     olympia.core.set_user(UserProfile.objects.get(pk=settings.TASK_USER_ID))
     # Try to handle LWT with no authors
     author = (lwt.listed_authors or [_get_lwt_default_author()])[0]
@@ -608,16 +603,13 @@ def add_static_theme_from_lwt(lwt):
         user_media_path('addons'), 'temp', uuid.uuid4().hex + '.xpi')
     build_static_theme_xpi_from_lwt(lwt, destination)
     upload.update(path=destination)
-    timer.log_interval('1.build_xpi')
 
     # Create addon + version
     parsed_data = parse_addon(upload, user=author)
-    timer.log_interval('2a.parse_addon')
 
     addon = Addon.initialize_addon_from_upload(
         parsed_data, upload, amo.RELEASE_CHANNEL_LISTED, author)
     addon_updates = {}
-    timer.log_interval('2b.initialize_addon')
 
     # static themes are only compatible with Firefox at the moment,
     # not Android
@@ -625,32 +617,27 @@ def add_static_theme_from_lwt(lwt):
         upload, addon, selected_apps=[amo.FIREFOX.id],
         channel=amo.RELEASE_CHANNEL_LISTED,
         parsed_data=parsed_data)
-    timer.log_interval('3.initialize_version')
 
     # Set category
     lwt_category = (lwt.categories.all() or [None])[0]  # lwt only have 1 cat.
     lwt_category_slug = lwt_category.slug if lwt_category else 'other'
-    for app, type_dict in CATEGORIES.items():
-        static_theme_categories = CATEGORIES.get(amo.THUNDERBIRD.id, []).get(
-            amo.ADDON_STATICTHEME, [])
-        static_category = static_theme_categories.get(
-            lwt_category_slug, static_theme_categories.get('other'))
-        AddonCategory.objects.create(
-            addon=addon,
-            category=Category.from_static_category(static_category, True))
-    timer.log_interval('4.set_categories')
+    static_theme_categories = CATEGORIES.get(amo.THUNDERBIRD.id, []).get(
+        amo.ADDON_STATICTHEME, [])
+    static_category = static_theme_categories.get(
+        lwt_category_slug, static_theme_categories.get('other'))
+    AddonCategory.objects.create(
+        addon=addon,
+        category=Category.from_static_category(static_category, True))
 
     # Set license
     lwt_license = PERSONA_LICENSES_IDS.get(
         lwt.persona.license, LICENSE_COPYRIGHT_AR)  # default to full copyright
     static_license = License.objects.get(builtin=lwt_license.builtin)
     version.update(license=static_license)
-    timer.log_interval('5.set_license')
 
     # Set tags
     for addon_tag in AddonTag.objects.filter(addon=lwt):
         AddonTag.objects.create(addon=addon, tag=addon_tag.tag)
-    timer.log_interval('6.set_tags')
 
     # Steal the ratings (even with soft delete they'll be deleted anyway)
     addon_updates.update(
@@ -659,7 +646,6 @@ def add_static_theme_from_lwt(lwt):
         total_ratings=lwt.total_ratings,
         text_ratings_count=lwt.text_ratings_count)
     Rating.unfiltered.filter(addon=lwt).update(addon=addon, version=version)
-    timer.log_interval('7.move_ratings')
 
     # Modify the activity log entry too.
     rating_activity_log_ids = [
@@ -667,7 +653,6 @@ def add_static_theme_from_lwt(lwt):
     addonlog_qs = AddonLog.objects.filter(
         addon=lwt, activity_log__action__in=rating_activity_log_ids)
     [alog.transfer(addon) for alog in addonlog_qs.iterator()]
-    timer.log_interval('8.move_activity_logs')
 
     # Copy the ADU statistics - the raw(ish) daily UpdateCounts for stats
     # dashboard and future update counts, and copy the average_daily_users.
@@ -677,7 +662,6 @@ def add_static_theme_from_lwt(lwt):
     addon_updates.update(
         average_daily_users=lwt.persona.popularity or 0,
         hotness=0)
-    timer.log_interval('9.copy_statistics')
 
     # Logging
     activity.log_create(
@@ -690,7 +674,6 @@ def add_static_theme_from_lwt(lwt):
             datestatuschanged=lwt.last_updated,
             reviewed=datetime.now(),
             status=amo.STATUS_PUBLIC)
-    timer.log_interval('10.sign_files')
     addon_updates['status'] = amo.STATUS_PUBLIC
 
     # set the modified and creation dates to match the original.
@@ -717,29 +700,24 @@ def migrate_lwts_to_static_themes(ids, **kw):
     pause_all_tasks()
     for lwt in lwts:
         static = None
-        pause_all_tasks()
         try:
-            timer = StopWatch('addons.tasks.migrate_lwts_to_static_theme')
-            timer.start()
             with translation.override(lwt.default_locale):
                 static = add_static_theme_from_lwt(lwt)
             mlog.info(
                 '[Success] Static theme %r created from LWT %r', static, lwt)
-            if not static:
-                raise Exception('add_static_theme_from_lwt returned falsey')
-            MigratedLWT.objects.create(
-                lightweight_theme=lwt, getpersonas_id=lwt.persona.persona_id,
-                static_theme=static)
-            # Steal the lwt's slug after it's deleted.
-            slug = lwt.slug
-            lwt.delete(send_delete_email=False)
-            static.update(slug=slug)
-            timer.log_interval('')
         except Exception as e:
             # If something went wrong, don't migrate - we need to debug.
             mlog.debug('[Fail] LWT %r:', lwt, exc_info=e)
-        finally:
-            resume_all_tasks()
+        if not static:
+            continue
+        MigratedLWT.objects.create(
+            lightweight_theme=lwt, getpersonas_id=lwt.persona.persona_id,
+            static_theme=static)
+        # Steal the lwt's slug after it's deleted.
+        slug = lwt.slug
+        lwt.delete()
+        static.update(slug=slug)
+    resume_all_tasks()
 
 
 @task

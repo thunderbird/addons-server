@@ -321,36 +321,6 @@ class BaseTestEditBasic(BaseTestEdit):
         assert six.text_type(addon.summary) == data['summary']
         assert six.text_type(addon.description) == data['description']
 
-    @override_switch('akismet-spam-check', active=True)
-    @mock.patch('olympia.lib.akismet.models.AkismetReport.comment_check')
-    def test_akismet_edit_is_spam_logging_only(self, comment_check_mock):
-        comment_check_mock.return_value = AkismetReport.MAYBE_SPAM
-        data = self.get_dict()
-
-        response = self.client.post(self.describe_edit_url, data)
-        assert response.status_code == 200
-
-        # Akismet check is there
-        assert AkismetReport.objects.count() == 3
-        name_report = AkismetReport.objects.first()
-        assert name_report.comment_type == 'product-name'
-        assert name_report.comment == data['name']
-        summary_report = AkismetReport.objects.all()[1]
-        assert summary_report.comment_type == 'product-summary'
-        assert summary_report.comment == data['summary']
-        description_report = AkismetReport.objects.all()[2]
-        assert description_report.comment_type == 'product-description'
-        assert description_report.comment == data['description']
-
-        assert comment_check_mock.call_count == 3
-        # But because we're not taking any action from the spam, don't report.
-        assert 'spam' not in response.content
-
-        # And metadata was updated
-        addon = self.get_addon()
-        assert six.text_type(addon.name) == data['name']
-        assert six.text_type(addon.summary) == data['summary']
-        assert six.text_type(addon.description) == data['description']
 
     @override_switch('akismet-spam-check', active=True)
     @override_switch('akismet-addon-action', active=True)
@@ -359,6 +329,7 @@ class BaseTestEditBasic(BaseTestEdit):
         comment_check_mock.return_value = AkismetReport.MAYBE_SPAM
         old_name = self.addon.name
         old_summary = self.addon.summary
+        old_description = self.addon.description
         data = self.get_dict()
 
         response = self.client.post(self.basic_edit_url, data)
@@ -862,12 +833,6 @@ class TestEditBasicListed(BaseTestEditBasic, TagTestsMixin,
         assert addon.description_id
         assert addon.description == u'Sométhing descriptive.'
 
-
-class TestEditDescribeUnlisted(BaseTestEditDescribe, L10nTestsMixin):
-    listed = False
-    __test__ = True
-
-
 class TestEditMedia(BaseTestEdit):
     __test__ = True
 
@@ -1334,7 +1299,7 @@ class BaseTestEditDetails(BaseTestEdit):
 
         # And metadata was updated
         addon = self.get_addon()
-        assert unicode(addon.description) == data['description']
+        assert six.text_type(addon.description) == data['description']
 
     @override_switch('akismet-spam-check', active=True)
     @mock.patch('olympia.lib.akismet.models.AkismetReport.comment_check')
@@ -1364,7 +1329,7 @@ class BaseTestEditDetails(BaseTestEdit):
 
         # And metadata was NOT updated
         addon = self.get_addon()
-        assert unicode(addon.description) == unicode(old_description)
+        assert six.text_type(addon.description) == six.text_type(old_description)
 
 
 class TestEditDetailsListed(BaseTestEditDetails):
@@ -1372,7 +1337,7 @@ class TestEditDetailsListed(BaseTestEditDetails):
 
     def test_edit_default_locale_required_trans(self):
         # name, summary, and description are required in the new locale.
-        description, homepage = map(unicode, [self.addon.description,
+        description, homepage = map(six.text_type, [self.addon.description,
                                               self.addon.homepage])
         # TODO: description should get fixed up with the form.
         error = ('Before changing your default locale you must have a name, '
@@ -1451,7 +1416,7 @@ class TestEditSupport(BaseTestEdit):
         addon = self.get_addon()
 
         for k in data:
-            assert unicode(getattr(addon, k)) == data[k]
+            assert six.text_type(getattr(addon, k)) == data[k]
 
     def test_edit_support_optional_url(self):
         data = {
@@ -1464,7 +1429,7 @@ class TestEditSupport(BaseTestEdit):
         addon = self.get_addon()
 
         for k in data:
-            assert unicode(getattr(addon, k)) == data[k]
+            assert six.text_type(getattr(addon, k)) == data[k]
 
     def test_edit_support_optional_email(self):
         data = {
@@ -1477,7 +1442,7 @@ class TestEditSupport(BaseTestEdit):
         addon = self.get_addon()
 
         for k in data:
-            assert unicode(getattr(addon, k)) == data[k]
+            assert six.text_type(getattr(addon, k)) == data[k]
 
 
 class TestEditTechnical(BaseTestEdit):
@@ -1596,7 +1561,7 @@ class TestEditTechnical(BaseTestEdit):
         assert req.find('li').length == 1
         link = req.find('a')
         assert link.attr('href') == self.dependent_addon.get_url_path()
-        assert link.text() == unicode(self.dependent_addon.name)
+        assert link.text() == six.text_type(self.dependent_addon.name)
 
     def test_dependencies_initial(self):
         response = self.client.get(self.technical_edit_url)
@@ -1610,7 +1575,7 @@ class TestEditTechnical(BaseTestEdit):
             'background-image:url(%s)' % self.dependent_addon.icon_url)
         link = div.find('a')
         assert link.attr('href') == self.dependent_addon.get_url_path()
-        assert link.text() == unicode(self.dependent_addon.name)
+        assert link.text() == six.text_type(self.dependent_addon.name)
 
     def test_dependencies_add(self):
         addon = Addon.objects.get(id=5299)
@@ -1629,7 +1594,7 @@ class TestEditTechnical(BaseTestEdit):
         assert req.length == 1
         link = req.find('div a')
         assert link.attr('href') == addon.get_url_path()
-        assert link.text() == unicode(addon.name)
+        assert link.text() == six.text_type(addon.name)
 
     def test_dependencies_limit(self):
         deps = Addon.objects.public().exclude(

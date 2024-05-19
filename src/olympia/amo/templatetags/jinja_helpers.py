@@ -4,7 +4,6 @@ import os
 import random
 
 from operator import attrgetter
-from six.moves.urllib_parse import urljoin
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -518,7 +517,7 @@ def id_to_path(pk):
     12 => 2/12/12
     123456 => 6/56/123456
     """
-    pk = unicode(pk)
+    pk = six.text_type(pk)
     path = [pk[-1]]
     if len(pk) >= 2:
         path.append(pk[-2:])
@@ -549,7 +548,7 @@ def format_html(string, *args, **kwargs):
 
 
 @library.global_function
-def js(bundle, debug=None, defer=False, async=False):
+def js(bundle, debug=None, defer=False, _async=False):
     """
     If we are in debug mode, just output a single script tag for each js file.
     If we are not in debug mode, return a script that points at bundle-min.js.
@@ -564,7 +563,7 @@ def js(bundle, debug=None, defer=False, async=False):
     if defer:
         attrs.append('defer')
 
-    if async:
+    if _async:
         attrs.append('async')
 
     return _build_html(urls, '<script %s></script>' % ' '.join(attrs))

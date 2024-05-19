@@ -51,6 +51,7 @@ from html5lib.serializer.htmlserializer import HTMLSerializer
 from PIL import Image
 from rest_framework.utils.encoders import JSONEncoder
 from validator import unicodehelper
+import six.moves.urllib.parse as urlparse
 
 from olympia.amo import ADDON_ICON_SIZES, search
 from olympia.amo.pagination import ESPaginator

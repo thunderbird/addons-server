@@ -90,9 +90,11 @@ class Collection(ModelBase):
     id = PositiveAutoField(primary_key=True)
     TYPE_CHOICES = amo.COLLECTION_CHOICES.items()
 
+    # FIXME: This might break existing database, investigate migration used in AMO
     # TODO: Use models.UUIDField but it uses max_length=32 hex (no hyphen)
     # uuids so needs some migration.
-    uuid = models.CharField(max_length=36, blank=True, unique=True)
+    uuid = models.UUIDField(blank=True, unique=True, null=True)
+    # uuid = models.CharField(max_length=36, blank=True, unique=True)
     name = TranslatedField(require_locale=False)
     # nickname is deprecated.  Use slug.
     nickname = models.CharField(max_length=30, blank=True, unique=True,
@@ -138,7 +140,7 @@ class Collection(ModelBase):
 
     def save(self, **kw):
         if not self.uuid:
-            self.uuid = unicode(uuid.uuid4())
+            self.uuid = six.text_type(uuid.uuid4())
         if not self.slug:
             self.slug = self.uuid[:30]
         self.clean_slug()

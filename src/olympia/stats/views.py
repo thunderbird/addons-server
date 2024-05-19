@@ -392,7 +392,7 @@ def site_events(request, start, end):
 
     events = list(site_event_format(request, qs))
 
-    type_pretty = unicode(amo.SITE_EVENT_CHOICES[amo.SITE_EVENT_RELEASE])
+    type_pretty = six.text_type(amo.SITE_EVENT_CHOICES[amo.SITE_EVENT_RELEASE])
 
     releases = product_details.firefox_history_major_releases
 
@@ -411,7 +411,7 @@ def site_event_format(request, events):
         yield {
             'start': e.start.isoformat(),
             'end': e.end.isoformat() if e.end else None,
-            'type_pretty': unicode(amo.SITE_EVENT_CHOICES[e.event_type]),
+            'type_pretty': six.text_type(amo.SITE_EVENT_CHOICES[e.event_type]),
             'type': e.event_type,
             'description': e.description,
             'url': e.more_info_url,

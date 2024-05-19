@@ -41,7 +41,7 @@ from olympia.amo.models import (
 from olympia.amo.templatetags import jinja_helpers
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import (
-    AMOJSONEncoder, StopWatch, attach_trans_dict, cache_ns_key, chunked,
+    AMOJSONEncoder, attach_trans_dict, cache_ns_key, chunked,
     find_language, send_mail, slugify, sorted_groupby, timer, to_language)
 from olympia.constants.applications import THUNDERBIRD
 from olympia.constants.categories import CATEGORIES, CATEGORIES_BY_ID
@@ -1915,7 +1915,7 @@ class AddonFeatureCompatibility(ModelBase):
         choices=amo.E10S_COMPATIBILITY_CHOICES, default=amo.E10S_UNKNOWN)
 
     def __unicode__(self):
-        return unicode(self.addon) if self.pk else u""
+        return six.text_type(self.addon) if self.pk else u""
 
     def get_e10s_classname(self):
         return amo.E10S_COMPATIBILITY_CHOICES_API[self.e10s]
@@ -2297,7 +2297,7 @@ class ReplacementAddon(ModelBase):
 
     @staticmethod
     def path_is_external(path):
-        return urlparse.urlsplit(path).scheme in ['http', 'https']
+        return urlsplit(path).scheme in ['http', 'https']
 
     def has_external_url(self):
         return self.path_is_external(self.path)

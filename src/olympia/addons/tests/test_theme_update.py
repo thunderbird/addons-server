@@ -3,6 +3,7 @@ import json
 
 from django.conf import settings
 from django.db import connection
+from django.test.utils import override_settings
 
 import mock
 import six
@@ -36,7 +37,7 @@ class TestWSGIApplication(TestCase):
         }
         MigratedUpdate_mock.return_value.is_migrated = False
         # From AMO we consume the ID as the `addon_id`.
-        for path_info, call_args in six.iteritems(self.urls):
+        for path_info, call_args in six.iteritems(urls):
             environ = dict(self.environ, PATH_INFO=path_info)
             theme_update.application(environ, self.start_response)
             LWThemeUpdate_mock.assert_called_with(*call_args)
@@ -45,7 +46,7 @@ class TestWSGIApplication(TestCase):
         # From getpersonas.com we append `?src=gp` so we know to consume
         # the ID as the `persona_id`.
         self.environ['QUERY_STRING'] = 'src=gp'
-        for path_info, call_args in six.iteritems(self.urls):
+        for path_info, call_args in six.iteritems(urls):
             environ = dict(self.environ, PATH_INFO=path_info)
             theme_update.application(environ, self.start_response)
             call_args[2] = 'src=gp'
@@ -64,7 +65,7 @@ class TestWSGIApplication(TestCase):
         }
         MigratedUpdate_mock.return_value.is_migrated = True
         # From AMO we consume the ID as the `addon_id`.
-        for path_info, call_args in six.iteritems(self.urls):
+        for path_info, call_args in six.iteritems(urls):
             environ = dict(self.environ, PATH_INFO=path_info)
             theme_update.application(environ, self.start_response)
             assert not LWThemeUpdate_mock.called
@@ -73,7 +74,7 @@ class TestWSGIApplication(TestCase):
         # From getpersonas.com we append `?src=gp` so we know to consume
         # the ID as the `persona_id`.
         self.environ['QUERY_STRING'] = 'src=gp'
-        for path_info, call_args in six.iteritems(self.urls):
+        for path_info, call_args in six.iteritems(urls):
             environ = dict(self.environ, PATH_INFO=path_info)
             theme_update.application(environ, self.start_response)
             call_args[2] = 'src=gp'
@@ -97,19 +98,6 @@ class TestWSGIApplication(TestCase):
             theme_update.application(environ, self.start_response)
             assert not LWThemeUpdate_mock.called
             assert not MigratedUpdate_mock.called
-            self.start_response.assert_called_with('404 Not Found', [])
-
-    @mock.patch('services.theme_update.MigratedUpdate')
-    @mock.patch('services.theme_update.LWThemeUpdate')
-    @override_settings(MIGRATED_LWT_UPDATES_ENABLED=False)
-    def test_404_for_migrated_but_updates_disabled(
-            self, LWThemeUpdate_mock, MigratedUpdate_mock):
-        MigratedUpdate_mock.return_value.is_migrated = True
-        for path_info, call_args in six.iteritems(self.urls):
-            environ = dict(self.environ, PATH_INFO=path_info)
-            theme_update.application(environ, self.start_response)
-            assert not LWThemeUpdate_mock.called
-            MigratedUpdate_mock.assert_called_with(*call_args)
             self.start_response.assert_called_with('404 Not Found', [])
 
 

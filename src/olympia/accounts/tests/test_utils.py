@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import time
-import urlparse
+import six.moves.urllib.parse as urlparse
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime

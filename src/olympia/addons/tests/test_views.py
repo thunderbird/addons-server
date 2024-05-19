@@ -952,7 +952,7 @@ class TestDetailPage(TestCase):
         cache.clear()
         d = self.get_pq()('.dependencies .hovercard')
         assert d.length == 1
-        assert d.find('h3').text() == unicode(req.name)
+        assert d.find('h3').text() == six.text_type(req.name)
         assert d.find('a').attr('href').endswith('?src=dp-dl-dependencies')
         assert d.find('.install-button a').attr('href').endswith(
             '?src=dp-hc-dependencies')
