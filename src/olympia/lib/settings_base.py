@@ -574,7 +574,7 @@ INSTALLED_APPS = (
     'csp',
     'aesfield',
     'django_extensions',
-    'raven.contrib.django',
+    #'raven.contrib.django',
     'rest_framework',
     'waffle',
     'django_jinja',
