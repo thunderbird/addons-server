@@ -43,3 +43,4 @@ docker*.yml
 .vscode
 src/olympia/discovery/strings.jinja2
 venv*
+.local
