@@ -6,7 +6,9 @@ import os
 import socket
 import subprocess
 import tempfile
-import urllib2
+from six.moves.urllib.request import urlopen
+from six.moves.urllib_error import HTTPError, URLError
+
 import shutil
 
 from copy import deepcopy
@@ -982,11 +984,11 @@ def failed_validation(*messages):
 
 def _fetch_content(url):
     try:
-        return urllib2.urlopen(url, timeout=15)
-    except urllib2.HTTPError as e:
+        return urlopen(url, timeout=15)
+    except HTTPError as e:
         raise Exception(
             ugettext('%s responded with %s (%s).') % (url, e.code, e.msg))
-    except urllib2.URLError as e:
+    except URLError as e:
         # Unpack the URLError to try and find a useful message.
         if isinstance(e.reason, socket.timeout):
             raise Exception(ugettext('Connection to "%s" timed out.') % url)

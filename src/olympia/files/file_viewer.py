@@ -14,8 +14,26 @@ from django.utils.encoding import force_text
 from django.utils.translation import ugettext
 
 # TODO (andym): change the validator variables.
-from validator.testcases.packagelayout import (
-    blacklisted_extensions, blacklisted_magic_numbers)
+#from validator.testcases.packagelayout import (
+#    blacklisted_extensions, blacklisted_magic_numbers)
+
+"""From amo-validator which isn't Python3 compat"""
+
+# Detect blacklisted files based on their extension.
+blacklisted_extensions = ('dll', 'exe', 'dylib', 'so',
+                          'sh', 'class', 'swf')
+
+blacklisted_magic_numbers = (
+    (0x4d, 0x5a),  # EXE/DLL
+    (0x5a, 0x4d),  # Alternative for EXE/DLL
+    (0x7f, 0x45, 0x4c, 0x46),  # UNIX elf
+    (0x23, 0x21),  # Shebang (shell script)
+    (0xca, 0xfe, 0xba, 0xbe),  # Java + Mach-O (dylib)
+    (0xca, 0xfe, 0xd0, 0x0d),  # Java (packed)
+    (0xfe, 0xed, 0xfa, 0xce),  # Mach-O
+    (0x46, 0x57, 0x53),  # Uncompressed SWF
+    (0x43, 0x57, 0x53),  # ZLIB compressed SWF
+)
 
 import olympia.core.logger
 

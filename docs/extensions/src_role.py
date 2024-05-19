@@ -3,7 +3,7 @@ Turn :src:`file.py` into a link to `file.py` in your online source browser.
 
 Requires src_base_url to be set in conf.py.
 """
-import urlparse
+import six.moves.urllib_parse as urlparse
 
 from docutils import nodes
 

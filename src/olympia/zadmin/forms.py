@@ -146,9 +146,9 @@ class CompatForm(forms.Form):
                                       ('binary', _('Binary')),
                                       ('non-binary', _('Non-binary'))),
                              widget=RadioSelect, required=False)
-    _minimum_choices = [(x, x) for x in xrange(100, -10, -10)]
+    _minimum_choices = [(x, x) for x in range(100, -10, -10)]
     minimum = forms.TypedChoiceField(choices=_minimum_choices, coerce=int,
                                      required=False)
     _ratio_choices = [('%.1f' % (x / 10.0), '%.0f%%' % (x * 10))
-                      for x in xrange(9, -1, -1)]
+                      for x in range(9, -1, -1)]
     ratio = forms.ChoiceField(choices=_ratio_choices, required=False)
