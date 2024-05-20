@@ -52,7 +52,7 @@ from html5lib.serializer.htmlserializer import HTMLSerializer
 from PIL import Image
 from rest_framework.utils.encoders import JSONEncoder
 from validator import unicodehelper
-import six.moves.urllib.parse as urlparse
+from six.moves.urllib_parse import parse_qsl, ParseResult, unquote_to_bytes
 
 from olympia.amo import ADDON_ICON_SIZES, search
 from olympia.amo.pagination import ESPaginator
@@ -90,14 +90,14 @@ def urlparams(url_, hash=None, **query):
 
     # Use dict(parse_qsl) so we don't get lists of values.
     q = url.query
-    query_dict = dict(urlparse.parse_qsl(force_text(q))) if q else {}
+    query_dict = dict(parse_qsl(force_text(q))) if q else {}
     query_dict.update(
         (k, force_bytes(v) if v is not None else v) for k, v in query.items())
     query_string = urlencode(
         [(k, unquote_to_bytes(v))
          for k, v in query_dict.items() if v is not None])
-    new = urlparse.ParseResult(url.scheme, url.netloc, url.path, url.params,
-                               query_string, fragment)
+    new = ParseResult(url.scheme, url.netloc, url.path, url.params,
+                      query_string, fragment)
     return new.geturl()
 
 

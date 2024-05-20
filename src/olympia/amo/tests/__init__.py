@@ -675,7 +675,8 @@ def addon_factory(
     application = version_kw.get('application', amo.FIREFOX.id)
     if not category:
         static_category = random.choice(list(
-            CATEGORIES[application][addon.type].values()))
+            list(CATEGORIES[application][addon.type].values()))
+        )
         category = Category.from_static_category(static_category, True)
     AddonCategory.objects.create(addon=addon, category=category)
 
