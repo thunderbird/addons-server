@@ -2,7 +2,7 @@ import hashlib
 import itertools
 import json
 import random
-import urllib
+import six.moves.urllib.parse as urllib
 
 from datetime import date, timedelta
 
@@ -372,7 +372,7 @@ class SearchView(APIView):
         if self.version < 1.5:
             # Fix doubly encoded query strings.
             try:
-                query = urllib.unquote(query.encode('ascii'))
+                query = urllib.unquote(query)
             except UnicodeEncodeError:
                 # This fails if the string is already UTF-8.
                 pass

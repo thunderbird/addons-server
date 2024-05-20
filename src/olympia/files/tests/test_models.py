@@ -15,6 +15,7 @@ from django.test.utils import override_settings
 
 import mock
 import pytest
+from django.utils.encoding import force_text
 
 from mock import patch
 
@@ -157,7 +158,7 @@ class TestFile(TestCase, amo.tests.AMOPaths):
         f.status = amo.STATUS_PUBLIC
         f.filename = u'test_unhide_disabled_filés.xpi'
         with storage.open(f.guarded_file_path, 'wb') as fp:
-            fp.write('some data\n')
+            fp.write(b'some data\n')
         f.unhide_disabled_file()
         assert storage.exists(f.file_path)
         assert storage.open(f.file_path).size
@@ -237,9 +238,9 @@ class TestFile(TestCase, amo.tests.AMOPaths):
 
         file_ = File.objects.get(pk=67442)
         with storage.open(file_.file_path, 'wb') as fp:
-            fp.write('some data\n')
+            fp.write(b'some data\n')
         with storage.open(file_.guarded_file_path, 'wb') as fp:
-            fp.write('some data guarded\n')
+            fp.write(b'some data guarded\n')
         assert file_.generate_hash().startswith('sha256:5aa03f96c77536579166f')
         file_.status = amo.STATUS_DISABLED
         assert file_.generate_hash().startswith('sha256:6524f7791a35ef4dd4c6f')
@@ -812,7 +813,7 @@ class TestFileUpload(UploadTest):
             force_text(upload.uuid.hex))
 
     def test_from_post_hash(self):
-        hashdigest = hashlib.sha256(self.data).hexdigest()
+        hashdigest = hashlib.sha256(self.data.encode('utf-8')).hexdigest()
         assert self.upload().hash == 'sha256:%s' % hashdigest
 
     def test_from_post_extra_params(self):
@@ -1434,6 +1435,7 @@ class TestParseSearch(TestCase, amo.tests.AMOPaths):
             'name': u'search tool',
             'is_restart_required': False,
             'is_webextension': False,
+            'is_experiment': False,
             'version': datetime.now().strftime('%Y%m%d'),
             'summary': u'Search Engine for Firefox',
             'type': amo.ADDON_SEARCH
@@ -1491,7 +1493,7 @@ class TestLanguagePack(LanguagePackBase):
 
     def test_extract(self):
         obj = self.file_create('langpack-localepicker')
-        assert 'title=Select a language' in obj.get_localepicker()
+        assert b'title=Select a language' in obj.get_localepicker()
 
     def test_extract_no_chrome_manifest(self):
         obj = self.file_create('langpack')
@@ -1524,9 +1526,9 @@ class TestLanguagePack(LanguagePackBase):
 
     def test_hits_cache(self):
         obj = self.file_create('langpack-localepicker')
-        assert 'title=Select a language' in obj.get_localepicker()
+        assert b'title=Select a language' in obj.get_localepicker()
         obj.update(filename='garbage')
-        assert 'title=Select a language' in obj.get_localepicker()
+        assert b'title=Select a language' in obj.get_localepicker()
 
     @mock.patch('olympia.files.models.File.get_localepicker')
     def test_cache_on_create(self, get_localepicker):

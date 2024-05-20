@@ -124,7 +124,7 @@ class TestRezip(AMOPaths, TestCase):
 
     def setUp(self):
         self.response = mock.Mock()
-        self.response.content = open(self.xpi_path('github-repo')).read()
+        self.response.content = open(self.xpi_path('github-repo'), 'rb').read()
 
     def test_rezip(self):
         new_path = rezip_file(self.response, 1)

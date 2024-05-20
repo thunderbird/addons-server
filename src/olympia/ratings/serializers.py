@@ -83,7 +83,7 @@ class BaseRatingSerializer(serializers.ModelSerializer):
         body = data.get('body', '')
         if body:
             if '<br>' in body:
-                data['body'] = re.sub('<br>', '\n', body)
+                data['body'] = re.sub(r'<br>', '\n', body)
             # Unquote the body when searching for links, in case someone tries
             # 'example%2ecom'.
             if RatingForm.link_pattern.search(unquote(body)) is not None:

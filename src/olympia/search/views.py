@@ -491,7 +491,7 @@ def version_sidebar(request, form_data, aggregations):
 
 def platform_sidebar(request, form_data):
     qplatform = form_data.get('platform')
-    app_platforms = request.APP.platforms.values()
+    app_platforms = list(request.APP.platforms.values())
     ALL = app_platforms.pop(0)
 
     # The default is to show "All Systems."

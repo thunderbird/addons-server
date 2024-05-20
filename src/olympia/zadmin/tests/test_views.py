@@ -170,7 +170,7 @@ class TestEmailPreview(TestCase):
         r = self.client.get(reverse('zadmin.email_preview_csv',
                             args=[self.topic.topic]))
         assert r.status_code == 200
-        rdr = csv.reader(StringIO(r.content))
+        rdr = csv.reader(StringIO(r.content.decode('utf-8')))
         assert next(rdr) == ['from_email', 'recipient_list', 'subject', 'body']
         assert next(rdr) == ['admin@mozilla.org', 'funnyguy@mozilla.org',
                              'the subject', 'Hello Ivan Krsti\xc4\x87']

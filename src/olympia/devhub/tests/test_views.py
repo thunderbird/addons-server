@@ -545,7 +545,7 @@ class TestHome(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 200
         self.assertTemplateUsed(response, 'devhub/index.html')
-        assert 'Customize Firefox' in response.content
+        assert 'Customize Firefox' in response.content.decode('utf-8')
 
     def test_default_lang_selected(self):
         self.client.logout()
@@ -557,7 +557,7 @@ class TestHome(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 200
         self.assertTemplateUsed(response, 'devhub/index.html')
-        assert 'My Add-ons' in response.content
+        assert 'My Add-ons' in response.content.decode('utf-8')
 
     def test_my_addons_addon_versions_link(self):
         assert self.client.login(email='del@icio.us')
@@ -889,7 +889,7 @@ class TestUpload(BaseUploadTest):
         assert upload.validation
         validation = json.loads(upload.validation)
 
-        assert not validation['success']
+        assert not validation['success'], upload.validation
         # The current interface depends on this JSON structure:
         assert validation['errors'] == 1
         assert validation['warnings'] == 0

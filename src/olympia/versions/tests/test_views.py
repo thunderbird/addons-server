@@ -505,7 +505,7 @@ class TestDownloadSource(TestCase):
         self.version = self.addon.current_version
         tdir = temp.gettempdir()
         self.source_file = temp.NamedTemporaryFile(suffix=".zip", dir=tdir)
-        self.source_file.write('a' * (2 ** 21))
+        self.source_file.write(b'a' * (2 ** 21))
         self.source_file.seek(0)
         self.version.source = DjangoFile(self.source_file)
         self.version.save()

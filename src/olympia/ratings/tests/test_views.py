@@ -13,6 +13,8 @@ from freezegun import freeze_time
 from pyquery import PyQuery as pq
 from waffle.testutils import override_switch
 
+from rest_framework.exceptions import ErrorDetail
+
 from olympia import amo
 from olympia.access.models import Group, GroupUser
 from olympia.activity.models import ActivityLog
@@ -216,7 +218,7 @@ class TestFlag(ReviewTest):
     def test_new_flag(self):
         response = self.client.post(self.url, {'flag': RatingFlag.SPAM})
         assert response.status_code == 200
-        assert response.content == (
+        assert response.content.decode('utf-8') == (
             '{"msg": "Thanks; this review has been '
             'flagged for reviewer approval."}')
         assert RatingFlag.objects.filter(flag=RatingFlag.SPAM).count() == 1
@@ -266,7 +268,7 @@ class TestFlag(ReviewTest):
         flag_url = jinja_helpers.url(
             'addons.ratings.flag', self.addon.slug, review.id)
         response = self.client.post(flag_url, {'flag': RatingFlag.SPAM})
-        assert response.content == (
+        assert response.content.decode('utf-8') == (
             '{"msg": "This rating can\'t be flagged because it has no review '
             'text."}')
 
@@ -443,7 +445,7 @@ class TestCreate(ReviewTest):
         response = self.client.get(url)
         assert response.status_code == 200
         # We should have a form with the body.
-        assert response.context['form'].fields.keys() == ['body']
+        assert list(response.context['form'].fields.keys()) == ['body']
 
     def test_new_reply(self):
         self.login_dev()
@@ -1781,8 +1783,13 @@ class TestRatingViewSetPost(TestCase):
             'addon': self.addon.pk, 'body': u'test bodyé',
             'score': 5, 'version': self.addon.current_version.version})
         assert response.status_code == 400
-        assert response.data['version'] == [
-            'Incorrect type. Expected pk value, received unicode.']
+        error_string = [
+            ErrorDetail(
+                string='Incorrect type. Expected pk value, received str.',
+                code='incorrect_type',
+            )
+        ]
+        assert response.data['version'] == error_string
 
     def test_post_logged_in(self):
         addon_author = user_factory()

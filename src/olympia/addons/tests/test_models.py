@@ -2305,6 +2305,7 @@ class TestAddonFromUpload(UploadTest):
     fixtures = ['base/users']
 
     def setUp(self):
+        print(">> Setting Up!")
         super(TestAddonFromUpload, self).setUp()
         u = UserProfile.objects.get(pk=999)
         core.set_user(u)
@@ -2580,11 +2581,15 @@ class TestAddonFromUpload(UploadTest):
         assert feature_compatibility.e10s == amo.E10S_UNKNOWN
 
     def test_extension_is_marked_as_e10s_incompatible(self):
+        print(">> Starting!")
         self.upload = self.get_upload(
             'multiprocess_incompatible_extension.xpi')
+        print(">> Upload", self.upload)
         parsed_data = parse_addon(self.upload, user=Mock())
+        print(">> Parsed Data", parsed_data)
         addon = Addon.from_upload(
             self.upload, [self.selected_app], parsed_data=parsed_data)
+        print(">> Addon", addon)
 
         assert addon.guid
         feature_compatibility = addon.feature_compatibility

@@ -545,7 +545,7 @@ class UnicodeCSVDictWriter(csv.DictWriter):
         # Write to the buffer as ascii.
         self.writer.writerow(map(self.try_encode, row))
         # Dump the buffer to the real stream as utf-8.
-        self.stream.write(self.buffer.getvalue().decode('utf-8'))
+        self.stream.write(self.buffer.getvalue())
         # Clear the buffer.
         self.buffer.truncate(0)
 

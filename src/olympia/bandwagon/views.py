@@ -184,7 +184,7 @@ def collection_detail(request, username, slug):
     base = Addon.objects.valid() & collection.addons.all()
     filter = CollectionAddonFilter(request, base,
                                    key='sort', default='popular')
-    notes = get_notes(collection)
+    notes = next(get_notes(collection))
     # Go directly to CollectionAddon for the count to avoid joins.
     count = CollectionAddon.objects.filter(
         Addon.objects.all().valid_q(

@@ -15,7 +15,7 @@ from olympia.addons.models import Addon
 from olympia.amo.tests import TestCase, addon_factory
 from olympia.amo.utils import (
     attach_trans_dict, get_locale_from_lang, pngcrush_image,
-    translations_for_field, walkfiles)
+    walkfiles)
 from olympia.versions.models import Version
 
 
@@ -95,20 +95,6 @@ class TestAttachTransDict(TestCase):
             set([('en-us', 'English 2 Name'),
                  ('es', 'Spanish 2 Name'),
                  ('fr', 'French 2 Name')]))
-
-    def test_translations_for_field(self):
-        version = Version.objects.create(addon=Addon.objects.create())
-
-        # No translations.
-        assert translations_for_field(version.releasenotes) == {}
-
-        # With translations.
-        initial = {'en-us': 'release notes', 'fr': 'notes de version'}
-        version.releasenotes = initial
-        version.save()
-
-        translations = translations_for_field(version.releasenotes)
-        assert translations == initial
 
 
 def test_has_links():

@@ -165,7 +165,7 @@ class TestBaseRatingSerializer(TestCase):
         addon = addon_factory()
         self.rating = Rating.objects.create(
             addon=addon, user=self.user, rating=4,
-            version=addon.current_version, body=u'This is my rëview. Like ît?')
+            version=addon.current_version, body='This is my rëview. Like ît?')
 
         result = self.serialize()
 

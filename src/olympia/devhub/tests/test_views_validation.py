@@ -236,7 +236,7 @@ class TestValidateAddon(TestCase):
         response = self.client.get(reverse('devhub.validate_addon'))
         assert response.status_code == 200
 
-        assert 'this tool only works with legacy' not in response.content
+        assert 'this tool only works with legacy' not in response.content.decode('utf-8')
 
         doc = pq(response.content)
         assert doc('#upload-addon').attr('data-upload-url') == (
@@ -255,7 +255,7 @@ class TestValidateAddon(TestCase):
         upload = FileUpload.objects.get()
         response = self.client.get(
             reverse('devhub.upload_detail', args=(upload.uuid.hex,)))
-        assert 'Validation Results for animated.png' in response.content
+        assert 'Validation Results for animated.png' in response.content.decode('utf-8')
 
     @mock.patch('validator.validate.validate')
     def test_upload_listed_addon(self, validate_mock):
@@ -379,7 +379,7 @@ class TestValidateFile(BaseUploadTest):
         # Move the file into place as if it were a real file
         with storage.open(self.file.file_path, 'w') as dest:
             shutil.copyfileobj(
-                open(self.file_path('invalid-id-20101206.xpi')),
+                open(self.file_path('invalid-id-20101206.xpi'), 'rb'),
                 dest)
         self.addon = self.file.version.addon
 

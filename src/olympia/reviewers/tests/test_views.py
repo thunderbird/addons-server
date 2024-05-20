@@ -2526,7 +2526,7 @@ class BaseTestQueueSearch(SearchTest):
     def test_search_by_addon_in_locale(self):
         name = 'Not Needing Admin Review'
         generated = self.generate_file(name)
-        uni = 'フォクすけといっしょ'.decode('utf8')
+        uni = 'フォクすけといっしょ'
         addon = Addon.objects.get(pk=generated.id)
         addon.name = {'ja': uni}
         addon.save()
@@ -2551,7 +2551,7 @@ class BaseTestQueueSearch(SearchTest):
     def test_search_by_supported_email_in_locale(self):
         name = 'Not Needing Admin Review'
         generated = self.generate_file(name)
-        uni = 'フォクすけといっしょ@site.co.jp'.decode('utf8')
+        uni = 'フォクすけといっしょ@site.co.jp'
         addon = Addon.objects.get(pk=generated.id)
         addon.support_email = {'ja': uni}
         addon.save()
@@ -4531,10 +4531,10 @@ class TestReviewPending(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         assert len(doc('.review-actions-files ul li')) == 2
-        assert reviewed.filename not in response.content
-        assert disabled.filename not in response.content
-        assert unreviewed.filename in response.content
-        assert self.file.filename in response.content
+        assert reviewed.filename not in response.content.decode('utf-8')
+        assert disabled.filename not in response.content.decode('utf-8')
+        assert unreviewed.filename in response.content.decode('utf-8')
+        assert self.file.filename in response.content.decode('utf-8')
 
     @mock.patch('olympia.reviewers.utils.sign_file')
     def test_review_unreviewed_files(self, mock_sign):

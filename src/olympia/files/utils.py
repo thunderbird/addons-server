@@ -182,7 +182,7 @@ def get_simple_version(version_string):
     """
     if not version_string:
         return ''
-    return re.sub('[<=>]', '', version_string)
+    return re.sub(r'[<=>]', '', version_string)
 
 
 class RDFExtractor(object):
@@ -879,12 +879,12 @@ def get_all_files(folder, strip_prefix='', prefix=None):
     def iterate(path):
         path_dirs, path_files = storage.listdir(path)
         for dirname in sorted(path_dirs):
-            full = os.path.join(path, dirname)
+            full = os.path.join(force_text(path), force_text(dirname))
             all_files.append(full)
             iterate(full)
 
         for filename in sorted(path_files):
-            full = os.path.join(path, filename)
+            full = os.path.join(force_text(path), force_text(filename))
             all_files.append(full)
 
     iterate(folder)
@@ -928,11 +928,10 @@ def parse_xpi(xpi, addon=None, minimal=False, user=None):
     except forms.ValidationError:
         raise
     except IOError as e:
+        err = e
         if len(e.args) < 2:
-            err, strerror = None, e[0]
-        else:
-            err, strerror = e
-        log.error('I/O error({0}): {1}'.format(err, strerror))
+            err = e[0]
+        log.error('I/O error({0})'.format(err))
         raise forms.ValidationError(ugettext(
             'Could not parse the manifest file.'))
     except Exception:

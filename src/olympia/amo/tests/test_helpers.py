@@ -419,7 +419,8 @@ def get_image_path(name):
 
 
 def get_uploaded_file(name):
-    data = open(get_image_path(name)).read()
+    with open(get_image_path(name), 'rb') as fh:
+        data = fh.read()
     return SimpleUploadedFile(name, data,
                               content_type=mimetypes.guess_type(name)[0])
 

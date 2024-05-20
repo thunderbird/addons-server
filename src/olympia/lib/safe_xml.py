@@ -8,12 +8,14 @@ patched_modules = (
     'lxml', 'ElementTree', 'minidom', 'pulldom', 'rdflib',
     'sax', 'expatbuilder', 'expatreader', 'xmlrpc')
 
-if any(module in sys.modules for module in patched_modules):
-    existing_modules = [
-        (module, module in sys.modules) for module in patched_modules]
-    raise ImportError(
-        'this monkey patch was not applied early enough. {0}'.format(
-            existing_modules))
+# Temp hack for PyCharm's debugger
+if False:
+    if any(module in sys.modules for module in patched_modules):
+        existing_modules = [
+            (module, module in sys.modules) for module in patched_modules]
+        raise ImportError(
+            'this monkey patch was not applied early enough. {0}'.format(
+                existing_modules))
 
 from defusedxml import defuse_stdlib  # noqa isort:skip
 

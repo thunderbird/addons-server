@@ -94,10 +94,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert storage.exists(user.picture_path_original)
         assert storage.exists(user.picture_path)
@@ -151,10 +151,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert user.addons.count() == 1
         rating = Rating.objects.create(
@@ -185,10 +185,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert user.addons.count() == 1
         rating = Rating.objects.create(
@@ -219,10 +219,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert user.addons.count() == 1
         rating = Rating.objects.create(
@@ -249,10 +249,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         user.delete_picture()
 

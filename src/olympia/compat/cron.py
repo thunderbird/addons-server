@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+import six
 from django.db.models import Count, Max
 
 import elasticsearch.helpers
@@ -52,7 +53,7 @@ def compatibility_report(index=None):
             doc = docs[addon.id]
             doc.update(id=addon.id, slug=addon.slug, guid=addon.guid,
                        binary=addon.binary_components,
-                       name=unicode(addon.name), created=addon.created,
+                       name=six.text_type(addon.name), created=addon.created,
                        current_version=current_version)
             doc['count'] = chunk[addon.id]
             doc['usage'] = updates[addon.id]

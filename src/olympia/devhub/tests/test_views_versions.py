@@ -673,7 +673,7 @@ class TestVersionEditDetails(TestVersionEditBase):
     def test_existing_source_link(self):
         tmp_file = temp.NamedTemporaryFile
         with tmp_file(suffix=".zip", dir=temp.gettempdir()) as source_file:
-            source_file.write('a' * (2 ** 21))
+            source_file.write(b'a' * (2 ** 21))
             source_file.seek(0)
             self.version.source = DjangoFile(source_file)
             self.version.save()
@@ -690,7 +690,7 @@ class TestVersionEditDetails(TestVersionEditBase):
         tdir = temp.gettempdir()
         tmp_file = temp.NamedTemporaryFile
         with tmp_file(suffix=".zip", dir=tdir) as source_file:
-            source_file.write('a' * (2 ** 21))
+            source_file.write(b'a' * (2 ** 21))
             source_file.seek(0)
             data = self.formset(source=source_file)
             response = self.client.post(self.url, data)
@@ -707,7 +707,7 @@ class TestVersionEditDetails(TestVersionEditBase):
         tdir = temp.gettempdir()
         tmp_file = temp.NamedTemporaryFile
         with tmp_file(suffix=".exe", dir=tdir) as source_file:
-            source_file.write('a' * (2 ** 21))
+            source_file.write(b'a' * (2 ** 21))
             source_file.seek(0)
             data = self.formset(source=source_file)
             response = self.client.post(self.url, data)
@@ -718,7 +718,7 @@ class TestVersionEditDetails(TestVersionEditBase):
         tdir = temp.gettempdir()
         tmp_file = temp.NamedTemporaryFile
         with tmp_file(suffix=".zip", dir=tdir) as source_file:
-            source_file.write('a' * (2 ** 21))
+            source_file.write(b'a' * (2 ** 21))
             source_file.seek(0)
             data = self.formset(source=source_file)
             response = self.client.post(self.url, data)
@@ -750,8 +750,8 @@ class TestVersionEditDetails(TestVersionEditBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' in response.content
+        assert 'this should not be shown' not in response.content.decode('utf-8')
+        assert 'this is an info request' in response.content.decode('utf-8')
 
     def test_dont_show_request_for_information_if_none_pending(self):
         self.user = UserProfile.objects.latest('pk')
@@ -763,8 +763,8 @@ class TestVersionEditDetails(TestVersionEditBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' not in response.content
+        assert 'this should not be shown' not in response.content.decode('utf-8')
+        assert 'this is an info request' not in response.content.decode('utf-8')
 
     def test_clear_request_for_information(self):
         AddonReviewerFlags.objects.create(
@@ -840,7 +840,7 @@ class TestVersionEditCompat(TestVersionEditBase):
             initial_count=1)
         response = self.client.post(self.url, data)
         assert response.status_code == 302
-        apps = self.get_version().compatible_apps.keys()
+        apps = list(self.get_version().compatible_apps.keys())
         assert sorted(apps) == sorted([amo.FIREFOX, amo.THUNDERBIRD])
         assert list(ActivityLog.objects.all().values_list('action')) == (
             [(amo.LOG.MAX_APPVERSION_UPDATED.id,)])
@@ -888,7 +888,7 @@ class TestVersionEditCompat(TestVersionEditBase):
         response = self.client.post(
             self.url, self.formset(*data, initial_count=2))
         assert response.status_code == 302
-        apps = self.get_version().compatible_apps.keys()
+        apps = list(self.get_version().compatible_apps.keys())
         assert apps == [amo.THUNDERBIRD]
         assert list(ActivityLog.objects.all().values_list('action')) == (
             [(amo.LOG.MAX_APPVERSION_UPDATED.id,)])
@@ -912,7 +912,7 @@ class TestVersionEditCompat(TestVersionEditBase):
         data['DELETE'] = True
         response = self.client.post(
             self.url, self.formset(data, initial_count=1))
-        assert response.status_code == 200
+        assert response.status_code == 200, response.content
 
         compat_formset = response.context['compat_form']
         assert compat_formset.non_form_errors() == (

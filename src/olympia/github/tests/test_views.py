@@ -53,7 +53,7 @@ class TestGithubView(AMOPaths, GithubBaseTestCase, TestCase):
 
     def setup_xpi(self):
         self.response = mock.Mock()
-        self.response.content = open(self.xpi_path('github-repo')).read()
+        self.response.content = open(self.xpi_path('github-repo'), 'rb').read()
         self.requests.get.return_value = self.response
 
     def test_pending_fails(self):

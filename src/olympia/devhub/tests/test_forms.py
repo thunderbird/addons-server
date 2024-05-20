@@ -301,7 +301,7 @@ class TestPreviewForm(TestCase):
         name = 'transparent.png'
         form = forms.PreviewForm({'caption': 'test', 'upload_hash': name,
                                   'position': 1})
-        with storage.open(os.path.join(self.dest, name), 'w') as f:
+        with storage.open(os.path.join(self.dest, name), 'wb') as f:
             shutil.copyfileobj(open(get_image_path(name)), f)
         assert form.is_valid()
         form.save(addon)
@@ -313,7 +313,7 @@ class TestPreviewForm(TestCase):
         name = 'non-animated.gif'
         form = forms.PreviewForm({'caption': 'test', 'upload_hash': name,
                                   'position': 1})
-        with storage.open(os.path.join(self.dest, name), 'w') as f:
+        with storage.open(os.path.join(self.dest, name), 'wb') as f:
             shutil.copyfileobj(open(get_image_path(name)), f)
         assert form.is_valid()
         form.save(addon)

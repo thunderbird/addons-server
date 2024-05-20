@@ -60,7 +60,7 @@ class RatingForm(RatingReplyForm):
         # Unquote the body in case someone tries 'example%2ecom'.
         data = unquote(self.cleaned_data.get('body', ''))
         if '<br>' in data:
-            self.cleaned_data['body'] = re.sub('<br>', '\n', data)
+            self.cleaned_data['body'] = re.sub(r'<br>', '\n', data)
         if self.link_pattern.search(data) is not None:
             self.cleaned_data['flag'] = True
             self.cleaned_data['editorreview'] = True

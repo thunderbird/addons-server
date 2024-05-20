@@ -62,7 +62,7 @@ class ESPaginator(Paginator):
         This class overrides the default behavior and ignores "orphans" and
         assigns the count from the ES result to the Paginator.
         """
-        number = self.validate_number(number)
+        number = int(self.validate_number(number))
         bottom = (number - 1) * self.per_page
         top = bottom + self.per_page
 

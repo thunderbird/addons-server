@@ -21,7 +21,7 @@ def test_delete_photo():
                                dir=settings.TMP_PATH)
     dst = storage.open(dst_path, mode='wb')
     with dst:
-        dst.write('test data\n')
+        dst.write(b'test data\n')
     path = os.path.dirname(dst_path)
     settings.USERPICS_PATH = path
     delete_photo(dst_path)

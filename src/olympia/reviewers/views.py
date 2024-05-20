@@ -905,8 +905,8 @@ def review(request, addon, channel=None):
 
     # We assume comments on old deleted versions are for listed versions.
     # See _get_comments_for_hard_deleted_versions above for more detail.
-    all_versions = (_get_comments_for_hard_deleted_versions(addon)
-                    if channel == amo.RELEASE_CHANNEL_LISTED else [])
+    all_versions = list((_get_comments_for_hard_deleted_versions(addon)
+                    if channel == amo.RELEASE_CHANNEL_LISTED else []))
     all_versions.extend(versions)
     all_versions.sort(key=lambda v: v.created,
                       reverse=True)

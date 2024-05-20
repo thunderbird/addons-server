@@ -548,7 +548,7 @@ class ReviewerScore(ModelBase):
         if val is not None:
             return val
 
-        val = (ReviewerScore.objects.filter(user=user)
+        val = list(ReviewerScore.objects.filter(user=user)
                                     .aggregate(total=Sum('score'))
                                     .values())[0]
         if val is None:
@@ -821,7 +821,7 @@ class AutoApprovalSummary(ModelBase):
                 max(min(int(addon.reputation or 0) * -100, 0), -300)),
             # Average daily users: value divided by 10000 is added to the
             # weight, up to a maximum of 100.
-            'average_daily_users': min(addon.average_daily_users / 10000, 100),
+            'average_daily_users': min(addon.average_daily_users // 10000, 100),
             # Pas rejection history: each "recent" rejected version (disabled
             # with an original status of null, so not disabled by a developer)
             # adds 10 to the weight, up to a maximum of 100.
@@ -882,7 +882,7 @@ class AutoApprovalSummary(ModelBase):
                     if unknown_minified_code_count else 0),
                 # Size of code changes: 5kB is one point, up to a max of 100.
                 'size_of_code_changes': min(
-                    self.calculate_size_of_code_changes() / 5000, 100)
+                    self.calculate_size_of_code_changes() // 5000, 100)
             }
         except AutoApprovalNoValidationResultError:
             # We should have a FileValidationResult... since we don't and

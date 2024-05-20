@@ -3,6 +3,7 @@ from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
 
 import jinja2
+from six import add_metaclass
 
 from olympia.addons.models import Addon
 from olympia.bandwagon.models import (
@@ -25,7 +26,7 @@ class PromoModuleMeta(type):
             registry[cls.slug] = cls
         return cls
 
-
+@add_metaclass(PromoModuleMeta)
 class PromoModule(object):
     """
     Base class for promo modules in the discovery pane.
@@ -33,7 +34,6 @@ class PromoModule(object):
     Subclasses should assign a slug and define render().  The slug is only used
     internally, so it doesn't have to really be a slug.
     """
-    __metaclass__ = PromoModuleMeta
     abstract = True
     slug = None
 

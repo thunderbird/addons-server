@@ -30,6 +30,7 @@ ALLOWED_HOSTS = [
     '.mozilla.com',
     '.mozilla.net',
     '.mozaws.net',
+    '.firefox.com',
 ]
 
 # jingo-minify settings
@@ -1856,24 +1857,26 @@ REST_FRAMEWORK = {
 
 
 def get_raven_release():
-    version_json = os.path.join(ROOT, 'version.json')
-    version = None
+    return None
 
-    if os.path.exists(version_json):
-        try:
-            with open(version_json) as fobj:
-                contents = fobj.read()
-                data = json.loads(contents)
-                version = data.get('version') or data.get('commit')
-        except (IOError, KeyError):
-            version = None
-
-    if not version or version == 'origin/master':
-        try:
-            version = raven.fetch_git_sha(ROOT)
-        except raven.exceptions.InvalidGitRepository:
-            version = None
-    return version
+    # version_json = os.path.join(ROOT, 'version.json')
+    # version = None
+    #
+    # if os.path.exists(version_json):
+    #     try:
+    #         with open(version_json) as fobj:
+    #             contents = fobj.read()
+    #             data = json.loads(contents)
+    #             version = data.get('version') or data.get('commit')
+    #     except (IOError, KeyError):
+    #         version = None
+    #
+    # if not version or version == 'origin/master':
+    #     try:
+    #         version = raven.fetch_git_sha(ROOT)
+    #     except raven.exceptions.InvalidGitRepository:
+    #         version = None
+    # return version
 
 
 # This is the DSN to the Sentry service.

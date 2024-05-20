@@ -5,6 +5,7 @@ from django import forms
 from django.conf import settings
 from django.core.files.storage import default_storage as storage
 from django.forms.formsets import BaseFormSet, formset_factory
+from django.utils.encoding import force_text
 from django.utils.translation import ugettext, ugettext_lazy as _, ungettext
 
 import six
@@ -352,7 +353,7 @@ def icons():
     dirs, files = storage.listdir(settings.ADDON_ICONS_DEFAULT_PATH)
     for fname in files:
         if b'32' in fname and b'default' not in fname:
-            icon_name = fname.split(b'-')[0]
+            icon_name = force_text(fname.split(b'-')[0])
             icons.append(('icon/%s' % icon_name, icon_name))
     return sorted(icons)
 

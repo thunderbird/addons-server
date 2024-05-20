@@ -489,7 +489,7 @@ class TestDetailPage(TestCase):
         response = self.client.get(self.url)
         doc = pq(response.content)
         assert doc(
-            'aside a.home[href^="%s"]' % settings.REDIRECT_URL).length == 1
+            'aside a.home[href^="%s"]' % settings.REDIRECT_URL).length == 1, response.content
 
     def test_no_privacy_policy(self):
         """Make sure privacy policy is not shown when not present."""

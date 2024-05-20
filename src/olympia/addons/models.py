@@ -287,10 +287,10 @@ class Addon(OnChangeMixin, ModelBase):
                                       db_column='defaultlocale')
 
     type = models.PositiveIntegerField(
-        choices=amo.ADDON_TYPE.items(), db_column='addontype_id',
+        choices=list(amo.ADDON_TYPE.items()), db_column='addontype_id',
         default=amo.ADDON_EXTENSION)
     status = models.PositiveIntegerField(
-        choices=STATUS_CHOICES.items(), db_index=True, default=amo.STATUS_NULL)
+        choices=list(STATUS_CHOICES.items()), db_index=True, default=amo.STATUS_NULL)
     icon_type = models.CharField(max_length=25, blank=True,
                                  db_column='icontype')
     icon_hash = models.CharField(max_length=8, blank=True, null=True)
@@ -362,7 +362,7 @@ class Addon(OnChangeMixin, ModelBase):
     is_experimental = models.BooleanField(default=False,
                                           db_column='experimental')
     reputation = models.SmallIntegerField(
-        default=0, null=True, choices=REPUTATION_CHOICES.items(),
+        default=0, null=True, choices=list(REPUTATION_CHOICES.items()),
         help_text='The higher the reputation value, the further down the '
                   'add-on will be in the auto-approved review queue. '
                   'A value of 0 has no impact')

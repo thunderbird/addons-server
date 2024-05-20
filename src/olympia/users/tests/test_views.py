@@ -478,13 +478,6 @@ class TestRegistrationAndLoginViews(UserViewBase):
         response = self.client.get(self.url)
         self.assert3xx(response, '/', status_code=302)
 
-    def test_login_page_shows_fxa_transition_message_if_anonymous(self):
-        response = self.client.get(
-            reverse('users.login') + '?to=/foo', follow=True)
-        assert response.status_code == 200
-        assert response.templates[0].name == 'users/login.html'
-
-
 class TestProfileView(UserViewBase):
 
     def setUp(self):

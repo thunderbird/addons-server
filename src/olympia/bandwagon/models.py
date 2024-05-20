@@ -95,8 +95,8 @@ class Collection(ModelBase):
     # FIXME: This might break existing database, investigate migration used in AMO
     # TODO: Use models.UUIDField but it uses max_length=32 hex (no hyphen)
     # uuids so needs some migration.
-    uuid = models.UUIDField(blank=True, unique=True, null=True)
-    # uuid = models.CharField(max_length=36, blank=True, unique=True)
+    # uuid = models.UUIDField(blank=True, unique=True, null=True)
+    uuid = models.CharField(max_length=36, blank=True, unique=True)
     name = TranslatedField(require_locale=False)
     # nickname is deprecated.  Use slug.
     nickname = models.CharField(max_length=30, blank=True, unique=True,

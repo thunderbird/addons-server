@@ -51,7 +51,6 @@ from easy_thumbnails import processors
 from html5lib.serializer.htmlserializer import HTMLSerializer
 from PIL import Image
 from rest_framework.utils.encoders import JSONEncoder
-from validator import unicodehelper
 from six.moves.urllib_parse import parse_qsl, ParseResult, unquote_to_bytes
 
 from olympia.amo import ADDON_ICON_SIZES, search
@@ -60,6 +59,7 @@ from olympia.amo.urlresolvers import linkify_with_outgoing, reverse
 from olympia.translations.models import Translation
 from olympia.users.models import UserNotification
 from olympia.users.utils import UnsubscribeCode
+from olympia.lib import unicodehelper
 
 from . import logger_log as log
 
@@ -89,16 +89,17 @@ def urlparams(url_, hash=None, **query):
     fragment = hash if hash is not None else url.fragment
 
     # Use dict(parse_qsl) so we don't get lists of values.
-    q = url.query
-    query_dict = dict(parse_qsl(force_text(q))) if q else {}
+    query_dict = dict(parse_qsl(force_text(url.query))) if url.query else {}
     query_dict.update(
-        (k, force_bytes(v) if v is not None else v) for k, v in query.items())
+        (k, force_bytes(v) if v is not None else v) for k, v in query.items()
+    )
     query_string = urlencode(
-        [(k, unquote_to_bytes(v))
-         for k, v in query_dict.items() if v is not None])
-    new = ParseResult(url.scheme, url.netloc, url.path, url.params,
-                      query_string, fragment)
-    return new.geturl()
+        [(k, unquote_to_bytes(v)) for k, v in query_dict.items() if v is not None]
+    )
+    result = ParseResult(
+        url.scheme, url.netloc, url.path, url.params, query_string, fragment
+    )
+    return result.geturl()
 
 
 def partial(func, *args, **kw):
@@ -458,7 +459,7 @@ def slugify(s, ok=SLUG_OK, lower=True, spaces=False, delimiter='-'):
             rv.append(' ')
     new = ''.join(rv).strip()
     if not spaces:
-        new = re.sub('[-\s]+', delimiter, new)
+        new = re.sub(r'[-\s]+', delimiter, new)
     return new.lower() if lower else new
 
 

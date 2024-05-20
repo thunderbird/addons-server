@@ -452,7 +452,7 @@ class TestEmailApi(TestCase):
     def test_bad_request(self):
         """Test with no email body."""
         res = inbound_email(self.get_request({'SecretKey': 'SOME SECRET KEY'}))
-        assert res.status_code == 400
+        assert res.status_code == 400, res.content
 
     @mock.patch('olympia.activity.tasks.process_email.apply_async')
     def test_validation_response(self, _mock):
@@ -462,7 +462,7 @@ class TestEmailApi(TestCase):
         assert not _mock.called
         assert res.status_code == 200
         res.render()
-        assert res.content == '"validation key"'
+        assert res.content.decode('utf-8') == '"validation key"'
 
     @mock.patch('olympia.activity.tasks.process_email.apply_async')
     def test_validation_response_wrong_secret(self, _mock):

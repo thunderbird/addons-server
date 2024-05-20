@@ -247,7 +247,7 @@ class TestAddonSubmitDistribution(TestCase):
         response = self.client.get(reverse('devhub.submit.distribution'))
         assert response.status_code == 200
         # No error shown for a redirect from previous step.
-        assert 'This field is required' not in response.content
+        assert 'This field is required' not in response.content.decode('utf-8')
 
     def test_submit_notification_warning(self):
         config = Config.objects.create(
@@ -290,14 +290,14 @@ class TestAddonSubmitDistribution(TestCase):
     def test_channel_selection_error_shown(self):
         url = reverse('devhub.submit.distribution')
         # First load should have no error
-        assert 'This field is required' not in self.client.get(url).content
+        assert 'This field is required' not in self.client.get(url).content.decode('utf-8')
 
         # Load with channel preselected (e.g. back from next step) - no error.
         assert 'This field is required' not in self.client.get(
-            url, args=['listed']).content
+            url, args=['listed']).content.decode('utf-8')
 
         # A post submission without channel selection should be an error
-        assert 'This field is required' in self.client.post(url).content
+        assert 'This field is required' in self.client.post(url).content.decode('utf-8')
 
 
 class TestAddonSubmitUpload(UploadTest, TestCase):
@@ -543,7 +543,7 @@ class TestAddonSubmitSource(TestSubmitBase):
     def get_source(self, suffix='.zip'):
         tdir = temp.gettempdir()
         source = temp.NamedTemporaryFile(suffix=suffix, dir=tdir)
-        source.write('a' * (2 ** 21))
+        source.write(b'a' * (2 ** 21))
         source.seek(0)
         return source
 
@@ -768,7 +768,7 @@ class DetailsPageMixin(object):
         report = AkismetReport.objects.get()
         assert report.comment_type == 'product-name'
         assert report.comment == u'spám'
-        assert 'spam' not in response.content
+        assert 'spam' not in response.content.decode('utf-8')
 
     @override_switch('akismet-spam-check', active=True)
     @mock.patch('olympia.lib.akismet.tasks.AkismetReport.comment_check')
@@ -968,7 +968,7 @@ class TestAddonSubmitDetails(DetailsPageMixin, TestSubmitBase):
 
         temp_dir = temp.gettempdir()
         source = temp.NamedTemporaryFile(suffix='.zip', dir=temp_dir)
-        source.write('a' * (2 ** 21))
+        source.write(b'a' * (2 ** 21))
         source.seek(0)
 
         response = self.client.post(url, {
@@ -1264,7 +1264,7 @@ class TestAddonSubmitFinish(TestSubmitBase):
 
         # Text is static theme specific.
         assert "This version will be available after it passes review." in (
-            response.content)
+            response.content.decode('utf-8'))
         # Show the preview we started generating just after the upload step.
         imgs = content('section.addon-submission-process img')
         assert imgs[0].attrib['src'] == (
@@ -1725,8 +1725,8 @@ class TestVersionSubmitDetails(TestSubmitBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' in response.content
+        assert 'this should not be shown' not in response.content.decode('utf-8')
+        assert 'this is an info request' in response.content.decode('utf-8')
 
     def test_dont_show_request_for_information_if_none_pending(self):
         ActivityLog.create(
@@ -1737,8 +1737,8 @@ class TestVersionSubmitDetails(TestSubmitBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' not in response.content
+        assert 'this should not be shown' not in response.content.decode('utf-8')
+        assert 'this is an info request' not in response.content.decode('utf-8')
 
     def test_clear_request_for_information(self):
         AddonReviewerFlags.objects.create(
@@ -1896,7 +1896,7 @@ class TestVersionSubmitDetailsFirstListed(TestAddonSubmitDetails):
         report = AkismetReport.objects.last()
         assert report.comment_type == 'product-summary'
         assert report.comment == u'Delicious Bookmarks is the official'
-        assert 'spam' not in response.content
+        assert 'spam' not in response.content.decode('utf-8')
 
         assert comment_check_mock.call_count == 2
 
@@ -1910,7 +1910,7 @@ class TestVersionSubmitDetailsFirstListed(TestAddonSubmitDetails):
 
         # No changes but both values were spam checked.
         assert AkismetReport.objects.count() == 2
-        assert 'spam' not in response.content
+        assert 'spam' not in response.content.decode('utf-8')
         assert comment_check_mock.call_count == 2
 
 

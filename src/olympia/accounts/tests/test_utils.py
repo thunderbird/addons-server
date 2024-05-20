@@ -9,6 +9,7 @@ from datetime import datetime
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from django.test.utils import override_settings
+from django.utils.encoding import force_bytes, force_text
 
 import mock
 
@@ -69,13 +70,13 @@ def test_default_fxa_login_url_with_state():
         scheme=url.scheme, netloc=url.netloc, path=url.path)
     assert base == 'https://accounts.firefox.com/oauth/authorization'
     query = urlparse.parse_qs(url.query)
-    next_path = urlsafe_b64encode(path).rstrip('=')
+    next_path = urlsafe_b64encode(force_bytes(path)).rstrip(b'=')
     assert query == {
         'action': ['signin'],
         'client_id': ['foo'],
         'redirect_url': ['https://testserver/fxa'],
         'scope': ['profile'],
-        'state': ['myfxastate:{next_path}'.format(next_path=next_path)],
+        'state': ['myfxastate:{next_path}'.format(next_path=force_text(next_path))],
     }
 
 
@@ -90,13 +91,13 @@ def test_default_fxa_register_url_with_state():
         scheme=url.scheme, netloc=url.netloc, path=url.path)
     assert base == 'https://accounts.firefox.com/oauth/authorization'
     query = urlparse.parse_qs(url.query)
-    next_path = urlsafe_b64encode(path).rstrip('=')
+    next_path = urlsafe_b64encode(force_bytes(path)).rstrip(b'=')
     assert query == {
         'action': ['signup'],
         'client_id': ['foo'],
         'redirect_url': ['https://testserver/fxa'],
         'scope': ['profile'],
-        'state': ['myfxastate:{next_path}'.format(next_path=next_path)],
+        'state': ['myfxastate:{next_path}'.format(next_path=force_text(next_path))],
     }
 
 

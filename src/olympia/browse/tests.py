@@ -86,11 +86,11 @@ class TestListing(TestCase):
 
     def test_try_new_frontend_banner_presence(self):
         response = self.client.get(self.url)
-        assert 'AMO is getting a new look.' not in response.content
+        assert 'AMO is getting a new look.' not in response.content.decode('utf-8')
 
         with override_switch('try-new-frontend', active=True):
             response = self.client.get(self.url)
-            assert 'AMO is getting a new look.' in response.content
+            assert 'AMO is getting a new look.' in response.content.decode('utf-8')
 
     def test_default_sort(self):
         r = self.client.get(self.url)
@@ -249,7 +249,7 @@ class TestLanguageTools(TestCase):
         assert len(ca.dicts) == 1
         assert len(ca.packs) == 3
         this_locale = dict(self.this_locale_addons)
-        assert this_locale.keys() == ['en-US']
+        assert list(this_locale.keys()) == ['en-US']
         assert len(this_locale['en-US'].dicts) == 2
         assert len(this_locale['en-US'].packs) == 0
 
@@ -271,7 +271,7 @@ class TestLanguageTools(TestCase):
 
     def test_file_sizes_use_binary_prefixes(self):
         response = self.client.get(self.url, follow=True)
-        assert '223.0 KiB' in response.content
+        assert '223.0 KiB' in response.content.decode('utf-8')
 
 
 class TestThemes(TestCase):

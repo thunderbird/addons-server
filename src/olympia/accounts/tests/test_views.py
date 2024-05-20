@@ -12,6 +12,7 @@ from django.contrib.messages import get_messages
 from django.urls import reverse
 from django.test import RequestFactory
 from django.test.utils import override_settings
+from django.utils.encoding import force_bytes, force_text
 
 import mock
 
@@ -115,7 +116,7 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
     def test_to_is_included_in_redirect_state(self):
         path = '/addons/unlisted-addon/'
         # The =s will be stripped from the URL.
-        assert '=' in base64.urlsafe_b64encode(path)
+        assert b'=' in base64.urlsafe_b64encode(force_bytes(path))
         state = 'somenewstatestring'
         self.initialize_session({})
         with mock.patch('olympia.accounts.views.generate_fxa_state',
@@ -128,7 +129,7 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
         assert len(state_parts) == 2
         assert state_parts[0] == state
         assert '=' not in state_parts[1]
-        assert base64.urlsafe_b64decode(state_parts[1] + '====') == path
+        assert force_text(base64.urlsafe_b64decode(state_parts[1] + '====')) == path
 
     def test_to_is_excluded_when_unsafe(self):
         path = 'https://www.google.com'
@@ -399,7 +400,7 @@ class TestWithUser(TestCase):
         self.request.data = {
             'code': 'foo',
             'state': u'some-blob:{next_path}'.format(
-                next_path=base64.urlsafe_b64encode('/a/path/?')),
+                next_path=force_text(base64.urlsafe_b64encode(b'/a/path/?'))),
         }
         args, kwargs = self.fn(self.request)
         assert args == (self, self.request)
@@ -465,7 +466,7 @@ class TestWithUser(TestCase):
         self.request.data = {
             'code': 'foo',
             'state': u'some-blob:{next_path}'.format(
-                next_path=base64.urlsafe_b64encode('https://www.google.com')),
+                next_path=base64.urlsafe_b64encode(b'https://www.google.com')),
         }
         args, kwargs = self.fn(self.request)
         assert args == (self, self.request)
@@ -509,7 +510,7 @@ class TestWithUser(TestCase):
     def test_logged_in_disallows_login(self, generate_api_token_mock):
         self.request.data = {
             'code': 'foo',
-            'state': 'some-blob:{}'.format(base64.urlsafe_b64encode('/next')),
+            'state': 'some-blob:{}'.format(force_text(base64.urlsafe_b64encode(b'/next'))),
         }
         self.user = UserProfile()
         self.request.user = self.user
@@ -527,7 +528,7 @@ class TestWithUser(TestCase):
     def test_already_logged_in_add_api_token_cookie_if_missing(self):
         self.request.data = {
             'code': 'foo',
-            'state': 'some-blob:{}'.format(base64.urlsafe_b64encode('/next')),
+            'state': 'some-blob:{}'.format(force_text(base64.urlsafe_b64encode(b'/next'))),
         }
         self.user = UserProfile()
         self.request.user = self.user
@@ -554,7 +555,7 @@ class TestWithUser(TestCase):
         self.find_user.return_value = self.user
         self.request.data = {
             'code': 'foo',
-            'state': 'other-blob:{}'.format(base64.urlsafe_b64encode('/next')),
+            'state': 'other-blob:{}'.format(force_text(base64.urlsafe_b64encode(b'/next'))),
         }
         self.fn(self.request)
         self.render_error.assert_called_with(
@@ -701,7 +702,7 @@ class TestAuthenticateView(BaseAuthenticationView):
         response = self.client.get(self.url, {
             'code': 'codes!!',
             'state': ':'.join(
-                [self.fxa_state, base64.urlsafe_b64encode('/go/here')]),
+                [self.fxa_state, force_text(base64.urlsafe_b64encode(b'/go/here'))]),
         })
         # This 302s because the user isn't logged in due to mocking.
         self.assertRedirects(
@@ -723,7 +724,7 @@ class TestAuthenticateView(BaseAuthenticationView):
         response = self.client.get(self.url, {
             'code': 'codes!!',
             'state': ':'.join(
-                [self.fxa_state, base64.urlsafe_b64encode('/go/here')]),
+                [self.fxa_state, force_text(base64.urlsafe_b64encode(b'/go/here'))]),
             'config': 'skip',
         })
         self.fxa_identify.assert_called_with(
@@ -763,11 +764,13 @@ class TestAuthenticateView(BaseAuthenticationView):
         user = UserProfile.objects.create(email='real@yeahoo.com', fxa_id='10')
         identity = {'email': 'real@yeahoo.com', 'uid': '9001'}
         self.fxa_identify.return_value = identity
+        path = force_text(base64.urlsafe_b64encode(b'/en-US/firefox/a/path'))
         response = self.client.get(self.url, {
             'code': 'code',
             'state': ':'.join([
                 self.fxa_state,
-                base64.urlsafe_b64encode('/en-US/firefox/a/path')]),
+                path
+            ])
         })
         self.assertRedirects(
             response, '/en-US/firefox/a/path', target_status_code=404)
@@ -783,7 +786,7 @@ class TestAuthenticateView(BaseAuthenticationView):
             'code': 'code',
             'state': ':'.join([
                 self.fxa_state,
-                base64.urlsafe_b64encode('/en-US/firefox/a/path')]),
+                force_text(base64.urlsafe_b64encode(b'/en-US/firefox/a/path'))]),
         })
         self.assertRedirects(
             response, '/en-US/firefox/a/path', target_status_code=404)
@@ -917,7 +920,7 @@ class TestProfileViewWithJWT(APIKeyAuthTestMixin, TestCase):
     def test_profile_url(self):
         self.create_api_user()
         response = self.get(reverse_ns('account-profile'))
-        assert response.status_code == 200
+        assert response.status_code == 200, response.content
         assert response.data['name'] == self.user.name
         assert response.data['email'] == self.user.email
 
@@ -1154,7 +1157,7 @@ class TestAccountViewSetDelete(TestCase):
 
         response = self.client.delete(self.url)
         assert response.status_code == 400
-        assert 'You must delete all add-ons and themes' in response.content
+        assert 'You must delete all add-ons and themes' in response.content.decode('utf-8')
         assert not self.user.reload().deleted
         assert views.API_TOKEN_COOKIE not in response.cookies
         assert self.client.cookies[views.API_TOKEN_COOKIE].value == 'something'
@@ -1174,7 +1177,7 @@ class TestAccountViewSetDelete(TestCase):
 
         response = self.client.delete(self.url)
         assert response.status_code == 400
-        assert 'You must delete all add-ons and themes' in response.content
+        assert 'You must delete all add-ons and themes' in response.content.decode('utf-8')
         assert not self.user.reload().deleted
 
         addon.delete()
@@ -1592,7 +1595,7 @@ class TestAccountNotificationViewSetUpdate(TestCase):
         assert response.status_code == 400
         # Attempt fails.
         assert 'Attempting to set [individual_contact] to False.' in (
-            response.content)
+            response.content.decode('utf-8'))
         # And the notification hasn't been saved.
         assert not UserNotification.objects.filter(
             user=self.user, notification_id=contact_notification.id).exists()

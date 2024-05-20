@@ -73,7 +73,6 @@ class LocaleAndAppURLMiddleware(MiddlewareMixin):
             full_path = quote(full_path.encode('utf-8'))
 
             if query_string:
-                query_string = query_string.decode('utf-8', 'ignore')
                 full_path = u'%s?%s' % (full_path, query_string)
 
             response = redirect_type(full_path)

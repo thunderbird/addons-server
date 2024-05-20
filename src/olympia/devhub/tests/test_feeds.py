@@ -184,7 +184,7 @@ class TestActivity(HubTest):
 
         r = self.get_response(privaterss=key.key)
         assert r['content-type'] == 'application/rss+xml; charset=utf-8'
-        assert '<title>Recent Changes for My Add-ons</title>' in r.content
+        assert '<title>Recent Changes for My Add-ons</title>' in r.content.decode('utf-8')
 
     def test_rss_accepts_verbose(self):
         self.log_creates(5)
@@ -192,7 +192,7 @@ class TestActivity(HubTest):
         key = RssKey.objects.get()
         r = self.get_response(privaterss=str(uuid.UUID(key.key)))
         assert r['content-type'] == 'application/rss+xml; charset=utf-8'
-        assert '<title>Recent Changes for My Add-ons</title>' in r.content
+        assert '<title>Recent Changes for My Add-ons</title>' in r.content.decode('utf-8')
 
     def test_rss_single(self):
         self.log_creates(5)
@@ -204,7 +204,7 @@ class TestActivity(HubTest):
         r = self.get_response(privaterss=key.key)
         assert r['content-type'] == 'application/rss+xml; charset=utf-8'
         assert len(pq(r.content)('item')) == 5
-        assert '<title>Recent Changes for %s</title>' % self.addon in r.content
+        assert '<title>Recent Changes for %s</title>' % self.addon in r.content.decode('utf-8')
 
     def test_rss_unlisted_addon(self):
         """Unlisted addon logs appear in the rss feed."""
@@ -294,11 +294,11 @@ class TestActivity(HubTest):
         res = self.get_response(addon=self.addon.id)
         key = RssKey.objects.get()
         res = self.get_response(privaterss=key.key)
-        assert "<title>Comment on" not in res.content
+        assert "<title>Comment on" not in res.content.decode('utf-8')
 
     def test_no_guid(self):
         self.log_creates(1)
         self.get_response(addon=self.addon.id)
         key = RssKey.objects.get()
         res = self.get_response(privaterss=key.key)
-        assert "<guid>" not in res.content
+        assert "<guid>" not in res.content.decode('utf-8')

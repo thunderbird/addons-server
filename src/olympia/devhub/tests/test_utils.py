@@ -153,6 +153,7 @@ class TestValidatorListed(TestValidatorBase):
             'guid': None,
             'version': '20140103',
             'is_webextension': False,
+            'is_experiment': False,
         }
 
         addon = addon_factory(type=amo.ADDON_SEARCH,

@@ -46,7 +46,7 @@ class TestViewPendingQueueTable(TestCase):
         page = Mock()
         page.start_index = Mock()
         page.start_index.return_value = 1
-        row.addon_name = 'フォクすけといっしょ'.decode('utf8')
+        row.addon_name = 'フォクすけといっしょ'
         row.addon_slug = 'test'
         row.latest_version = u'0.12'
         self.table.set_page(page)
@@ -54,7 +54,7 @@ class TestViewPendingQueueTable(TestCase):
 
         assert a.attr('href') == (
             reverse('reviewers.review', args=[str(row.addon_slug)]))
-        assert a.text() == "フォクすけといっしょ 0.12".decode('utf8')
+        assert a.text() == "フォクすけといっしょ 0.12"
 
     def test_addon_type_id(self):
         row = Mock()
@@ -114,7 +114,7 @@ class TestUnlistedViewAllListTable(TestCase):
         page = Mock()
         page.start_index = Mock()
         page.start_index.return_value = 1
-        row.addon_name = 'フォクすけといっしょ'.decode('utf8')
+        row.addon_name = 'フォクすけといっしょ'
         row.addon_slug = 'test'
         row.latest_version = u'0.12'
         self.table.set_page(page)
@@ -122,7 +122,7 @@ class TestUnlistedViewAllListTable(TestCase):
 
         assert (a.attr('href') == reverse(
             'reviewers.review', args=['unlisted', str(row.addon_slug)]))
-        assert a.text() == 'フォクすけといっしょ 0.12'.decode('utf8')
+        assert a.text() == 'フォクすけといっしょ 0.12'
 
     def test_last_review(self):
         row = Mock()

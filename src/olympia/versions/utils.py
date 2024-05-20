@@ -50,7 +50,7 @@ def encode_header_image(path):
     try:
         with storage.open(path, 'rb') as image:
             header_blob = image.read()
-            with Image.open(six.StringIO(header_blob)) as header_image:
+            with Image.open(six.BytesIO(header_blob)) as header_image:
                 (width, height) = header_image.size
             src = 'data:image/%s;base64,%s' % (
                 header_image.format.lower(), b64encode(header_blob))

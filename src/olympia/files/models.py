@@ -69,7 +69,7 @@ class File(OnChangeMixin, ModelBase):
     original_hash = models.CharField(max_length=255, default='')
     jetpack_version = models.CharField(max_length=10, null=True, blank=True)
     status = models.PositiveSmallIntegerField(
-        choices=STATUS_CHOICES.items(), default=amo.STATUS_AWAITING_REVIEW)
+        choices=list(STATUS_CHOICES.items()), default=amo.STATUS_AWAITING_REVIEW)
     datestatuschanged = models.DateTimeField(null=True, auto_now_add=True)
     is_restart_required = models.BooleanField(default=False)
     strict_compatibility = models.BooleanField(default=False)
@@ -212,7 +212,7 @@ class File(OnChangeMixin, ModelBase):
         """Generate a hash for a file."""
         hash = hashlib.sha256()
         with open(filename or self.current_file_path, 'rb') as obj:
-            for chunk in iter(lambda: obj.read(1024), ''):
+            for chunk in iter(lambda: obj.read(1024), b''):
                 hash.update(chunk)
         return 'sha256:%s' % hash.hexdigest()
 

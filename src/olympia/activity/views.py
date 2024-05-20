@@ -2,6 +2,7 @@ import json
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_text
 from django.utils.translation import ugettext
 
 from rest_framework import status
