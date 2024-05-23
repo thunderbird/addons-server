@@ -82,7 +82,7 @@ jobs:
         run: docker exec atn bash -c "source /data/olympia/venv3/bin/activate && make -f Makefile-docker update_deps"
 
       - name: Patch Django
-        run:  docker exec atn bash -c "sed -i 's/TX_ISOLATION = /transaction_isolation = /' /usr/local/lib/python3.7/site-packages/django/db/backends/mysql/base.py"
+        run:  docker exec atn bash -c "sed -i 's/TX_ISOLATION = /transaction_isolation = /' /data/olympia/venv3/lib/python3.7/site-packages/django/db/backends/mysql/base.py"
 
       - name: Run tests
         run: docker exec atn bash -c 'source /data/olympia/venv3/bin/activate && python -m pytest --junitxml=src/test_report3.xml -m "not es_tests" src/olympia/'
