@@ -680,39 +680,42 @@ def run_validator(path, for_appversions=None, test_all_tiers=False,
     Not all application versions will have a set of registered
     compatibility tests.
     """
-    from validator.validate import validate as validator_validate
-
-    apps = dump_apps.Command.get_json_path()
-
-    if not os.path.exists(apps):
-        call_command('dump_apps')
-
-    suffix = '_' + os.path.basename(path)
-
-    with NamedTemporaryFile(suffix=suffix, dir=settings.TMP_PATH) as temp:
-        if path and not os.path.exists(path) and storage.exists(path):
-            # This file doesn't exist locally. Write it to our
-            # currently-open temp file and switch to that path.
-            shutil.copyfileobj(storage.open(path), temp.file)
-            path = temp.name
-
-        with statsd.timer('devhub.validator'):
-            json_result = validator_validate(
-                path,
-                for_appversions=for_appversions,
-                format='json',
-                # When False, this flag says to stop testing after one
-                # tier fails.
-                determined=test_all_tiers,
-                approved_applications=apps,
-                overrides=overrides,
-                compat_test=compat,
-                listed=listed
-            )
-
-        track_validation_stats(json_result)
-
-        return json_result
+    # We're deprecating amo-validator because it doesn't support Python 3
+    raise DeprecationWarning()
+    #
+    # from validator.validate import validate as validator_validate
+    #
+    # apps = dump_apps.Command.get_json_path()
+    #
+    # if not os.path.exists(apps):
+    #     call_command('dump_apps')
+    #
+    # suffix = '_' + os.path.basename(path)
+    #
+    # with NamedTemporaryFile(suffix=suffix, dir=settings.TMP_PATH) as temp:
+    #     if path and not os.path.exists(path) and storage.exists(path):
+    #         # This file doesn't exist locally. Write it to our
+    #         # currently-open temp file and switch to that path.
+    #         shutil.copyfileobj(storage.open(path), temp.file)
+    #         path = temp.name
+    #
+    #     with statsd.timer('devhub.validator'):
+    #         json_result = validator_validate(
+    #             path,
+    #             for_appversions=for_appversions,
+    #             format='json',
+    #             # When False, this flag says to stop testing after one
+    #             # tier fails.
+    #             determined=test_all_tiers,
+    #             approved_applications=apps,
+    #             overrides=overrides,
+    #             compat_test=compat,
+    #             listed=listed
+    #         )
+    #
+    #     track_validation_stats(json_result)
+    #
+    #     return json_result
 
 
 def run_addons_linter(path, listed=True, is_experiment=False):

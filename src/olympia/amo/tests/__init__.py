@@ -746,14 +746,9 @@ def file_factory(**kw):
     platform = kw.pop('platform', amo.PLATFORM_ALL.id)
 
     is_webextension = kw.pop('is_webextension', False)
-    permissions = kw.pop('permissions', [])
 
     file_ = File.objects.create(
         filename=filename, platform=platform, status=status, is_webextension=is_webextension, **kw)
-
-    if is_webextension:
-        WebextPermission.objects.create(permissions=permissions,
-                                        file=file_)
 
     fixture_path = os.path.join(
         settings.ROOT, 'src/olympia/files/fixtures/files',

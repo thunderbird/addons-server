@@ -388,12 +388,12 @@ class TestReviewNotesViewSetCreate(TestCase):
 class TestEmailApi(TestCase):
 
     def get_request(self, data):
-        datastr = json.dumps(data)
+        datastr = json.dumps(data).encode('utf-8')
         req = req_factory_factory(reverse_ns('inbound-email-api'), post=True)
         req.META['REMOTE_ADDR'] = '10.10.10.10'
         req.META['CONTENT_LENGTH'] = len(datastr)
         req.META['CONTENT_TYPE'] = 'application/json'
-        req._stream = six.StringIO(datastr)
+        req._stream = six.BytesIO(datastr)
         return req
 
     def get_validation_request(self, data):
@@ -417,7 +417,7 @@ class TestEmailApi(TestCase):
         res = inbound_email(req)
         assert res.status_code == 201
         res.render()
-        assert res.content == '"validation key"'
+        assert res.content.decode('utf-8') == '"validation key"'
         logs = ActivityLog.objects.for_addons(addon)
         assert logs.count() == 1
         assert logs.get(action=amo.LOG.REVIEWER_REPLY_VERSION.id)
@@ -447,7 +447,7 @@ class TestEmailApi(TestCase):
         _mock.assert_called_with(('something',))
         assert res.status_code == 201
         res.render()
-        assert res.content == '"validation key"'
+        assert res.content.decode('utf-8') == '"validation key"'
 
     def test_bad_request(self):
         """Test with no email body."""

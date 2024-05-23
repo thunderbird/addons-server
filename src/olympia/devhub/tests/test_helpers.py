@@ -81,7 +81,6 @@ class TestDisplayUrl(amo.tests.BaseTestCase):
 
     def test_unicode(self):
         url = urllib.quote(self.raw_url)
-        url = six.text_type(url, 'utf8')
         assert render('{{ url|display_url }}', {'url': url}) == (
             self.raw_url)
 

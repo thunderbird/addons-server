@@ -78,7 +78,7 @@ class TestCollections(TestCase):
     def test_auto_uuid(self):
         c = Collection.objects.create(author=self.user)
         assert c.uuid != ''
-        assert isinstance(c.uuid, basestring)
+        assert isinstance(c.uuid, six.text_type)
 
     def test_set_addons(self):
         addons = list(Addon.objects.values_list('id', flat=True))

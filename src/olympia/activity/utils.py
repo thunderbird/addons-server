@@ -5,6 +5,7 @@ from email.utils import formataddr
 
 from six.moves.html_parser import HTMLParser
 
+
 from django.conf import settings
 from django.forms import ValidationError
 from django.contrib.humanize.templatetags.humanize import apnumber
@@ -233,8 +234,7 @@ def notify_about_activity_log(addon, version, note, perm_setting=None,
         with translation.override(settings.LANGUAGE_CODE):
             comments = '%s' % amo.LOG_BY_ID[note.action].short
     else:
-        htmlparser = HTMLParser()
-        comments = htmlparser.unescape(comments)
+        comments = HTMLParser.unescape(comments)
 
     # Collect add-on authors (excl. the person who sent the email.) and build
     # the context for them.

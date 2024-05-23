@@ -414,7 +414,7 @@ class TestRobots(TestCase):
         url = reverse('collections.list')
         response = self.client.get('/robots.txt')
         assert response.status_code == 200
-        assert 'Disallow: %s' % url in response.content
+        assert 'Disallow: %s' % url in response.content.decode('utf-8')
 
 
 class TestAtomicRequests(WithDynamicEndpointsAndTransactions):

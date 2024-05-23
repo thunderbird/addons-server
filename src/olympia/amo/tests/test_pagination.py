@@ -26,7 +26,7 @@ def mock_pager(page_number, num_pages, count):
 
 def assert_range(page_number, num_pages, expected):
     p = PaginationRenderer(mock_pager(page_number, num_pages, 100))
-    assert p.range() == expected
+    assert list(p.range()) == expected
 
 
 def test_page_range():
@@ -105,7 +105,7 @@ class TestSearchPaginator(TestCase):
         # unfortunately since `pytest.raises` won't check the exact
         # instance but also accepts parent exceptions inherited.
         assert (
-            exc.value.message ==
+            exc.value ==
             'That page number is too high for the current page size')
         assert isinstance(exc.value, InvalidPage)
 

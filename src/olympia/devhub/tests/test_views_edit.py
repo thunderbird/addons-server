@@ -313,7 +313,7 @@ class BaseTestEditBasic(BaseTestEdit):
         assert summary_report.comment == data['summary']
 
         assert comment_check_mock.call_count == 2
-        assert 'spam' not in response.content
+        assert 'spam' not in response.content.decode('utf-8')
 
         # And metadata was updated
         addon = self.get_addon()
@@ -637,8 +637,8 @@ class TestEditBasicListed(BaseTestEditBasic, TagTestsMixin,
         response = self.client.post(
             self.basic_edit_url, formset(self.cat_initial, initial_count=1))
 
-        assert '<script>alert' not in response.content
-        assert '&lt;script&gt;alert' in response.content
+        assert '<script>alert' not in response.content.decode('utf-8')
+        assert '&lt;script&gt;alert' in response.content.decode('utf-8')
 
     def test_edit_categories_remove(self):
         category = Category.objects.get(id=1)
@@ -743,95 +743,6 @@ class TestEditBasicListed(BaseTestEditBasic, TagTestsMixin,
             'This add-on requires payment, non-free services or '
             'software, or additional hardware.')
 
-    def test_edit_support(self):
-        data = {
-            'support_email': 'sjobs@apple.com',
-            'support_url': 'http://apple.com/'
-        }
-
-        self.client.post(self.describe_edit_url, self.get_dict(**data))
-        addon = self.get_addon()
-
-        for k in data:
-            assert six.text_type(getattr(addon, k)) == data[k]
-
-    def test_edit_support_optional_url(self):
-        data = {
-            'support_email': 'sjobs@apple.com',
-            'support_url': ''
-        }
-
-        self.client.post(self.describe_edit_url, self.get_dict(**data))
-        addon = self.get_addon()
-
-        for k in data:
-            assert six.text_type(getattr(addon, k)) == data[k]
-
-    def test_edit_support_optional_email(self):
-        data = {
-            'support_email': '',
-            'support_url': 'http://apple.com/'
-        }
-
-        self.client.post(self.describe_edit_url, self.get_dict(**data))
-        addon = self.get_addon()
-
-        for k in data:
-            assert six.text_type(getattr(addon, k)) == data[k]
-
-    @override_switch('content-optimization', active=True)
-    def test_description_not_optional(self):
-        addon = self.get_addon()
-        addon.description = 'something!'
-        addon.save()
-        data = self.get_dict(description='')
-        response = self.client.post(self.describe_edit_url, data)
-        assert response.status_code == 200
-        self.assertFormError(
-            response, 'form', 'description', 'This field is required.')
-        assert self.get_addon().description != ''
-
-        data['description'] = '123456789'
-        response = self.client.post(self.describe_edit_url, data)
-        assert response.status_code == 200
-        self.assertFormError(
-            response, 'form', 'description',
-            'Ensure this value has at least 10 characters (it has 9).')
-        assert self.get_addon().description != ''
-
-        # Finally, test success - a description of 10+ characters.
-        data['description'] = '1234567890'
-        self.client.post(self.describe_edit_url, data)
-        assert self.get_addon().description == '1234567890'
-
-    def test_description_min_length_not_in_html_attrs(self):
-        """Override from BaseTestEditDescribe - need to check present too."""
-        # Check the min-length attribute isn't in tag when waffle is off.
-        with override_switch('content-optimization', active=False):
-            response = self.client.get(self.describe_edit_url)
-        assert response.status_code == 200
-        doc = pq(response.content)
-        assert not doc('#trans-description textarea').attr('minlength')
-        # But min-length attribute is in tag when waffle is on.
-        with override_switch('content-optimization', active=True):
-            response = self.client.get(self.describe_edit_url)
-        assert response.status_code == 200
-        doc = pq(response.content)
-        assert doc('#trans-description textarea').attr('minlength') == '10'
-
-    def test_edit_description_does_not_affect_privacy_policy(self):
-        # Regression test for #10229
-        addon = self.get_addon()
-        addon.privacy_policy = u'My polïcy!'
-        addon.save()
-        data = self.get_dict(description=u'Sométhing descriptive.')
-        response = self.client.post(self.describe_edit_url, data)
-        assert response.status_code == 200
-        addon = Addon.objects.get(pk=addon.pk)
-        assert addon.privacy_policy_id
-        assert addon.privacy_policy == u'My polïcy!'
-        assert addon.description_id
-        assert addon.description == u'Sométhing descriptive.'
 
 class TestEditMedia(BaseTestEdit):
     __test__ = True

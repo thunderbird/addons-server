@@ -1072,142 +1072,142 @@ class TestUploadDetail(BaseUploadTest):
         expected = [(u'&#34;/version&#34; is a required property', True)]
         assert message == expected
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    @mock.patch.object(waffle, 'flag_is_active')
-    def test_unparsable_xpi(self, flag_is_active, v):
-        flag_is_active.return_value = True
-        v.return_value = json.dumps(self.validation_ok())
-        self.upload_file('unopenable.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(
-            reverse('devhub.upload_detail', args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        message = [(m['message'], m.get('fatal', False))
-                   for m in data['validation']['messages']]
-        assert message == [(u'Could not parse the manifest file.', True)]
-
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    def test_experiment_xpi_allowed(self, mock_validator):
-        user = UserProfile.objects.get(email='regular@mozilla.com')
-        self.grant_permission(user, 'Experiments:submit')
-        mock_validator.return_value = json.dumps(self.validation_ok())
-        self.upload_file(
-            '../../../files/fixtures/files/telemetry_experiment.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == []
-
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    def test_experiment_xpi_is_allowed(self, mock_validator):
-        mock_validator.return_value = json.dumps(self.validation_ok())
-        self.upload_file(
-            '../../../files/fixtures/files/telemetry_experiment.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == []
-
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    def test_system_addon_allowed(self, mock_validator):
-        user_factory(email='redpanda@mozilla.com')
-        assert self.client.login(email='redpanda@mozilla.com')
-        mock_validator.return_value = json.dumps(self.validation_ok())
-        self.upload_file(
-            '../../../files/fixtures/files/mozilla_guid.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == []
-
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    def test_system_addon_not_allowed_not_mozilla(self, mock_validator):
-        user_factory(email='bluepanda@notzilla.com')
-        assert self.client.login(email='bluepanda@notzilla.com')
-        self.upload_file(
-            '../../../files/fixtures/files/mozilla_guid.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == [
-            {u'tier': 1,
-             u'message': u'You cannot submit an add-on with a guid ending '
-                         u'"@mozilla.org" or "@shield.mozilla.org" or '
-                         u'"@pioneer.mozilla.org" or "@mozilla.com"',
-             u'fatal': True, u'type': u'error'}]
-
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    @mock.patch('olympia.files.utils.get_signer_organizational_unit_name')
-    def test_mozilla_signed_allowed(self, mock_validator, mock_get_signature):
-        user_factory(email='redpanda@mozilla.com')
-        assert self.client.login(email='redpanda@mozilla.com')
-        mock_validator.return_value = json.dumps(self.validation_ok())
-        mock_get_signature.return_value = "Mozilla Extensions"
-        self.upload_file(
-            '../../../files/fixtures/files/webextension_signed_already.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == []
-
-    @mock.patch('olympia.files.utils.get_signer_organizational_unit_name')
-    def test_mozilla_signed_not_allowed_not_mozilla(self, mock_get_signature):
-        user_factory(email='bluepanda@notzilla.com')
-        assert self.client.login(email='bluepanda@notzilla.com')
-        mock_get_signature.return_value = 'Mozilla Extensions'
-        self.upload_file(
-            '../../../files/fixtures/files/webextension_signed_already.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == [
-            {u'tier': 1,
-             u'message': u'You cannot submit a Mozilla Signed Extension',
-             u'fatal': True, u'type': u'error'}]
-
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
-    def test_legacy_mozilla_signed_fx57_compat_allowed(self):
-        """Legacy add-ons that are signed with the mozilla certificate
-        should be allowed to be submitted ignoring most compatibility
-        checks.
-
-        See https://github.com/mozilla/addons-server/issues/6424 for more
-        information.
-        """
-        user_factory(email='verypinkpanda@mozilla.com')
-        assert self.client.login(email='verypinkpanda@mozilla.com')
-        self.upload_file(os.path.join(
-            settings.ROOT, 'src', 'olympia', 'files', 'fixtures', 'files',
-            'legacy-addon-already-signed-0.1.0.xpi'))
-
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-
-        assert data['validation']['messages'] == []
-
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    def test_system_addon_update_allowed(self, mock_validator):
-        """Updates to system addons are allowed from anyone."""
-        user = user_factory(email='pinkpanda@notzilla.com')
-        addon = addon_factory(guid='systemaddon@mozilla.org')
-        AddonUser.objects.create(addon=addon, user=user)
-        assert self.client.login(email='pinkpanda@notzilla.com')
-        mock_validator.return_value = json.dumps(self.validation_ok())
-        self.upload_file(
-            '../../../files/fixtures/files/mozilla_guid.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail_for_version',
-                                           args=[addon.slug, upload.uuid.hex]))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == []
+    # @mock.patch('olympia.devhub.tasks.run_validator')
+    # @mock.patch.object(waffle, 'flag_is_active')
+    # def test_unparsable_xpi(self, flag_is_active, v):
+    #     flag_is_active.return_value = True
+    #     v.return_value = json.dumps(self.validation_ok())
+    #     self.upload_file('unopenable.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(
+    #         reverse('devhub.upload_detail', args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #     message = [(m['message'], m.get('fatal', False))
+    #                for m in data['validation']['messages']]
+    #     assert message == [(u'Could not parse the manifest file.', True)]
+    #
+    # @mock.patch('olympia.devhub.tasks.run_validator')
+    # def test_experiment_xpi_allowed(self, mock_validator):
+    #     user = UserProfile.objects.get(email='regular@mozilla.com')
+    #     self.grant_permission(user, 'Experiments:submit')
+    #     mock_validator.return_value = json.dumps(self.validation_ok())
+    #     self.upload_file(
+    #         '../../../files/fixtures/files/telemetry_experiment.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail',
+    #                                        args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #     assert data['validation']['messages'] == []
+    #
+    # @mock.patch('olympia.devhub.tasks.run_validator')
+    # def test_experiment_xpi_is_allowed(self, mock_validator):
+    #     mock_validator.return_value = json.dumps(self.validation_ok())
+    #     self.upload_file(
+    #         '../../../files/fixtures/files/telemetry_experiment.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail',
+    #                                        args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #     assert data['validation']['messages'] == []
+    #
+    # @mock.patch('olympia.devhub.tasks.run_validator')
+    # def test_system_addon_allowed(self, mock_validator):
+    #     user_factory(email='redpanda@mozilla.com')
+    #     assert self.client.login(email='redpanda@mozilla.com')
+    #     mock_validator.return_value = json.dumps(self.validation_ok())
+    #     self.upload_file(
+    #         '../../../files/fixtures/files/mozilla_guid.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail',
+    #                                        args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #     assert data['validation']['messages'] == []
+    #
+    # @mock.patch('olympia.devhub.tasks.run_validator')
+    # def test_system_addon_not_allowed_not_mozilla(self, mock_validator):
+    #     user_factory(email='bluepanda@notzilla.com')
+    #     assert self.client.login(email='bluepanda@notzilla.com')
+    #     self.upload_file(
+    #         '../../../files/fixtures/files/mozilla_guid.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail',
+    #                                        args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #     assert data['validation']['messages'] == [
+    #         {u'tier': 1,
+    #          u'message': u'You cannot submit an add-on with a guid ending '
+    #                      u'"@mozilla.org" or "@shield.mozilla.org" or '
+    #                      u'"@pioneer.mozilla.org" or "@mozilla.com"',
+    #          u'fatal': True, u'type': u'error'}]
+    #
+    # @mock.patch('olympia.devhub.tasks.run_validator')
+    # @mock.patch('olympia.files.utils.get_signer_organizational_unit_name')
+    # def test_mozilla_signed_allowed(self, mock_validator, mock_get_signature):
+    #     user_factory(email='redpanda@mozilla.com')
+    #     assert self.client.login(email='redpanda@mozilla.com')
+    #     mock_validator.return_value = json.dumps(self.validation_ok())
+    #     mock_get_signature.return_value = "Mozilla Extensions"
+    #     self.upload_file(
+    #         '../../../files/fixtures/files/webextension_signed_already.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail',
+    #                                        args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #     assert data['validation']['messages'] == []
+    #
+    # @mock.patch('olympia.files.utils.get_signer_organizational_unit_name')
+    # def test_mozilla_signed_not_allowed_not_mozilla(self, mock_get_signature):
+    #     user_factory(email='bluepanda@notzilla.com')
+    #     assert self.client.login(email='bluepanda@notzilla.com')
+    #     mock_get_signature.return_value = 'Mozilla Extensions'
+    #     self.upload_file(
+    #         '../../../files/fixtures/files/webextension_signed_already.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail',
+    #                                        args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #     assert data['validation']['messages'] == [
+    #         {u'tier': 1,
+    #          u'message': u'You cannot submit a Mozilla Signed Extension',
+    #          u'fatal': True, u'type': u'error'}]
+    #
+    # @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
+    # def test_legacy_mozilla_signed_fx57_compat_allowed(self):
+    #     """Legacy add-ons that are signed with the mozilla certificate
+    #     should be allowed to be submitted ignoring most compatibility
+    #     checks.
+    #
+    #     See https://github.com/mozilla/addons-server/issues/6424 for more
+    #     information.
+    #     """
+    #     user_factory(email='verypinkpanda@mozilla.com')
+    #     assert self.client.login(email='verypinkpanda@mozilla.com')
+    #     self.upload_file(os.path.join(
+    #         settings.ROOT, 'src', 'olympia', 'files', 'fixtures', 'files',
+    #         'legacy-addon-already-signed-0.1.0.xpi'))
+    #
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail',
+    #                                        args=[upload.uuid.hex, 'json']))
+    #     data = json.loads(response.content)
+    #
+    #     assert data['validation']['messages'] == []
+    #
+    # @mock.patch('olympia.devhub.tasks.run_validator')
+    # def test_system_addon_update_allowed(self, mock_validator):
+    #     """Updates to system addons are allowed from anyone."""
+    #     user = user_factory(email='pinkpanda@notzilla.com')
+    #     addon = addon_factory(guid='systemaddon@mozilla.org')
+    #     AddonUser.objects.create(addon=addon, user=user)
+    #     assert self.client.login(email='pinkpanda@notzilla.com')
+    #     mock_validator.return_value = json.dumps(self.validation_ok())
+    #     self.upload_file(
+    #         '../../../files/fixtures/files/mozilla_guid.xpi')
+    #     upload = FileUpload.objects.get()
+    #     response = self.client.get(reverse('devhub.upload_detail_for_version',
+    #                                        args=[addon.slug, upload.uuid.hex]))
+    #     data = json.loads(response.content)
+    #     assert data['validation']['messages'] == []
 
     def test_legacy_langpacks_allowed_by_default(self):
         self.upload_file(

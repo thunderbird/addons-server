@@ -66,9 +66,10 @@ class TestMonitor(TestCase):
         assert status == ''
         assert rabbitmq_results[0][1]
 
-    @responses.activate
-    def test_signer(self):
-        responses.add_passthru(settings.AUTOGRAPH_CONFIG['server_url'])
-
-        status, signer_result = monitors.signer()
-        assert status == ''
+    # We don't use signer on ATN
+    # @responses.activate
+    # def test_signer(self):
+    #     responses.add_passthru(settings.AUTOGRAPH_CONFIG['server_url'])
+    #
+    #     status, signer_result = monitors.signer()
+    #     assert status == ''

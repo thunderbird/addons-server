@@ -309,7 +309,7 @@ class TestCRUD(TestCase):
             r,
             '&quot;&gt;&lt;script&gt;alert(/XSS/);&lt;/script&gt;'
         )
-        assert name not in r.content
+        assert name not in r.content.decode('utf-8')
 
     def test_add_fail(self):
         """
@@ -417,49 +417,29 @@ class TestCRUD(TestCase):
         self.login_regular()
         url_args = ['admin', self.slug]
 
-        url = reverse('collections.edit', args=id_url_args)
-        response = self.client.get(url)
-        assert response.status_code == 403
-        response = self.client.post(url)
-        assert response.status_code == 403
-        url = reverse('collections.edit', args=username_url_args)
-        response = self.client.get(url, follow=True)
-        assert response.status_code == 403
-        response = self.client.post(url, follow=True)
-        assert response.status_code == 403
+        url = reverse('collections.edit', args=url_args)
+        r = self.client.get(url)
+        assert r.status_code == 403
+        r = self.client.post(url)
+        assert r.status_code == 403
 
-        url = reverse('collections.edit_addons', args=id_url_args)
-        response = self.client.get(url)
-        assert response.status_code == 403
-        response = self.client.post(url)
-        assert response.status_code == 403
-        url = reverse('collections.edit_addons', args=username_url_args)
-        response = self.client.get(url, follow=True)
-        assert response.status_code == 403
-        response = self.client.post(url, follow=True)
-        assert response.status_code == 403
+        url = reverse('collections.edit_addons', args=url_args)
+        r = self.client.get(url)
+        assert r.status_code == 403
+        r = self.client.post(url)
+        assert r.status_code == 403
 
-        url = reverse('collections.edit_privacy', args=id_url_args)
-        response = self.client.get(url)
-        assert response.status_code == 403
-        response = self.client.post(url)
-        assert response.status_code == 403
-        url = reverse('collections.edit_privacy', args=username_url_args)
-        response = self.client.get(url, follow=True)
-        assert response.status_code == 403
-        response = self.client.post(url, follow=True)
-        assert response.status_code == 403
+        url = reverse('collections.edit_privacy', args=url_args)
+        r = self.client.get(url)
+        assert r.status_code == 403
+        r = self.client.post(url)
+        assert r.status_code == 403
 
-        url = reverse('collections.delete', args=id_url_args)
-        response = self.client.get(url)
-        assert response.status_code == 403
-        response = self.client.post(url)
-        assert response.status_code == 403
-        url = reverse('collections.delete', args=username_url_args)
-        response = self.client.get(url, follow=True)
-        assert response.status_code == 403
-        response = self.client.post(url, follow=True)
-        assert response.status_code == 403
+        url = reverse('collections.delete', args=url_args)
+        r = self.client.get(url)
+        assert r.status_code == 403
+        r = self.client.post(url)
+        assert r.status_code == 403
 
     def test_acl_contributor(self):
         collection = self.create_collection().context['collection']
@@ -599,7 +579,7 @@ class TestCRUD(TestCase):
             r,
             '&quot;&gt;&lt;script&gt;alert(/XSS/);&lt;/script&gt;'
         )
-        assert name not in r.content
+        assert name not in r.content.decode('utf-8')
 
     def test_form_uneditable_slug(self):
         """

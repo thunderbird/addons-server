@@ -76,7 +76,7 @@ def _uploader(resize_size, final_size):
     original_size = (339, 128)
 
     src = tempfile.NamedTemporaryFile(
-        mode='rwb', suffix='.png', delete=False, dir=settings.TMP_PATH)
+        mode='rb', suffix='.png', delete=False, dir=settings.TMP_PATH)
 
     if not isinstance(final_size, list):
         final_size = [final_size]
