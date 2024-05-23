@@ -481,7 +481,6 @@ class ManifestJSONExtractor(object):
             msg = ugettext('Lowest supported "strict_min_version" is 60.0.')
             raise forms.ValidationError(msg)
 
-        print(">>",self.manifest_version, self.strict_min_version, self.gecko)
         # Minimum version check for manifest version 3
         if (self.manifest_version == 3 and
             (not self.strict_min_version or vint(self.strict_min_version) < vint(amo.DEFAULT_MANIFEST_V3_MIN_VERSION))):
