@@ -234,7 +234,7 @@ def notify_about_activity_log(addon, version, note, perm_setting=None,
         with translation.override(settings.LANGUAGE_CODE):
             comments = '%s' % amo.LOG_BY_ID[note.action].short
     else:
-        comments = HTMLParser.unescape(comments)
+        comments = HTMLParser().unescape(comments)
 
     # Collect add-on authors (excl. the person who sent the email.) and build
     # the context for them.
