@@ -50,6 +50,7 @@ jobs:
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
       with:
+        check_name: "Python 2.7 Test Results"
         files: src/test_report.xml
 
   pytest3:
@@ -80,6 +81,9 @@ jobs:
       - name: Install deps
         run: docker exec atn bash -c "source /data/olympia/venv3/bin/activate && make -f Makefile-docker update_deps"
 
+      - name: Patch Django
+        run:  docker exec atn bash -c "sed -i 's/TX_ISOLATION = /transaction_isolation = /' /usr/local/lib/python2.7/site-packages/django/db/backends/mysql/base.py"
+
       - name: Run tests
         run: docker exec atn bash -c 'source /data/olympia/venv3/bin/activate && python -m pytest --junitxml=src/test_report3.xml -m "not es_tests" src/olympia/'
 
@@ -87,4 +91,5 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
+          check_name: "Python 3.7 Test Results"
           files: src/test_report3.xml
