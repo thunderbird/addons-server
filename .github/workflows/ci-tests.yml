@@ -8,6 +8,10 @@ on:
   pull_request:
     branches: [master]
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 permissions:
   contents: read
   checks: write
@@ -77,7 +81,7 @@ jobs:
         run: docker exec atn bash -c "source /data/olympia/venv3/bin/activate && make -f Makefile-docker update_deps"
 
       - name: Run tests
-        run: docker exec atn bash -c 'source /data/olympia/venv3/bin/activate && python -m pytest --junitxml=src/test_report3.xml -m "not es_tests" /data/olympia/src/olympia/'
+        run: docker exec atn bash -c 'source /data/olympia/venv3/bin/activate && python -m pytest --junitxml=src/test_report3.xml -m "not es_tests" src/olympia/'
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
