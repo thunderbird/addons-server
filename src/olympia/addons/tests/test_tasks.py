@@ -24,7 +24,7 @@ from olympia.amo.utils import image_size
 from olympia.applications.models import AppVersion
 from olympia.constants import licenses
 from olympia.constants.categories import CATEGORIES
-from olympia.files.models import FileUpload
+from olympia.files.models import FileUpload, WebextPermission
 from olympia.ratings.models import Rating
 from olympia.stats.models import ThemeUpdateCount, UpdateCount
 from olympia.tags.models import Tag
@@ -349,12 +349,10 @@ class TestMigrateAddonsThatRequireSensitiveDataAccess(TestCase):
         """Test addon with sensitive permissions. This should cause both the Addon and AddonReviewer Flags to be True"""
         addon_with_sda = addon_factory(
             version_kw={'application': amo.THUNDERBIRD.id},
-            file_kw={
-                'is_webextension': True,
-                'permissions': [
-                    'messagesRead'
-                ]
-        })
+            file_kw={'is_webextension': True})
+        WebextPermission.objects.create(
+            file=addon_with_sda.current_version.all_files[0],
+            permissions=['messagesRead'])
 
         assert addon_with_sda.requires_sensitive_data_access is False
         assert not addon_with_sda.needs_sensitive_data_access_review
@@ -371,12 +369,10 @@ class TestMigrateAddonsThatRequireSensitiveDataAccess(TestCase):
         """Test addon without sensitive permissions. No flags should be set to True"""
         addon_without_sda = addon_factory(
             version_kw={'application': amo.THUNDERBIRD.id},
-            file_kw={
-                'is_webextension': True,
-                'permissions': [
-                    'tabs'
-                ]
-        })
+            file_kw={'is_webextension': True})
+        WebextPermission.objects.create(
+            file=addon_without_sda.current_version.all_files[0],
+            permissions=['tabs'])
 
         assert addon_without_sda.requires_sensitive_data_access is False
         assert not addon_without_sda.needs_sensitive_data_access_review
@@ -393,13 +389,10 @@ class TestMigrateAddonsThatRequireSensitiveDataAccess(TestCase):
         """Test addon with sensitive permissions, but also an explicitly set `sensitiveDataUpload` permission. The Addon Flag should be True, but the AddonReviewer Flag should not"""
         addon_with_sda_and_sensitive_data_upload = addon_factory(
             version_kw={'application': amo.THUNDERBIRD.id},
-            file_kw={
-                'is_webextension': True,
-                'permissions': [
-                    'messagesRead',
-                    'sensitiveDataUpload'
-                ]
-        })
+            file_kw={'is_webextension': True})
+        WebextPermission.objects.create(
+            file=addon_with_sda_and_sensitive_data_upload.current_version.all_files[0],
+            permissions=['messagesRead', 'sensitiveDataUpload'])
 
         assert addon_with_sda_and_sensitive_data_upload.requires_sensitive_data_access is False
         assert not addon_with_sda_and_sensitive_data_upload.needs_sensitive_data_access_review
