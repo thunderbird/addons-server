@@ -1,5 +1,8 @@
+import csv
+import os
 from contextlib import contextmanager
 
+import six
 from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -12,7 +15,7 @@ from olympia import amo
 from olympia.activity.models import AddonLog
 from olympia.addons.management.commands import (
     approve_addons, process_addons as pa)
-from olympia.addons.models import Addon, AppSupport
+from olympia.addons.models import Addon, AppSupport, Persona
 from olympia.addons.tasks import update_appsupport
 from olympia.amo.tests import (
     AMOPaths, TestCase, addon_factory, version_factory)
@@ -529,7 +532,6 @@ class TestDeleteAddonsNotCompatibleWithThunderbird(TestCase):
         call_command('process_addons',
                      task='delete_addons_not_compatible_with_thunderbird')
 
-    @pytest.mark.xfail(reason="Test and the associated command are Firefox specific.")
     def test_basic(self):
         av_min, _ = AppVersion.objects.get_or_create(
             application=amo.ANDROID.id, version='48.0')
@@ -615,6 +617,138 @@ class TestDeleteAddonsNotCompatibleWithThunderbird(TestCase):
             addon__in=bad_addons, app=amo.FIREFOX.id).exists()
         assert not AppSupport.objects.filter(
             addon__in=bad_addons, app=amo.ANDROID.id).exists()
+
+
+
+class TestDeletePersonas(TestCase):
+    def make_the_call(self):
+        call_command('process_addons',
+                     task='delete_personas')
+
+    def test_basic(self):
+        av_min, _ = AppVersion.objects.get_or_create(
+            application=amo.ANDROID.id, version='48.0')
+        av_max, _ = AppVersion.objects.get_or_create(
+            application=amo.ANDROID.id, version='48.*')
+        av_seamonkey_min, _ = AppVersion.objects.get_or_create(
+            application=amo.SEAMONKEY.id, version='2.49.3')
+        av_seamonkey_max, _ = AppVersion.objects.get_or_create(
+            application=amo.SEAMONKEY.id, version='2.49.*')
+        av_tb_min, _ = AppVersion.objects.get_or_create(
+            application=amo.THUNDERBIRD.id, version='115.1')
+        av_tb_max, _ = AppVersion.objects.get_or_create(
+            application=amo.THUNDERBIRD.id, version='115.*')
+
+        def create_addon(version, is_persona = True, alt_version = None, min = None, max = None):
+            addon = addon_factory(
+                version_kw={'application': version},
+                type=amo.ADDON_PERSONA if is_persona else amo.ADDON_EXTENSION
+            )
+            # Create a new version, if alt_version is provided it's essentially a release for that platform
+            if alt_version:
+                ApplicationsVersions.objects.get_or_create(
+                    application=alt_version,
+                    version=addon.current_version,
+                    min=min, max=max)
+            return addon
+
+        # These addons should stay
+        extensions = [
+            # Thunderbird
+            create_addon(amo.THUNDERBIRD.id, is_persona=False),
+            # Seamonkey
+            create_addon(amo.SEAMONKEY.id, is_persona=False),
+            # Thunderbird and Seamonkey
+            create_addon(amo.THUNDERBIRD.id, is_persona=False, alt_version=amo.SEAMONKEY.id, min=av_seamonkey_min, max=av_seamonkey_max),
+            # Firefox and Thunderbird
+            create_addon(amo.FIREFOX.id, is_persona=False, alt_version=amo.THUNDERBIRD.id, min=av_tb_min, max=av_tb_max)
+        ]
+
+        # These addons should go
+        personas = [
+            # Firefox, it's the only platform that supports it! (Well not anymore...)
+            create_addon(amo.FIREFOX.id),
+            create_addon(amo.FIREFOX.id),
+            create_addon(amo.FIREFOX.id),
+            create_addon(amo.FIREFOX.id),
+            create_addon(amo.FIREFOX.id),
+        ]
+
+        # We've manually changed the ApplicationVersions, so let's run
+        # update_appsupport() on all public add-ons. In the real world that is
+        # done automatically when uploading a new version, either through the
+        # version_changed signal or via a cron that catches any versions that
+        # somehow fell through the cracks once a day.
+        update_appsupport(Addon.objects.public().values_list('pk', flat=True))
+
+        assert Addon.objects.count() == 9
+
+        print("Deleteing 'em all")
+        with count_subtask_calls(pa.delete_personas) as calls:
+            self.make_the_call()
+
+        personas_pk = map(lambda a: a.pk, personas)
+        personas_object_pk = map(lambda a: a.persona.pk, personas)
+
+        assert len(calls) == 1
+        assert calls[0]['kwargs']['args'] == [personas_pk]
+
+        for addon in extensions:
+            assert Addon.objects.filter(pk=addon.pk).exists()
+
+        for addon in personas:
+            assert not Addon.objects.filter(pk=addon.pk).exists()
+
+        # Make sure the persona data is also deleted
+        for persona_pk in personas_object_pk:
+            assert not Persona.objects.filter(pk=persona_pk).exists()
+
+        assert Addon.objects.count() == 4
+
+@pytest.mark.slow_tests
+class TestOutputPersonas(TestCase):
+    def make_the_call(self):
+        call_command('process_addons',
+                     task='output_personas')
+
+    def test_basic(self):
+        def create_addon(version):
+            addon = addon_factory(
+                version_kw={'application': version},
+                type=amo.ADDON_PERSONA
+            )
+            return addon
+
+        personas = []
+
+        file_name = 'personas.csv'
+
+        # Nuke the file
+        with open(file_name, 'wb') as fh:
+            pass
+
+        # They're batched by 100s so we want to make sure append works
+        for idx in range(0, 101):
+            personas.append(create_addon(amo.FIREFOX.id))
+
+        update_appsupport(Addon.objects.public().values_list('pk', flat=True))
+
+        with count_subtask_calls(pa.output_personas) as calls:
+            self.make_the_call()
+
+        assert len(calls) == 2
+
+        personas_csv = csv.reader(open(file_name, 'rb'))
+        idx = 0
+        for row in personas_csv:
+            persona = personas[idx]
+            assert row[0] == six.text_type(persona.id)
+            assert row[1].decode('utf-8') == six.text_type(persona.name)
+            assert row[2] == persona.get_detail_url()
+            idx += 1
+
+        # Nuke the file
+        os.remove(file_name)
 
 
 class TestMigrateLegacyDictionariesToWebextension(TestCase):
