@@ -711,7 +711,7 @@ def delete_personas(ids, **kw):
     for addon in qs:
         with transaction.atomic():
             addon.persona.delete()
-            addon.delete()
+            addon.delete(hard=True)
 
 @task
 @use_primary_db

@@ -22,8 +22,7 @@ from olympia.amo.tests import (
 from olympia.applications.models import AppVersion
 from olympia.files.models import FileValidation, WebextPermission
 from olympia.reviewers.models import AutoApprovalSummary, ReviewerScore
-from olympia.versions.models import ApplicationsVersions
-
+from olympia.versions.models import ApplicationsVersions, Version
 
 # Where to monkeypatch "lib.crypto.tasks.sign_addons" so it's correctly mocked.
 SIGN_ADDONS = 'olympia.addons.management.commands.sign_addons.sign_addons'
@@ -682,6 +681,7 @@ class TestDeletePersonas(TestCase):
         update_appsupport(Addon.objects.public().values_list('pk', flat=True))
 
         assert Addon.objects.count() == 9
+        assert Version.objects.count() == 9
 
         with count_subtask_calls(pa.delete_personas) as calls:
             self.make_the_call()
@@ -702,7 +702,11 @@ class TestDeletePersonas(TestCase):
         for persona_pk in personas_object_pk:
             assert not Persona.objects.filter(pk=persona_pk).exists()
 
-        assert Addon.objects.count() == 4
+        # Ensure Addon and their versions are now down to 4
+        assert Addon.unfiltered.count() == 4
+        assert Version.unfiltered.count() == 4
+        # Personas isn't soft-deletable, so we can just use objects
+        assert Persona.objects.count() == 0
 
 @pytest.mark.slow_tests
 class TestOutputPersonas(TestCase):
