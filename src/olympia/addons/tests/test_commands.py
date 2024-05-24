@@ -683,7 +683,6 @@ class TestDeletePersonas(TestCase):
 
         assert Addon.objects.count() == 9
 
-        print("Deleteing 'em all")
         with count_subtask_calls(pa.delete_personas) as calls:
             self.make_the_call()
 
