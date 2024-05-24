@@ -484,6 +484,7 @@ class TestDetailPage(TestCase):
             reverse('addons.detail', args=[self.addon.slug]))
         assert response.status_code == 200
 
+    @pytest.mark.xfail(reason="ATN doesn't have a redirect url")
     def test_external_urls(self):
         """Check that external URLs are properly escaped."""
         response = self.client.get(self.url)

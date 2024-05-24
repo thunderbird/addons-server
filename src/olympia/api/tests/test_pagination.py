@@ -27,10 +27,10 @@ class TestCustomPageNumberPagination(TestCase):
         request = self.factory.get('/', {'page_size': 10, 'page': 2})
         response = self.view(request)
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == {
+        assert dict(response.data) == {
             'page_size': 10,
             'page_count': 10,
-            'results': range(11, 21),
+            'results': list(range(11, 21)),
             'previous': 'http://testserver/?page_size=10',
             'next': 'http://testserver/?page=3&page_size=10',
             'count': 100
@@ -40,10 +40,10 @@ class TestCustomPageNumberPagination(TestCase):
         request = self.factory.get('/')
         response = self.view(request)
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == {
+        assert dict(response.data) == {
             'page_size': 25,
             'page_count': 4,
-            'results': range(1, 26),
+            'results': list(range(1, 26)),
             'previous': None,
             'next': 'http://testserver/?page=2',
             'count': 100
@@ -99,7 +99,7 @@ class TestOneOrZeroPageNumberPagination(TestCase):
         # page size and page should be ignored.
         request = self.factory.get('/', {'page_size': 10, 'page': 2})
         response = self.view(request)
-        assert response.data == {
+        assert dict(response.data) == {
             'page_size': 1,
             'page_count': 1,
             'results': range(1, 2),

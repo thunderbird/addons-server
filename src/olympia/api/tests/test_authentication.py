@@ -12,6 +12,7 @@ from django.urls import reverse
 import jwt
 import mock
 import six
+from django.utils.encoding import force_bytes
 
 from freezegun import freeze_time
 from rest_framework.exceptions import AuthenticationFailed
@@ -353,6 +354,6 @@ class TestWebTokenAuthentication(TestCase):
         # a timestamp and a signature, separated by ':'. The base64 encoding
         # lacks padding, which is why we need to use signing.b64_decode() which
         # handles that for us.
-        data = json.loads(signing.b64_decode(token.split(':')[0]))
+        data = json.loads(signing.b64_decode(force_bytes(token.split(':')[0])))
         assert data['user_id'] == self.user.pk
         assert data['auth_hash'] == self.user.get_session_auth_hash()
