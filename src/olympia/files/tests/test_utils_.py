@@ -544,7 +544,7 @@ class TestManifestJSONExtractor(TestCase):
 
         assert exc.value.message.startswith('Cannot find min/max version.')
 
-    def test_manifest_version_3_requires_128b1_passes(self):
+    def test_manifest_version_3_requires_128_passes(self):
         self.create_webext_default_versions()
         data = {
             "manifest_version": 3,
@@ -563,7 +563,7 @@ class TestManifestJSONExtractor(TestCase):
         assert manifest['is_webextension'] is True
         assert manifest.get('name') == 'My Extension'
 
-    def test_manifest_version_3_requires_128b1_fails(self):
+    def test_manifest_version_3_requires_128_fails(self):
         self.create_webext_default_versions()
         data = {
             "manifest_version": 3,
@@ -579,7 +579,26 @@ class TestManifestJSONExtractor(TestCase):
         with pytest.raises(forms.ValidationError) as ex:
             self.parse(data)
 
-        assert ex.value.message.startswith('Manifest v3 requires a "strict_min_version" of at least 128.0b1.')
+        assert ex.value.message.startswith('Manifest v3 requires a "strict_min_version" of at least 128.0.')
+
+    def test_manifest_version_3_requires_128_fail_due_to_lower_version(self):
+        self.create_webext_default_versions()
+        data = {
+            "manifest_version": 3,
+            "name": "My Extension",
+            "version": "versionString",
+
+            "browser_specific_settings": {
+                "gecko": {
+                  "id": "testextension@example.org",
+                    "strict_min_version": amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD
+                }
+            },
+        }
+        with pytest.raises(forms.ValidationError) as ex:
+            self.parse(data)
+
+        assert ex.value.message.startswith('Manifest v3 requires a "strict_min_version" of at least 128.0.')
 
     def test_manifest_version_3_doesnt_allow_applications_key(self):
         self.create_webext_default_versions()

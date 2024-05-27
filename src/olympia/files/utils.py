@@ -484,7 +484,7 @@ class ManifestJSONExtractor(object):
         # Minimum version check for manifest version 3
         if (self.manifest_version == 3 and
             (not self.strict_min_version or vint(self.strict_min_version) < vint(amo.DEFAULT_MANIFEST_V3_MIN_VERSION))):
-            raise forms.ValidationError(ugettext('Manifest v3 requires a "strict_min_version" of at least 128.0b1.'))
+            raise forms.ValidationError(ugettext('Manifest v3 requires a "strict_min_version" of at least 128.0.'))
 
         # Manifest version 3 does not support 'applications', only 'browser_specific_settings'!
         if self.manifest_version == 3 and self.get('applications'):
