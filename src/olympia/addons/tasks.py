@@ -708,10 +708,12 @@ def delete_personas(ids, **kw):
         'Deleting personas %d-%d [%d].',
         ids[0], ids[-1], len(ids))
     qs = Addon.objects.filter(pk__in=ids)
+    pause_all_tasks()
     for addon in qs:
         with transaction.atomic():
             addon.persona.delete()
             addon.delete(hard=True)
+    resume_all_tasks()
 
 @task
 @use_primary_db
