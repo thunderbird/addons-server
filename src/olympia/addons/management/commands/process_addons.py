@@ -101,7 +101,6 @@ tasks = {
     'delete_personas': {
         'method': delete_personas,
         'qs': [Q(type=amo.ADDON_PERSONA)],
-        'post': delete_obsolete_applicationsversions,
     },
     'output_personas': {
         'method': output_personas,
