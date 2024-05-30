@@ -384,6 +384,6 @@ class CacheUnauthenticatedViews(object):
             (request.method == 'GET' or request.method == 'HEAD')
             and (not request.user or not request.user.is_authenticated)
         ):
-            response['Cache-Control'] = "max-age={0}".format(60 * 60)  # One hour
+            response['Cache-Control'] = "max-age={0}".format(settings.CACHE_CONTROL_MAX_AGE)
 
         return response

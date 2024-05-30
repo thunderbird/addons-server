@@ -1968,3 +1968,5 @@ AKISMET_API_URL = 'https://{api_key}.rest.akismet.com/1.1/{action}'
 AKISMET_API_KEY = env('AKISMET_API_KEY', default=None)
 AKISMET_API_TIMEOUT = 5
 AKISMET_REAL_SUBMIT = False
+
+CACHE_CONTROL_MAX_AGE=60 * 60  # One hour by default
