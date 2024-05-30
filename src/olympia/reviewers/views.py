@@ -962,7 +962,7 @@ def review(request, addon, channel=None):
         subscribed=ReviewerSubscription.objects.filter(
             user=request.user, addon=addon).exists(),
         unlisted=(channel == amo.RELEASE_CHANNEL_UNLISTED),
-        user_changes=user_changes_log, user_ratings=user_ratings,
+        user_changes_log=user_changes_log, user_ratings=user_ratings,
         version=version, was_auto_approved=was_auto_approved,
         whiteboard_form=whiteboard_form,
         whiteboard_url=whiteboard_url)
