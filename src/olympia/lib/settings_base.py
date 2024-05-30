@@ -517,6 +517,7 @@ MIDDLEWARE = (
 
     'olympia.amo.middleware.ScrubRequestOnException',
     'olympia.amo.middleware.RequestIdMiddleware',
+    'olympia.amo.middleware.CacheUnauthenticatedViews',
 )
 
 # Auth
