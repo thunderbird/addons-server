@@ -67,7 +67,7 @@ def version_detail(request, addon, version_num):
 
     url = reverse('addons.versions', args=[addon.slug])
     if version_num in ids:
-        page = 1 + ids.index(version_num) / PER_PAGE
+        page = 1 + ids.index(version_num) // PER_PAGE
         to = urlparams(url, 'version-%s' % version_num, page=page)
         return http.HttpResponseRedirect(to)
     else:

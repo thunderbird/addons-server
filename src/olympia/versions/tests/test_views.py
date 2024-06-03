@@ -25,6 +25,15 @@ from olympia.files.models import File
 from olympia.users.models import UserProfile
 from olympia.versions import views
 
+def decode_http_header_value(value):
+    """
+    Reverse the encoding that django applies to bytestrings in
+    HttpResponse._convert_to_charset(). Needed to test header values that we
+    explicitly pass as bytes such as filenames for content-disposition or
+    xsendfile headers.
+    """
+    return value.encode('latin-1').decode('utf-8')
+
 
 class TestViews(TestCase):
     def setUp(self):
@@ -164,7 +173,7 @@ class TestViews(TestCase):
 
     def test_version_list_file_size_uses_binary_prefix(self):
         response = self.client.get(self.url_list)
-        assert '1.0 KiB' in response.content
+        assert '1.0 KiB' in response.content.decode('utf-8')
 
     def test_version_list_no_compat_displayed_if_not_necessary(self):
         doc = self.get_content()
@@ -213,7 +222,7 @@ class TestViews(TestCase):
                         args=(self.addon.slug, self.version.version)))
             assert response.status_code == 200
             assert response['Content-Type'] == 'application/xhtml+xml'
-            assert '<br/>' in response.content, (
+            assert '<br/>' in response.content.decode('utf-8'), (
                 'Should be using XHTML self-closing tags!')
             doc = PyQuery(response.content, parser='html')
             assert doc('html').attr('xmlns') == 'http://www.w3.org/1999/xhtml'
@@ -526,11 +535,11 @@ class TestDownloadSource(TestCase):
         filename = self.filename
         if not isinstance(filename, six.text_type):
             filename = filename.decode('utf8')
-        assert filename in response['Content-Disposition'].decode('utf8')
+        assert filename in decode_http_header_value(response['Content-Disposition'])
         path = self.version.source.path
         if not isinstance(path, six.text_type):
             path = path.decode('utf8')
-        assert response[settings.XSENDFILE_HEADER].decode('utf8') == path
+        assert decode_http_header_value(response[settings.XSENDFILE_HEADER]) == path
 
     def test_anonymous_should_not_be_allowed(self):
         response = self.client.get(self.url)
@@ -553,11 +562,11 @@ class TestDownloadSource(TestCase):
         filename = self.filename
         if not isinstance(filename, six.text_type):
             filename = filename.decode('utf8')
-        assert filename in response['Content-Disposition'].decode('utf8')
+        assert filename in decode_http_header_value(response['Content-Disposition'])
         path = self.version.source.path
         if not isinstance(path, six.text_type):
             path = path.decode('utf8')
-        assert response[settings.XSENDFILE_HEADER].decode('utf8') == path
+        assert decode_http_header_value(response[settings.XSENDFILE_HEADER]) == path
 
     def test_no_source_should_go_in_404(self):
         self.version.source = None
