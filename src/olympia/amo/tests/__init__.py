@@ -219,7 +219,7 @@ def assert_url_equal(url, expected, compare_host=False):
 
 
 def compare_url_part(part, expected):
-    assert part == expected, u'Expected %s, got %s' % (expected, part)
+    assert part == expected, u'Expected "{}", got "{}"'.format(expected, part)
 
 
 def create_sample(name=None, **kw):

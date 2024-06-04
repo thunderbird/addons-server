@@ -88,13 +88,13 @@ def test_source_with_wrong_unicode_get():
     response = test.Client().get('/firefox/collections/mozmj/autumn/'
                                  '?source=firefoxsocialmedia\x14\x85')
     assert response.status_code == 301
-    assert response['Location'].endswith('?source=firefoxsocialmedia%14')
+    assert response['Location'].endswith('?source=firefoxsocialmedia%14%C3%82%C2%85')
 
 
 def test_trailing_slash_middleware():
     response = test.Client().get(u'/en-US/about/?xxx=\xc3')
     assert response.status_code == 301
-    assert response['Location'].endswith('/en-US/about?xxx=%C3%83')
+    assert response['Location'].endswith('/en-US/about?xxx=%C3%83%C2%83')
 
 
 class AdminMessageTest(TestCase):

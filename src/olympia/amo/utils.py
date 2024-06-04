@@ -21,8 +21,6 @@ import string
 import subprocess
 import scandir
 
-from six.moves.urllib_parse import parse_qsl, ParseResult, unquote_to_bytes
-
 import django.core.mail
 
 from django.conf import settings
@@ -36,7 +34,7 @@ from django.forms.fields import Field
 from django.http import HttpResponse
 from django.template import engines, loader
 from django.utils import translation
-from django.utils.encoding import force_bytes, force_text
+from django.utils.encoding import force_bytes, force_text, force_str
 from django.utils.http import _urlparse as django_urlparse, quote_etag
 
 import bleach
@@ -84,12 +82,12 @@ def urlparams(url_, hash=None, **query):
     New query params will be appended to existing parameters, except duplicate
     names, which will be replaced.
     """
-    url = django_urlparse(force_text(url_))
+    url = django_urlparse(force_str(url_))
 
     fragment = hash if hash is not None else url.fragment
 
     # Use dict(parse_qsl) so we don't get lists of values.
-    query_dict = dict(parse_qsl(force_text(url.query))) if url.query else {}
+    query_dict = dict(parse_qsl(force_str(url.query))) if url.query else {}
     query_dict.update(
         (k, force_bytes(v) if v is not None else v) for k, v in query.items()
     )

@@ -325,10 +325,10 @@ class TestOtherStuff(TestCase):
         """Test that the jsi18n library has an actual catalog of translations
         rather than just identity functions."""
 
-        en = self.client.get(reverse('jsi18n')).content
+        en = self.client.get(reverse('jsi18n')).content.decode('utf-8')
 
         with self.activate('fr'):
-            fr = self.client.get(reverse('jsi18n')).content
+            fr = self.client.get(reverse('jsi18n')).content.decode('utf-8')
 
         assert en != fr
 

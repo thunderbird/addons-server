@@ -4,9 +4,13 @@ pytest hooks and fixtures used for our unittests.
 Please note that there should not be any Django/Olympia related imports
 on module-level, they should instead be added to hooks or fixtures directly.
 """
+import os
+import uuid
+import warnings
 
 import pytest
 import responses
+import six
 
 
 @pytest.fixture(autouse=True)
@@ -34,6 +38,27 @@ def mock_elasticsearch():
     yield
 
     stop_es_mocks()
+
+
+@pytest.fixture(autouse=True)
+def start_responses_mocking(request):
+    """Enable ``responses`` this enforcing us to explicitly mark tests
+    that require internet usage.
+    """
+    marker = request.node.get_closest_marker('allow_external_http_requests')
+
+    if not marker:
+        responses.start()
+
+    yield
+
+    try:
+        if not marker:
+            responses.stop()
+            responses.reset()
+    except RuntimeError:
+        # responses patcher was already uninstalled
+        pass
 
 
 @pytest.fixture(autouse=True)
@@ -110,19 +135,51 @@ def test_pre_setup(request, tmpdir, settings):
     from django.utils import translation
     from olympia import amo, core
     from olympia.translations.hold import clean_translations
+    from waffle.utils import get_cache as waffle_get_cache
+    from waffle import models as waffle_models
 
-    caches['default'].clear()
+    # Ignore ResourceWarning for now. It's a Python 3 thing so it's done
+    # dynamically here.
+    if six.PY3:
+        warnings.filterwarnings('ignore', category=ResourceWarning)  # noqa
+
+    # Clear all cache-instances. They'll be re-initialized by Django
+    # This will make sure that our random `KEY_PREFIX` is applied
+    # appropriately.
+    # This is done by Django too whenever `settings` is changed
+    # directly but because we're using the `settings` fixture
+    # here this is not detected correctly.
+    caches._caches.caches = {}
+
+    # Randomize the cache key prefix to keep
+    # tests isolated from each other.
+    prefix = uuid.uuid4().hex
+    settings.CACHES['default']['KEY_PREFIX'] = 'amo:{0}:'.format(prefix)
+
+    # Reset global django-waffle cache instance to make sure it's properly
+    # using our new key prefix
+    waffle_models.cache = waffle_get_cache()
 
     translation.trans_real.deactivate()
     # Django fails to clear this cache.
     translation.trans_real._translations = {}
     translation.trans_real.activate(settings.LANGUAGE_CODE)
 
-    settings.MEDIA_ROOT = str(tmpdir.mkdir('media'))
-    settings.TMP_PATH = str(str(tmpdir.mkdir('tmp')))
-    settings.STATIC_ROOT = str(tmpdir.mkdir('site-static'))
-    settings.NETAPP_STORAGE = settings.TMP_PATH
-    settings.GIT_FILE_STORAGE_PATH = str(tmpdir.mkdir('git-storage'))
+    def _path(*args):
+        path = str(os.path.join(*args))
+        if not os.path.exists(path):
+            os.makedirs(path)
+        return path
+
+    settings.STORAGE_ROOT = storage_root = _path(str(tmpdir.mkdir('storage')))
+    settings.SHARED_STORAGE = shared_storage = _path(
+        storage_root, 'shared_storage')
+
+    settings.ADDONS_PATH = _path(storage_root, 'files')
+    settings.GUARDED_ADDONS_PATH = _path(storage_root, 'guarded-addons')
+    settings.GIT_FILE_STORAGE_PATH = _path(storage_root, 'git-storage')
+    settings.MEDIA_ROOT = _path(shared_storage, 'uploads')
+    settings.TMP_PATH = _path(shared_storage, 'tmp')
 
     # Reset the prefixer and urlconf after updating media root
     default_prefixer(settings)

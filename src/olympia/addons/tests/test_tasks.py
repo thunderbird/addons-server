@@ -135,6 +135,9 @@ class TestAddStaticThemeFromLwt(TestCase):
             'olympia.addons.tasks.build_static_theme_xpi_from_lwt')
         self.build_mock.side_effect = self._mock_xpi_side_effect
 
+        # Create a fake task user
+        user_factory(id=settings.TASK_USER_ID, fxa_id='abc')
+
         self.call_signing_mock.return_value = 'abcdefg1234'
         AppVersion.objects.get_or_create(
             application=amo.FIREFOX.id, version='53.0')
