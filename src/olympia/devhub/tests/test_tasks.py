@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+import six
 from django.conf import settings
 from django.core import mail
 from django.core.files.storage import default_storage as storage
@@ -123,23 +124,25 @@ def test_recreate_previews(pngcrush_image_mock):
     addon = addon_factory()
     # Set up the preview so it has files in the right places.
     preview_no_original = Preview.objects.create(addon=addon)
-    with storage.open(preview_no_original.image_path, 'w') as dest:
-        shutil.copyfileobj(open(get_image_path('preview_landscape.jpg')), dest)
-    with storage.open(preview_no_original.thumbnail_path, 'w') as dest:
-        shutil.copyfileobj(open(get_image_path('mozilla.png')), dest)
+    with storage.open(preview_no_original.image_path, 'wb') as dest:
+        shutil.copyfileobj(open(get_image_path('preview_landscape.jpg'), 'rb'), dest)
+    with storage.open(preview_no_original.thumbnail_path, 'wb') as dest:
+        shutil.copyfileobj(open(get_image_path('mozilla.png'), 'rb'), dest)
     # And again but this time with an "original" image.
     preview_has_original = Preview.objects.create(addon=addon)
-    with storage.open(preview_has_original.image_path, 'w') as dest:
-        shutil.copyfileobj(open(get_image_path('preview_landscape.jpg')), dest)
-    with storage.open(preview_has_original.thumbnail_path, 'w') as dest:
-        shutil.copyfileobj(open(get_image_path('mozilla.png')), dest)
-    with storage.open(preview_has_original.original_path, 'w') as dest:
-        shutil.copyfileobj(open(get_image_path('teamaddons.jpg')), dest)
+    with storage.open(preview_has_original.image_path, 'wb') as dest:
+        shutil.copyfileobj(open(get_image_path('preview_landscape.jpg'), 'rb'), dest)
+    with storage.open(preview_has_original.thumbnail_path, 'wb') as dest:
+        shutil.copyfileobj(open(get_image_path('mozilla.png'), 'rb'), dest)
+    with storage.open(preview_has_original.original_path, 'wb') as dest:
+        shutil.copyfileobj(open(get_image_path('teamaddons.jpg'), 'rb'), dest)
 
     tasks.recreate_previews([addon.id])
 
     assert preview_no_original.reload().sizes == {
-        'image': [533, 400], 'thumbnail': [267, 200]}
+        'image': [533, 400],
+        'thumbnail': [267, 200]
+    }
     # Check no resize for full size, but resize happened for thumbnail
     assert (storage.size(preview_no_original.image_path) ==
             storage.size(get_image_path('preview_landscape.jpg')))
@@ -194,6 +197,7 @@ class ValidatorTestCase(TestCase):
             application=amo.APPS[name].id, version=version)
 
 
+@pytest.mark.xfail(not six.PY2, reason='amo-validator doesn\'t support Python 3')
 class TestValidator(ValidatorTestCase):
     mock_sign_addon_warning = json.dumps({
         "warnings": 1,

@@ -556,7 +556,7 @@ class TestAddonSubmitSource(TestSubmitBase):
         assert self.addon.needs_admin_code_review
         mode = (
             oct(os.stat(self.get_version().source.path)[stat.ST_MODE]))
-        assert mode == '0100644'
+        assert mode == '0o100644'
 
     @override_settings(FILE_UPLOAD_MAX_MEMORY_SIZE=1)
     def test_say_no_but_submit_source_anyway_fails(self):
@@ -590,7 +590,7 @@ class TestAddonSubmitSource(TestSubmitBase):
         assert self.addon.needs_admin_code_review
         mode = (
             oct(os.stat(self.get_version().source.path)[stat.ST_MODE]))
-        assert mode == '0100644'
+        assert mode == '0o100644'
 
     def test_with_bad_source_format(self):
         response = self.post(

@@ -2,6 +2,7 @@
 import json
 import shutil
 
+import six
 from django.core.files.storage import default_storage as storage
 
 import mock
@@ -377,7 +378,7 @@ class TestValidateFile(BaseUploadTest):
         self.user = UserProfile.objects.get(email='del@icio.us')
         self.file = File.objects.get(pk=100456)
         # Move the file into place as if it were a real file
-        with storage.open(self.file.file_path, 'w') as dest:
+        with storage.open(self.file.file_path, 'wb') as dest:
             shutil.copyfileobj(
                 open(self.file_path('invalid-id-20101206.xpi'), 'rb'),
                 dest)
@@ -692,7 +693,7 @@ class TestUploadCompatCheck(BaseUploadTest):
         assert res.status_code == 200
         doc = pq(res.content)
 
-        assert 'this tool only works with legacy add-ons' in res.content
+        assert 'this tool only works with legacy add-ons' in res.content.decode('utf-8')
 
         options = doc('#id_application option')
         expected = [(str(a.id), six.text_type(a.pretty)) for a in amo.APP_USAGE]

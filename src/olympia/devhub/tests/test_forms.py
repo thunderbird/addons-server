@@ -302,7 +302,8 @@ class TestPreviewForm(TestCase):
         form = forms.PreviewForm({'caption': 'test', 'upload_hash': name,
                                   'position': 1})
         with storage.open(os.path.join(self.dest, name), 'wb') as f:
-            shutil.copyfileobj(open(get_image_path(name)), f)
+            image_path = get_image_path(name)
+            shutil.copyfileobj(open(image_path, 'rb'), f)
         assert form.is_valid()
         form.save(addon)
         assert update_mock.called
@@ -314,7 +315,7 @@ class TestPreviewForm(TestCase):
         form = forms.PreviewForm({'caption': 'test', 'upload_hash': name,
                                   'position': 1})
         with storage.open(os.path.join(self.dest, name), 'wb') as f:
-            shutil.copyfileobj(open(get_image_path(name)), f)
+            shutil.copyfileobj(open(get_image_path(name), 'rb'), f)
         assert form.is_valid()
         form.save(addon)
         preview = addon.previews.all()[0]

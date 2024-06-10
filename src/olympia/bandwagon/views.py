@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.db.transaction import non_atomic_requests
 from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_str
 from django.utils.translation import ugettext, ugettext_lazy as _lazy
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
@@ -126,7 +127,7 @@ def collection_listing(request, base=None):
     )
     # Counts are hard to cache automatically, and accuracy for this
     # one is less important. Remember it for 5 minutes.
-    countkey = hashlib.sha256(str(qs.query) + '_count').hexdigest()
+    countkey = hashlib.sha256(force_str(qs.query) + '_count').hexdigest()
     count = cache.get(countkey)
     if count is None:
         count = qs.count()

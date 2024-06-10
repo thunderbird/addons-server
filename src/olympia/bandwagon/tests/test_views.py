@@ -207,8 +207,8 @@ class TestViews(TestCase):
         coll.name = name
         coll.save()
         resp = self.client.get(coll.get_url_path())
-        assert name not in resp.content
-        assert name_escaped in resp.content
+        assert name not in resp.content.decode('utf-8')
+        assert name_escaped in resp.content.decode('utf-8')
 
 
 class TestPrivacy(TestCase):

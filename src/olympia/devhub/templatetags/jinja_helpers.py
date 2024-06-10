@@ -2,7 +2,7 @@ from six.moves.urllib.parse import unquote
 
 from collections import defaultdict
 
-from django.utils.encoding import force_bytes
+from django.utils.encoding import force_bytes, force_str
 from django.utils.translation import ugettext, ungettext
 
 import jinja2
@@ -120,8 +120,8 @@ def display_url(url):
 
     Note: returns a Unicode object, not a valid URL.
     """
-    url = force_bytes(url, errors='replace')
-    return unquote(url).decode('utf-8', errors='replace')
+    url = force_str(url, errors='replace')
+    return unquote(url)
 
 
 @library.global_function

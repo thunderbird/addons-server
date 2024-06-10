@@ -11,6 +11,7 @@ import mock
 import six
 
 from celery.exceptions import Retry
+from django.utils.encoding import force_str
 
 from olympia.amo.models import FakeEmail
 from olympia.amo.tests import BaseTestCase
@@ -219,8 +220,9 @@ class TestSendMail(BaseTestCase):
 
     def test_send_attachment(self):
         path = os.path.join(ATTACHMENTS_DIR, 'bacon.txt')
+        contents = force_str(storage.open(path).read())
         attachments = [(
-            os.path.basename(path), storage.open(path).read(),
+            os.path.basename(path), contents,
             mimetypes.guess_type(path)[0])]
         send_mail('test subject', 'test body', from_email='a@example.com',
                   recipient_list=['b@example.com'], attachments=attachments)

@@ -841,7 +841,7 @@ class TestVersionEditCompat(TestVersionEditBase):
         response = self.client.post(self.url, data)
         assert response.status_code == 302
         apps = list(self.get_version().compatible_apps.keys())
-        assert sorted(apps) == sorted([amo.FIREFOX, amo.THUNDERBIRD])
+        assert list(sorted(apps)) == list(sorted([amo.FIREFOX.id, amo.THUNDERBIRD.id]))
         assert list(ActivityLog.objects.all().values_list('action')) == (
             [(amo.LOG.MAX_APPVERSION_UPDATED.id,)])
 
