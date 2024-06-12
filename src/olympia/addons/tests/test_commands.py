@@ -638,10 +638,10 @@ class TestDeletePersonas(TestCase):
         av_tb_max, _ = AppVersion.objects.get_or_create(
             application=amo.THUNDERBIRD.id, version='115.*')
 
-        def create_addon(version, is_persona = True, alt_version = None, min = None, max = None):
+        def create_addon(version, extension_type = amo.ADDON_PERSONA, alt_version = None, min = None, max = None):
             addon = addon_factory(
                 version_kw={'application': version},
-                type=amo.ADDON_PERSONA if is_persona else amo.ADDON_EXTENSION
+                type=extension_type
             )
             # Create a new version, if alt_version is provided it's essentially a release for that platform
             if alt_version:
@@ -654,13 +654,45 @@ class TestDeletePersonas(TestCase):
         # These addons should stay
         extensions = [
             # Thunderbird
-            create_addon(amo.THUNDERBIRD.id, is_persona=False),
+            create_addon(amo.THUNDERBIRD.id, extension_type=amo.ADDON_EXTENSION),
             # Seamonkey
-            create_addon(amo.SEAMONKEY.id, is_persona=False),
+            create_addon(amo.SEAMONKEY.id, extension_type=amo.ADDON_EXTENSION),
             # Thunderbird and Seamonkey
-            create_addon(amo.THUNDERBIRD.id, is_persona=False, alt_version=amo.SEAMONKEY.id, min=av_seamonkey_min, max=av_seamonkey_max),
+            create_addon(amo.THUNDERBIRD.id, extension_type=amo.ADDON_EXTENSION, alt_version=amo.SEAMONKEY.id, min=av_seamonkey_min, max=av_seamonkey_max),
             # Firefox and Thunderbird
-            create_addon(amo.FIREFOX.id, is_persona=False, alt_version=amo.THUNDERBIRD.id, min=av_tb_min, max=av_tb_max)
+            create_addon(amo.FIREFOX.id, extension_type=amo.ADDON_EXTENSION, alt_version=amo.THUNDERBIRD.id, min=av_tb_min, max=av_tb_max)
+        ]
+
+        static_themes = [
+            # Thunderbird
+            create_addon(amo.THUNDERBIRD.id, extension_type=amo.ADDON_STATICTHEME),
+            # Firefox
+            create_addon(amo.FIREFOX.id, extension_type=amo.ADDON_STATICTHEME),
+            # Firefox and Thunderbird
+            create_addon(amo.FIREFOX.id, extension_type=amo.ADDON_STATICTHEME, alt_version=amo.THUNDERBIRD.id, min=av_tb_min, max=av_tb_max)
+        ]
+
+        complete_themes = [
+            # Thunderbird
+            create_addon(amo.THUNDERBIRD.id, extension_type=amo.ADDON_THEME),
+            # Seamonkey
+            create_addon(amo.SEAMONKEY.id, extension_type=amo.ADDON_THEME),
+        ]
+
+        dictionaries = [
+            # Thunderbird
+            create_addon(amo.THUNDERBIRD.id, extension_type=amo.ADDON_DICT),
+            # Seamonkey
+            create_addon(amo.SEAMONKEY.id, extension_type=amo.ADDON_DICT),
+        ]
+
+        langpacks = [
+            # Thunderbird
+            create_addon(amo.THUNDERBIRD.id, extension_type=amo.ADDON_LPAPP),
+            # Seamonkey
+            create_addon(amo.SEAMONKEY.id, extension_type=amo.ADDON_LPAPP),
+            # Firefox
+            create_addon(amo.FIREFOX.id, extension_type=amo.ADDON_LPAPP),
         ]
 
         # These addons should go
@@ -680,8 +712,8 @@ class TestDeletePersonas(TestCase):
         # somehow fell through the cracks once a day.
         update_appsupport(Addon.objects.public().values_list('pk', flat=True))
 
-        assert Addon.objects.count() == 9
-        assert Version.objects.count() == 9
+        assert Addon.objects.count() == 19
+        assert Version.objects.count() == 19
 
         with count_subtask_calls(pa.delete_personas) as calls:
             self.make_the_call()
@@ -692,19 +724,23 @@ class TestDeletePersonas(TestCase):
         assert len(calls) == 1
         assert calls[0]['kwargs']['args'] == [personas_pk]
 
-        for addon in extensions:
-            assert Addon.objects.filter(pk=addon.pk).exists()
+        # These should stay
+        assert all([Addon.objects.filter(pk=addon.pk).exists() for addon in extensions])
+        assert all([Addon.objects.filter(pk=addon.pk).exists() for addon in complete_themes])
+        assert all([Addon.objects.filter(pk=addon.pk).exists() for addon in static_themes])
+        assert all([Addon.objects.filter(pk=addon.pk).exists() for addon in dictionaries])
+        assert all([Addon.objects.filter(pk=addon.pk).exists() for addon in langpacks])
 
-        for addon in personas:
-            assert not Addon.objects.filter(pk=addon.pk).exists()
+        # These should go
+        assert all([not Addon.objects.filter(pk=addon.pk).exists() for addon in personas])
 
         # Make sure the persona data is also deleted
         for persona_pk in personas_object_pk:
             assert not Persona.objects.filter(pk=persona_pk).exists()
 
-        # Ensure Addon and their versions are now down to 4
-        assert Addon.unfiltered.count() == 4
-        assert Version.unfiltered.count() == 4
+        # Ensure Addon and their versions are now down to 14
+        assert Addon.unfiltered.count() == 14
+        assert Version.unfiltered.count() == 14
         # Personas isn't soft-deletable, so we can just use objects
         assert Persona.objects.count() == 0
 
