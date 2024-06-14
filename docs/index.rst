@@ -2,8 +2,8 @@
 Welcome to Add-ons Servers documentation!
 =========================================
 
-Add-ons Server is the codebase for https://addons.mozilla.org/;
-the source lives at https://github.com/mozilla/addons-server.
+Add-ons Server is the codebase for https://addons.thunderbird.net/;
+the source lives at https://github.com/thundernest/addons-server.
 
 In the past, this project was *olympia*; documentation that refers to olympia
 refers to this project.

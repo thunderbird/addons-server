@@ -4,7 +4,7 @@
 External API (V3)
 =================
 
-This shows you how to use the `addons.mozilla.org <https://addons.mozilla.org/en-US/firefox/>`_
+This shows you how to use the `addons.thunderbird.net <https://addons.thunderbird.net/en-US/thunderbird/>`_
 API at ``/api/v3/`` which is hosted at the following URLs:
 
 .. _v3-api-environments:
@@ -12,17 +12,11 @@ API at ``/api/v3/`` which is hosted at the following URLs:
 ===========  =========================================
 Environment  URL
 ===========  =========================================
-Production   ``https://addons.mozilla.org/api/v3/``
-Staging      ``https://addons.allizom.org/api/v3/``
-Development  ``https://addons-dev.allizom.org/api/v3/``
+Production   ``https://addons.thunderbird.net/api/v3/``
 ===========  =========================================
 
 Production
     Connect to this API for all normal operation.
-Staging or Development
-    Connect to these APIs if you need to work with a scratch database or
-    you're testing features that aren't available in production yet.
-    Your production account is not linked to any of these APIs.
 
 Dive into the :ref:`overview section <v3-api-overview>` and the
 :ref:`authentication section <v3-api-auth>` for an example of how to get started

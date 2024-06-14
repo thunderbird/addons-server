@@ -123,7 +123,7 @@ Using the :ref:`profile <v3-profile>` as an example endpoint,
 here's what a JWT authenticated HTTP request would look like in
 `curl <http://curl.haxx.se/>`_::
 
-    curl "https://addons.mozilla.org/api/v3/accounts/profile/" \
+    curl "https://addons.thunderbird.net/api/v3/accounts/profile/" \
          -H "Authorization: JWT eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ5b3VyLWFwaS1rZXkiLCJqdGkiOiIwLjQ3MzYyOTQ0NjIzNDU1NDA1IiwiaWF0IjoxNDQ3MjczMDk2LCJleHAiOjE0NDcyNzMxNTZ9.fQGPSV85QPhbNmuu86CIgZiluKBvZKd-NmzM6vo11DM"
 
 
@@ -134,7 +134,7 @@ There are robust open source libraries for creating JWTs in
 `all major programming languages <http://jwt.io/>`_.
 
 
-.. _`manage-credentials`: https://addons.mozilla.org/en-US/developers/addon/api/key/
+.. _`manage-credentials`: https://addons.thunderbird.net/en-US/developers/addon/api/key/
 .. _`API Credentials Management Page`: manage-credentials_
 .. _`credentials management page`: manage-credentials_
 .. _`jwt-spec`: https://tools.ietf.org/html/rfc7519

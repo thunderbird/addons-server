@@ -17,7 +17,7 @@ Submitting an add-on abuse report
 .. _`addonabusereport-create`:
 
 The following API endpoint allows an abuse report to be submitted for an Add-on,
-either listed on https://addons.mozilla.org or not.
+either listed on https://addons.thunderbird.net or not.
 Authentication is not required, but is recommended so reports can be responded
 to if nessecary.
 
@@ -46,7 +46,7 @@ Submitting a user abuse report
 .. _`userabusereport-create`:
 
 The following API endpoint allows an abuse report to be submitted for a user account
-on https://addons.mozilla.org.  Authentication is not required, but is recommended
+on https://addons.thunderbird.net.  Authentication is not required, but is recommended
 so reports can be responded to if nessecary.
 
 .. http:post:: /api/v4/abuse/report/user/

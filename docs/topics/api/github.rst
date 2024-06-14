@@ -13,7 +13,7 @@ This API provides an endpoint that works with GitHub to provide add-on validatio
 To set this up on a GitHub repository you will need to:
 
 * Go to `Settings > Webhooks & Services`
-* Add a new Webhook with Payload URL of `https://addons.mozilla.org/api/v4/github/validate/`
+* Add a new Webhook with Payload URL of `https://addons.thunderbird.net/api/v4/github/validate/`
 * Click `Send me everything`
 * Click `Update webhook`
 
