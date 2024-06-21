@@ -456,7 +456,7 @@ def _site_query(period, start, end, field=None, request=None):
                "GROUP BY %s(date), name "
                "ORDER BY %s(date) DESC;"
                % (', '.join(['%s' for key in _KEYS.keys()]), period, period))
-        cursor.execute(sql, [start, end] + _KEYS.keys())
+        cursor.execute(sql, [start, end] + list(_KEYS.keys()))
 
         # Process the results into a format that is friendly for render_*.
         default = {k: 0 for k in _CACHED_KEYS}

@@ -637,6 +637,7 @@ class FileUpload(ModelBase):
             hash = hashlib.sha256()
             with storage.open(loc, 'wb') as file_destination:
                 for chunk in chunks:
+                    chunk = force_bytes(chunk)
                     hash.update(chunk)
                     file_destination.write(chunk)
         self.path = loc

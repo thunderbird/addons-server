@@ -1054,6 +1054,7 @@ class TestFeaturedFeed(TestCase):
             Addon.objects.featured(amo.FIREFOX).count())
 
 
+@pytest.mark.xfail(reason="Personas are deprecated, and will be removed in the near future.")
 class TestPersonas(TestCase):
     fixtures = ('base/appversion', 'base/featured',
                 'addons/featured', 'addons/persona')

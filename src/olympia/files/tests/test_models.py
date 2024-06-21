@@ -436,7 +436,7 @@ class TestParseXpi(TestCase):
         }
         parse_addon_kwargs.update(**kwargs)
 
-        with open(xpi) as fobj:
+        with open(xpi, mode='rb') as fobj:
             return parse_addon(fobj, addon, **parse_addon_kwargs)
 
     def test_parse_basics(self):

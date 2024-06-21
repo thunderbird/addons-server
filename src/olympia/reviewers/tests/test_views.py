@@ -125,7 +125,7 @@ class TestRatingsModerationLog(ReviewerTest):
     def test_no_results(self):
         response = self.client.get(self.url, {'end': '2004-01-01'})
         assert response.status_code == 200
-        assert '"no-results"' in response.content
+        assert '"no-results"' in response.content.decode('utf-8')
 
     def test_moderation_log_detail(self):
         review = self.make_review()
@@ -3696,7 +3696,7 @@ class TestReview(ReviewBase):
         # Only the download/install link
         assert info.find('a').length == 1
         assert info.find('a')[0].text == u'Download'
-        assert 'Compatibility' not in response.content
+        assert 'Compatibility' not in response.content.decode('utf-8')
 
     def test_compare_link(self):
         first_file = self.addon.current_version.files.all()[0]
@@ -3818,7 +3818,7 @@ class TestReview(ReviewBase):
         version = self.addon.current_version
         tdir = temp.gettempdir()
         source_file = temp.NamedTemporaryFile(suffix='.zip', dir=tdir)
-        source_file.write('a' * (2 ** 21))
+        source_file.write(b'a' * (2 ** 21))
         source_file.seek(0)
         version.source = DjangoFile(source_file)
         version.save()

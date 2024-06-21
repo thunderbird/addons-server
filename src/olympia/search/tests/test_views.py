@@ -863,8 +863,7 @@ class TestStaticThemeSearch(SearchBase):
     ('type=language', 'atype=5'),
 ])
 def test_search_redirects(test_input, expected):
-    assert views.fix_search_query(QueryDict(test_input)) == (
-        dict(parse_qsl(expected)))
+    assert views.fix_search_query(QueryDict(test_input).dict()) == dict(parse_qsl(expected))
 
 
 @pytest.mark.parametrize("test_input", [
@@ -979,7 +978,7 @@ class TestGenericAjaxSearch(TestAjaxSearch):
         self.refresh()
 
         data = self.search_addons('q=Addon', public_addons)
-        assert int(data[0]['id']) != web_extension.id
+        assert int(data[0]['id']) != web_extension.id, data
 
         create_switch('boost-webextensions-in-search')
         # The boost chosen should have made that addon the first one.

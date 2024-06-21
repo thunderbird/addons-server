@@ -127,7 +127,7 @@ def collection_listing(request, base=None):
     )
     # Counts are hard to cache automatically, and accuracy for this
     # one is less important. Remember it for 5 minutes.
-    countkey = hashlib.sha256(force_str(qs.query) + '_count').hexdigest()
+    countkey = hashlib.sha256((force_str(qs.query) + '_count').encode('utf-8')).hexdigest()
     count = cache.get(countkey)
     if count is None:
         count = qs.count()

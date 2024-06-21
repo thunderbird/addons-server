@@ -277,9 +277,12 @@ class RDFExtractor(object):
             self.is_experiment = self.package_type in self.EXPERIMENT_TYPES
             return self.TYPES[self.package_type]
 
+
+        name = force_text(self.zip_file.source.name)
+
         # Look for Complete Themes.
         is_complete_theme = (
-            self.zip_file.source.name.endswith('.jar') or
+            name.endswith('.jar') or
             self.find('internalName')
         )
         if is_complete_theme:
@@ -932,10 +935,12 @@ def parse_xpi(xpi, addon=None, minimal=False, user=None):
         if len(e.args) < 2:
             err = e[0]
         log.error('I/O error({0})'.format(err))
+        print(err)
         raise forms.ValidationError(ugettext(
             'Could not parse the manifest file.'))
-    except Exception:
+    except Exception as ex:
         log.error('XPI parse error', exc_info=True)
+        print(ex)
         raise forms.ValidationError(ugettext(
             'Could not parse the manifest file.'))
 
@@ -1042,6 +1047,7 @@ def parse_addon(pkg, addon=None, user=None, minimal=False):
     it should always contain at least guid, type, version and is_webextension.
     """
     name = getattr(pkg, 'name', pkg)
+    name = force_text(name)
     if name.endswith('.xml'):
         parsed = parse_search(pkg, addon)
     else:

@@ -1450,8 +1450,8 @@ class TestVersionXSS(TestCase):
             version='<script>alert("Happy XSS-Xmas");<script>')
         response = self.client.get(reverse('devhub.addons'))
         assert response.status_code == 200
-        assert '<script>alert' not in response.content
-        assert '&lt;script&gt;alert' in response.content
+        assert '<script>alert' not in response.content.decode('utf-8')
+        assert '&lt;script&gt;alert' in response.content.decode('utf-8')
 
 
 class TestDeleteAddon(TestCase):

@@ -7,6 +7,7 @@ from django.http import Http404
 from django.test.client import RequestFactory
 
 import mock
+from django.utils.encoding import force_str
 
 from pyquery import PyQuery as pq
 
@@ -171,9 +172,11 @@ class ESStatsTest(StatsTest, amo.tests.ESTestCase):
         self.refresh('stats')
 
     def csv_eq(self, response, expected):
+        content = force_str(response.content)
         content = csv.DictReader(
             # Drop lines that are comments.
-            filter(lambda row: row[0] != '#', response.content.splitlines()))
+            filter(lambda row: row[0] != '#', content.splitlines()))
+        expected = force_str(expected)
         expected = csv.DictReader(
             # Strip any extra spaces from the expected content.
             line.strip() for line in expected.splitlines())

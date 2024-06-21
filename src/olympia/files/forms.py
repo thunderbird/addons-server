@@ -1,3 +1,4 @@
+import functools
 from collections import defaultdict
 
 from django import forms
@@ -38,8 +39,7 @@ class FileSelectWidget(widgets.Select):
         def option(files, label=None, deleted=False, channel=None):
             # Make sure that if there's a non-disabled version,
             # that's the one we use for the ID.
-            files.sort(lambda a, b: ((a.status == amo.STATUS_DISABLED) -
-                                     (b.status == amo.STATUS_DISABLED)))
+            files.sort(key=functools.cmp_to_key(lambda a, b: (a.status == amo.STATUS_DISABLED) - (b.status == amo.STATUS_DISABLED)))
 
             if label is None:
                 label = u', '.join(f.get_platform_display() for f in files)

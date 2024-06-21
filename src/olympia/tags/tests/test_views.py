@@ -37,8 +37,8 @@ class TestXSS(TestCase):
         """Test xss tag detail."""
         url = reverse('addons.detail_more', args=['a3615'])
         r = self.client.get_ajax(url, follow=True)
-        assert self.escaped in r.content
-        assert self.xss not in r.content
+        assert self.escaped in r.content.decode('utf-8')
+        assert self.xss not in r.content.decode('utf-8')
 
 
 class TestXSSURLFail(TestCase):
@@ -59,8 +59,8 @@ class TestXSSURLFail(TestCase):
         """Test xss tag detail."""
         url = reverse('addons.detail_more', args=['a3615'])
         r = self.client.get_ajax(url, follow=True)
-        assert self.escaped in r.content
-        assert self.xss not in r.content
+        assert self.escaped in r.content.decode('utf-8')
+        assert self.xss not in r.content.decode('utf-8')
 
     def test_tags_xss_home(self):
         """Test xss tag home."""

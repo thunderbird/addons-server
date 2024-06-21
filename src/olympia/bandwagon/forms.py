@@ -180,7 +180,7 @@ class CollectionForm(forms.ModelForm):
             # Seek back to the beginning before reading the icon file since we
             # went through ImageCheck() in clean_icon().
             icon.seek(0)
-            with storage.open(tmp_destination, 'w') as fh:
+            with storage.open(tmp_destination, 'wb') as fh:
                 for chunk in icon.chunks():
                     fh.write(chunk)
             tasks.resize_icon.delay(

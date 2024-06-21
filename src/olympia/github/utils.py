@@ -133,7 +133,7 @@ def rezip_file(response, pk):
     new_filename = '{}_github_webhook.xpi'.format(pk)
     new_path = os.path.join(loc, new_filename)
 
-    old_zip = SafeZip(old_path, mode='rb')
+    old_zip = SafeZip(old_path)
     if not old_zip.is_valid:
         raise
 

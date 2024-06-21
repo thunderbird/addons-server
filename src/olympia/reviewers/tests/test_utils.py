@@ -280,39 +280,39 @@ class TestReviewHelper(TestCase):
 
     def test_actions_full_nominated(self):
         expected = ['public', 'reject', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_NOMINATED,
-            file_status=amo.STATUS_AWAITING_REVIEW).keys() == expected
+            file_status=amo.STATUS_AWAITING_REVIEW).keys()) == expected
 
     def test_actions_full_update(self):
         expected = ['public', 'reject', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_AWAITING_REVIEW).keys() == expected
+            file_status=amo.STATUS_AWAITING_REVIEW).keys()) == expected
 
     def test_actions_full_nonpending(self):
         expected = ['reply', 'super', 'comment']
         f_statuses = [amo.STATUS_PUBLIC, amo.STATUS_DISABLED]
         for file_status in f_statuses:
-            assert self.get_review_actions(
+            assert list(self.get_review_actions(
                 addon_status=amo.STATUS_PUBLIC,
-                file_status=file_status).keys() == expected
+                file_status=file_status).keys()) == expected
 
     def test_actions_public_post_reviewer(self):
         self.grant_permission(self.request.user, 'Addons:PostReview')
         expected = ['reject_multiple_versions', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_PUBLIC).keys() == expected
+            file_status=amo.STATUS_PUBLIC).keys()) == expected
 
         # Now make current version auto-approved...
         AutoApprovalSummary.objects.create(
             version=self.addon.current_version, verdict=amo.AUTO_APPROVED)
         expected = ['confirm_auto_approved', 'reject_multiple_versions',
                     'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_PUBLIC).keys() == expected
+            file_status=amo.STATUS_PUBLIC).keys()) == expected
 
     def test_actions_content_review(self):
         self.grant_permission(self.request.user, 'Addons:ContentReview')
@@ -320,10 +320,10 @@ class TestReviewHelper(TestCase):
             version=self.addon.current_version, verdict=amo.AUTO_APPROVED)
         expected = ['confirm_auto_approved', 'reject_multiple_versions',
                     'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
             file_status=amo.STATUS_PUBLIC,
-            content_review_only=True).keys() == expected
+            content_review_only=True).keys()) == expected
 
     def test_actions_public_static_theme(self):
         # Having Addons:PostReview and dealing with a public add-on would
@@ -332,18 +332,18 @@ class TestReviewHelper(TestCase):
         self.grant_permission(self.request.user, 'Addons:PostReview')
         self.addon.update(type=amo.ADDON_STATICTHEME)
         expected = ['public', 'reject', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_AWAITING_REVIEW).keys() == expected
+            file_status=amo.STATUS_AWAITING_REVIEW).keys()) == expected
 
     def test_actions_no_version(self):
         """Deleted addons and addons with no versions in that channel have no
         version set."""
         expected = ['comment']
         self.version = None
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_PUBLIC).keys() == expected
+            file_status=amo.STATUS_PUBLIC).keys()) == expected
 
     def test_set_files(self):
         self.file.update(datestatuschanged=yesterday)
