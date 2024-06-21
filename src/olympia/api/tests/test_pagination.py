@@ -102,7 +102,7 @@ class TestOneOrZeroPageNumberPagination(TestCase):
         assert dict(response.data) == {
             'page_size': 1,
             'page_count': 1,
-            'results': range(1, 2),
+            'results': list(range(1, 2)),
             'previous': None,
             'next': None,
             'count': 1

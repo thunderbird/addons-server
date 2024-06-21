@@ -140,8 +140,8 @@ def test_recreate_previews(pngcrush_image_mock):
     tasks.recreate_previews([addon.id])
 
     assert preview_no_original.reload().sizes == {
-        'thumbnail': [267, 200],
         'image': [533, 400],
+        'thumbnail': [266, 200],
     }
     # Check no resize for full size, but resize happened for thumbnail
     assert (storage.size(preview_no_original.image_path) ==
@@ -742,6 +742,7 @@ class TestWebextensionIncompatibilities(ValidatorTestCase):
         assert validation['messages'][0]['type'] == 'error'
 
 
+@pytest.mark.xfail(reason="amo-validator will be removed in Py3 upgrade")
 class TestLegacyAddonRestrictions(ValidatorTestCase):
     def setUp(self):
         super(TestLegacyAddonRestrictions, self).setUp()

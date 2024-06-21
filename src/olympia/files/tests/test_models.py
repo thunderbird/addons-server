@@ -804,7 +804,7 @@ class TestFileUpload(UploadTest):
                                     len(self.data), **params)
 
     def test_from_post_write_file(self):
-        assert storage.open(self.upload().path).read() == self.data
+        assert force_text(storage.open(self.upload().path).read()) == self.data
 
     def test_from_post_filename(self):
         upload = self.upload()

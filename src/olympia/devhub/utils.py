@@ -223,8 +223,7 @@ def find_previous_version(addon, file, version_string, channel):
     statuses = [amo.STATUS_PUBLIC]
     # Find all previous files of this add-on with the correct status and in
     # the right channel.
-    qs = File.objects.filter(
-        version__addon=addon, version__channel=channel, status__in=statuses)
+    qs = File.objects.filter(version__addon=addon, version__channel=channel, status__in=statuses)
 
     if file:
         # Add some extra filters if we're validating a File instance,
@@ -242,10 +241,10 @@ def find_previous_version(addon, file, version_string, channel):
                          Q(version__files__platform=amo.PLATFORM_ALL.id)))
 
     vint = version_int(version_string)
-    for file_ in qs.order_by('-id'):
+    for _file in qs.order_by('-id'):
         # Only accept versions which come before the one we're validating.
-        if file_.version.version_int < vint:
-            return file_
+        if (_file.version.version_int or 0) < vint:
+            return _file
 
 
 class Validator(object):
