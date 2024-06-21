@@ -458,7 +458,7 @@ class TestFileViewer(FilesBase, TestCase):
         assert res.status_code == 200
 
     def test_unicode_fails_with_wrong_configured_basepath(self):
-        with override_settings(TMP_PATH=unicode(settings.TMP_PATH)):
+        with override_settings(TMP_PATH=six.text_type(settings.TMP_PATH)):
             file_viewer = FileViewer(self.file)
             file_viewer.src = unicode_filenames
 
@@ -617,7 +617,7 @@ class TestDiffViewer(FilesBase, TestCase):
         filename = os.path.join(self.file_viewer.left.dest, 'install.js')
         open(filename, 'w').write('MZ')
         res = self.client.get(self.file_url(not_binary))
-        assert 'This file is not viewable online' in res.content
+        assert 'This file is not viewable online' in res.content.decode('utf-8')
 
     def test_view_right_binary(self):
         self.file_viewer.extract()
@@ -625,7 +625,7 @@ class TestDiffViewer(FilesBase, TestCase):
         open(filename, 'w').write('MZ')
         assert not self.file_viewer.is_diffable()
         res = self.client.get(self.file_url(not_binary))
-        assert 'This file is not viewable online' in res.content
+        assert 'This file is not viewable online' in res.content.decode('utf-8')
 
     def test_different_tree(self):
         self.file_viewer.extract()

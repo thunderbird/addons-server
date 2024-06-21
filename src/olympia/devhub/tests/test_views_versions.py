@@ -883,7 +883,7 @@ class TestVersionEditCompat(TestVersionEditBase):
         # Add thunderbird compat so we can delete firefox.
         self.test_add_appversion()
         form = self.client.get(self.url).context['compat_form']
-        data = map(initial, form.initial_forms)
+        data = list(map(initial, form.initial_forms))
         data[0]['DELETE'] = True
         response = self.client.post(
             self.url, self.formset(*data, initial_count=2))

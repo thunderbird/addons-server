@@ -67,8 +67,7 @@ class ESPaginator(Paginator):
         top = bottom + self.per_page
 
         if top > self.max_result_window:
-            raise InvalidPage(
-                'That page number is too high for the current page size')
+            raise InvalidPage('That page number is too high for the current page size')
 
         # Force the search to evaluate and then attach the count. We want to
         # avoid an extra useless query even if there are no results, so we
@@ -80,16 +79,16 @@ class ESPaginator(Paginator):
             page = Page(result.hits, number, self)
 
             # Overwrite the `count` with the total received from ES results.
-            self.count = page.object_list.total
+            self.count = int(page.object_list.total)
         else:
             page = Page(self.object_list[bottom:top], number, self)
 
             # Force the search to evaluate and then attach the count.
             list(page.object_list)
-            self.count = page.object_list.count()
+            self.count = int(page.object_list.count())
 
         # Now that we have the count validate that the page number isn't higher
-        # than the possible number of pages and adjust accordingly.
+        # than the possible number of pages and adjust accordingly.)
         if number > self.num_pages:
             if number == 1 and self.allow_empty_first_page:
                 pass

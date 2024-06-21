@@ -129,7 +129,7 @@ class TestPromos(TestCase):
     def _test_response_contains_addons(self, response):
         assert response.status_code == 200
         assert response.content
-        content = smart_text(response.content)
+        content = response.content.decode('utf-8')
         assert six.text_type(self.addon1.name) in content
         assert six.text_type(self.addon2.name) in content
         assert 'This &amp; That' in content
@@ -206,7 +206,7 @@ class TestPromos(TestCase):
         DiscoveryModule.objects.all().delete()
         response = self.client.get(self.get_disco_url('10.0', 'Darwin'))
         assert response.status_code == 200
-        assert response.content == ''
+        assert response.content.decode('utf-8') == ''
 
     def test_games_linkified(self):
         response = self.client.get(self.get_disco_url('10.0', 'Darwin'))
@@ -496,7 +496,7 @@ class TestMonthlyPick(TestCase):
         mp = MonthlyPick.objects.create(addon=self.addon, blurb='BOOP',
                                         image='http://mozilla.com')
         response = self.client.get(self.url)
-        assert response.content == ''
+        assert response.content.decode('utf-8') == ''
 
         # Now update with locale='', it should be used as the fallback.
         mp.update(locale='')
@@ -548,7 +548,7 @@ class TestMonthlyPick(TestCase):
 
     def test_no_monthlypick(self):
         r = self.client.get(self.url)
-        assert r.content == ''
+        assert r.content.decode('utf-8') == ''
 
 
 class TestPaneMoreAddons(TestCase):

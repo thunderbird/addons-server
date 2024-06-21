@@ -71,7 +71,7 @@ class ESSearchForm(forms.Form):
         cat = self.cleaned_data.get('cat')
         if ',' in cat:
             try:
-                self.cleaned_data['atype'], cat = map(int, cat.split(','))
+                self.cleaned_data['atype'], cat = list(map(int, cat.split(',')))
             except ValueError:
                 return None
         else:

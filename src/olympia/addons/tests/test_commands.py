@@ -589,7 +589,7 @@ class TestDeleteAddonsNotCompatibleWithThunderbird(TestCase):
                 pa.delete_addon_not_compatible_with_thunderbird) as calls:
             self.make_the_call()
 
-        bad_addons_pk = map(lambda a: a.pk, bad_addons)
+        bad_addons_pk = list(map(lambda a: a.pk, bad_addons))
 
         assert len(calls) == 1
         assert calls[0]['kwargs']['args'] == [bad_addons_pk]

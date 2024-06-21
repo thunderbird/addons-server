@@ -4,6 +4,7 @@ import subprocess
 import pytest
 
 from django.conf import settings
+from django.utils.encoding import force_text
 
 from olympia import amo
 from olympia.amo.tests import addon_factory
@@ -15,7 +16,7 @@ def test_temporary_worktree():
 
     env = {'GIT_DIR': os.path.join(repo.git_repository_path, '.git')}
 
-    output = subprocess.check_output('git worktree list', shell=True, env=env)
+    output = force_text(subprocess.check_output('git worktree list', shell=True, env=env))
     assert output.startswith(repo.git_repository_path)
     assert output.endswith('[master]\n')
 
@@ -24,13 +25,13 @@ def test_temporary_worktree():
         assert worktree.path == os.path.join(
             worktree.temp_directory, worktree.name)
 
-        output = subprocess.check_output(
-            'git worktree list', shell=True, env=env)
+        output = force_text(subprocess.check_output(
+            'git worktree list', shell=True, env=env))
         assert worktree.name in output
 
     # Test that it cleans up properly
     assert not os.path.exists(worktree.temp_directory)
-    output = subprocess.check_output('git worktree list', shell=True, env=env)
+    output = force_text(subprocess.check_output('git worktree list', shell=True, env=env))
     assert worktree.name not in output
 
 
@@ -72,7 +73,7 @@ def test_extract_and_commit_from_file_obj():
     # read by the regular git client
     env = {'GIT_DIR': os.path.join(repo.git_repository_path, '.git')}
 
-    output = subprocess.check_output('git branch', shell=True, env=env)
+    output = force_text(subprocess.check_output('git branch', shell=True, env=env))
     assert 'listed' in output
     assert 'unlisted' not in output
 
@@ -80,11 +81,11 @@ def test_extract_and_commit_from_file_obj():
     repo = AddonGitRepository.extract_and_commit_from_file_obj(
         addon.current_version.all_files[0],
         amo.RELEASE_CHANNEL_UNLISTED)
-    output = subprocess.check_output('git branch', shell=True, env=env)
+    output = force_text(subprocess.check_output('git branch', shell=True, env=env))
     assert 'listed' in output
     assert 'unlisted' in output
 
-    output = subprocess.check_output('git log listed', shell=True, env=env)
+    output = force_text(subprocess.check_output('git log listed', shell=True, env=env))
     expected = 'Create new version {} ({}) for {} from {}'.format(
         repr(addon.current_version), addon.current_version.id, repr(addon),
         repr(addon.current_version.all_files[0]))

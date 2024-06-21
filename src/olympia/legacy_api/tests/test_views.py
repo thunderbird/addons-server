@@ -955,7 +955,7 @@ class SearchTest(ESTestCase):
         """
         response = self.client.get(
             "/en-US/firefox/api/1.2/search/delicious/all/1")
-        assert response.content.count("<addon id") == 1
+        assert response.content.decode('utf-8').count("<addon id") == 1
 
     def test_total_results(self):
         """
@@ -1271,7 +1271,7 @@ class LanguagePacksTest(UploadTest):
 
     @patch('olympia.addons.models.Addon.get_localepicker')
     def test_localepicker(self, get_localepicker):
-        get_localepicker.return_value = six.text_type('title=اختر لغة', 'utf8')
+        get_localepicker.return_value = six.text_type('title=اختر لغة')
         self.addon.update(type=amo.ADDON_LPAPP, status=amo.STATUS_PUBLIC)
         res = self.client.get(self.url)
         self.assertContains(res, dedent("""

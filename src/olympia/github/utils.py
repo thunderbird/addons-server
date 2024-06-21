@@ -137,7 +137,7 @@ def rezip_file(response, pk):
     if not old_zip.is_valid:
         raise
 
-    with storage.open(new_path, 'w') as new:
+    with storage.open(new_path, 'wb') as new:
         new_zip = zipfile.ZipFile(new, 'w')
 
         for obj in old_zip.filelist:

@@ -346,7 +346,7 @@ class TestCRUD(TestCase):
     def test_submit(self):
         """Test submission of addons."""
         response = self.client.post(self.add_url, self.data, follow=True)
-        assert response.request['PATH_INFO'].decode('utf-8') == (
+        assert response.request['PATH_INFO'] == (
             '/en-US/firefox/collections/admin/%s/' % self.slug)
         collection = Collection.objects.get(slug=self.slug)
         assert six.text_type(collection.name) == self.data['name']
