@@ -152,7 +152,7 @@ def _category_personas(qs, limit):
 
 @non_atomic_requests
 def persona_detail(request, addon):
-    """Return 410 Gone with the 404 template"""
+    """Personas are no longer supported. Return with 410 gone."""
     return render(request, 'amo/410.html', status=410)
 
 
