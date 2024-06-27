@@ -2,6 +2,7 @@
 import os
 import random
 import shutil
+import six
 import time
 import uuid
 from contextlib import contextmanager
@@ -9,7 +10,8 @@ from datetime import datetime, timedelta
 from functools import partial
 from importlib import import_module
 from tempfile import NamedTemporaryFile
-from urlparse import parse_qs, urlparse
+
+from six.moves.urllib_parse import parse_qs, urlparse
 
 from django import forms, test
 from django.conf import settings
@@ -23,7 +25,7 @@ from django.test.client import Client, RequestFactory
 from django.test.utils import override_settings
 from django.conf import urls as django_urls
 from django.utils import translation
-from django.utils.encoding import force_str
+from django.utils.encoding import force_str, force_text
 
 import mock
 import pytest
@@ -100,8 +102,8 @@ def setup_es_test_data(es):
             list(e.args[1:]))
         raise
 
-    aliases_and_indexes = set(settings.ES_INDEXES.values() +
-                              es.indices.get_alias().keys())
+    aliases_and_indexes = set(list(settings.ES_INDEXES.values()) +
+                              list(es.indices.get_alias().keys()))
 
     for key in aliases_and_indexes:
         if key.startswith('test_'):
@@ -188,7 +190,7 @@ def check_links(expected, elements, selected=None, verify=True):
         if isinstance(item, tuple):
             text, link = item
         # Or list item could be `link`.
-        elif isinstance(item, basestring):
+        elif isinstance(item, six.string_types):
             text, link = None, item
 
         e = elements.eq(idx)
@@ -208,8 +210,8 @@ def check_links(expected, elements, selected=None, verify=True):
 
 def assert_url_equal(url, expected, compare_host=False):
     """Compare url paths and query strings."""
-    parsed = urlparse(unicode(url))
-    parsed_expected = urlparse(unicode(expected))
+    parsed = urlparse(six.text_type(url))
+    parsed_expected = urlparse(six.text_type(expected))
     compare_url_part(parsed.path, parsed_expected.path)
     compare_url_part(parse_qs(parsed.query), parse_qs(parsed_expected.query))
     if compare_host:
@@ -217,7 +219,7 @@ def assert_url_equal(url, expected, compare_host=False):
 
 
 def compare_url_part(part, expected):
-    assert part == expected, u'Expected %s, got %s' % (expected, part)
+    assert part == expected, u'Expected "{}", got "{}"'.format(expected, part)
 
 
 def create_sample(name=None, **kw):
@@ -433,7 +435,7 @@ class TestCase(PatchMixin, InitializeSessionMixin, BaseTestCase):
             # There are multiple contexts so iter all of them.
             tpl = response.context
         for ctx in tpl:
-            for k, v in ctx.iteritems():
+            for k, v in six.iteritems(ctx):
                 if isinstance(v, (forms.BaseForm, forms.formsets.BaseFormSet)):
                     if isinstance(v, forms.formsets.BaseFormSet):
                         # Concatenate errors from each form in the formset.
@@ -464,7 +466,7 @@ class TestCase(PatchMixin, InitializeSessionMixin, BaseTestCase):
         """
 
         # Try parsing the string if it's not a datetime.
-        if isinstance(dt, basestring):
+        if isinstance(dt, six.string_types):
             try:
                 dt = dateutil_parser(dt)
             except ValueError as e:
@@ -618,7 +620,8 @@ def addon_factory(
     default_locale = kw.get('default_locale', settings.LANGUAGE_CODE)
 
     # Keep as much unique data as possible in the uuid: '-' aren't important.
-    name = kw.pop('name', u'Addôn %s' % unicode(uuid.uuid4()).replace('-', ''))
+    name = kw.pop('name', u'Addôn %s' %
+                  six.text_type(uuid.uuid4()).replace('-', ''))
     slug = kw.pop('slug', None)
     if slug is None:
         slug = name.replace(' ', '-').lower()[:30]
@@ -642,7 +645,7 @@ def addon_factory(
         kwargs['summary'] = u'Summary for %s' % name
     if type_ not in [amo.ADDON_PERSONA, amo.ADDON_SEARCH]:
         # Personas and search engines don't need guids
-        kwargs['guid'] = kw.pop('guid', '{%s}' % unicode(uuid.uuid4()))
+        kwargs['guid'] = kw.pop('guid', '{%s}' % six.text_type(uuid.uuid4()))
     kwargs.update(kw)
 
     # Save 1.
@@ -671,8 +674,9 @@ def addon_factory(
 
     application = version_kw.get('application', amo.FIREFOX.id)
     if not category:
-        static_category = random.choice(
-            CATEGORIES[application][addon.type].values())
+        static_category = random.choice(list(
+            list(CATEGORIES[application][addon.type].values()))
+        )
         category = Category.from_static_category(static_category, True)
     AddonCategory.objects.create(addon=addon, category=category)
 
@@ -742,14 +746,9 @@ def file_factory(**kw):
     platform = kw.pop('platform', amo.PLATFORM_ALL.id)
 
     is_webextension = kw.pop('is_webextension', False)
-    permissions = kw.pop('permissions', [])
 
     file_ = File.objects.create(
         filename=filename, platform=platform, status=status, is_webextension=is_webextension, **kw)
-
-    if is_webextension:
-        WebextPermission.objects.create(permissions=permissions,
-                                        file=file_)
 
     fixture_path = os.path.join(
         settings.ROOT, 'src/olympia/files/fixtures/files',
@@ -932,9 +931,8 @@ class TestXss(TestCase):
     def setUp(self):
         super(TestXss, self).setUp()
         self.addon = Addon.objects.get(id=3615)
-        self.name = "<script>alert('hé')</script>"
-        self.escaped = (
-            "&lt;script&gt;alert(&#39;h\xc3\xa9&#39;)&lt;/script&gt;")
+        self.name = u"<script>alert('hé')</script>"
+        self.escaped = u'&lt;script&gt;alert(&#39;hé&#39;)&lt;/script&gt;'
         self.addon.name = self.name
         self.addon.save()
         u = UserProfile.objects.get(email='del@icio.us')
@@ -944,8 +942,9 @@ class TestXss(TestCase):
 
     def assertNameAndNoXSS(self, url):
         response = self.client.get(url)
-        assert self.name not in response.content
-        assert self.escaped in response.content
+        content = force_text(response.content)
+        assert self.name not in content
+        assert self.escaped in content
 
 
 @contextmanager

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-import urllib
 import json
 import os
 import stat
+import tarfile
+import zipfile
 
 import pytest
 from datetime import datetime, timedelta
@@ -14,9 +15,11 @@ from django.test.utils import override_settings
 
 import mock
 import responses
+import six
 
 from pyquery import PyQuery as pq
 from six import text_type
+from six.moves.urllib_parse import urlencode
 from waffle.testutils import override_switch
 
 from olympia import amo
@@ -24,8 +27,8 @@ from olympia.activity.models import ActivityLog
 from olympia.addons.models import (
     Addon, AddonCategory, AddonReviewerFlags, Category)
 from olympia.amo.tests import (
-    TestCase, addon_factory, formset, initial, version_factory,
-    create_default_webext_appversion)
+    TestCase, addon_factory, create_default_webext_appversion, formset,
+    initial, version_factory)
 from olympia.amo.tests.test_helpers import get_image_path
 from olympia.amo.urlresolvers import reverse
 from olympia.constants.categories import CATEGORIES_BY_ID
@@ -64,6 +67,36 @@ class TestSubmitBase(TestCase):
 
     def get_version(self):
         return self.get_addon().versions.latest()
+
+    def generate_source_zip(self, suffix='.zip', data='z' * (2 ** 21),
+                            compression=zipfile.ZIP_DEFLATED):
+        tdir = temp.gettempdir()
+        source = temp.NamedTemporaryFile(suffix=suffix, dir=tdir)
+        with zipfile.ZipFile(source, 'w', compression=compression) as zip_file:
+            zip_file.writestr('foo', data)
+        source.seek(0)
+        return source
+
+    def generate_source_tar(
+            self, suffix='.tar.gz', data='t' * (2 ** 21), mode=None):
+        tdir = temp.gettempdir()
+        source = temp.NamedTemporaryFile(suffix=suffix, dir=tdir)
+        if mode is None:
+            mode = 'w:bz2' if suffix.endswith('.tar.bz2') else 'w:gz'
+        with tarfile.open(fileobj=source, mode=mode) as tar_file:
+            tar_info = tarfile.TarInfo('foo')
+            tar_info.size = len(data)
+            tar_file.addfile(tar_info, six.StringIO(data))
+
+        source.seek(0)
+        return source
+
+    def generate_source_garbage(self, suffix='.zip', data='g' * (2 ** 21)):
+        tdir = temp.gettempdir()
+        source = temp.NamedTemporaryFile(suffix=suffix, dir=tdir)
+        source.write(data)
+        source.seek(0)
+        return source
 
 
 class TestAddonSubmitAgreementWithPostReviewEnabled(TestSubmitBase):
@@ -179,7 +212,7 @@ class TestAddonSubmitAgreementWithPostReviewEnabled(TestSubmitBase):
         doc = pq(response.content)
         assert doc('.g-recaptcha')
 
-        verify_data = urllib.urlencode({
+        verify_data = urlencode({
             'secret': 'privkey',
             'remoteip': '127.0.0.1',
             'response': 'test',
@@ -214,7 +247,7 @@ class TestAddonSubmitDistribution(TestCase):
         response = self.client.get(reverse('devhub.submit.distribution'))
         assert response.status_code == 200
         # No error shown for a redirect from previous step.
-        assert 'This field is required' not in response.content
+        assert 'This field is required' not in response.content.decode('utf-8')
 
     def test_submit_notification_warning(self):
         config = Config.objects.create(
@@ -257,14 +290,14 @@ class TestAddonSubmitDistribution(TestCase):
     def test_channel_selection_error_shown(self):
         url = reverse('devhub.submit.distribution')
         # First load should have no error
-        assert 'This field is required' not in self.client.get(url).content
+        assert 'This field is required' not in self.client.get(url).content.decode('utf-8')
 
         # Load with channel preselected (e.g. back from next step) - no error.
         assert 'This field is required' not in self.client.get(
-            url, args=['listed']).content
+            url, args=['listed']).content.decode('utf-8')
 
         # A post submission without channel selection should be an error
-        assert 'This field is required' in self.client.post(url).content
+        assert 'This field is required' in self.client.post(url).content.decode('utf-8')
 
 
 class TestAddonSubmitUpload(UploadTest, TestCase):
@@ -510,7 +543,7 @@ class TestAddonSubmitSource(TestSubmitBase):
     def get_source(self, suffix='.zip'):
         tdir = temp.gettempdir()
         source = temp.NamedTemporaryFile(suffix=suffix, dir=tdir)
-        source.write('a' * (2 ** 21))
+        source.write(b'a' * (2 ** 21))
         source.seek(0)
         return source
 
@@ -523,7 +556,7 @@ class TestAddonSubmitSource(TestSubmitBase):
         assert self.addon.needs_admin_code_review
         mode = (
             oct(os.stat(self.get_version().source.path)[stat.ST_MODE]))
-        assert mode == '0100644'
+        assert mode == '0o100644'
 
     @override_settings(FILE_UPLOAD_MAX_MEMORY_SIZE=1)
     def test_say_no_but_submit_source_anyway_fails(self):
@@ -557,7 +590,7 @@ class TestAddonSubmitSource(TestSubmitBase):
         assert self.addon.needs_admin_code_review
         mode = (
             oct(os.stat(self.get_version().source.path)[stat.ST_MODE]))
-        assert mode == '0100644'
+        assert mode == '0o100644'
 
     def test_with_bad_source_format(self):
         response = self.post(
@@ -735,7 +768,7 @@ class DetailsPageMixin(object):
         report = AkismetReport.objects.get()
         assert report.comment_type == 'product-name'
         assert report.comment == u'spám'
-        assert 'spam' not in response.content
+        assert 'spam' not in response.content.decode('utf-8')
 
     @override_switch('akismet-spam-check', active=True)
     @mock.patch('olympia.lib.akismet.tasks.AkismetReport.comment_check')
@@ -935,7 +968,7 @@ class TestAddonSubmitDetails(DetailsPageMixin, TestSubmitBase):
 
         temp_dir = temp.gettempdir()
         source = temp.NamedTemporaryFile(suffix='.zip', dir=temp_dir)
-        source.write('a' * (2 ** 21))
+        source.write(b'a' * (2 ** 21))
         source.seek(0)
 
         response = self.client.post(url, {
@@ -1089,7 +1122,7 @@ class TestAddonSubmitFinish(TestSubmitBase):
         self.client.get(self.url)
         context = {
             'addon_name': 'Delicious Bookmarks',
-            'app': unicode(amo.FIREFOX.pretty),
+            'app': six.text_type(amo.FIREFOX.pretty),
             'detail_url': 'http://b.ro/en-US/firefox/addon/a3615/',
             'version_url': 'http://b.ro/en-US/developers/addon/a3615/versions',
             'edit_url': 'http://b.ro/en-US/developers/addon/a3615/edit',
@@ -1106,7 +1139,7 @@ class TestAddonSubmitFinish(TestSubmitBase):
         self.client.get(self.url)
         context = {
             'addon_name': 'Delicious Bookmarks',
-            'app': unicode(amo.FIREFOX.pretty),
+            'app': six.text_type(amo.FIREFOX.pretty),
             'detail_url': 'http://b.ro/en-US/firefox/addon/a3615/',
             'version_url': 'http://b.ro/en-US/developers/addon/a3615/versions',
             'edit_url': 'http://b.ro/en-US/developers/addon/a3615/edit',
@@ -1126,7 +1159,7 @@ class TestAddonSubmitFinish(TestSubmitBase):
         self.client.get(self.url)
         context = {
             'addon_name': 'Delicious Bookmarks',
-            'app': unicode(amo.FIREFOX.pretty),
+            'app': six.text_type(amo.FIREFOX.pretty),
             'detail_url': 'http://b.ro/en-US/firefox/addon/a3615/',
             'version_url': 'http://b.ro/en-US/developers/addon/a3615/versions',
             'edit_url': 'http://b.ro/en-US/developers/addon/a3615/edit',
@@ -1231,7 +1264,7 @@ class TestAddonSubmitFinish(TestSubmitBase):
 
         # Text is static theme specific.
         assert "This version will be available after it passes review." in (
-            response.content)
+            response.content.decode('utf-8'))
         # Show the preview we started generating just after the upload step.
         imgs = content('section.addon-submission-process img')
         assert imgs[0].attrib['src'] == (
@@ -1692,8 +1725,8 @@ class TestVersionSubmitDetails(TestSubmitBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' in response.content
+        assert 'this should not be shown' not in response.content.decode('utf-8')
+        assert 'this is an info request' in response.content.decode('utf-8')
 
     def test_dont_show_request_for_information_if_none_pending(self):
         ActivityLog.create(
@@ -1704,8 +1737,8 @@ class TestVersionSubmitDetails(TestSubmitBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' not in response.content
+        assert 'this should not be shown' not in response.content.decode('utf-8')
+        assert 'this is an info request' not in response.content.decode('utf-8')
 
     def test_clear_request_for_information(self):
         AddonReviewerFlags.objects.create(
@@ -1770,9 +1803,9 @@ class TestVersionSubmitDetails(TestSubmitBase):
         # metadata is missing, name, slug, summary and category are required to
         # be present.
         data = {
-            'name': unicode(self.addon.name),
+            'name': six.text_type(self.addon.name),
             'slug': self.addon.slug,
-            'summary': unicode(self.addon.summary),
+            'summary': six.text_type(self.addon.summary),
 
             'form-0-categories': [22, 1],
             'form-0-application': 1,
@@ -1863,7 +1896,7 @@ class TestVersionSubmitDetailsFirstListed(TestAddonSubmitDetails):
         report = AkismetReport.objects.last()
         assert report.comment_type == 'product-summary'
         assert report.comment == u'Delicious Bookmarks is the official'
-        assert 'spam' not in response.content
+        assert 'spam' not in response.content.decode('utf-8')
 
         assert comment_check_mock.call_count == 2
 
@@ -1877,7 +1910,7 @@ class TestVersionSubmitDetailsFirstListed(TestAddonSubmitDetails):
 
         # No changes but both values were spam checked.
         assert AkismetReport.objects.count() == 2
-        assert 'spam' not in response.content
+        assert 'spam' not in response.content.decode('utf-8')
         assert comment_check_mock.call_count == 2
 
 

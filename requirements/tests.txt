@@ -76,3 +76,9 @@ pluggy==0.7.1 \
 atomicwrites==1.2.0 \
     --hash=sha256:6b5282987b21cd79151f51caccead7a09d0a32e89c568bd9e3c4aaa7bbdf3f3a \
     --hash=sha256:e16334d50fe0f90919ef7339c24b9b62e6abaa78cd2d226f3d94eb067eb89043
+# Needed for Python <3.8 and Celery
+importlib-metadata==2.1.3 \
+    --hash=sha256:52e65a0856f9ba7ea8f2c4ced253fb6c88d1a8c352cb1e916cff4eb17d5a693d
+# Needed for Python <3.8 and Celery
+zipp==1.2.0 \
+    --hash=sha256:e0d9e63797e483a30d27e09fffd308c59a700d365ec34e93cc100844168bf921

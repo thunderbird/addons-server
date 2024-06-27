@@ -9,9 +9,12 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.db.transaction import non_atomic_requests
 from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_str
 from django.utils.translation import ugettext, ugettext_lazy as _lazy
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
+
+import six
 
 from django_statsd.clients import statsd
 from rest_framework import serializers
@@ -124,7 +127,7 @@ def collection_listing(request, base=None):
     )
     # Counts are hard to cache automatically, and accuracy for this
     # one is less important. Remember it for 5 minutes.
-    countkey = hashlib.sha256(str(qs.query) + '_count').hexdigest()
+    countkey = hashlib.sha256((force_str(qs.query) + '_count').encode('utf-8')).hexdigest()
     count = cache.get(countkey)
     if count is None:
         count = qs.count()
@@ -182,7 +185,7 @@ def collection_detail(request, username, slug):
     base = Addon.objects.valid() & collection.addons.all()
     filter = CollectionAddonFilter(request, base,
                                    key='sort', default='popular')
-    notes = get_notes(collection)
+    notes = next(get_notes(collection))
     # Go directly to CollectionAddon for the count to avoid joins.
     count = CollectionAddon.objects.filter(
         Addon.objects.all().valid_q(
@@ -601,7 +604,7 @@ class CollectionAddonViewSet(ModelViewSet):
         self.lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         lookup_value = self.kwargs.get(self.lookup_url_kwarg)
         # if the lookup is not a number, its probably the slug instead.
-        if lookup_value and not unicode(lookup_value).isdigit():
+        if lookup_value and not six.text_type(lookup_value).isdigit():
             self.lookup_field = '%s__slug' % self.lookup_field
         return super(CollectionAddonViewSet, self).get_object()
 

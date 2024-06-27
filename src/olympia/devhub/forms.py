@@ -10,6 +10,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext, ugettext_lazy as _
 
 import jinja2
+import six
 import waffle
 
 from olympia import amo
@@ -28,7 +29,9 @@ from olympia.applications.models import AppVersion
 from olympia.constants.categories import CATEGORIES
 from olympia.files.models import FileUpload
 from olympia.files.utils import parse_addon
-from olympia.translations.fields import TransField, TransTextarea
+from olympia.files.utils import SafeZip, parse_addon
+from olympia.translations.fields import (
+    LocaleErrorMessage, TransField, TransTextarea)
 from olympia.translations.forms import TranslationFormMixin
 from olympia.translations.models import Translation, delete_translation
 from olympia.translations.widgets import (
@@ -122,10 +125,10 @@ class LicenseRadioSelect(forms.RadioSelect):
         if hasattr(license, 'url') and license.url:
             details = link % (license.url, ugettext('Details'))
             context['label'] = mark_safe(
-                unicode(context['label']) + ' ' + details)
+                six.text_type(context['label']) + ' ' + details)
         if hasattr(license, 'icons'):
             context['attrs']['data-cc'] = license.icons
-        context['attrs']['data-name'] = unicode(license)
+        context['attrs']['data-name'] = six.text_type(license)
         return context
 
 
@@ -452,7 +455,7 @@ class BaseCompatFormSet(BaseModelFormSet):
             # hidden delete fields in the data attribute, cause that's used to
             # populate initial data for all forms, and would therefore make
             # those delete fields active again.
-            self.data = {k: v for k, v in self.data.iteritems()
+            self.data = {k: v for k, v in six.iteritems(self.data)
                          if not k.endswith('-DELETE')}
             for form in self.forms:
                 form.data = self.data

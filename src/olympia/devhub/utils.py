@@ -66,7 +66,7 @@ def remove_privileged_errors(validation):
     to_remove = []
 
     for index, error in enumerate(validation['messages']):
-        if error['id'][0] in ['PRIVILEGED_FEATURES_REQUIRED', 'MOZILLA_ADDONS_PERMISSION_REQUIRED']:
+        if 'id' in error and error['id'][0] in ['PRIVILEGED_FEATURES_REQUIRED', 'MOZILLA_ADDONS_PERMISSION_REQUIRED']:
             # Prepend to the list, this will ensure our positional pops work correctly
             to_remove.insert(0, index)
 
@@ -223,8 +223,7 @@ def find_previous_version(addon, file, version_string, channel):
     statuses = [amo.STATUS_PUBLIC]
     # Find all previous files of this add-on with the correct status and in
     # the right channel.
-    qs = File.objects.filter(
-        version__addon=addon, version__channel=channel, status__in=statuses)
+    qs = File.objects.filter(version__addon=addon, version__channel=channel, status__in=statuses)
 
     if file:
         # Add some extra filters if we're validating a File instance,
@@ -242,10 +241,10 @@ def find_previous_version(addon, file, version_string, channel):
                          Q(version__files__platform=amo.PLATFORM_ALL.id)))
 
     vint = version_int(version_string)
-    for file_ in qs.order_by('-id'):
+    for _file in qs.order_by('-id'):
         # Only accept versions which come before the one we're validating.
-        if file_.version.version_int < vint:
-            return file_
+        if (_file.version.version_int or 0) < vint:
+            return _file
 
 
 class Validator(object):
@@ -271,8 +270,8 @@ class Validator(object):
             # from the file itself.
             try:
                 addon_data = parse_addon(file_, minimal=True)
-                is_webextension = addon_data['is_webextension']
-                is_experiment = addon_data['is_experiment']
+                is_webextension = addon_data.get('is_webextension', False)
+                is_experiment = addon_data.get('is_experiment', False)
                 is_mozilla_signed = addon_data.get(
                     'is_mozilla_signed_extension', False)
             except ValidationError as form_error:

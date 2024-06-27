@@ -7,7 +7,7 @@ from functools import partial
 
 from django.conf import settings
 from django.db.models import Q
-from django.utils.encoding import force_bytes
+from django.utils.encoding import force_bytes, force_text
 
 import olympia.core.logger
 
@@ -32,7 +32,7 @@ class UnsubscribeCode(object):
     @classmethod
     def parse(cls, code, hash):
         try:
-            decoded = base64.urlsafe_b64decode(str(code))
+            decoded = base64.urlsafe_b64decode(force_bytes(code))
             email = decoded
         except (ValueError, TypeError):
             # Data is broken
@@ -42,11 +42,11 @@ class UnsubscribeCode(object):
             log.info(u"[Tampering] Unsubscribe link data does not match hash")
             raise ValueError
 
-        return email
+        return force_text(email)
 
     @classmethod
     def make_secret(cls, token):
-        return hmac.new(settings.SECRET_KEY, msg=token,
+        return hmac.new(force_bytes(settings.SECRET_KEY), msg=token,
                         digestmod=hashlib.sha256).hexdigest()
 
 

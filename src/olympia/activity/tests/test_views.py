@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import json
-import StringIO
 
 from django.test.utils import override_settings
 
 import mock
+import six
 
 from olympia import amo
 from olympia.activity.models import ActivityLog, ActivityLogToken
@@ -275,8 +275,9 @@ class TestReviewNotesViewSetCreate(TestCase):
         reply = logs[0]
         rdata = response.data
         assert reply.pk == rdata['id']
-        assert (unicode(reply.details['comments']) == rdata['comments'] ==
-                u'comménty McCómm€nt')
+        assert (
+            six.text_type(reply.details['comments']) == rdata['comments'] ==
+            u'comménty McCómm€nt')
         assert reply.user == self.user
         assert reply.user.name == rdata['user']['name'] == self.user.name
         assert reply.action == amo.LOG.DEVELOPER_REPLY_VERSION.id
@@ -300,8 +301,9 @@ class TestReviewNotesViewSetCreate(TestCase):
         reply = logs[0]
         rdata = response.data
         assert reply.pk == rdata['id']
-        assert (unicode(reply.details['comments']) == rdata['comments'] ==
-                u'comménty McCómm€nt')
+        assert (
+            six.text_type(reply.details['comments']) == rdata['comments'] ==
+            u'comménty McCómm€nt')
         assert reply.user == self.user
         assert reply.user.name == rdata['user']['name'] == self.user.name
         assert reply.action == amo.LOG.REVIEWER_REPLY_VERSION.id
@@ -386,12 +388,12 @@ class TestReviewNotesViewSetCreate(TestCase):
 class TestEmailApi(TestCase):
 
     def get_request(self, data):
-        datastr = json.dumps(data)
+        datastr = json.dumps(data).encode('utf-8')
         req = req_factory_factory(reverse_ns('inbound-email-api'), post=True)
         req.META['REMOTE_ADDR'] = '10.10.10.10'
         req.META['CONTENT_LENGTH'] = len(datastr)
         req.META['CONTENT_TYPE'] = 'application/json'
-        req._stream = StringIO.StringIO(datastr)
+        req._stream = six.BytesIO(datastr)
         return req
 
     def get_validation_request(self, data):
@@ -415,7 +417,7 @@ class TestEmailApi(TestCase):
         res = inbound_email(req)
         assert res.status_code == 201
         res.render()
-        assert res.content == '"validation key"'
+        assert res.content.decode('utf-8') == '"validation key"'
         logs = ActivityLog.objects.for_addons(addon)
         assert logs.count() == 1
         assert logs.get(action=amo.LOG.REVIEWER_REPLY_VERSION.id)
@@ -445,12 +447,12 @@ class TestEmailApi(TestCase):
         _mock.assert_called_with(('something',))
         assert res.status_code == 201
         res.render()
-        assert res.content == '"validation key"'
+        assert res.content.decode('utf-8') == '"validation key"'
 
     def test_bad_request(self):
         """Test with no email body."""
         res = inbound_email(self.get_request({'SecretKey': 'SOME SECRET KEY'}))
-        assert res.status_code == 400
+        assert res.status_code == 400, res.content
 
     @mock.patch('olympia.activity.tasks.process_email.apply_async')
     def test_validation_response(self, _mock):
@@ -460,7 +462,7 @@ class TestEmailApi(TestCase):
         assert not _mock.called
         assert res.status_code == 200
         res.render()
-        assert res.content == '"validation key"'
+        assert res.content.decode('utf-8') == '"validation key"'
 
     @mock.patch('olympia.activity.tasks.process_email.apply_async')
     def test_validation_response_wrong_secret(self, _mock):

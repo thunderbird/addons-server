@@ -2,6 +2,8 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.utils.translation import ugettext
 
+import six
+
 import waffle
 
 from rest_framework import serializers
@@ -13,12 +15,13 @@ from olympia.access import acl
 from olympia.access.models import Group
 from olympia.amo.templatetags.jinja_helpers import absolutify
 from olympia.amo.utils import (
-    clean_nl, has_links, ImageCheck, slug_validator,
-    subscribe_newsletter, unsubscribe_newsletter, urlparams)
+    ImageCheck, clean_nl, has_links, slug_validator, subscribe_newsletter,
+    unsubscribe_newsletter, urlparams)
 from olympia.api.utils import is_gate_active
+from olympia.users import notifications
 from olympia.users.models import DeniedName, UserProfile
 from olympia.users.tasks import resize_photo
-from olympia.users import notifications
+
 
 log = olympia.core.logger.getLogger('accounts')
 
@@ -94,7 +97,7 @@ class UserProfileSerializer(PublicUserProfileSerializer):
                          entrypoint='addons')
 
     def validate_biography(self, value):
-        if has_links(clean_nl(unicode(value))):
+        if has_links(clean_nl(six.text_type(value))):
             # There's some links, we don't want them.
             raise serializers.ValidationError(
                 ugettext(u'No links are allowed.'))
@@ -185,7 +188,7 @@ class AccountSuperCreateSerializer(serializers.Serializer):
     username = serializers.CharField(required=False)
     email = serializers.EmailField(required=False)
     fxa_id = serializers.CharField(required=False)
-    group = serializers.ChoiceField(choices=group_rules.items(),
+    group = serializers.ChoiceField(choices=list(group_rules.items()),
                                     required=False)
 
     def validate_email(self, email):

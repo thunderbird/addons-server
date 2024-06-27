@@ -2,6 +2,7 @@
 import json
 import shutil
 
+import six
 from django.core.files.storage import default_storage as storage
 
 import mock
@@ -236,7 +237,7 @@ class TestValidateAddon(TestCase):
         response = self.client.get(reverse('devhub.validate_addon'))
         assert response.status_code == 200
 
-        assert 'this tool only works with legacy' not in response.content
+        assert 'this tool only works with legacy' not in response.content.decode('utf-8')
 
         doc = pq(response.content)
         assert doc('#upload-addon').attr('data-upload-url') == (
@@ -255,7 +256,7 @@ class TestValidateAddon(TestCase):
         upload = FileUpload.objects.get()
         response = self.client.get(
             reverse('devhub.upload_detail', args=(upload.uuid.hex,)))
-        assert 'Validation Results for animated.png' in response.content
+        assert 'Validation Results for animated.png' in response.content.decode('utf-8')
 
     @mock.patch('validator.validate.validate')
     def test_upload_listed_addon(self, validate_mock):
@@ -377,9 +378,9 @@ class TestValidateFile(BaseUploadTest):
         self.user = UserProfile.objects.get(email='del@icio.us')
         self.file = File.objects.get(pk=100456)
         # Move the file into place as if it were a real file
-        with storage.open(self.file.file_path, 'w') as dest:
+        with storage.open(self.file.file_path, 'wb') as dest:
             shutil.copyfileobj(
-                open(self.file_path('invalid-id-20101206.xpi')),
+                open(self.file_path('invalid-id-20101206.xpi'), 'rb'),
                 dest)
         self.addon = self.file.version.addon
 
@@ -692,10 +693,10 @@ class TestUploadCompatCheck(BaseUploadTest):
         assert res.status_code == 200
         doc = pq(res.content)
 
-        assert 'this tool only works with legacy add-ons' in res.content
+        assert 'this tool only works with legacy add-ons' in res.content.decode('utf-8')
 
         options = doc('#id_application option')
-        expected = [(str(a.id), unicode(a.pretty)) for a in amo.APP_USAGE]
+        expected = [(str(a.id), six.text_type(a.pretty)) for a in amo.APP_USAGE]
         for idx, element in enumerate(options):
             e = pq(element)
             val, text = expected[idx]

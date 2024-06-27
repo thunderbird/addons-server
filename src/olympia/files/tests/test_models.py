@@ -15,6 +15,7 @@ from django.test.utils import override_settings
 
 import mock
 import pytest
+from django.utils.encoding import force_text
 
 from mock import patch
 
@@ -43,7 +44,8 @@ class UploadTest(TestCase, amo.tests.AMOPaths):
         return self.file_fixture_path(*args, **kw)
 
     def get_upload(self, filename=None, abspath=None, validation=None):
-        xpi = open(abspath if abspath else self.file_path(filename)).read()
+        with open(abspath if abspath else self.file_path(filename), 'rb') as f:
+            xpi = f.read()
         upload = FileUpload.from_post([xpi], filename=abspath or filename,
                                       size=1234)
         # Simulate what fetch_manifest() does after uploading an app.
@@ -154,8 +156,9 @@ class TestFile(TestCase, amo.tests.AMOPaths):
     def test_unhide_disabled_files(self):
         f = File.objects.get(pk=67442)
         f.status = amo.STATUS_PUBLIC
+        f.filename = u'test_unhide_disabled_filés.xpi'
         with storage.open(f.guarded_file_path, 'wb') as fp:
-            fp.write('some data\n')
+            fp.write(b'some data\n')
         f.unhide_disabled_file()
         assert storage.exists(f.file_path)
         assert storage.open(f.file_path).size
@@ -235,9 +238,9 @@ class TestFile(TestCase, amo.tests.AMOPaths):
 
         file_ = File.objects.get(pk=67442)
         with storage.open(file_.file_path, 'wb') as fp:
-            fp.write('some data\n')
+            fp.write(b'some data\n')
         with storage.open(file_.guarded_file_path, 'wb') as fp:
-            fp.write('some data guarded\n')
+            fp.write(b'some data guarded\n')
         assert file_.generate_hash().startswith('sha256:5aa03f96c77536579166f')
         file_.status = amo.STATUS_DISABLED
         assert file_.generate_hash().startswith('sha256:6524f7791a35ef4dd4c6f')
@@ -412,20 +415,6 @@ class TestTrackFileStatusChange(TestCase):
             'file_status_change.all.status_{}'.format(amo.STATUS_PUBLIC)
         )
 
-    def test_increment_jetpack_sdk_only_status(self):
-        f = self.create_file(
-            status=amo.STATUS_PUBLIC,
-            jetpack_version='1.0',
-            is_restart_required=False,
-            requires_chrome=False,
-        )
-        with patch('olympia.files.models.statsd.incr') as mock_incr:
-            track_file_status_change(f)
-        mock_incr.assert_any_call(
-            'file_status_change.jetpack_sdk_only.status_{}'
-            .format(amo.STATUS_PUBLIC)
-        )
-
 
 class TestParseXpi(TestCase):
 
@@ -447,7 +436,7 @@ class TestParseXpi(TestCase):
         }
         parse_addon_kwargs.update(**kwargs)
 
-        with open(xpi) as fobj:
+        with open(xpi, mode='rb') as fobj:
             return parse_addon(fobj, addon, **parse_addon_kwargs)
 
     def test_parse_basics(self):
@@ -811,20 +800,21 @@ class TestFileUpload(UploadTest):
     def upload(self, **params):
         # The data should be in chunks.
         data = [''.join(x) for x in chunked(self.data, 3)]
-        return FileUpload.from_post(data, 'filename.xpi',
+        return FileUpload.from_post(data, u'filenamé.xpi',
                                     len(self.data), **params)
 
     def test_from_post_write_file(self):
-        assert storage.open(self.upload().path).read() == self.data
+        assert force_text(storage.open(self.upload().path).read()) == self.data
 
     def test_from_post_filename(self):
         upload = self.upload()
         assert upload.uuid
-        assert upload.name == '{0}_filename.xpi'.format(upload.uuid.hex)
+        assert upload.name == u'{0}_filenamé.xpi'.format(
+            force_text(upload.uuid.hex))
 
     def test_from_post_hash(self):
-        hash = hashlib.sha256(self.data).hexdigest()
-        assert self.upload().hash == 'sha256:%s' % hash
+        hashdigest = hashlib.sha256(self.data.encode('utf-8')).hexdigest()
+        assert self.upload().hash == 'sha256:%s' % hashdigest
 
     def test_from_post_extra_params(self):
         upload = self.upload(automated_signing=True, addon_id=3615)
@@ -1138,20 +1128,6 @@ class TestFileFromUpload(UploadTest):
         }
         return FileUpload.objects.create(**data)
 
-    def test_jetpack_version(self):
-        upload = self.upload('jetpack')
-        file_ = File.from_upload(
-            upload, self.version, self.platform, parsed_data={})
-        file_ = File.objects.get(id=file_.id)
-        assert file_.jetpack_version == '1.0b4'
-
-    def test_jetpack_with_invalid_json(self):
-        upload = self.upload('jetpack_invalid')
-        file_ = File.from_upload(
-            upload, self.version, self.platform, parsed_data={})
-        file_ = File.objects.get(id=file_.id)
-        assert file_.jetpack_version is None
-
     def test_filename(self):
         upload = self.upload('jetpack')
         file_ = File.from_upload(
@@ -1204,6 +1180,21 @@ class TestFileFromUpload(UploadTest):
         file_ = File.from_upload(
             upload, self.version, self.platform, parsed_data={})
         assert file_.filename == u'jets-0.1.xpi'
+
+    @mock.patch('olympia.files.models.copy_stored_file')
+    def test_dont_send_both_bytes_and_str_to_copy_stored_file(
+            self, copy_stored_file_mock):
+        upload = self.upload(u'jétpack')
+        self.version.addon.name = u'jéts!'
+        file_ = File.from_upload(
+            upload, self.version, self.platform, parsed_data={})
+        assert file_.filename == u'jets-0.1.xpi'
+        expected_path_orig = force_text(upload.path)
+        expected_path_dest = force_text(file_.current_file_path)
+        assert copy_stored_file_mock.call_count == 1
+        assert copy_stored_file_mock.call_args_list[0][0] == (
+            expected_path_orig, expected_path_dest
+        )
 
     def test_size(self):
         upload = self.upload('extension')
@@ -1444,6 +1435,7 @@ class TestParseSearch(TestCase, amo.tests.AMOPaths):
             'name': u'search tool',
             'is_restart_required': False,
             'is_webextension': False,
+            'is_experiment': False,
             'version': datetime.now().strftime('%Y%m%d'),
             'summary': u'Search Engine for Firefox',
             'type': amo.ADDON_SEARCH
@@ -1501,7 +1493,7 @@ class TestLanguagePack(LanguagePackBase):
 
     def test_extract(self):
         obj = self.file_create('langpack-localepicker')
-        assert 'title=Select a language' in obj.get_localepicker()
+        assert b'title=Select a language' in obj.get_localepicker()
 
     def test_extract_no_chrome_manifest(self):
         obj = self.file_create('langpack')
@@ -1534,9 +1526,9 @@ class TestLanguagePack(LanguagePackBase):
 
     def test_hits_cache(self):
         obj = self.file_create('langpack-localepicker')
-        assert 'title=Select a language' in obj.get_localepicker()
+        assert b'title=Select a language' in obj.get_localepicker()
         obj.update(filename='garbage')
-        assert 'title=Select a language' in obj.get_localepicker()
+        assert b'title=Select a language' in obj.get_localepicker()
 
     @mock.patch('olympia.files.models.File.get_localepicker')
     def test_cache_on_create(self, get_localepicker):

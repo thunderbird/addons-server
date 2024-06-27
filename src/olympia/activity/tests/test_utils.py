@@ -4,6 +4,7 @@ import json
 import os
 
 from datetime import datetime, timedelta
+from email.utils import formataddr
 
 from django.conf import settings
 from django.core import mail
@@ -27,6 +28,7 @@ from olympia.amo.templatetags.jinja_helpers import absolutify
 from olympia.amo.tests import TestCase, addon_factory, user_factory
 from olympia.amo.urlresolvers import reverse
 
+NOTIFICATIONS_FROM_EMAIL = 'notifications@%s' % settings.INBOUND_EMAIL_DOMAIN
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sample_message_file = os.path.join(TESTS_DIR, 'emails', 'message.json')
@@ -300,8 +302,7 @@ class TestLogAndNotify(TestCase):
             amo.LOG.REQUEST_INFORMATION, 'blah', self.reviewer, self.version)
 
         assert send_mail_mock.call_count == 2  # Both authors.
-        sender = '%s <notifications@%s>' % (
-            self.reviewer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.reviewer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         recipients = self._recipients(send_mail_mock)
         assert len(recipients) == 2
@@ -331,8 +332,7 @@ class TestLogAndNotify(TestCase):
             amo.LOG.REQUEST_INFORMATION, 'blah', self.reviewer, self.version)
 
         assert send_mail_mock.call_count == 2  # Both authors.
-        sender = '%s <notifications@%s>' % (
-            self.reviewer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.reviewer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         recipients = self._recipients(send_mail_mock)
         assert len(recipients) == 2
@@ -362,8 +362,7 @@ class TestLogAndNotify(TestCase):
             amo.LOG.REQUEST_INFORMATION, 'blah', self.reviewer, self.version)
 
         assert send_mail_mock.call_count == 2  # Both authors.
-        sender = '%s <notifications@%s>' % (
-            self.reviewer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.reviewer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         recipients = self._recipients(send_mail_mock)
         assert len(recipients) == 2
@@ -415,8 +414,7 @@ class TestLogAndNotify(TestCase):
         assert logs[0].details['comments'] == u'Thïs is á reply'
 
         assert send_mail_mock.call_count == 2  # One author, one reviewer.
-        sender = '%s <notifications@%s>' % (
-            self.developer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.developer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         recipients = self._recipients(send_mail_mock)
         assert len(recipients) == 2
@@ -456,8 +454,7 @@ class TestLogAndNotify(TestCase):
         assert logs[0].details['comments'] == u'Thîs ïs a revïewer replyîng'
 
         assert send_mail_mock.call_count == 2  # Both authors.
-        sender = '%s <notifications@%s>' % (
-            self.reviewer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.reviewer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         recipients = self._recipients(send_mail_mock)
         assert len(recipients) == 2
@@ -489,8 +486,7 @@ class TestLogAndNotify(TestCase):
         assert not logs[0].details  # No details json because no comment.
 
         assert send_mail_mock.call_count == 2  # One author, one reviewer.
-        sender = '%s <notifications@%s>' % (
-            self.developer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.developer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         recipients = self._recipients(send_mail_mock)
         assert len(recipients) == 2
@@ -518,8 +514,7 @@ class TestLogAndNotify(TestCase):
         assert len(logs) == 1
 
         recipients = self._recipients(send_mail_mock)
-        sender = '%s <notifications@%s>' % (
-            self.developer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.developer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         assert len(recipients) == 2
         # self.reviewers wasn't on the thread, but gets an email anyway.
@@ -545,8 +540,7 @@ class TestLogAndNotify(TestCase):
         assert len(logs) == 1
 
         recipients = self._recipients(send_mail_mock)
-        sender = '%s <notifications@%s>' % (
-            self.developer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.developer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         developer_subject = send_mail_mock.call_args_list[0][0][0]
         assert developer_subject == (
@@ -707,8 +701,7 @@ class TestLogAndNotify(TestCase):
         assert ActivityLog.objects.count() == 1  # No new activity created.
 
         assert send_mail_mock.call_count == 2  # Both authors.
-        sender = '%s <notifications@%s>' % (
-            self.reviewer.name, settings.INBOUND_EMAIL_DOMAIN)
+        sender = formataddr((self.reviewer.name, NOTIFICATIONS_FROM_EMAIL))
         assert sender == send_mail_mock.call_args_list[0][1]['from_email']
         recipients = self._recipients(send_mail_mock)
         assert len(recipients) == 2

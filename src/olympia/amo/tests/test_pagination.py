@@ -1,9 +1,13 @@
+import six
 from django.core.paginator import (
     EmptyPage, InvalidPage, PageNotAnInteger, Paginator)
 
 import pytest
 
-from mock import MagicMock, Mock
+try:  # Python 3.3 +
+    from unittest.mock import MagicMock, Mock
+except ImportError:
+    from mock import MagicMock, Mock
 
 from olympia.addons.models import Addon
 from olympia.amo.pagination import ESPaginator
@@ -26,7 +30,7 @@ def mock_pager(page_number, num_pages, count):
 
 def assert_range(page_number, num_pages, expected):
     p = PaginationRenderer(mock_pager(page_number, num_pages, 100))
-    assert p.range() == expected
+    assert list(p.range()) == expected
 
 
 def test_page_range():
@@ -104,9 +108,12 @@ class TestSearchPaginator(TestCase):
         # Make sure we raise exactly `InvalidPage`, this is needed
         # unfortunately since `pytest.raises` won't check the exact
         # instance but also accepts parent exceptions inherited.
-        assert (
-            exc.value.message ==
-            'That page number is too high for the current page size')
+        if six.PY2:
+            assert (
+                exc.value ==
+                'That page number is too high for the current page size')
+        else:
+            assert(str(exc.value) == 'That page number is too high for the current page size')
         assert isinstance(exc.value, InvalidPage)
 
         with self.assertRaises(EmptyPage):

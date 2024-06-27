@@ -2,7 +2,6 @@
 import hashlib
 import hmac
 import re
-import urllib
 
 from threading import local
 
@@ -14,6 +13,9 @@ from django.utils.translation.trans_real import parse_accept_lang_header
 
 import bleach
 import jinja2
+import six
+
+from six.moves.urllib_parse import quote
 
 from olympia import amo
 
@@ -187,12 +189,12 @@ def get_outgoing_url(url):
         return url
 
     url = force_bytes(jinja2.utils.Markup(url).unescape())
-    sig = hmac.new(settings.REDIRECT_SECRET_KEY,
+    sig = hmac.new(force_bytes(settings.REDIRECT_SECRET_KEY),
                    msg=url, digestmod=hashlib.sha256).hexdigest()
     # Let '&=' through so query params aren't escaped.  We probably shouldn't
     # bother to quote the query part at all.
     return '/'.join([settings.REDIRECT_URL.rstrip('/'), sig,
-                     urllib.quote(url, safe='/&=')])
+                     quote(url, safe='/&=')])
 
 
 def linkify_bounce_url_callback(attrs, new=False):
@@ -237,13 +239,13 @@ def linkify_escape(text):
         # Parameters are already escaped.
         return u'<a href="{0}">{0}</a>'.format(match.group(0))
 
-    return URL_RE.sub(linkify, unicode(jinja2.escape(text)))
+    return URL_RE.sub(linkify, six.text_type(jinja2.escape(text)))
 
 
 def linkify_with_outgoing(text):
     """Wrapper around bleach.linkify: uses get_outgoing_url."""
     callbacks = [linkify_bounce_url_callback, bleach.callbacks.nofollow]
-    return bleach.linkify(unicode(text), callbacks=callbacks)
+    return bleach.linkify(six.text_type(text), callbacks=callbacks)
 
 
 def lang_from_accept_header(header):

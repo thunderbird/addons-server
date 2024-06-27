@@ -2,7 +2,9 @@ import re
 
 from datetime import datetime, timedelta
 from email.utils import formataddr
-from HTMLParser import HTMLParser
+
+from six.moves.html_parser import HTMLParser
+
 
 from django.conf import settings
 from django.forms import ValidationError
@@ -80,7 +82,7 @@ class ActivityEmailParser(object):
         followed by headers like "From: nobody@mozilla.org" and
         strips that part out.
         """
-        email_header_re = re.compile('From: [^@]+@[^@]+\.[^@]+')
+        email_header_re = re.compile(r'From: [^@]+@[^@]+\.[^@]+')
         split_email = email_header_re.split(email)
         if split_email[0].startswith('From: '):
             # In case, it's a bottom reply, return everything.
@@ -232,8 +234,7 @@ def notify_about_activity_log(addon, version, note, perm_setting=None,
         with translation.override(settings.LANGUAGE_CODE):
             comments = '%s' % amo.LOG_BY_ID[note.action].short
     else:
-        htmlparser = HTMLParser()
-        comments = htmlparser.unescape(comments)
+        comments = HTMLParser().unescape(comments)
 
     # Collect add-on authors (excl. the person who sent the email.) and build
     # the context for them.

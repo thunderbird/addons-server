@@ -1,11 +1,12 @@
-import urllib
+from six.moves.urllib.parse import unquote
 
 from collections import defaultdict
 
-from django.utils.encoding import force_bytes
+from django.utils.encoding import force_bytes, force_str
 from django.utils.translation import ugettext, ungettext
 
 import jinja2
+import six
 
 from django_jinja import library
 
@@ -72,7 +73,7 @@ def dev_files_status(files):
     for file in files:
         status_count[file.status] += 1
 
-    return [(count, unicode(choices[status])) for
+    return [(count, six.text_type(choices[status])) for
             (status, count) in status_count.items()]
 
 
@@ -119,8 +120,8 @@ def display_url(url):
 
     Note: returns a Unicode object, not a valid URL.
     """
-    url = force_bytes(url, errors='replace')
-    return urllib.unquote(url).decode('utf-8', errors='replace')
+    url = force_str(url, errors='replace')
+    return unquote(url)
 
 
 @library.global_function

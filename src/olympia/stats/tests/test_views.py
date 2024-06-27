@@ -7,6 +7,7 @@ from django.http import Http404
 from django.test.client import RequestFactory
 
 import mock
+from django.utils.encoding import force_str
 
 from pyquery import PyQuery as pq
 
@@ -171,9 +172,11 @@ class ESStatsTest(StatsTest, amo.tests.ESTestCase):
         self.refresh('stats')
 
     def csv_eq(self, response, expected):
+        content = force_str(response.content)
         content = csv.DictReader(
             # Drop lines that are comments.
-            filter(lambda row: row[0] != '#', response.content.splitlines()))
+            filter(lambda row: row[0] != '#', content.splitlines()))
+        expected = force_str(expected)
         expected = csv.DictReader(
             # Strip any extra spaces from the expected content.
             line.strip() for line in expected.splitlines())
@@ -598,7 +601,7 @@ class TestResponses(ESStatsTest):
 
         expected, actual = iter(expected_data), iter(actual_data)
         next_expected, next_actual = next(expected), next(actual)
-        while 1:
+        while True:
             if next_expected['date'] == next_actual['date']:
                 # If they match it's a date we have data for.
                 self.assertDictEqual(next_expected, next_actual)
@@ -701,7 +704,7 @@ class TestSiteQuery(TestCase):
         super(TestSiteQuery, self).setUp()
         self.start = datetime.date(2012, 1, 1)
         self.end = datetime.date(2012, 1, 31)
-        for k in xrange(0, 15):
+        for k in range(0, 15):
             for name in ['addon_count_new', 'version_count_new']:
                 date_ = self.start + datetime.timedelta(days=k)
                 GlobalStat.objects.create(date=date_, name=name, count=k)

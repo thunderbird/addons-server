@@ -8,8 +8,10 @@ from django.core.mail import EmailMessage
 from django.utils import translation
 
 import mock
+import six
 
 from celery.exceptions import Retry
+from django.utils.encoding import force_str
 
 from olympia.amo.models import FakeEmail
 from olympia.amo.tests import BaseTestCase
@@ -212,14 +214,15 @@ class TestSendMail(BaseTestCase):
         assert '<a href' not in message1, 'text-only email contained HTML!'
         assert '<a href' in message2, 'HTML email did not contain HTML!'
 
-        unsubscribe_msg = unicode(notifications.individual_contact.label)
+        unsubscribe_msg = six.text_type(notifications.individual_contact.label)
         assert unsubscribe_msg in message1
         assert unsubscribe_msg in message2
 
     def test_send_attachment(self):
         path = os.path.join(ATTACHMENTS_DIR, 'bacon.txt')
+        contents = force_str(storage.open(path).read())
         attachments = [(
-            os.path.basename(path), storage.open(path).read(),
+            os.path.basename(path), contents,
             mimetypes.guess_type(path)[0])]
         send_mail('test subject', 'test body', from_email='a@example.com',
                   recipient_list=['b@example.com'], attachments=attachments)

@@ -1,8 +1,10 @@
+from django.utils.encoding import force_text
 from django.utils.http import urlsafe_base64_encode
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 
 import basket
+from six import binary_type
 
 from mock import Mock, patch, MagicMock
 from pyquery import PyQuery as pq
@@ -21,8 +23,8 @@ class UserFormBase(TestCase):
     def setUp(self):
         super(UserFormBase, self).setUp()
         self.user = self.user_profile = UserProfile.objects.get(id='4043307')
-        self.uidb64 = urlsafe_base64_encode(str(self.user.id))
-
+        self.uidb64 = force_text(
+            urlsafe_base64_encode(binary_type(self.user.id)))
 
 class TestUserDeleteForm(UserFormBase):
 

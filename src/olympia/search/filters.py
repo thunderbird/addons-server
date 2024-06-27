@@ -1,4 +1,6 @@
 from django.utils import translation
+from django.utils.encoding import force_text
+from django.utils.http import urlsafe_base64_decode
 from django.utils.translation import ugettext
 
 import waffle

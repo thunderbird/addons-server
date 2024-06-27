@@ -8,13 +8,16 @@ from datetime import datetime
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection, models
+from django.utils.encoding import python_2_unicode_compatible
+
+import six
 
 from olympia import activity, amo
 from olympia.access import acl
 from olympia.addons.models import Addon
 from olympia.addons.utils import clear_get_featured_ids_cache
 from olympia.amo.fields import PositiveAutoField
-from olympia.amo.models import ManagerBase, ModelBase, BaseQuerySet
+from olympia.amo.models import BaseQuerySet, ManagerBase, ModelBase
 from olympia.amo.templatetags.jinja_helpers import (
     absolutify, user_media_path, user_media_url)
 from olympia.amo.urlresolvers import reverse
@@ -84,12 +87,15 @@ class CollectionManager(ManagerBase):
         return self.filter(author=user.pk)
 
 
+@python_2_unicode_compatible
 class Collection(ModelBase):
     id = PositiveAutoField(primary_key=True)
     TYPE_CHOICES = amo.COLLECTION_CHOICES.items()
 
+    # FIXME: This might break existing database, investigate migration used in AMO
     # TODO: Use models.UUIDField but it uses max_length=32 hex (no hyphen)
     # uuids so needs some migration.
+    # uuid = models.UUIDField(blank=True, unique=True, null=True)
     uuid = models.CharField(max_length=36, blank=True, unique=True)
     name = TranslatedField(require_locale=False)
     # nickname is deprecated.  Use slug.
@@ -120,8 +126,9 @@ class Collection(ModelBase):
 
     addons = models.ManyToManyField(Addon, through='CollectionAddon',
                                     related_name='collections')
-    author = models.ForeignKey(UserProfile, null=True,
-                               related_name='collections')
+    author = models.ForeignKey(
+        UserProfile, null=True, related_name='collections',
+        on_delete=models.CASCADE)
 
     objects = CollectionManager()
 
@@ -131,12 +138,12 @@ class Collection(ModelBase):
         db_table = 'collections'
         unique_together = (('author', 'slug'),)
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s (%s)' % (self.name, self.addon_count)
 
     def save(self, **kw):
         if not self.uuid:
-            self.uuid = unicode(uuid.uuid4())
+            self.uuid = six.text_type(uuid.uuid4())
         if not self.slug:
             self.slug = self.uuid[:30]
         self.clean_slug()
@@ -263,7 +270,7 @@ class Collection(ModelBase):
             (CollectionAddon.objects.filter(collection=self.id, addon=addon)
              .update(ordering=ordering, modified=now))
 
-        for addon, comment in comments.iteritems():
+        for addon, comment in six.iteritems(comments):
             try:
                 c = (CollectionAddon.objects.using('default')
                      .get(collection=self.id, addon=addon))
@@ -359,11 +366,11 @@ models.signals.post_delete.connect(Collection.post_delete, sender=Collection,
 
 class CollectionAddon(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    addon = models.ForeignKey(Addon)
-    collection = models.ForeignKey(Collection)
+    addon = models.ForeignKey(Addon, on_delete=models.CASCADE)
+    collection = models.ForeignKey(Collection, on_delete=models.CASCADE)
     # category (deprecated: for "Fashion Your Firefox")
     comments = LinkifiedField(null=True)
-    user = models.ForeignKey(UserProfile, null=True)
+    user = models.ForeignKey(UserProfile, null=True, on_delete=models.CASCADE)
 
     ordering = models.PositiveIntegerField(
         default=0,
@@ -406,17 +413,18 @@ models.signals.post_delete.connect(CollectionAddon.post_delete,
                                    dispatch_uid='coll.post_delete')
 
 
+@python_2_unicode_compatible
 class FeaturedCollection(ModelBase):
     id = PositiveAutoField(primary_key=True)
     application = models.PositiveIntegerField(choices=amo.APPS_CHOICES,
                                               db_column='application_id')
-    collection = models.ForeignKey(Collection)
+    collection = models.ForeignKey(Collection, on_delete=models.CASCADE)
     locale = models.CharField(max_length=10, null=True)
 
     class Meta:
         db_table = 'featured_collections'
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s (%s: %s)' % (self.collection, self.application,
                                  self.locale)
 
@@ -433,7 +441,7 @@ models.signals.post_delete.connect(FeaturedCollection.post_save_or_delete,
 
 
 class MonthlyPick(ModelBase):
-    addon = models.ForeignKey(Addon)
+    addon = models.ForeignKey(Addon, on_delete=models.CASCADE)
     blurb = models.TextField()
     image = models.URLField()
     locale = models.CharField(

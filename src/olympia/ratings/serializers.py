@@ -1,9 +1,11 @@
 import re
 
 from collections import OrderedDict
-from urllib2 import unquote
+from six.moves.urllib.parse import unquote
 
 from django.utils.translation import ugettext
+
+import six
 
 from rest_framework import serializers
 from rest_framework.relations import PrimaryKeyRelatedField
@@ -81,7 +83,7 @@ class BaseRatingSerializer(serializers.ModelSerializer):
         body = data.get('body', '')
         if body:
             if '<br>' in body:
-                data['body'] = re.sub('<br>', '\n', body)
+                data['body'] = re.sub(r'<br>', '\n', body)
             # Unquote the body when searching for links, in case someone tries
             # 'example%2ecom'.
             if RatingForm.link_pattern.search(unquote(body)) is not None:
@@ -207,7 +209,8 @@ class RatingSerializer(BaseRatingSerializer):
     def save(self, **kwargs):
         # Take a copy of the body before the save because we pass it to
         # maybe_check_with_akismet to confirm it changed.
-        pre_save_body = unicode(self.instance.body) if self.instance else None
+        pre_save_body = six.text_type(
+            self.instance.body) if self.instance else None
 
         instance = super(RatingSerializer, self).save(**kwargs)
 

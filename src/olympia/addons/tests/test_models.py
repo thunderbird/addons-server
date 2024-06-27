@@ -14,17 +14,19 @@ from django.db import IntegrityError
 from django.utils import translation
 
 import pytest
+import six
+
 from mock import Mock, patch
 
 from olympia import amo, core
-from olympia.addons import models as addons_models
 from olympia.activity.models import ActivityLog, AddonLog
+from olympia.addons import models as addons_models
 from olympia.addons.models import (
     Addon, AddonApprovalsCounter, AddonCategory, AddonDependency,
-    AddonFeatureCompatibility, AddonReviewerFlags, AddonUser, AppSupport,
-    Category, CompatOverride, CompatOverrideRange, DeniedGuid, DeniedSlug,
-    FrozenAddon, IncompatibleVersions, MigratedLWT, Persona, Preview,
-    track_addon_status_change)
+    AddonFeatureCompatibility, AddonReviewerFlags, AddonUser,
+    AppSupport, Category, CompatOverride, CompatOverrideRange, DeniedGuid,
+    DeniedSlug, FrozenAddon, IncompatibleVersions, MigratedLWT, Persona,
+    Preview, track_addon_status_change)
 from olympia.amo.templatetags.jinja_helpers import absolutify, user_media_url
 from olympia.amo.tests import (
     TestCase, addon_factory, collection_factory, version_factory)
@@ -35,7 +37,7 @@ from olympia.constants.categories import CATEGORIES
 from olympia.devhub.models import RssKey
 from olympia.files.models import File
 from olympia.files.tests.test_models import UploadTest
-from olympia.files.utils import parse_addon, Extractor
+from olympia.files.utils import Extractor, parse_addon
 from olympia.ratings.models import Rating, RatingFlag
 from olympia.translations.models import (
     Translation, TranslationSequence, delete_translation)
@@ -1108,8 +1110,8 @@ class TestAddonModels(TestCase):
         ]
 
         addon = get_addon()
-        assert set(addon.all_categories) == set(expected_firefox_cats)
-        assert addon.app_categories == {amo.FIREFOX: expected_firefox_cats}
+        assert sorted(addon.all_categories) == expected_firefox_cats
+        assert addon.app_categories == {'firefox': expected_firefox_cats}
 
         # Let's add a thunderbird category.
         thunderbird_static_cat = (
@@ -1121,15 +1123,12 @@ class TestAddonModels(TestCase):
         # Reload the addon to get a fresh, uncached categories list.
         addon = get_addon()
 
-        # Test that the thunderbird category was added correctly.
-        assert set(addon.all_categories) == set(
+        # Test that the THUNDERBIRD category was added correctly.
+        assert sorted(addon.all_categories) == sorted(
             expected_firefox_cats + [thunderbird_static_cat])
-        assert set(addon.app_categories.keys()) == set(
-            [amo.FIREFOX, amo.THUNDERBIRD])
-        assert set(addon.app_categories[amo.FIREFOX]) == set(
-            expected_firefox_cats)
-        assert set(addon.app_categories[amo.THUNDERBIRD]) == set(
-            [thunderbird_static_cat])
+        assert sorted(addon.app_categories.keys()) == ['firefox', 'thunderbird']
+        assert addon.app_categories['firefox'] == expected_firefox_cats
+        assert addon.app_categories['thunderbird'] == [thunderbird_static_cat]
 
     def test_app_categories_ignore_unknown_cats(self):
         def get_addon():
@@ -1145,8 +1144,8 @@ class TestAddonModels(TestCase):
         ]
 
         addon = get_addon()
-        assert set(addon.all_categories) == set(expected_firefox_cats)
-        assert addon.app_categories == {amo.FIREFOX: expected_firefox_cats}
+        assert sorted(addon.all_categories) == sorted(expected_firefox_cats)
+        assert addon.app_categories == {'firefox': expected_firefox_cats}
 
         # Associate this add-on with a couple more categories, including
         # one that does not exist in the constants.
@@ -1165,14 +1164,11 @@ class TestAddonModels(TestCase):
 
         # The sunbird category should not be present since it does not match
         # an existing static category, thunderbird one should have been added.
-        assert set(addon.all_categories) == set(
+        assert sorted(addon.all_categories) == sorted(
             expected_firefox_cats + [thunderbird_static_cat])
-        assert set(addon.app_categories.keys()) == set(
-            [amo.FIREFOX, amo.THUNDERBIRD])
-        assert set(addon.app_categories[amo.FIREFOX]) == set(
-            expected_firefox_cats)
-        assert set(addon.app_categories[amo.THUNDERBIRD]) == set(
-            [thunderbird_static_cat])
+        assert sorted(addon.app_categories.keys()) == ['firefox', 'thunderbird']
+        assert addon.app_categories['firefox'] == expected_firefox_cats
+        assert addon.app_categories['thunderbird'] == [thunderbird_static_cat]
 
     def test_review_replies(self):
         """
@@ -2151,12 +2147,12 @@ class TestPersonaModel(TestCase):
             id_ = str(self.persona.addon.id)
 
             assert data['id'] == id_
-            assert data['name'] == unicode(self.persona.addon.name)
+            assert data['name'] == six.text_type(self.persona.addon.name)
             assert data['accentcolor'] == '#8d8d97'
             assert data['textcolor'] == '#ffffff'
             assert data['category'] == 'Yolo Art'
             assert data['author'] == 'persona_author'
-            assert data['description'] == unicode(self.addon.description)
+            assert data['description'] == six.text_type(self.addon.description)
 
             assert data['headerURL'].startswith(
                 '%s%s/header.png?' % (user_media_url('addons'), id_))
@@ -2188,12 +2184,12 @@ class TestPersonaModel(TestCase):
             id_ = str(self.persona.addon.id)
 
             assert data['id'] == id_
-            assert data['name'] == unicode(self.persona.addon.name)
+            assert data['name'] == six.text_type(self.persona.addon.name)
             assert data['accentcolor'] == '#8d8d97'
             assert data['textcolor'] == '#ffffff'
             assert data['category'] == 'Yolo Art'
             assert data['author'] == 'persona_author'
-            assert data['description'] == unicode(self.addon.description)
+            assert data['description'] == six.text_type(self.addon.description)
 
             assert data['headerURL'].startswith(
                 '%s%s/header.png?' % (user_media_url('addons'), id_))
@@ -2309,6 +2305,7 @@ class TestAddonFromUpload(UploadTest):
     fixtures = ['base/users']
 
     def setUp(self):
+        print(">> Setting Up!")
         super(TestAddonFromUpload, self).setUp()
         u = UserProfile.objects.get(pk=999)
         core.set_user(u)
@@ -2432,7 +2429,7 @@ class TestAddonFromUpload(UploadTest):
         version = addon.versions.get()
         assert version.version == '0.1'
         assert len(version.compatible_apps.keys()) == 1
-        assert version.compatible_apps.keys()[0].id == self.selected_app
+        assert list(version.compatible_apps.keys())[0].id == self.selected_app
         assert version.files.get().platform == amo.PLATFORM_ALL.id
         assert version.files.get().status == amo.STATUS_AWAITING_REVIEW
 
@@ -2584,11 +2581,15 @@ class TestAddonFromUpload(UploadTest):
         assert feature_compatibility.e10s == amo.E10S_UNKNOWN
 
     def test_extension_is_marked_as_e10s_incompatible(self):
+        print(">> Starting!")
         self.upload = self.get_upload(
             'multiprocess_incompatible_extension.xpi')
+        print(">> Upload", self.upload)
         parsed_data = parse_addon(self.upload, user=Mock())
+        print(">> Parsed Data", parsed_data)
         addon = Addon.from_upload(
             self.upload, [self.selected_app], parsed_data=parsed_data)
+        print(">> Addon", addon)
 
         assert addon.guid
         feature_compatibility = addon.feature_compatibility

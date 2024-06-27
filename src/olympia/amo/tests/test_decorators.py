@@ -38,7 +38,7 @@ def test_json_view():
 
     response = decorators.json_view(func)(mock.Mock())
     assert isinstance(response, http.HttpResponse)
-    assert response.content == '{"x": 1}'
+    assert response.content.decode('utf-8') == '{"x": 1}'
     assert response['Content-Type'] == 'application/json'
     assert response.status_code == 200
 
@@ -59,7 +59,7 @@ def test_json_view_error():
     """json_view.error returns 400 responses."""
     response = decorators.json_view.error({'msg': 'error'})
     assert isinstance(response, http.HttpResponseBadRequest)
-    assert response.content == '{"msg": "error"}'
+    assert response.content.decode('utf-8') == '{"msg": "error"}'
     assert response['Content-Type'] == 'application/json'
 
 
@@ -73,7 +73,7 @@ def test_json_view_status():
 
 def test_json_view_response_status():
     response = decorators.json_response({'msg': 'error'}, status_code=202)
-    assert response.content == '{"msg": "error"}'
+    assert response.content.decode('utf-8') == '{"msg": "error"}'
     assert response['Content-Type'] == 'application/json'
     assert response.status_code == 202
 

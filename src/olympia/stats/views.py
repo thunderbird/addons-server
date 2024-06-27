@@ -1,6 +1,4 @@
-import cStringIO
 import csv
-import itertools
 import json
 import time
 
@@ -16,18 +14,21 @@ from django.db.models import Q
 from django.db.transaction import non_atomic_requests
 from django.utils.cache import add_never_cache_headers, patch_cache_control
 
+import six
+
 from dateutil.parser import parse
 from product_details import product_details
+from six import moves
 
 import olympia.core.logger
 
 from olympia import amo
 from olympia.access import acl
-from olympia.stats.decorators import addon_view_stats
-from olympia.lib.cache import memoize
 from olympia.amo.decorators import allow_cross_site_request, json_view
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import AMOJSONEncoder, render
+from olympia.lib.cache import memoize
+from olympia.stats.decorators import addon_view_stats
 from olympia.stats.forms import DateForm
 from olympia.zadmin.models import SiteEvent
 
@@ -172,17 +173,20 @@ def zip_overview(downloads, updates):
     downloads, updates = iter(downloads), iter(updates)
 
     def iterator(series):
-        item = next(series)
-        next_date = start_date
-        while 1:
-            if item['date'] == next_date:
-                yield item['count']
-                item = next(series)
-            else:
-                yield 0
-            next_date = next_date - timedelta(days=1)
+        try:
+            item = next(series)
+            next_date = start_date
+            while True:
+                if item['date'] == next_date:
+                    yield item['count']
+                    item = next(series)
+                else:
+                    yield 0
+                next_date = next_date - timedelta(days=1)
+        except StopIteration:
+            pass
 
-    series = itertools.izip_longest(iterator(downloads), iterator(updates))
+    series = six.moves.zip_longest(iterator(downloads), iterator(updates))
     for idx, (dl_count, up_count) in enumerate(series):
         yield {'date': start_date - timedelta(days=idx),
                'data': {'downloads': dl_count, 'updates': up_count}}
@@ -277,8 +281,8 @@ def flatten_applications(series):
                 app = amo.APP_GUIDS.get(app)
                 if not app:
                     continue
-                # unicode() to decode the gettext proxy.
-                appname = unicode(app.pretty)
+                # six.text_type() to decode the gettext proxy.
+                appname = six.text_type(app.pretty)
                 for ver, count in versions.items():
                     key = ' '.join([appname, ver])
                     new[key] = count
@@ -391,7 +395,7 @@ def site_events(request, start, end):
 
     events = list(site_event_format(request, qs))
 
-    type_pretty = unicode(amo.SITE_EVENT_CHOICES[amo.SITE_EVENT_RELEASE])
+    type_pretty = six.text_type(amo.SITE_EVENT_CHOICES[amo.SITE_EVENT_RELEASE])
 
     releases = product_details.firefox_history_major_releases
 
@@ -410,7 +414,7 @@ def site_event_format(request, events):
         yield {
             'start': e.start.isoformat(),
             'end': e.end.isoformat() if e.end else None,
-            'type_pretty': unicode(amo.SITE_EVENT_CHOICES[e.event_type]),
+            'type_pretty': six.text_type(amo.SITE_EVENT_CHOICES[e.event_type]),
             'type': e.event_type,
             'description': e.description,
             'url': e.more_info_url,
@@ -452,7 +456,7 @@ def _site_query(period, start, end, field=None, request=None):
                "GROUP BY %s(date), name "
                "ORDER BY %s(date) DESC;"
                % (', '.join(['%s' for key in _KEYS.keys()]), period, period))
-        cursor.execute(sql, [start, end] + _KEYS.keys())
+        cursor.execute(sql, [start, end] + list(_KEYS.keys()))
 
         # Process the results into a format that is friendly for render_*.
         default = {k: 0 for k in _CACHED_KEYS}
@@ -526,7 +530,7 @@ class UnicodeCSVDictWriter(csv.DictWriter):
     def __init__(self, stream, fields, **kw):
         # We have the csv module write into our buffer as bytes and then we
         # dump the buffer to the real stream as unicode.
-        self.buffer = cStringIO.StringIO()
+        self.buffer = moves.cStringIO()
         csv.DictWriter.__init__(self, self.buffer, fields, **kw)
         self.stream = stream
 
@@ -534,14 +538,14 @@ class UnicodeCSVDictWriter(csv.DictWriter):
         self.writerow(dict(zip(self.fieldnames, self.fieldnames)))
 
     def try_encode(self, obj):
-        return obj.encode('utf-8') if isinstance(obj, unicode) else obj
+        return obj.encode('utf-8') if isinstance(obj, six.text_type) else obj
 
     def writerow(self, rowdict):
         row = self._dict_to_list(rowdict)
         # Write to the buffer as ascii.
         self.writer.writerow(map(self.try_encode, row))
         # Dump the buffer to the real stream as utf-8.
-        self.stream.write(self.buffer.getvalue().decode('utf-8'))
+        self.stream.write(self.buffer.getvalue())
         # Clear the buffer.
         self.buffer.truncate(0)
 

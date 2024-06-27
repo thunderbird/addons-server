@@ -2,6 +2,8 @@ from django import forms
 from django.forms.utils import ErrorDict
 from django.utils.translation import ugettext_lazy as _
 
+import six
+
 from olympia import amo
 from olympia.search.utils import floor_version
 
@@ -49,7 +51,7 @@ class ESSearchForm(forms.Form):
     platform = forms.CharField(required=False)
     appver = forms.CharField(required=False)
     atype = forms.TypedChoiceField(required=False, coerce=int,
-                                   choices=amo.ADDON_TYPES.iteritems())
+                                   choices=six.iteritems(amo.ADDON_TYPES))
     cat = forms.CharField(required=False)
     sort = forms.CharField(required=False)
 
@@ -69,7 +71,7 @@ class ESSearchForm(forms.Form):
         cat = self.cleaned_data.get('cat')
         if ',' in cat:
             try:
-                self.cleaned_data['atype'], cat = map(int, cat.split(','))
+                self.cleaned_data['atype'], cat = list(map(int, cat.split(',')))
             except ValueError:
                 return None
         else:

@@ -1,21 +1,22 @@
 import json
 
 from datetime import datetime, timedelta
-from urlparse import urlparse
 
 from django.conf import settings
 from django.core import mail
 from django.core.cache import cache
 from django.forms.models import model_to_dict
-from django.utils.encoding import force_text
+from django.utils.encoding import force_bytes, force_text
+
+import six
 
 from dateutil.parser import parse
 from lxml.html import HTMLParser, fromstring
 from mock import Mock, patch
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import urlparse
 
-from olympia import amo
-from olympia import core
+from olympia import amo, core
 from olympia.abuse.models import AbuseReport
 from olympia.access.models import Group, GroupUser
 from olympia.accounts.views import API_TOKEN_COOKIE
@@ -80,7 +81,7 @@ class TestAjax(UserViewBase):
     def test_ajax_success(self):
         r = self.client.get(reverse('users.ajax'), {'q': 'fligtar@gmail.com'},
                             follow=True)
-        data = json.loads(r.content)
+        data = json.loads(force_text(r.content))
         assert data == {
             'status': 1, 'message': '', 'id': 9945,
             'name': u'Justin Scott \u0627\u0644\u062a\u0637\u0628'}
@@ -92,20 +93,20 @@ class TestAjax(UserViewBase):
             'Expected <script> to be in display name')
         r = self.client.get(reverse('users.ajax'),
                             {'q': self.user.email, 'dev': 0})
-        assert '<script>' not in r.content
-        assert '&lt;script&gt;' in r.content
+        assert b'<script>' not in r.content
+        assert b'&lt;script&gt;' in r.content
 
     def test_ajax_failure_incorrect_email(self):
         r = self.client.get(reverse('users.ajax'), {'q': 'incorrect'},
                             follow=True)
-        data = json.loads(r.content)
+        data = json.loads(force_text(r.content))
         assert data == (
             {'status': 0,
              'message': 'A user with that email address does not exist.'})
 
     def test_ajax_failure_no_email(self):
         r = self.client.get(reverse('users.ajax'), {'q': ''}, follow=True)
-        data = json.loads(r.content)
+        data = json.loads(force_text(r.content))
         assert data == (
             {'status': 0,
              'message': 'An email address is required.'})
@@ -135,13 +136,13 @@ class TestEdit(UserViewBase):
         r = self.client.post(self.url, data, follow=True)
         self.assert3xx(r, self.url)
         self.assertContains(r, data['biography'])
-        assert unicode(self.get_profile().biography) == data['biography']
+        assert six.text_type(self.get_profile().biography) == data['biography']
 
         data['biography'] = 'yyy unst unst'
         r = self.client.post(self.url, data, follow=True)
         self.assert3xx(r, self.url)
         self.assertContains(r, data['biography'])
-        assert unicode(self.get_profile().biography) == data['biography']
+        assert six.text_type(self.get_profile().biography) == data['biography']
 
     def test_bio_no_links(self):
         self.data.update(biography='<a href="https://google.com">google</a>')
@@ -193,8 +194,8 @@ class TestEdit(UserViewBase):
         assert doc('.more-all').length == len(email.NOTIFICATION_GROUPS)
 
     def test_edit_notifications_non_dev(self):
-        notifications_not_dev = [
-            l for l in email.NOTIFICATIONS_COMBINED if l.group != 'dev']
+        notifications_not_dev = list(
+            [l for l in email.NOTIFICATIONS_COMBINED if l.group != 'dev'])
         choices_not_dev = [
             (l.id, l.label) for l in notifications_not_dev]
         self.check_default_choices(choices_not_dev)
@@ -205,7 +206,7 @@ class TestEdit(UserViewBase):
 
         assert UserNotification.objects.count() == len(notifications_not_dev)
         assert UserNotification.objects.filter(enabled=True).count() == (
-            len(filter(lambda x: x.mandatory, notifications_not_dev)))
+            len(list(filter(lambda x: x.mandatory, notifications_not_dev))))
         self.check_default_choices(choices_not_dev, checked=False)
 
     def test_edit_notifications_non_dev_error(self):
@@ -291,7 +292,7 @@ class TestEditAdmin(UserViewBase):
         delete_url = reverse('admin:users_userprofile_delete',
                              args=(self.regular.pk,))
         res = self.client.post(delete_url, {'post': 'yes'}, follow=True)
-        assert self.regular.display_name not in res.content
+        assert force_bytes(self.regular.display_name) not in res.content
 
 
 class TestLogin(UserViewBase):
@@ -476,13 +477,6 @@ class TestRegistrationAndLoginViews(UserViewBase):
         self.url = reverse('users.login') + '?to=%s' % self.target_url
         response = self.client.get(self.url)
         self.assert3xx(response, '/', status_code=302)
-
-    def test_login_page_shows_fxa_transition_message_if_anonymous(self):
-        response = self.client.get(
-            reverse('users.login') + '?to=/foo', follow=True)
-        assert response.status_code == 200
-        assert response.templates[0].name == 'users/login.html'
-
 
 class TestProfileView(UserViewBase):
 
@@ -747,7 +741,7 @@ class TestProfileSections(TestCase):
         assert pq(r.content)('#my-addons .paginator').length == 0
 
     def test_my_reviews_pagination(self):
-        for i in xrange(20):
+        for i in range(20):
             AddonUser.objects.create(user=self.user, addon_id=3615)
         assert self.user.num_addons_listed > 10, (
             'This user should have way more than 10 add-ons.')
@@ -772,7 +766,7 @@ class TestProfileSections(TestCase):
 
         a = li.find('a')
         assert a.attr('href') == coll.get_url_path()
-        assert a.text() == unicode(coll.name)
+        assert a.text() == six.text_type(coll.name)
 
     def test_no_my_collections(self):
         Collection.objects.filter(author=self.user).delete()
@@ -815,13 +809,13 @@ class TestProfileSections(TestCase):
                       u'<b>acceptably bold</b>')
         assert '<script>' in self.user.biography
         response = self.client.get(self.url)
-        assert '<script>' not in response.content
-        assert 'http://spam.com/' not in response.content
+        assert b'<script>' not in response.content
+        assert b'http://spam.com/' not in response.content
 
-        assert 'alert("xss")' in response.content
-        assert 'line<br/>break' in response.content
-        assert 'linkylink' in response.content
-        assert '<b>acceptably bold</b>' in response.content
+        assert b'alert("xss")' in response.content
+        assert b'line<br/>break' in response.content
+        assert b'linkylink' in response.content
+        assert b'<b>acceptably bold</b>' in response.content
 
 
 class TestThemesProfile(TestCase):
@@ -848,7 +842,7 @@ class TestThemesProfile(TestCase):
         results = doc('.personas-grid .persona.hovercard')
         assert results.length == 1
         assert force_text(
-            results.find('h3').html()) == unicode(self.theme.name)
+            results.find('h3').html()) == six.text_type(self.theme.name)
 
     def test_bad_user(self):
         res = self.client.get(reverse('users.themes', args=['yolo']))

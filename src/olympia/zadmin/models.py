@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.utils.encoding import python_2_unicode_compatible
 
 from olympia import amo
 from olympia.amo.fields import PositiveAutoField
@@ -12,6 +13,7 @@ from olympia.applications.models import AppVersion
 from olympia.files.models import File
 
 
+@python_2_unicode_compatible
 class Config(models.Model):
     """Sitewide settings."""
     key = models.CharField(max_length=255, primary_key=True)
@@ -20,7 +22,7 @@ class Config(models.Model):
     class Meta:
         db_table = u'config'
 
-    def __unicode__(self):
+    def __str__(self):
         return self.key
 
     @property
@@ -48,13 +50,16 @@ class ValidationJob(ModelBase):
     id = PositiveAutoField(primary_key=True)
     application = models.PositiveIntegerField(choices=amo.APPS_CHOICES,
                                               db_column='application_id')
-    curr_max_version = models.ForeignKey(AppVersion,
-                                         related_name='validation_current_set')
-    target_version = models.ForeignKey(AppVersion,
-                                       related_name='validation_target_set')
+    curr_max_version = models.ForeignKey(
+        AppVersion, related_name='validation_current_set',
+        on_delete=models.CASCADE)
+    target_version = models.ForeignKey(
+        AppVersion, related_name='validation_target_set',
+        on_delete=models.CASCADE)
     finish_email = models.EmailField(null=True, max_length=75)
     completed = models.DateTimeField(null=True, db_index=True)
-    creator = models.ForeignKey('users.UserProfile', null=True)
+    creator = models.ForeignKey(
+        'users.UserProfile', null=True, on_delete=models.CASCADE)
 
     def result_passing(self):
         return self.result_set.exclude(completed=None).filter(errors=0,
@@ -112,9 +117,10 @@ class ValidationResult(ModelBase):
     validation results per file.
     """
     id = PositiveAutoField(primary_key=True)
-    validation_job = models.ForeignKey(ValidationJob,
-                                       related_name='result_set')
-    file = models.ForeignKey(File, related_name='validation_results')
+    validation_job = models.ForeignKey(
+        ValidationJob, related_name='result_set', on_delete=models.CASCADE)
+    file = models.ForeignKey(
+        File, related_name='validation_results', on_delete=models.CASCADE)
     valid = models.BooleanField(default=False)
     errors = models.IntegerField(default=0, null=True)
     warnings = models.IntegerField(default=0, null=True)

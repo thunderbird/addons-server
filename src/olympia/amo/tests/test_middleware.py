@@ -6,13 +6,14 @@ from django.test.client import RequestFactory
 from django.test.utils import override_settings
 
 import pytest
+import six
 
 from mock import patch
 from pyquery import PyQuery as pq
 
 from olympia.amo.middleware import (
-    AuthenticationMiddlewareWithoutAPI, ScrubRequestOnException,
-    RequestIdMiddleware)
+    AuthenticationMiddlewareWithoutAPI, RequestIdMiddleware,
+    ScrubRequestOnException)
 from olympia.amo.tests import TestCase, reverse_ns
 from olympia.amo.urlresolvers import reverse
 from olympia.zadmin.models import Config
@@ -87,13 +88,13 @@ def test_source_with_wrong_unicode_get():
     response = test.Client().get('/firefox/collections/mozmj/autumn/'
                                  '?source=firefoxsocialmedia\x14\x85')
     assert response.status_code == 301
-    assert response['Location'].endswith('?source=firefoxsocialmedia%14')
+    assert response['Location'].endswith('?source=firefoxsocialmedia%14%C3%82%C2%85')
 
 
 def test_trailing_slash_middleware():
     response = test.Client().get(u'/en-US/about/?xxx=\xc3')
     assert response.status_code == 301
-    assert response['Location'].endswith('/en-US/about?xxx=%C3%83')
+    assert response['Location'].endswith('/en-US/about?xxx=%C3%83%C2%83')
 
 
 class AdminMessageTest(TestCase):
@@ -118,8 +119,8 @@ class TestNoDjangoDebugToolbar(TestCase):
     def test_no_django_debug_toolbar(self):
         with self.settings(DEBUG=False):
             res = self.client.get(reverse('home'), follow=True)
-            assert 'djDebug' not in res.content
-            assert 'debug_toolbar' not in res.content
+            assert 'djDebug' not in res.content.decode('utf-8')
+            assert 'debug_toolbar' not in res.content.decode('utf-8')
 
 
 def test_hide_password_middleware():
@@ -135,7 +136,7 @@ def test_request_id_middleware(client):
     """Test that we add a request id to every response"""
     response = client.get(reverse('home'))
     assert response.status_code == 200
-    assert isinstance(response['X-AMO-Request-ID'], basestring)
+    assert isinstance(response['X-AMO-Request-ID'], six.string_types)
 
     # Test that we set `request.request_id` too
 

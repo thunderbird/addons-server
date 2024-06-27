@@ -27,6 +27,9 @@ SITE_URL = CDN_HOST = 'http://testserver'
 STATIC_URL = '%s/static/' % CDN_HOST
 MEDIA_URL = '%s/user-media/' % CDN_HOST
 
+# Fix some tests hitting this dead link
+ALLOWED_HOSTS = ALLOWED_HOSTS + ['oauth-stable.dev.lcip.org']
+
 # We don't want to share cache state between processes. Always use the local
 # memcache backend for tests.
 #

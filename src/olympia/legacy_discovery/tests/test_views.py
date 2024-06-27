@@ -4,6 +4,7 @@ from django.utils.encoding import smart_text
 from django.utils.translation import trim_whitespace
 
 import mock
+import six
 
 from pyquery import PyQuery as pq
 
@@ -128,9 +129,9 @@ class TestPromos(TestCase):
     def _test_response_contains_addons(self, response):
         assert response.status_code == 200
         assert response.content
-        content = smart_text(response.content)
-        assert unicode(self.addon1.name) in content
-        assert unicode(self.addon2.name) in content
+        content = response.content.decode('utf-8')
+        assert six.text_type(self.addon1.name) in content
+        assert six.text_type(self.addon2.name) in content
         assert 'This &amp; That' in content
 
     def test_no_params(self):
@@ -178,8 +179,8 @@ class TestPromos(TestCase):
         assert response.status_code == 200
         assert response.content
         content = smart_text(response.content)
-        assert unicode(self.addon1.name) not in content
-        assert unicode(self.addon2.name) not in content
+        assert six.text_type(self.addon1.name) not in content
+        assert six.text_type(self.addon2.name) not in content
         assert 'This &amp; That' in content
 
     def test_pane_platform_filtering(self):
@@ -192,8 +193,8 @@ class TestPromos(TestCase):
         assert response.status_code == 200
         assert response.content
         content = smart_text(response.content)
-        assert unicode(self.addon1.name) not in content
-        assert unicode(self.addon2.name) in content
+        assert six.text_type(self.addon1.name) not in content
+        assert six.text_type(self.addon2.name) in content
         assert 'This &amp; That' in content
 
         # Make sure aliases are working.
@@ -205,7 +206,7 @@ class TestPromos(TestCase):
         DiscoveryModule.objects.all().delete()
         response = self.client.get(self.get_disco_url('10.0', 'Darwin'))
         assert response.status_code == 200
-        assert response.content == ''
+        assert response.content.decode('utf-8') == ''
 
     def test_games_linkified(self):
         response = self.client.get(self.get_disco_url('10.0', 'Darwin'))
@@ -309,7 +310,7 @@ class TestPane(TestCase):
         url = reverse('discovery.addons.detail', args=[7661])
         assert a.attr('href').endswith(url + '?src=discovery-featured'), (
             'Unexpected add-on details URL')
-        assert li.find('h3').text() == unicode(addon.name)
+        assert li.find('h3').text() == six.text_type(addon.name)
         assert li.find('img').attr('src') == addon.icon_url
 
         addon = Addon.objects.get(id=2464)
@@ -319,7 +320,7 @@ class TestPane(TestCase):
         url = reverse('discovery.addons.detail', args=[2464])
         assert a.attr('href').endswith(url + '?src=discovery-featured'), (
             'Unexpected add-on details URL')
-        assert li.find('h3').text() == unicode(addon.name)
+        assert li.find('h3').text() == six.text_type(addon.name)
         assert li.find('img').attr('src') == addon.icon_url
 
 class TestDetails(TestCase):
@@ -361,7 +362,7 @@ class TestDetails(TestCase):
         d = pq(self.client.get(self.detail_url).content)('.dependencies')
         assert d.length == 1
         a = d.find('ul a')
-        assert a.text() == unicode(req.name)
+        assert a.text() == six.text_type(req.name)
         assert a.attr('href').endswith('?src=discovery-dependencies')
 
 
@@ -495,7 +496,7 @@ class TestMonthlyPick(TestCase):
         mp = MonthlyPick.objects.create(addon=self.addon, blurb='BOOP',
                                         image='http://mozilla.com')
         response = self.client.get(self.url)
-        assert response.content == ''
+        assert response.content.decode('utf-8') == ''
 
         # Now update with locale='', it should be used as the fallback.
         mp.update(locale='')
@@ -508,7 +509,7 @@ class TestMonthlyPick(TestCase):
         assert a.attr('href').endswith(url + '?src=discovery-promo'), (
             'Unexpected add-on details URL: %s' % url)
         assert a.attr('target') == '_self'
-        assert a.text() == unicode(self.addon.name)
+        assert a.text() == six.text_type(self.addon.name)
         assert pick.find('img').attr('src') == 'http://mozilla.com'
         assert pick.find('.wrap > div > div > p').text() == 'BOOP'
         assert pick.find('p.install-button a').attr('href').endswith(
@@ -547,7 +548,7 @@ class TestMonthlyPick(TestCase):
 
     def test_no_monthlypick(self):
         r = self.client.get(self.url)
-        assert r.content == ''
+        assert r.content.decode('utf-8') == ''
 
 
 class TestPaneMoreAddons(TestCase):

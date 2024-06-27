@@ -7,6 +7,8 @@ from django.db.transaction import non_atomic_requests
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.cache import never_cache
 
+import six
+
 from django_statsd.clients import statsd
 from rest_framework.exceptions import NotFound
 
@@ -60,7 +62,7 @@ def contribute(request):
 
 
 @non_atomic_requests
-def handler403(request):
+def handler403(request, **kwargs):
     if request.is_legacy_api:
         # Pass over to handler403 view in api if api was targeted.
         return legacy_api.views.handler403(request)
@@ -69,11 +71,11 @@ def handler403(request):
 
 
 @non_atomic_requests
-def handler404(request):
+def handler404(request, **kwargs):
     if request.is_api:
         # It's a v3+ api request
         return JsonResponse(
-            {'detail': unicode(NotFound.default_detail)}, status=404)
+            {'detail': six.text_type(NotFound.default_detail)}, status=404)
     elif request.is_legacy_api:
         # It's a legacy api request - pass over to legacy api handler404.
         return legacy_api.views.handler404(request)
@@ -86,7 +88,7 @@ def handler404(request):
 
 
 @non_atomic_requests
-def handler500(request):
+def handler500(request, **kwargs):
     if request.is_legacy_api:
         # Pass over to handler500 view in api if api was targeted.
         return legacy_api.views.handler500(request)
@@ -114,4 +116,6 @@ def loaded(request):
 @non_atomic_requests
 def version(request):
     path = os.path.join(settings.ROOT, 'version.json')
-    return HttpResponse(open(path, 'rb'), content_type='application/json')
+    with open(path, 'r') as f:
+        contents = f.read()
+    return HttpResponse(contents, content_type='application/json')

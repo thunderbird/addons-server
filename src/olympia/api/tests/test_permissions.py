@@ -54,7 +54,7 @@ class TestGroupPermissionOnView(WithDynamicEndpoints):
     def test_view_is_executed(self):
         res = self.client.get(self.url)
         assert res.status_code == 200, res.content
-        assert res.content == '"ok"'
+        assert res.content.decode('utf-8') == '"ok"'
 
 
 class TestGroupPermission(TestCase):

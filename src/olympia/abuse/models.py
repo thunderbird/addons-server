@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.db import models
 from django.utils import translation
+from django.utils.encoding import python_2_unicode_compatible
+
+import six
 
 from olympia import amo
 from olympia.addons.models import Addon
@@ -9,20 +12,25 @@ from olympia.amo.utils import send_mail
 from olympia.users.models import UserProfile
 
 
+@python_2_unicode_compatible
 class AbuseReport(ModelBase):
     # NULL if the reporter is anonymous.
-    reporter = models.ForeignKey(UserProfile, null=True,
-                                 blank=True, related_name='abuse_reported')
+    reporter = models.ForeignKey(
+        UserProfile, null=True, blank=True, related_name='abuse_reported',
+        on_delete=models.SET_NULL)
     ip_address = models.CharField(max_length=255, default='0.0.0.0')
     # An abuse report can be for an addon or a user.
     # If user is non-null then both addon and guid should be null.
     # If user is null then addon should be non-null if guid was in our DB,
     # otherwise addon will be null also.
     # If both addon and user is null guid should be set.
-    addon = models.ForeignKey(Addon, null=True, related_name='abuse_reports')
+    addon = models.ForeignKey(
+        Addon, null=True, related_name='abuse_reports',
+        on_delete=models.CASCADE)
     guid = models.CharField(max_length=255, null=True)
-    user = models.ForeignKey(UserProfile, null=True,
-                             related_name='abuse_reports')
+    user = models.ForeignKey(
+        UserProfile, null=True, related_name='abuse_reports',
+        on_delete=models.SET_NULL)
     message = models.TextField()
 
     class Meta:
@@ -39,7 +47,8 @@ class AbuseReport(ModelBase):
         name = self.target.name if self.target else self.guid
         msg = u'%s reported abuse for %s (%s).\n\n%s' % (
             user_name, name, target_url, self.message)
-        send_mail(unicode(self), msg, recipient_list=(settings.ABUSE_EMAIL,))
+        send_mail(
+            six.text_type(self), msg, recipient_list=(settings.ABUSE_EMAIL,))
 
     @property
     def target(self):
@@ -52,7 +61,7 @@ class AbuseReport(ModelBase):
                      if self.addon else 'User' if self.user else 'Addon')
         return type_
 
-    def __unicode__(self):
+    def __str__(self):
         name = self.target.name if self.target else self.guid
         return u'[%s] Abuse Report for %s' % (self.type, name)
 

@@ -13,6 +13,8 @@ from django.test.client import RequestFactory
 import mock
 import pytest
 
+from six import text_type
+
 import olympia  # noqa
 
 from olympia import amo
@@ -92,10 +94,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert storage.exists(user.picture_path_original)
         assert storage.exists(user.picture_path)
@@ -149,10 +151,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert user.addons.count() == 1
         rating = Rating.objects.create(
@@ -183,10 +185,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert user.addons.count() == 1
         rating = Rating.objects.create(
@@ -217,10 +219,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert user.addons.count() == 1
         rating = Rating.objects.create(
@@ -247,10 +249,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         user.delete_picture()
 
@@ -422,7 +424,8 @@ class TestUserProfile(TestCase):
         addon2 = Addon.objects.create(name='test-2', type=amo.ADDON_EXTENSION)
         AddonUser.objects.create(addon_id=addon2.id, user_id=2519, listed=True)
         addons = UserProfile.objects.get(id=2519).my_addons()
-        assert sorted(a.name for a in addons) == [addon1.name, addon2.name]
+        assert sorted(text_type(a.name) for a in addons) == [
+            addon1.name, addon2.name]
 
     def test_mobile_collection(self):
         u = UserProfile.objects.get(id='4043307')

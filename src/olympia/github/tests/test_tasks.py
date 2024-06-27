@@ -54,7 +54,7 @@ class TestGithub(AMOPaths, GithubBaseTestCase):
         upload = FileUpload.objects.create()
 
         self.response = mock.Mock()
-        self.response.content = open(self.xpi_path('github-repo')).read()
+        self.response.content = open(self.xpi_path('github-repo'), 'rb').read()
         self.requests.get.return_value = self.response
 
         process_webhook(upload.pk, self.data)

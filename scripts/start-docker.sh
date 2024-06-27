@@ -22,6 +22,13 @@ else
     useradd -Md $(pwd) -u $uid olympia
 fi
 
+# For python 3
+if [ ! -d "venv3" ]; then
+  echo "Creating virtual environment for Python 3.7"
+  python3 -m venv --copies /code/venv3
+  chown olympia -R /code/venv3
+fi
+
 echo "Starting with user: 'olympia' uid: $(id -u olympia)"
 
 # Switch to that user and execute our actual command.

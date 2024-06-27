@@ -9,6 +9,9 @@ from django.core.files.storage import default_storage as storage
 
 import mock
 import pytest
+import six
+
+from waffle.testutils import override_switch
 
 from olympia import amo, core
 from olympia.activity.models import ActivityLog
@@ -16,13 +19,14 @@ from olympia.addons.models import (
     Addon, AddonFeatureCompatibility, AddonReviewerFlags, CompatOverride,
     CompatOverrideRange)
 from olympia.amo.templatetags.jinja_helpers import user_media_url
-from olympia.amo.tests import TestCase, addon_factory, version_factory
+from olympia.amo.tests import TestCase, addon_factory, user_factory, version_factory
 from olympia.amo.tests.test_models import BasePreviewMixin
 from olympia.amo.utils import utc_millesecs_from_epoch
 from olympia.applications.models import AppVersion
 from olympia.files.models import File
 from olympia.files.tests.test_models import UploadTest
 from olympia.files.utils import parse_addon
+from olympia.lib.git import AddonGitRepository
 from olympia.reviewers.models import (
     AutoApprovalSummary, ViewFullReviewQueue, ViewPendingQueue)
 from olympia.users.models import UserProfile
@@ -462,7 +466,7 @@ class TestVersion(TestCase):
             ViewPendingQueue: amo.STATUS_PUBLIC
         }
 
-        for queue, status in queue_to_status.iteritems():  # Listed queues.
+        for queue, status in six.iteritems(queue_to_status):  # Listed queues.
             self.version.addon.update(status=status)
             assert self.version.current_queue == queue
 
@@ -963,7 +967,7 @@ class TestStaticThemeFromUpload(UploadTest):
         assert generate_static_theme_preview_mock.call_count == 1
         assert version.get_background_image_urls() == [
             '%s/%s/%s/%s' % (user_media_url('addons'), str(self.addon.id),
-                             unicode(version.id), 'weta.png')
+                             six.text_type(version.id), 'weta.png')
         ]
 
     @mock.patch('olympia.versions.models.generate_static_theme_preview')
@@ -978,7 +982,7 @@ class TestStaticThemeFromUpload(UploadTest):
         assert generate_static_theme_preview_mock.call_count == 1
         assert version.get_background_image_urls() == [
             '%s/%s/%s/%s' % (user_media_url('addons'), str(self.addon.id),
-                             unicode(version.id), 'weta.png')
+                             six.text_type(version.id), 'weta.png')
         ]
 
     @mock.patch('olympia.versions.models.generate_static_theme_preview')
@@ -1013,19 +1017,19 @@ class TestApplicationsVersions(TestCase):
     def test_repr_when_compatible(self):
         addon = addon_factory(version_kw=self.version_kw)
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 and later'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 and later'
 
     def test_repr_when_strict(self):
         addon = addon_factory(version_kw=self.version_kw,
                               file_kw=dict(strict_compatibility=True))
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 - 6.*'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 - 6.*'
 
     def test_repr_when_binary(self):
         addon = addon_factory(version_kw=self.version_kw,
                               file_kw=dict(binary_components=True))
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 - 6.*'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 - 6.*'
 
     def test_repr_when_type_in_no_compat(self):
         # addon_factory() does not create ApplicationsVersions for types in
@@ -1034,19 +1038,19 @@ class TestApplicationsVersions(TestCase):
         addon = addon_factory(version_kw=self.version_kw)
         addon.update(type=amo.ADDON_DICT)
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 and later'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 and later'
 
     def test_repr_when_low_app_support(self):
         addon = addon_factory(version_kw=dict(min_app_version='3.0',
                                               max_app_version='3.5'))
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 3.0 - 3.5'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 3.0 - 3.5'
 
     def test_repr_when_unicode(self):
         addon = addon_factory(version_kw=dict(min_app_version=u'ك',
                                               max_app_version=u'ك'))
         version = addon.current_version
-        assert unicode(version.apps.all()[0]) == u'Firefox ك - ك'
+        assert six.text_type(version.apps.all()[0]) == u'Firefox ك - ك'
 
 
 class TestVersionPreview(BasePreviewMixin, TestCase):

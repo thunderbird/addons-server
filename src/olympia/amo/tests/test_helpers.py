@@ -3,7 +3,7 @@ import mimetypes
 import os
 
 from datetime import datetime, timedelta
-from urlparse import urljoin
+from six.moves.urllib_parse import urljoin
 
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -202,7 +202,7 @@ def test_urlparams():
 
     # Adding query with existing params.
     s = render('{{ base_query|urlparams(frag, sort=sort) }}', c)
-    amo.tests.assert_url_equal(s, '%s?sort=name&amp;x=y#frag' % url)
+    amo.tests.assert_url_equal(s, '%s?x=y&amp;sort=name#frag' % url)
 
     # Replacing a query param.
     s = render('{{ base_query|urlparams(frag, x="z") }}', c)
@@ -419,7 +419,8 @@ def get_image_path(name):
 
 
 def get_uploaded_file(name):
-    data = open(get_image_path(name)).read()
+    with open(get_image_path(name), 'rb') as fh:
+        data = fh.read()
     return SimpleUploadedFile(name, data,
                               content_type=mimetypes.guess_type(name)[0])
 
@@ -431,20 +432,20 @@ def get_addon_file(name):
 class TestAnimatedImages(TestCase):
 
     def test_animated_images(self):
-        img = ImageCheck(open(get_image_path('animated.png')))
+        img = ImageCheck(open(get_image_path('animated.png'), mode='rb'))
         assert img.is_animated()
-        img = ImageCheck(open(get_image_path('non-animated.png')))
+        img = ImageCheck(open(get_image_path('non-animated.png'), mode='rb'))
         assert not img.is_animated()
 
-        img = ImageCheck(open(get_image_path('animated.gif')))
+        img = ImageCheck(open(get_image_path('animated.gif'), mode='rb'))
         assert img.is_animated()
-        img = ImageCheck(open(get_image_path('non-animated.gif')))
+        img = ImageCheck(open(get_image_path('non-animated.gif'), mode='rb'))
         assert not img.is_animated()
 
     def test_junk(self):
         img = ImageCheck(open(__file__, 'rb'))
         assert not img.is_image()
-        img = ImageCheck(open(get_image_path('non-animated.gif')))
+        img = ImageCheck(open(get_image_path('non-animated.gif'), mode='rb'))
         assert img.is_image()
 
 

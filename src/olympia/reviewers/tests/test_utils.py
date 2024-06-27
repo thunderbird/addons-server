@@ -7,6 +7,7 @@ from django.core.files.storage import default_storage as storage
 from django.utils import translation
 
 import pytest
+import six
 
 from mock import Mock, patch
 from pyquery import PyQuery as pq
@@ -45,7 +46,7 @@ class TestViewPendingQueueTable(TestCase):
         page = Mock()
         page.start_index = Mock()
         page.start_index.return_value = 1
-        row.addon_name = 'フォクすけといっしょ'.decode('utf8')
+        row.addon_name = 'フォクすけといっしょ'
         row.addon_slug = 'test'
         row.latest_version = u'0.12'
         self.table.set_page(page)
@@ -53,12 +54,12 @@ class TestViewPendingQueueTable(TestCase):
 
         assert a.attr('href') == (
             reverse('reviewers.review', args=[str(row.addon_slug)]))
-        assert a.text() == "フォクすけといっしょ 0.12".decode('utf8')
+        assert a.text() == "フォクすけといっしょ 0.12"
 
     def test_addon_type_id(self):
         row = Mock()
         row.addon_type_id = amo.ADDON_THEME
-        assert unicode(self.table.render_addon_type_id(row)) == (
+        assert six.text_type(self.table.render_addon_type_id(row)) == (
             u'Complete Theme')
 
     def test_waiting_time_in_days(self):
@@ -113,7 +114,7 @@ class TestUnlistedViewAllListTable(TestCase):
         page = Mock()
         page.start_index = Mock()
         page.start_index.return_value = 1
-        row.addon_name = 'フォクすけといっしょ'.decode('utf8')
+        row.addon_name = 'フォクすけといっしょ'
         row.addon_slug = 'test'
         row.latest_version = u'0.12'
         self.table.set_page(page)
@@ -121,7 +122,7 @@ class TestUnlistedViewAllListTable(TestCase):
 
         assert (a.attr('href') == reverse(
             'reviewers.review', args=['unlisted', str(row.addon_slug)]))
-        assert a.text() == 'フォクすけといっしょ 0.12'.decode('utf8')
+        assert a.text() == 'フォクすけといっしょ 0.12'
 
     def test_last_review(self):
         row = Mock()
@@ -265,7 +266,8 @@ class TestReviewHelper(TestCase):
             helper = self.get_helper()
             actions = helper.actions
             for k, v in actions.items():
-                assert unicode(v['details']), "Missing details for: %s" % k
+                assert six.text_type(
+                    v['details']), "Missing details for: %s" % k
 
     def get_review_actions(
             self, addon_status, file_status, content_review_only=False):
@@ -278,39 +280,39 @@ class TestReviewHelper(TestCase):
 
     def test_actions_full_nominated(self):
         expected = ['public', 'reject', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_NOMINATED,
-            file_status=amo.STATUS_AWAITING_REVIEW).keys() == expected
+            file_status=amo.STATUS_AWAITING_REVIEW).keys()) == expected
 
     def test_actions_full_update(self):
         expected = ['public', 'reject', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_AWAITING_REVIEW).keys() == expected
+            file_status=amo.STATUS_AWAITING_REVIEW).keys()) == expected
 
     def test_actions_full_nonpending(self):
         expected = ['reply', 'super', 'comment']
         f_statuses = [amo.STATUS_PUBLIC, amo.STATUS_DISABLED]
         for file_status in f_statuses:
-            assert self.get_review_actions(
+            assert list(self.get_review_actions(
                 addon_status=amo.STATUS_PUBLIC,
-                file_status=file_status).keys() == expected
+                file_status=file_status).keys()) == expected
 
     def test_actions_public_post_reviewer(self):
         self.grant_permission(self.request.user, 'Addons:PostReview')
         expected = ['reject_multiple_versions', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_PUBLIC).keys() == expected
+            file_status=amo.STATUS_PUBLIC).keys()) == expected
 
         # Now make current version auto-approved...
         AutoApprovalSummary.objects.create(
             version=self.addon.current_version, verdict=amo.AUTO_APPROVED)
         expected = ['confirm_auto_approved', 'reject_multiple_versions',
                     'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_PUBLIC).keys() == expected
+            file_status=amo.STATUS_PUBLIC).keys()) == expected
 
     def test_actions_content_review(self):
         self.grant_permission(self.request.user, 'Addons:ContentReview')
@@ -318,10 +320,10 @@ class TestReviewHelper(TestCase):
             version=self.addon.current_version, verdict=amo.AUTO_APPROVED)
         expected = ['confirm_auto_approved', 'reject_multiple_versions',
                     'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
             file_status=amo.STATUS_PUBLIC,
-            content_review_only=True).keys() == expected
+            content_review_only=True).keys()) == expected
 
     def test_actions_public_static_theme(self):
         # Having Addons:PostReview and dealing with a public add-on would
@@ -330,18 +332,18 @@ class TestReviewHelper(TestCase):
         self.grant_permission(self.request.user, 'Addons:PostReview')
         self.addon.update(type=amo.ADDON_STATICTHEME)
         expected = ['public', 'reject', 'reply', 'super', 'comment']
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_AWAITING_REVIEW).keys() == expected
+            file_status=amo.STATUS_AWAITING_REVIEW).keys()) == expected
 
     def test_actions_no_version(self):
         """Deleted addons and addons with no versions in that channel have no
         version set."""
         expected = ['comment']
         self.version = None
-        assert self.get_review_actions(
+        assert list(self.get_review_actions(
             addon_status=amo.STATUS_PUBLIC,
-            file_status=amo.STATUS_PUBLIC).keys() == expected
+            file_status=amo.STATUS_PUBLIC).keys()) == expected
 
     def test_set_files(self):
         self.file.update(datestatuschanged=yesterday)
@@ -398,7 +400,7 @@ class TestReviewHelper(TestCase):
 
         self.helper.set_data(self.get_data())
         context_data = self.helper.handler.get_context_data()
-        for template, context_key in expected.iteritems():
+        for template, context_key in six.iteritems(expected):
             mail.outbox = []
             self.helper.handler.notify_email(template, 'Sample subject %s, %s')
             assert len(mail.outbox) == 1

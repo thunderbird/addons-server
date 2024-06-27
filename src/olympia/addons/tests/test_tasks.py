@@ -24,7 +24,7 @@ from olympia.amo.utils import image_size
 from olympia.applications.models import AppVersion
 from olympia.constants import licenses
 from olympia.constants.categories import CATEGORIES
-from olympia.files.models import FileUpload
+from olympia.files.models import FileUpload, WebextPermission
 from olympia.ratings.models import Rating
 from olympia.stats.models import ThemeUpdateCount, UpdateCount
 from olympia.tags.models import Tag
@@ -40,9 +40,9 @@ class TestPersonaImageFunctions(TestCase):
         # Given an image, a 680x100 and a 32x32 thumbnails need to be generated
         # and processed with pngcrush.
         expected_dst1 = tempfile.NamedTemporaryFile(
-            mode='r+w+b', suffix=".png", delete=False, dir=settings.TMP_PATH)
+            mode='wb', suffix=".png", delete=False, dir=settings.TMP_PATH)
         expected_dst2 = tempfile.NamedTemporaryFile(
-            mode='r+w+b', suffix=".png", delete=False, dir=settings.TMP_PATH)
+            mode='wb', suffix=".png", delete=False, dir=settings.TMP_PATH)
         create_persona_preview_images(
             src=get_image_path('persona-header.jpg'),
             full_dst=[expected_dst1.name, expected_dst2.name],
@@ -67,7 +67,7 @@ class TestPersonaImageFunctions(TestCase):
         # save_persona_image() simply saves an image as a png to the
         # destination file. The image should be processed with pngcrush.
         expected_dst = tempfile.NamedTemporaryFile(
-            mode='r+w+b', suffix=".png", delete=False, dir=settings.TMP_PATH)
+            mode='wb', suffix=".png", delete=False, dir=settings.TMP_PATH)
         save_persona_image(
             get_image_path('persona-header.jpg'),
             expected_dst.name
@@ -81,7 +81,7 @@ class TestPersonaImageFunctions(TestCase):
         # If the source is not an image, save_persona_image() should just
         # return early without writing the destination or calling pngcrush.
         expected_dst = tempfile.NamedTemporaryFile(
-            mode='r+w+b', suffix=".png", delete=False, dir=settings.TMP_PATH)
+            mode='wb', suffix=".png", delete=False, dir=settings.TMP_PATH)
         save_persona_image(
             get_image_path('non-image.png'),
             expected_dst.name
@@ -134,6 +134,9 @@ class TestAddStaticThemeFromLwt(TestCase):
         self.build_mock = self.patch(
             'olympia.addons.tasks.build_static_theme_xpi_from_lwt')
         self.build_mock.side_effect = self._mock_xpi_side_effect
+
+        # Create a fake task user
+        user_factory(id=settings.TASK_USER_ID, fxa_id='abc')
 
         self.call_signing_mock.return_value = 'abcdefg1234'
         AppVersion.objects.get_or_create(
@@ -349,12 +352,10 @@ class TestMigrateAddonsThatRequireSensitiveDataAccess(TestCase):
         """Test addon with sensitive permissions. This should cause both the Addon and AddonReviewer Flags to be True"""
         addon_with_sda = addon_factory(
             version_kw={'application': amo.THUNDERBIRD.id},
-            file_kw={
-                'is_webextension': True,
-                'permissions': [
-                    'messagesRead'
-                ]
-        })
+            file_kw={'is_webextension': True})
+        WebextPermission.objects.create(
+            file=addon_with_sda.current_version.all_files[0],
+            permissions=['messagesRead'])
 
         assert addon_with_sda.requires_sensitive_data_access is False
         assert not addon_with_sda.needs_sensitive_data_access_review
@@ -371,12 +372,10 @@ class TestMigrateAddonsThatRequireSensitiveDataAccess(TestCase):
         """Test addon without sensitive permissions. No flags should be set to True"""
         addon_without_sda = addon_factory(
             version_kw={'application': amo.THUNDERBIRD.id},
-            file_kw={
-                'is_webextension': True,
-                'permissions': [
-                    'tabs'
-                ]
-        })
+            file_kw={'is_webextension': True})
+        WebextPermission.objects.create(
+            file=addon_without_sda.current_version.all_files[0],
+            permissions=['tabs'])
 
         assert addon_without_sda.requires_sensitive_data_access is False
         assert not addon_without_sda.needs_sensitive_data_access_review
@@ -393,13 +392,10 @@ class TestMigrateAddonsThatRequireSensitiveDataAccess(TestCase):
         """Test addon with sensitive permissions, but also an explicitly set `sensitiveDataUpload` permission. The Addon Flag should be True, but the AddonReviewer Flag should not"""
         addon_with_sda_and_sensitive_data_upload = addon_factory(
             version_kw={'application': amo.THUNDERBIRD.id},
-            file_kw={
-                'is_webextension': True,
-                'permissions': [
-                    'messagesRead',
-                    'sensitiveDataUpload'
-                ]
-        })
+            file_kw={'is_webextension': True})
+        WebextPermission.objects.create(
+            file=addon_with_sda_and_sensitive_data_upload.current_version.all_files[0],
+            permissions=['messagesRead', 'sensitiveDataUpload'])
 
         assert addon_with_sda_and_sensitive_data_upload.requires_sensitive_data_access is False
         assert not addon_with_sda_and_sensitive_data_upload.needs_sensitive_data_access_review

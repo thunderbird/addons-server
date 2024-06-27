@@ -2,9 +2,9 @@ import json
 import sys
 
 from django.utils.encoding import force_bytes
-from email.Utils import formatdate
+from email.utils import formatdate
+from six.moves.urllib.parse import parse_qsl
 from time import time
-from urlparse import parse_qsl
 
 from services.utils import (
     get_cdn_url, log_configure, mypool, settings, PLATFORM_NAMES_TO_CONSTANTS)

@@ -14,10 +14,13 @@ from django.core.files.storage import default_storage as storage
 from django.db import models
 from django.dispatch import receiver
 from django.template.defaultfilters import slugify
-from django.utils.encoding import force_bytes, force_text
+from django.utils.encoding import (
+    force_bytes, force_text, python_2_unicode_compatible)
 from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext, ugettext_lazy as _
+
+import six
 
 from django_extensions.db.fields.json import JSONField
 from django_statsd.clients import statsd
@@ -26,16 +29,16 @@ from jinja2 import escape as jinja2_escape
 import olympia.core.logger
 
 from olympia import amo
-from olympia.lib.cache import memoize
 from olympia.amo.decorators import use_primary_db
 from olympia.amo.fields import PositiveAutoField
-from olympia.amo.models import ModelBase, OnChangeMixin, ManagerBase
+from olympia.amo.models import ManagerBase, ModelBase, OnChangeMixin
 from olympia.amo.storage_utils import copy_stored_file, move_stored_file
 from olympia.amo.templatetags.jinja_helpers import (
     absolutify, urlparams, user_media_path, user_media_url)
 from olympia.amo.urlresolvers import reverse
 from olympia.applications.models import AppVersion
 from olympia.files.utils import SafeZip, write_crx_as_xpi
+from olympia.lib.cache import memoize
 from olympia.translations.fields import TranslatedField
 
 
@@ -45,6 +48,7 @@ log = olympia.core.logger.getLogger('z.files')
 EXTENSIONS = ('.crx', '.xpi', '.jar', '.xml', '.json', '.zip')
 
 
+@python_2_unicode_compatible
 class File(OnChangeMixin, ModelBase):
     id = PositiveAutoField(primary_key=True)
     STATUS_CHOICES = amo.STATUS_CHOICES_FILE
@@ -65,7 +69,7 @@ class File(OnChangeMixin, ModelBase):
     original_hash = models.CharField(max_length=255, default='')
     jetpack_version = models.CharField(max_length=10, null=True, blank=True)
     status = models.PositiveSmallIntegerField(
-        choices=STATUS_CHOICES.items(), default=amo.STATUS_AWAITING_REVIEW)
+        choices=list(STATUS_CHOICES.items()), default=amo.STATUS_AWAITING_REVIEW)
     datestatuschanged = models.DateTimeField(null=True, auto_now_add=True)
     is_restart_required = models.BooleanField(default=False)
     strict_compatibility = models.BooleanField(default=False)
@@ -102,8 +106,8 @@ class File(OnChangeMixin, ModelBase):
     class Meta(ModelBase.Meta):
         db_table = 'files'
 
-    def __unicode__(self):
-        return unicode(self.id)
+    def __str__(self):
+        return six.text_type(self.id)
 
     def get_platform_display(self):
         return force_text(amo.PLATFORMS[self.platform].name)
@@ -159,16 +163,13 @@ class File(OnChangeMixin, ModelBase):
         assert parsed_data is not None
 
         file_ = cls(version=version, platform=platform)
-        upload.path = force_bytes(nfd_str(upload.path))
-        ext = os.path.splitext(upload.path)[1]
+        upload_path = force_text(nfd_str(upload.path))
+        ext = force_text(os.path.splitext(upload_path)[1])
         if ext == '.jar':
             ext = '.xpi'
         file_.filename = file_.generate_filename(extension=ext or '.xpi')
         # Size in bytes.
-        file_.size = storage.size(upload.path)
-        data = cls.get_jetpack_metadata(upload.path)
-        if 'sdkVersion' in data and data['sdkVersion']:
-            file_.jetpack_version = data['sdkVersion'][:10]
+        file_.size = storage.size(upload_path)
         file_.is_restart_required = parsed_data.get(
             'is_restart_required', False)
         file_.strict_compatibility = parsed_data.get(
@@ -179,7 +180,7 @@ class File(OnChangeMixin, ModelBase):
         file_.is_mozilla_signed_extension = parsed_data.get(
             'is_mozilla_signed_extension', False)
 
-        file_.hash = file_.generate_hash(upload.path)
+        file_.hash = file_.generate_hash(upload_path)
         file_.original_hash = file_.hash
 
         if upload.validation:
@@ -200,40 +201,18 @@ class File(OnChangeMixin, ModelBase):
         log.debug('New file: %r from %r' % (file_, upload))
 
         # Move the uploaded file from the temp location.
-        copy_stored_file(upload.path, file_.current_file_path)
+        copy_stored_file(upload_path, file_.current_file_path)
 
         if upload.validation:
             FileValidation.from_json(file_, validation)
 
         return file_
 
-    @classmethod
-    def get_jetpack_metadata(cls, path):
-        data = {'sdkVersion': None}
-        try:
-            zip_ = zipfile.ZipFile(path)
-        except (zipfile.BadZipfile, IOError):
-            # This path is not an XPI. It's probably an app manifest.
-            return data
-        if 'package.json' in zip_.namelist():
-            data['sdkVersion'] = "jpm"
-        else:
-            name = 'harness-options.json'
-            if name in zip_.namelist():
-                try:
-                    opts = json.load(zip_.open(name))
-                except ValueError as exc:
-                    log.info('Could not parse harness-options.json in %r: %s' %
-                             (path, exc))
-                else:
-                    data['sdkVersion'] = opts.get('sdkVersion')
-        return data
-
     def generate_hash(self, filename=None):
         """Generate a hash for a file."""
         hash = hashlib.sha256()
         with open(filename or self.current_file_path, 'rb') as obj:
-            for chunk in iter(lambda: obj.read(1024), ''):
+            for chunk in iter(lambda: obj.read(1024), b''):
                 hash.update(chunk)
         return 'sha256:%s' % hash.hexdigest()
 
@@ -323,17 +302,14 @@ class File(OnChangeMixin, ModelBase):
 
     def move_file(self, source, destination, log_message):
         """Move a file from `source` to `destination`."""
-        # Make sure we are passing bytes to Python's io system.
-        source, destination = force_bytes(source), force_bytes(destination)
-
+        log_message = force_text(log_message)
         try:
             if storage.exists(source):
                 log.info(log_message.format(
                     source=source, destination=destination))
                 move_stored_file(source, destination)
         except (UnicodeEncodeError, IOError):
-            msg = 'Move Failure: {} {}'.format(
-                force_bytes(source), force_bytes(destination))
+            msg = u'Move Failure: {} {}'.format(source, destination)
             log.exception(msg)
 
     def hide_disabled_file(self):
@@ -363,13 +339,13 @@ class File(OnChangeMixin, ModelBase):
         start = time.time()
 
         try:
-            zip = SafeZip(self.file_path)
+            zip_ = SafeZip(self.file_path)
         except (zipfile.BadZipfile, IOError):
             return ''
 
         try:
-            manifest = zip.read('chrome.manifest')
-        except KeyError as e:
+            manifest = force_text(zip_.read('chrome.manifest'))
+        except KeyError:
             log.info('No file named: chrome.manifest in file: %s' % self.pk)
             return ''
 
@@ -379,12 +355,13 @@ class File(OnChangeMixin, ModelBase):
             return ''
 
         try:
-            p = res.groups()[1]
-            if 'localepicker.properties' not in p:
-                p = os.path.join(p, 'localepicker.properties')
-            res = zip.extract_from_manifest(p)
+            path = res.groups()[1]
+            if 'localepicker.properties' not in path:
+                path = os.path.join(path, 'localepicker.properties')
+            res = zip_.extract_from_manifest(path)
         except (zipfile.BadZipfile, IOError) as e:
-            log.error('Error unzipping: %s, %s in file: %s' % (p, e, self.pk))
+            log.error('Error unzipping: %s, %s in file: %s' % (
+                path, e, self.pk))
             return ''
         except (ValueError, KeyError) as e:
             log.error('No file named: %s in file: %s' % (e, self.pk))
@@ -451,7 +428,7 @@ class File(OnChangeMixin, ModelBase):
             # Remove any duplicate permissions.
             permissions = set()
             permissions = [p for p in self._webext_permissions.permissions
-                           if isinstance(p, basestring) and not
+                           if isinstance(p, six.string_types) and not
                            (p in permissions or permissions.add(p))]
             return permissions
 
@@ -588,6 +565,7 @@ def track_file_status_change(file_):
                     .format(file_.status))
 
 
+@python_2_unicode_compatible
 class FileUpload(ModelBase):
     """Created when a file is uploaded for validation/submission."""
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
@@ -595,26 +573,29 @@ class FileUpload(ModelBase):
     name = models.CharField(max_length=255, default='',
                             help_text="The user's original filename")
     hash = models.CharField(max_length=255, default='')
-    user = models.ForeignKey('users.UserProfile', null=True)
+    user = models.ForeignKey(
+        'users.UserProfile', null=True, on_delete=models.CASCADE)
     valid = models.BooleanField(default=False)
     validation = models.TextField(null=True)
     automated_signing = models.BooleanField(default=False)
     compat_with_app = models.PositiveIntegerField(
         choices=amo.APPS_CHOICES, db_column="compat_with_app_id", null=True)
     compat_with_appver = models.ForeignKey(
-        AppVersion, null=True, related_name='uploads_compat_for_appver')
+        AppVersion, null=True, related_name='uploads_compat_for_appver',
+        on_delete=models.CASCADE)
     # Not all FileUploads will have a version and addon but it will be set
     # if the file was uploaded using the new API.
     version = models.CharField(max_length=255, null=True)
-    addon = models.ForeignKey('addons.Addon', null=True)
+    addon = models.ForeignKey(
+        'addons.Addon', null=True, on_delete=models.CASCADE)
 
     objects = ManagerBase()
 
     class Meta(ModelBase.Meta):
         db_table = 'file_uploads'
 
-    def __unicode__(self):
-        return unicode(self.uuid.hex)
+    def __str__(self):
+        return six.text_type(self.uuid.hex)
 
     def save(self, *args, **kw):
         if self.validation:
@@ -656,10 +637,11 @@ class FileUpload(ModelBase):
             hash = hashlib.sha256()
             with storage.open(loc, 'wb') as file_destination:
                 for chunk in chunks:
+                    chunk = force_bytes(chunk)
                     hash.update(chunk)
                     file_destination.write(chunk)
         self.path = loc
-        self.name = filename
+        self.name = force_text(filename)
         self.hash = 'sha256:%s' % hash.hexdigest()
         self.save()
 
@@ -714,7 +696,8 @@ class FileUpload(ModelBase):
 
 class FileValidation(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    file = models.OneToOneField(File, related_name='validation')
+    file = models.OneToOneField(
+        File, related_name='validation', on_delete=models.CASCADE)
     valid = models.BooleanField(default=False)
     errors = models.IntegerField(default=0)
     warnings = models.IntegerField(default=0)
@@ -726,7 +709,7 @@ class FileValidation(ModelBase):
 
     @classmethod
     def from_json(cls, file, validation):
-        if isinstance(validation, basestring):
+        if isinstance(validation, six.string_types):
             validation = json.loads(validation)
         new = cls(file=file, validation=json.dumps(validation),
                   errors=validation['errors'],
@@ -790,6 +773,6 @@ class WebextPermissionDescription(ModelBase):
 
 def nfd_str(u):
     """Uses NFD to normalize unicode strings."""
-    if isinstance(u, unicode):
+    if isinstance(u, six.text_type):
         return unicodedata.normalize('NFD', u).encode('utf-8')
     return u

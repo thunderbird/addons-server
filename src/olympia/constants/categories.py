@@ -1,6 +1,13 @@
+# -*- coding: utf-8 -*-
+import copy
+
+from functools import total_ordering
+
 from django.urls import reverse
+from django.utils.encoding import force_bytes, python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 
+import six
 from olympia.constants.applications import (
     ANDROID, FIREFOX, SEAMONKEY, THUNDERBIRD)
 from olympia.constants.base import (
@@ -8,6 +15,8 @@ from olympia.constants.base import (
     ADDON_SLUGS, ADDON_STATICTHEME, ADDON_THEME)
 
 
+@total_ordering
+@python_2_unicode_compatible
 class StaticCategory(object):
     """Helper to populate `CATEGORIES` and provide some helpers.
 
@@ -29,12 +38,20 @@ class StaticCategory(object):
         object.__setattr__(self, 'weight', weight)
         object.__setattr__(self, 'description', description)
 
-    def __unicode__(self):
-        return unicode(self.name)
+    def __str__(self):
+        return six.text_type(self.name)
 
     def __repr__(self):
-        return u'<%s: %s (%s)>' % (
-            self.__class__.__name__, self.__unicode__(), self.application)
+        return '<%s: %s (%s)>' % (
+            self.__class__.__name__, force_bytes(self), self.application)
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__ and
+            self.__dict__ == other.__dict__)
+
+    def __lt__(self, other):
+        return (self.weight, self.name) < (other.weight, other.name)
 
     def get_url_path(self):
         try:

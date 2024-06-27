@@ -1,11 +1,8 @@
-"""
-API views
-"""
 import hashlib
 import itertools
 import json
 import random
-import urllib
+import six.moves.urllib.parse as urllib
 
 from datetime import date, timedelta
 
@@ -17,6 +14,7 @@ from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes
 from django.utils.translation import get_language, ugettext, ugettext_lazy as _
 
+import six
 import waffle
 
 import olympia.core.logger
@@ -312,7 +310,7 @@ def guid_search(request, api_version, guids):
                 addons_xml[key] = addon_xml
 
     if dirty_keys:
-        cache.set_many(dict((k, v) for k, v in addons_xml.iteritems()
+        cache.set_many(dict((k, v) for k, v in six.iteritems(addons_xml)
                             if k in dirty_keys))
 
     compat = (CompatOverride.objects.filter(guid__in=guids)
@@ -374,7 +372,7 @@ class SearchView(APIView):
         if self.version < 1.5:
             # Fix doubly encoded query strings.
             try:
-                query = urllib.unquote(query.encode('ascii'))
+                query = urllib.unquote(query)
             except UnicodeEncodeError:
                 # This fails if the string is already UTF-8.
                 pass

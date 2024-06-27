@@ -11,6 +11,8 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views import debug
 from django.views.decorators.cache import never_cache
 
+import six
+
 import olympia.core.logger
 
 from olympia import amo
@@ -180,7 +182,8 @@ def es_collections_json(request):
     data = []
     for c in qs[:7]:
         data.append({'id': c.id,
-                     'name': unicode(c.name),
+                     'name': six.text_type(c.name),
+                     'slug': six.text_type(c.slug),
                      'all_personas': c.all_personas,
                      'url': c.get_url_path()})
     return data

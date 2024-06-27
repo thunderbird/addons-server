@@ -14,8 +14,26 @@ from django.utils.encoding import force_text
 from django.utils.translation import ugettext
 
 # TODO (andym): change the validator variables.
-from validator.testcases.packagelayout import (
-    blacklisted_extensions, blacklisted_magic_numbers)
+#from validator.testcases.packagelayout import (
+#    blacklisted_extensions, blacklisted_magic_numbers)
+
+"""From amo-validator which isn't Python3 compat"""
+
+# Detect blacklisted files based on their extension.
+blacklisted_extensions = ('dll', 'exe', 'dylib', 'so',
+                          'sh', 'class', 'swf')
+
+blacklisted_magic_numbers = (
+    (0x4d, 0x5a),  # EXE/DLL
+    (0x5a, 0x4d),  # Alternative for EXE/DLL
+    (0x7f, 0x45, 0x4c, 0x46),  # UNIX elf
+    (0x23, 0x21),  # Shebang (shell script)
+    (0xca, 0xfe, 0xba, 0xbe),  # Java + Mach-O (dylib)
+    (0xca, 0xfe, 0xd0, 0x0d),  # Java (packed)
+    (0xfe, 0xed, 0xfa, 0xce),  # Mach-O
+    (0x46, 0x57, 0x53),  # Uncompressed SWF
+    (0x43, 0x57, 0x53),  # ZLIB compressed SWF
+)
 
 import olympia.core.logger
 
@@ -136,7 +154,7 @@ class FileViewer(object):
                 if self.is_search_engine() and self.src.endswith('.xml'):
                     shutil.copyfileobj(
                         storage.open(self.src),
-                        open(os.path.join(self.dest, self.file.filename), 'w'))
+                        open(os.path.join(self.dest, self.file.filename), 'wb'))
                 else:
                     try:
                         extracted_files = extract_xpi(self.src, self.dest)
@@ -168,9 +186,9 @@ class FileViewer(object):
             return True
 
         if os.path.exists(path) and not os.path.isdir(path):
-            with storage.open(path, 'r') as rfile:
-                bytes = tuple(map(ord, rfile.read(4)))
-            if any(bytes[:len(x)] == x for x in denied_magic_numbers):
+            with storage.open(path, 'rb') as rfile:
+                data = tuple(bytearray(rfile.read(4)))
+            if any(data[:len(x)] == x for x in denied_magic_numbers):
                 return True
 
         if mimetype:
@@ -204,7 +222,7 @@ class FileViewer(object):
             self.selected['msg'] = msg
             return ''
 
-        with storage.open(self.selected['full'], 'r') as opened:
+        with storage.open(self.selected['full'], 'rb') as opened:
             cont = opened.read()
             codec = 'utf-16' if cont.startswith(codecs.BOM_UTF16) else 'utf-8'
             try:
@@ -243,7 +261,7 @@ class FileViewer(object):
         for manifest in ('install.rdf', 'manifest.json', 'package.json'):
             if manifest in files:
                 return manifest
-        return files.keys()[0] if files else None  # Eg: it's a search engine.
+        return list(files.keys())[0] if files else None
 
     def get_files(self):
         """

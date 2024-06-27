@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from django.core.cache.backends.base import DEFAULT_TIMEOUT, BaseCache
 from django.core.cache import cache, caches, _create_cache
 from django.utils import encoding, translation
+from django.utils.encoding import force_bytes
 from django.conf import settings
 
 
@@ -62,7 +63,7 @@ def memoize_key(prefix, *args, **kwargs):
     """
     key = hashlib.md5()
     for arg in itertools.chain(args, sorted(kwargs.items())):
-        key.update(str(arg))
+        key.update(force_bytes(arg))
     return '%s:memoize:%s:%s' % (settings.CACHE_PREFIX,
                                  prefix, key.hexdigest())
 

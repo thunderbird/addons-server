@@ -6,6 +6,7 @@ from django.utils.translation.trans_real import to_language
 
 import bleach
 import jinja2
+import six
 
 from django_jinja import library
 
@@ -27,7 +28,7 @@ def locale_html(translatedfield):
     if locale == site_locale:
         return ''
     else:
-        rtl_locales = map(translation.to_locale, settings.LANGUAGES_BIDI)
+        rtl_locales = list(map(translation.to_locale, settings.LANGUAGES_BIDI))
         textdir = 'rtl' if locale in rtl_locales else 'ltr'
         return jinja2.Markup(' lang="%s" dir="%s"' % (
             jinja2.escape(translatedfield.locale), textdir))
@@ -96,9 +97,9 @@ def clean(string, strip_all_html=False):
         string = string.__html__()
 
     if strip_all_html:
-        string = bleach.clean(unicode(string), tags=[], strip=True)
+        string = bleach.clean(six.text_type(string), tags=[], strip=True)
     else:
-        string = bleach.clean(unicode(string))
+        string = bleach.clean(six.text_type(string))
 
     return jinja2.Markup(clean_nl(string).strip())
 

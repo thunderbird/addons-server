@@ -9,6 +9,8 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils.datastructures import MultiValueDictKeyError
 from django.utils.translation import ugettext, ungettext
 
+import six
+
 from olympia import amo
 from olympia.access import acl
 from olympia.activity.models import ActivityLog
@@ -55,7 +57,7 @@ def themes_list(request, flagged=False, rereview=False):
            'pager': pager,
            'rereview': rereview,
            'theme_search_form': search_form,
-           'statuses': dict((k, unicode(v)) for k, v in
+           'statuses': dict((k, six.text_type(v)) for k, v in
                             amo.STATUS_CHOICES_API.items()),
            'tab': ('rereview_themes' if rereview else
                    'flagged_themes' if flagged else 'pending_themes')}))
@@ -78,7 +80,7 @@ def _themes_queue(request, flagged=False, rereview=False):
            'reject_reasons': amo.THEME_REJECT_REASONS,
            'rereview': rereview,
            'reviewable': True,
-           'theme_formsets': zip(themes, formset),
+           'theme_formsets': list(zip(themes, formset)),
            'theme_count': len(themes),
            'tab': (
                'flagged' if flagged else
@@ -364,7 +366,7 @@ def themes_single(request, slug):
     return render(request, 'reviewers/themes/single.html', context(
         **{'formset': formset,
            'theme': rereview if rereview else theme,
-           'theme_formsets': zip([rereview if rereview else theme], formset),
+           'theme_formsets': list(zip([rereview if rereview else theme], formset)),
            'theme_reviews': paginate(request, ActivityLog.objects.filter(
                action=amo.LOG.THEME_REVIEW.id,
                _arguments__contains=theme.addon.id)),

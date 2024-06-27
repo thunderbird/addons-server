@@ -2,6 +2,8 @@ import re
 
 from django.conf import settings
 
+import six
+
 from rest_framework import exceptions, serializers
 
 from olympia import amo
@@ -29,7 +31,7 @@ from .models import (
 
 class AddonFeatureCompatibilitySerializer(serializers.ModelSerializer):
     e10s = ReverseChoiceField(
-        choices=amo.E10S_COMPATIBILITY_CHOICES_API.items())
+        choices=list(amo.E10S_COMPATIBILITY_CHOICES_API.items()))
 
     class Meta:
         model = AddonFeatureCompatibility
@@ -38,8 +40,9 @@ class AddonFeatureCompatibilitySerializer(serializers.ModelSerializer):
 
 class FileSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
-    platform = ReverseChoiceField(choices=amo.PLATFORM_CHOICES_API.items())
-    status = ReverseChoiceField(choices=amo.STATUS_CHOICES_API.items())
+    platform = ReverseChoiceField(
+        choices=list(amo.PLATFORM_CHOICES_API.items()))
+    status = ReverseChoiceField(choices=list(amo.STATUS_CHOICES_API.items()))
     permissions = serializers.ListField(
         source='webext_permissions_list',
         child=serializers.CharField())
@@ -128,11 +131,11 @@ class LicenseSerializer(serializers.ModelSerializer):
             request = self.context.get('request', None)
             if request and request.method == 'GET' and 'lang' in request.GET:
                 # A single lang requested so return a flat string
-                return unicode(license_constant.name)
+                return six.text_type(license_constant.name)
             else:
                 # Otherwise mock the dict with the default lang.
                 lang = getattr(request, 'LANG', None) or settings.LANGUAGE_CODE
-                return {lang: unicode(license_constant.name)}
+                return {lang: six.text_type(license_constant.name)}
 
 
 class CompactLicenseSerializer(LicenseSerializer):
@@ -202,7 +205,8 @@ class SimpleESVersionSerializer(SimpleVersionSerializer):
 
 
 class VersionSerializer(SimpleVersionSerializer):
-    channel = ReverseChoiceField(choices=amo.CHANNEL_CHOICES_API.items())
+    channel = ReverseChoiceField(
+        choices=list(amo.CHANNEL_CHOICES_API.items()))
     license = LicenseSerializer()
 
     class Meta:
@@ -243,7 +247,7 @@ class CurrentVersionSerializer(SimpleVersionSerializer):
             application = value[0]
             appversions = dict(zip(('min', 'max'), value[1:]))
         except ValueError as exc:
-            raise exceptions.ParseError(exc.message)
+            raise exceptions.ParseError(six.text_type(exc))
 
         version_qs = Version.objects.latest_public_compatible_with(
             application, appversions).filter(addon=addon)
@@ -291,13 +295,13 @@ class AddonSerializer(serializers.ModelSerializer):
     ratings = serializers.SerializerMethodField()
     ratings_url = serializers.SerializerMethodField()
     review_url = serializers.SerializerMethodField()
-    status = ReverseChoiceField(choices=amo.STATUS_CHOICES_API.items())
+    status = ReverseChoiceField(choices=list(amo.STATUS_CHOICES_API.items()))
     summary = TranslationSerializerField()
     support_email = TranslationSerializerField()
     support_url = TranslationSerializerField()
     tags = serializers.SerializerMethodField()
     theme_data = serializers.SerializerMethodField()
-    type = ReverseChoiceField(choices=amo.ADDON_TYPE_CHOICES_API.items())
+    type = ReverseChoiceField(choices=list(amo.ADDON_TYPE_CHOICES_API.items()))
     url = serializers.SerializerMethodField()
 
     class Meta:
@@ -372,7 +376,7 @@ class AddonSerializer(serializers.ModelSerializer):
 
     def outgoingify(self, data):
         if data:
-            if isinstance(data, basestring):
+            if isinstance(data, six.string_types):
                 return get_outgoing_url(data)
             elif isinstance(data, dict):
                 return {key: get_outgoing_url(value) if value else None
@@ -381,11 +385,9 @@ class AddonSerializer(serializers.ModelSerializer):
         return data
 
     def get_categories(self, obj):
-        # Return a dict of lists like obj.app_categories does, but exposing
-        # slugs for keys and values instead of objects.
         return {
-            app.short: [cat.slug for cat in obj.app_categories[app]]
-            for app in obj.app_categories.keys()
+            app_short_name: [cat.slug for cat in categories]
+            for app_short_name, categories in obj.app_categories.items()
         }
 
     def get_has_eula(self, obj):
@@ -772,7 +774,7 @@ class ReplacementAddonSerializer(serializers.ModelSerializer):
     def _get_collection_guids(self, user_id, collection_slug):
         try:
             get_args = {'slug': collection_slug, 'listed': True}
-            if isinstance(user_id, basestring) and not user_id.isdigit():
+            if isinstance(user_id, six.string_types) and not user_id.isdigit():
                 get_args.update(**{'author__username': user_id})
             else:
                 get_args.update(**{'author': user_id})

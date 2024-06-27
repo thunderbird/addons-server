@@ -35,7 +35,7 @@ def send_email(recipient, subject, message, from_email=None,
         return True
     except Exception as e:
         log.exception('send_mail() failed with error: %s, retrying' % e)
-        return send_email.retry(exc=e, max_retries=max_retries)
+        send_email.retry()
 
 
 @task

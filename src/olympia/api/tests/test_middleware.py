@@ -1,9 +1,9 @@
 from gzip import GzipFile
-from StringIO import StringIO
 
 from django.conf import settings
 
 import mock
+from six import StringIO, BytesIO
 
 from olympia.amo.tests import TestCase, addon_factory, reverse_ns
 from olympia.api.middleware import (
@@ -53,8 +53,9 @@ class TestGzipMiddleware(TestCase):
         # been modified by another middleware.
         # Sadly, raven inserts 2 middlewares before, but luckily the ones it
         # automatically inserts not modify the response.
+        # 2024: It's now position 3
         assert (
-            settings.MIDDLEWARE[4] ==
+            settings.MIDDLEWARE[3] ==
             'olympia.api.middleware.GZipMiddlewareForAPIOnly')
 
     def test_api_endpoint_gzipped(self):
@@ -77,5 +78,5 @@ class TestGzipMiddleware(TestCase):
 
         assert len(response_gzipped.content) < len(response.content)
         ungzipped_content = GzipFile(
-            '', 'r', 0, StringIO(response_gzipped.content)).read()
+            '', 'r', 0, BytesIO(response_gzipped.content)).read()
         assert ungzipped_content == response.content

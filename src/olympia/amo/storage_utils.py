@@ -7,7 +7,7 @@ require leading directories to exist. The default Django file system storage
 """
 
 from django.core.files.storage import default_storage
-from django.utils.encoding import force_bytes
+from django.utils.encoding import force_text
 
 
 DEFAULT_CHUNK_SIZE = 64 * 2 ** 10  # 64kB
@@ -30,16 +30,18 @@ def walk_storage(path, topdown=True, onerror=None, followlinks=False,
         raise NotImplementedError
     if onerror:
         raise NotImplementedError
-    roots = [path]
+    roots = [force_text(path)]
     while len(roots):
         new_roots = []
         for root in roots:
+            root = force_text(root)
             dirs, files = storage.listdir(root)
-            files = [force_bytes(f) for f in files]
-            dirs = [force_bytes(d) for d in dirs]
+            files = [force_text(f) for f in files]
+            dirs = [force_text(d) for d in dirs]
             yield root, dirs, files
             for dn in dirs:
-                new_roots.append('%s/%s' % (root, dn))
+                dn = force_text(dn)
+                new_roots.append(u'%s/%s' % (root, dn))
         roots[:] = new_roots
 
 
@@ -54,13 +56,12 @@ def copy_stored_file(src_path, dest_path, storage=default_storage,
         return
     with storage.open(src_path, 'rb') as src:
         with storage.open(dest_path, 'wb') as dest:
-            done = False
-            while not done:
+            while True:
                 chunk = src.read(chunk_size)
-                if chunk != '':
+                if chunk:
                     dest.write(chunk)
                 else:
-                    done = True
+                    break
 
 
 def move_stored_file(src_path, dest_path, storage=default_storage,

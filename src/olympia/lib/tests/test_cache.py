@@ -12,27 +12,27 @@ from olympia.lib.cache import (
 @override_settings(KEY_PREFIX='amo:test:')
 def test_make_key():
     with translation.override('en-US'):
-        assert make_key(u'é@øel') == 'é@øel:en-us'
+        assert make_key(u'é@øel') == 'é@øel:en-us'.encode('utf-8')
 
     with translation.override('de'):
-        assert make_key(u'é@øel') == 'é@øel:de'
+        assert make_key(u'é@øel') == 'é@øel:de'.encode('utf-8')
 
     with translation.override('de'):
-        assert make_key(u'é@øel', with_locale=False) == 'é@øel'
+        assert make_key(u'é@øel', with_locale=False) == 'é@øel'.encode('utf-8')
 
     with translation.override('en-US'):
         assert (
             make_key(u'é@øel', normalize=True) ==
-            '2798e65bbe384320c9da7930e93e63fb')
+            b'2798e65bbe384320c9da7930e93e63fb')
 
     assert (
         make_key(u'é@øel', with_locale=False, normalize=True) ==
-        'a83feada27737072d4ec741640368f07')
+        b'a83feada27737072d4ec741640368f07')
 
     with translation.override('fr'):
         assert (
             make_key(u'é@øel', normalize=True) ==
-            'bc5208e905c8dfcc521e4196e16cfa1a')
+            b'bc5208e905c8dfcc521e4196e16cfa1a')
 
 
 def test_cache_get_or_set():

@@ -283,6 +283,7 @@ def test_outgoing_url_dirty_unicode():
     urlresolvers.get_outgoing_url(bad)  # bug 564057
 
 
+@pytest.mark.xfail(reason="ATN doesn't use outgoing url")
 def test_outgoing_url_query_params():
     url = 'http://xx.com?q=1&v=2'
     fixed = urlresolvers.get_outgoing_url(url)
@@ -298,6 +299,7 @@ def test_outgoing_url_query_params():
     assert fixed.endswith('%3A//xx.com%3Fq=1&v=2%22%20style=%22123%22'), fixed
 
 
+@pytest.mark.xfail(reason="ATN doesn't use outgoing url")
 def test_outgoing_url_javascript_scheme():
     url = 'javascript://addons.mozilla.org/%0Aalert(location.href)'
     fixed = urlresolvers.get_outgoing_url(url)

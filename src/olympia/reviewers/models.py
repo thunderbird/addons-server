@@ -8,7 +8,10 @@ from django.core.cache import cache
 from django.db import models
 from django.db.models import Q, Sum
 from django.template import loader
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext, ugettext_lazy as _
+
+import six
 
 import olympia.core.logger
 
@@ -70,6 +73,7 @@ def set_reviewing_cache(addon_id, user_id):
               amo.REVIEWER_VIEWING_INTERVAL * 2)
 
 
+@python_2_unicode_compatible
 class CannedResponse(ModelBase):
     id = PositiveAutoField(primary_key=True)
     name = models.CharField(max_length=255)
@@ -81,8 +85,8 @@ class CannedResponse(ModelBase):
     class Meta:
         db_table = 'cannedresponses'
 
-    def __unicode__(self):
-        return unicode(self.name)
+    def __str__(self):
+        return six.text_type(self.name)
 
 
 def get_flags(addon, version):
@@ -295,7 +299,8 @@ class ViewUnlistedAllList(RawSQLModel):
     @property
     def authors(self):
         ids = self._explode_concat(self._author_ids)
-        usernames = self._explode_concat(self._author_usernames, cast=unicode)
+        usernames = self._explode_concat(
+            self._author_usernames, cast=six.text_type)
         return list(set(zip(ids, usernames)))
 
 
@@ -331,8 +336,8 @@ class PerformanceGraph(RawSQLModel):
 
 
 class ReviewerSubscription(ModelBase):
-    user = models.ForeignKey(UserProfile)
-    addon = models.ForeignKey(Addon)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    addon = models.ForeignKey(Addon, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'editor_subscriptions'
@@ -382,10 +387,14 @@ version_uploaded.connect(send_notifications, dispatch_uid='send_notifications')
 
 class ReviewerScore(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    user = models.ForeignKey(UserProfile, related_name='_reviewer_scores')
-    addon = models.ForeignKey(Addon, blank=True, null=True, related_name='+')
-    version = models.ForeignKey(Version, blank=True, null=True,
-                                related_name='+')
+    user = models.ForeignKey(
+        UserProfile, related_name='_reviewer_scores', on_delete=models.CASCADE)
+    addon = models.ForeignKey(
+        Addon, blank=True, null=True, related_name='+',
+        on_delete=models.CASCADE)
+    version = models.ForeignKey(
+        Version, blank=True, null=True, related_name='+',
+        on_delete=models.CASCADE)
     score = models.IntegerField()
     # For automated point rewards.
     note_key = models.SmallIntegerField(choices=amo.REVIEWED_CHOICES.items(),
@@ -539,7 +548,7 @@ class ReviewerScore(ModelBase):
         if val is not None:
             return val
 
-        val = (ReviewerScore.objects.filter(user=user)
+        val = list(ReviewerScore.objects.filter(user=user)
                                     .aggregate(total=Sum('score'))
                                     .values())[0]
         if val is None:
@@ -728,7 +737,7 @@ class ReviewerScore(ModelBase):
             if user_level < 0:
                 level = ''
             else:
-                level = unicode(amo.REVIEWED_LEVELS[user_level]['name'])
+                level = six.text_type(amo.REVIEWED_LEVELS[user_level]['name'])
 
             scores.append({
                 'user_id': user_id,
@@ -755,6 +764,7 @@ class AutoApprovalNoValidationResultError(Exception):
     pass
 
 
+@python_2_unicode_compatible
 class AutoApprovalSummary(ModelBase):
     """Model holding the results of an auto-approval attempt on a Version."""
     version = models.OneToOneField(
@@ -771,7 +781,7 @@ class AutoApprovalSummary(ModelBase):
     class Meta:
         db_table = 'editors_autoapprovalsummary'
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s %s' % (self.version.addon.name, self.version)
 
     def calculate_weight(self):
@@ -811,7 +821,7 @@ class AutoApprovalSummary(ModelBase):
                 max(min(int(addon.reputation or 0) * -100, 0), -300)),
             # Average daily users: value divided by 10000 is added to the
             # weight, up to a maximum of 100.
-            'average_daily_users': min(addon.average_daily_users / 10000, 100),
+            'average_daily_users': min(addon.average_daily_users // 10000, 100),
             # Pas rejection history: each "recent" rejected version (disabled
             # with an original status of null, so not disabled by a developer)
             # adds 10 to the weight, up to a maximum of 100.
@@ -872,7 +882,7 @@ class AutoApprovalSummary(ModelBase):
                     if unknown_minified_code_count else 0),
                 # Size of code changes: 5kB is one point, up to a max of 100.
                 'size_of_code_changes': min(
-                    self.calculate_size_of_code_changes() / 5000, 100)
+                    self.calculate_size_of_code_changes() // 5000, 100)
             }
         except AutoApprovalNoValidationResultError:
             # We should have a FileValidationResult... since we don't and
@@ -1128,14 +1138,16 @@ class RereviewQueueThemeManager(ManagerBase):
             return qs.exclude(theme__addon__status=amo.STATUS_DELETED)
 
 
+@python_2_unicode_compatible
 class RereviewQueueTheme(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    theme = models.ForeignKey(Persona)
+    theme = models.ForeignKey(Persona, on_delete=models.CASCADE)
     header = models.CharField(max_length=72, blank=True, default='')
 
     # Holds whether this reuploaded theme is a duplicate.
-    dupe_persona = models.ForeignKey(Persona, null=True,
-                                     related_name='dupepersona')
+    dupe_persona = models.ForeignKey(
+        Persona, null=True, related_name='dupepersona',
+        on_delete=models.CASCADE)
 
     # The order of those managers is very important: please read the lengthy
     # comment above the Addon managers declaration/instantiation.
@@ -1176,7 +1188,7 @@ class RereviewQueueTheme(ModelBase):
 
 class ThemeLock(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    theme = models.OneToOneField('addons.Persona')
+    theme = models.OneToOneField('addons.Persona', on_delete=models.CASCADE)
     reviewer = UserForeignKey()
     expiry = models.DateTimeField()
 
@@ -1184,6 +1196,7 @@ class ThemeLock(ModelBase):
         db_table = 'theme_locks'
 
 
+@python_2_unicode_compatible
 class Whiteboard(ModelBase):
     addon = models.OneToOneField(
         Addon, on_delete=models.CASCADE, primary_key=True)
@@ -1193,6 +1206,6 @@ class Whiteboard(ModelBase):
     class Meta:
         db_table = 'review_whiteboard'
 
-    def __unicode__(self):
+    def __str__(self):
         return u'[%s] private: |%s| public: |%s|' % (
             self.addon.name, self.private, self.public)

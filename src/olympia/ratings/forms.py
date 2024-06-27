@@ -1,6 +1,7 @@
 import re
 
-from urllib2 import unquote
+import six
+from six.moves.urllib.parse import unquote
 
 from django import forms
 from django.utils.translation import ugettext, ugettext_lazy as _
@@ -42,22 +43,24 @@ class RatingForm(RatingReplyForm):
     rating = forms.ChoiceField(
         zip(range(1, 6), range(1, 6)), label=_(u'Rating')
     )
-    flags = re.I | re.L | re.U | re.M
+    # re.L flag has been removed in py3.6 as Unicode matching is already
+    # enabled by default for Unicode (str) patterns.
+    flags = (re.I | re.L | re.U | re.M) if six.PY2 else (re.I | re.U | re.M)
     # This matches the following three types of patterns:
     # http://... or https://..., generic domain names, and IPv4
     # octets. It does not match IPv6 addresses or long strings such as
     # "example dot com".
     link_pattern = re.compile(
-        '((://)|'  # Protocols (e.g.: http://)
-        '((\d{1,3}\.){3}(\d{1,3}))|'
-        '([0-9a-z\-%%]+\.(%s)))' % '|'.join(TLDS),
+        r'((://)|'  # Protocols (e.g.: http://)
+        r'((\d{1,3}\.){3}(\d{1,3}))|'
+        r'([0-9a-z\-%%]+\.(%s)))' % '|'.join(TLDS),
         flags)
 
     def _post_clean(self):
         # Unquote the body in case someone tries 'example%2ecom'.
         data = unquote(self.cleaned_data.get('body', ''))
         if '<br>' in data:
-            self.cleaned_data['body'] = re.sub('<br>', '\n', data)
+            self.cleaned_data['body'] = re.sub(r'<br>', '\n', data)
         if self.link_pattern.search(data) is not None:
             self.cleaned_data['flag'] = True
             self.cleaned_data['editorreview'] = True

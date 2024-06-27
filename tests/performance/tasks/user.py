@@ -1,5 +1,5 @@
 import logging
-import urlparse
+import six.moves.urllib_parse as urlparse
 import random
 
 from django.conf import settings

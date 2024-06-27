@@ -5,6 +5,8 @@ from django.utils import translation
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
+import six
+
 from olympia.addons.models import Addon
 from olympia.discovery.models import DiscoveryItem
 
@@ -18,7 +20,8 @@ class SlugOrPkChoiceField(forms.ModelChoiceField):
     """A ModelChoiceField that supports entering slugs instead of PKs for
     convenience."""
     def clean(self, value):
-        if value and isinstance(value, basestring) and not value.isdigit():
+        if (value and isinstance(value, six.string_types) and
+                not value.isdigit()):
             try:
                 value = self.queryset.values_list(
                     'pk', flat=True).get(slug=value)
@@ -72,7 +75,7 @@ class DiscoveryItemAdmin(admin.ModelAdmin):
         css = {
             'all': ('css/admin/discovery.css',)
         }
-    list_display = ('__unicode__', 'custom_addon_name', 'custom_heading',
+    list_display = ('__str__', 'custom_addon_name', 'custom_heading',
                     'position', 'position_china')
     list_filter = (PositionFilter, PositionChinaFilter)
     raw_id_fields = ('addon',)
@@ -82,7 +85,8 @@ class DiscoveryItemAdmin(admin.ModelAdmin):
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'addon':
             kwargs['widget'] = ForeignKeyRawIdWidget(
-                db_field.rel, self.admin_site, using=kwargs.get('using'))
+                db_field.remote_field, self.admin_site,
+                using=kwargs.get('using'))
             kwargs['queryset'] = Addon.objects.public()
             kwargs['help_text'] = db_field.help_text
             return SlugOrPkChoiceField(**kwargs)

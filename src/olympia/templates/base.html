@@ -37,7 +37,7 @@
       {{ js('debug') }}
     {% endif %}
 
-    {% if request.user.is_authenticated %}
+    {% if request.user and request.user.is_authenticated %}
       <meta name="csrf" content="{{ csrf_token }}">
     {% endif %}
 

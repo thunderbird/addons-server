@@ -1,5 +1,5 @@
 import json
-import urlparse
+import six.moves.urllib_parse as urlparse
 from collections import OrderedDict
 
 from django.conf import settings

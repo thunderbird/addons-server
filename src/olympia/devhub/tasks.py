@@ -6,7 +6,9 @@ import os
 import socket
 import subprocess
 import tempfile
-import urllib2
+from six.moves.urllib.request import urlopen
+from six.moves.urllib_error import HTTPError, URLError
+
 import shutil
 
 from copy import deepcopy
@@ -561,8 +563,7 @@ def check_for_api_keys_in_file(results, upload):
             if zipinfo.file_size >= 64:
                 file_ = zipfile.read(zipinfo)
                 for key in keys:
-                    if key.secret in file_.decode(encoding='unicode-escape',
-                                                  errors="ignore"):
+                    if key.secret in file_.decode(errors="ignore"):
                         log.info('Developer API key for user %s found in '
                                  'submission.' % key.user)
                         if key.user == upload.user:
@@ -679,39 +680,42 @@ def run_validator(path, for_appversions=None, test_all_tiers=False,
     Not all application versions will have a set of registered
     compatibility tests.
     """
-    from validator.validate import validate as validator_validate
-
-    apps = dump_apps.Command.get_json_path()
-
-    if not os.path.exists(apps):
-        call_command('dump_apps')
-
-    suffix = '_' + os.path.basename(path)
-
-    with NamedTemporaryFile(suffix=suffix, dir=settings.TMP_PATH) as temp:
-        if path and not os.path.exists(path) and storage.exists(path):
-            # This file doesn't exist locally. Write it to our
-            # currently-open temp file and switch to that path.
-            shutil.copyfileobj(storage.open(path), temp.file)
-            path = temp.name
-
-        with statsd.timer('devhub.validator'):
-            json_result = validator_validate(
-                path,
-                for_appversions=for_appversions,
-                format='json',
-                # When False, this flag says to stop testing after one
-                # tier fails.
-                determined=test_all_tiers,
-                approved_applications=apps,
-                overrides=overrides,
-                compat_test=compat,
-                listed=listed
-            )
-
-        track_validation_stats(json_result)
-
-        return json_result
+    # We're deprecating amo-validator because it doesn't support Python 3
+    raise DeprecationWarning()
+    #
+    # from validator.validate import validate as validator_validate
+    #
+    # apps = dump_apps.Command.get_json_path()
+    #
+    # if not os.path.exists(apps):
+    #     call_command('dump_apps')
+    #
+    # suffix = '_' + os.path.basename(path)
+    #
+    # with NamedTemporaryFile(suffix=suffix, dir=settings.TMP_PATH) as temp:
+    #     if path and not os.path.exists(path) and storage.exists(path):
+    #         # This file doesn't exist locally. Write it to our
+    #         # currently-open temp file and switch to that path.
+    #         shutil.copyfileobj(storage.open(path), temp.file)
+    #         path = temp.name
+    #
+    #     with statsd.timer('devhub.validator'):
+    #         json_result = validator_validate(
+    #             path,
+    #             for_appversions=for_appversions,
+    #             format='json',
+    #             # When False, this flag says to stop testing after one
+    #             # tier fails.
+    #             determined=test_all_tiers,
+    #             approved_applications=apps,
+    #             overrides=overrides,
+    #             compat_test=compat,
+    #             listed=listed
+    #         )
+    #
+    #     track_validation_stats(json_result)
+    #
+    #     return json_result
 
 
 def run_addons_linter(path, listed=True, is_experiment=False):
@@ -873,7 +877,7 @@ def resize_icon(source, dest_folder, target_sizes, **kw):
         # add-on. We only care about the first 8 chars of the md5, it's
         # unlikely a new icon on the same add-on would get the same first 8
         # chars, especially with icon changes being so rare in the first place.
-        with open(source) as fd:
+        with open(source, 'rb') as fd:
             icon_hash = hashlib.md5(fd.read()).hexdigest()[:8]
 
         # Keep a copy of the original image.
@@ -982,11 +986,11 @@ def failed_validation(*messages):
 
 def _fetch_content(url):
     try:
-        return urllib2.urlopen(url, timeout=15)
-    except urllib2.HTTPError as e:
+        return urlopen(url, timeout=15)
+    except HTTPError as e:
         raise Exception(
             ugettext('%s responded with %s (%s).') % (url, e.code, e.msg))
-    except urllib2.URLError as e:
+    except URLError as e:
         # Unpack the URLError to try and find a useful message.
         if isinstance(e.reason, socket.timeout):
             raise Exception(ugettext('Connection to "%s" timed out.') % url)

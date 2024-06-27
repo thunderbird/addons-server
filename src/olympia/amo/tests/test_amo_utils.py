@@ -62,9 +62,12 @@ def test_resize_transparency():
     expected = src.replace('.png', '-expected.png')
     try:
         resize_image(src, dest, (32, 32))
-        with open(dest) as dfh:
-            with open(expected) as efh:
-                assert dfh.read() == efh.read()
+        with open(dest, 'rb') as dfh:
+            dest_buffer = dfh.read()
+        with open(expected, 'rb') as efh:
+            expected_buffer = efh.read()
+
+        assert dest_buffer == expected_buffer
     finally:
         if os.path.exists(dest):
             os.remove(dest)
@@ -82,9 +85,12 @@ def test_resize_transparency_for_P_mode_bug_1181221():
     expected = src.replace('.png', '-expected.png')
     try:
         resize_image(src, dest, (32, 32))
-        with open(dest) as dfh:
-            with open(expected) as efh:
-                assert dfh.read() == efh.read()
+        with open(dest, 'rb') as dfh:
+            dest_buffer = dfh.read()
+        with open(expected, 'rb') as efh:
+            expected_buffer = efh.read()
+
+        assert dest_buffer == expected_buffer
     finally:
         if os.path.exists(dest):
             os.remove(dest)
@@ -161,9 +167,9 @@ class TestLocalFileStorage(BaseTestCase):
 
     def test_non_ascii_content(self):
         fn = os.path.join(self.tmp, 'somefile.txt')
-        with self.stor.open(fn, 'w') as fd:
+        with self.stor.open(fn, 'wb') as fd:
             fd.write(u'Ivan Krsti\u0107.txt'.encode('utf8'))
-        with self.stor.open(fn, 'r') as fd:
+        with self.stor.open(fn, 'rb') as fd:
             assert fd.read().decode('utf8') == u'Ivan Krsti\u0107.txt'
 
     def test_make_file_dirs(self):

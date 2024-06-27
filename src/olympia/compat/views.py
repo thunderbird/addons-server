@@ -25,7 +25,7 @@ from .models import CompatReport
 def incoming(request):
     # Turn camelCase into snake_case.
     def snake_case(s):
-        return re.sub('[A-Z]+', '_\g<0>', s).lower()
+        return re.sub(r'[A-Z]+', '_\g<0>', s).lower()
 
     try:
         data = [(snake_case(k), v)

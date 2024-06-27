@@ -2,15 +2,20 @@
 import datetime
 import os
 
+from base64 import b64encode
+
 import django.dispatch
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.storage import default_storage as storage
 from django.db import models
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext
 
 import jinja2
+import six
+import waffle
 
 from django_extensions.db.fields.json import JSONField
 from django_statsd.clients import statsd
@@ -18,8 +23,8 @@ from django_statsd.clients import statsd
 import olympia.core.logger
 
 from olympia import activity, amo
-from olympia.amo.fields import PositiveAutoField
 from olympia.amo.decorators import use_primary_db
+from olympia.amo.fields import PositiveAutoField
 from olympia.amo.models import (
     BasePreview, ManagerBase, ModelBase, OnChangeMixin)
 from olympia.amo.templatetags.jinja_helpers import (
@@ -31,6 +36,7 @@ from olympia.applications.models import AppVersion
 from olympia.constants.licenses import LICENSES_BY_BUILTIN
 from olympia.files import utils
 from olympia.files.models import File, cleanup_file
+from olympia.lib.git import AddonGitRepository
 from olympia.translations.fields import (
     LinkifiedField, PurifiedField, TranslatedField, save_signal)
 
@@ -101,11 +107,13 @@ class VersionCreateError(ValueError):
     pass
 
 
+@python_2_unicode_compatible
 class Version(OnChangeMixin, ModelBase):
     id = PositiveAutoField(primary_key=True)
     addon = models.ForeignKey(
         'addons.Addon', related_name='versions', on_delete=models.CASCADE)
-    license = models.ForeignKey('License', null=True)
+    license = models.ForeignKey(
+        'License', null=True, on_delete=models.CASCADE)
     releasenotes = PurifiedField()
     approvalnotes = models.TextField(default='', null=True)
     version = models.CharField(max_length=255, default='0.1')
@@ -140,7 +148,7 @@ class Version(OnChangeMixin, ModelBase):
         super(Version, self).__init__(*args, **kwargs)
         self.__dict__.update(version_dict(self.version or ''))
 
-    def __unicode__(self):
+    def __str__(self):
         return jinja2.escape(self.version)
 
     def save(self, *args, **kw):
@@ -252,7 +260,7 @@ class Version(OnChangeMixin, ModelBase):
                 channel == amo.RELEASE_CHANNEL_LISTED):
             dst_root = os.path.join(user_media_path('addons'), str(addon.id))
             theme_data = parsed_data.get('theme', {})
-            version_root = os.path.join(dst_root, unicode(version.id))
+            version_root = os.path.join(dst_root, six.text_type(version.id))
 
             utils.extract_header_img(
                 version.all_files[0].file_path, theme_data, version_root)
@@ -496,8 +504,9 @@ class Version(OnChangeMixin, ModelBase):
 
     @property
     def is_unreviewed(self):
-        return filter(lambda f: f.status in amo.UNREVIEWED_FILE_STATUSES,
-                      self.all_files)
+        return bool(list(filter(
+            lambda f: f.status in amo.UNREVIEWED_FILE_STATUSES, self.all_files
+        )))
 
     @property
     def is_all_unreviewed(self):
@@ -567,7 +576,7 @@ class Version(OnChangeMixin, ModelBase):
 
         def rollup(xs):
             groups = sorted_groupby(xs, 'version_id')
-            return dict((k, list(vs)) for k, vs in groups)
+            return {k: list(vs) for k, vs in groups}
 
         al_dict = rollup(al)
 
@@ -644,9 +653,9 @@ class Version(OnChangeMixin, ModelBase):
         if self.addon.type != amo.ADDON_STATICTHEME:
             return []
         background_images_folder = os.path.join(
-            user_media_path('addons'), str(self.addon.id), unicode(self.id))
+            user_media_path('addons'), str(self.addon.id), six.text_type(self.id))
         background_images_url = '/'.join(
-            (user_media_url('addons'), str(self.addon.id), unicode(self.id)))
+            (user_media_url('addons'), str(self.addon.id), six.text_type(self.id)))
         out = [
             background.replace(background_images_folder, background_images_url)
             for background in walkfiles(background_images_folder)]
@@ -663,7 +672,8 @@ def generate_static_theme_preview(theme_data, version_root, version_pk):
 
 
 class VersionPreview(BasePreview, ModelBase):
-    version = models.ForeignKey(Version, related_name='previews')
+    version = models.ForeignKey(
+        Version, related_name='previews', on_delete=models.CASCADE)
     position = models.IntegerField(default=0)
     sizes = JSONField(default={})
     media_folder = 'version-previews'
@@ -790,6 +800,7 @@ class LicenseManager(ManagerBase):
             builtin__gt=0, creative_commons=cc).order_by('builtin')
 
 
+@python_2_unicode_compatible
 class License(ModelBase):
     OTHER = 0
 
@@ -813,9 +824,9 @@ class License(ModelBase):
     class Meta:
         db_table = 'licenses'
 
-    def __unicode__(self):
+    def __str__(self):
         license = self._constant or self
-        return unicode(license.name)
+        return six.text_type(license.name)
 
     @property
     def _constant(self):
@@ -826,25 +837,28 @@ models.signals.pre_save.connect(
     save_signal, sender=License, dispatch_uid='license_translations')
 
 
+@python_2_unicode_compatible
 class ApplicationsVersions(models.Model):
     id = PositiveAutoField(primary_key=True)
     application = models.PositiveIntegerField(choices=amo.APPS_CHOICES,
                                               db_column='application_id')
     version = models.ForeignKey(
         Version, related_name='apps', on_delete=models.CASCADE)
-    min = models.ForeignKey(AppVersion, db_column='min',
-                            related_name='min_set')
-    max = models.ForeignKey(AppVersion, db_column='max',
-                            related_name='max_set')
+    min = models.ForeignKey(
+        AppVersion, db_column='min', related_name='min_set',
+        on_delete=models.CASCADE)
+    max = models.ForeignKey(
+        AppVersion, db_column='max', related_name='max_set',
+        on_delete=models.CASCADE)
 
     class Meta:
         db_table = u'applications_versions'
         unique_together = (("application", "version"),)
 
     def get_application_display(self):
-        return unicode(amo.APPS_ALL[self.application].pretty)
+        return six.text_type(amo.APPS_ALL[self.application].pretty)
 
-    def __unicode__(self):
+    def __str__(self):
         if (self.version.is_compatible_by_default and
                 self.version.is_compatible_app(amo.APP_IDS[self.application])):
             return ugettext(u'{app} {min} and later').format(

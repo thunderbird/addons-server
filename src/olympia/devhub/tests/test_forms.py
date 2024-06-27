@@ -9,6 +9,7 @@ from django.utils import translation
 
 import mock
 import pytest
+import six
 
 from PIL import Image
 
@@ -300,8 +301,9 @@ class TestPreviewForm(TestCase):
         name = 'transparent.png'
         form = forms.PreviewForm({'caption': 'test', 'upload_hash': name,
                                   'position': 1})
-        with storage.open(os.path.join(self.dest, name), 'w') as f:
-            shutil.copyfileobj(open(get_image_path(name)), f)
+        with storage.open(os.path.join(self.dest, name), 'wb') as f:
+            image_path = get_image_path(name)
+            shutil.copyfileobj(open(image_path, 'rb'), f)
         assert form.is_valid()
         form.save(addon)
         assert update_mock.called
@@ -312,8 +314,8 @@ class TestPreviewForm(TestCase):
         name = 'non-animated.gif'
         form = forms.PreviewForm({'caption': 'test', 'upload_hash': name,
                                   'position': 1})
-        with storage.open(os.path.join(self.dest, name), 'w') as f:
-            shutil.copyfileobj(open(get_image_path(name)), f)
+        with storage.open(os.path.join(self.dest, name), 'wb') as f:
+            shutil.copyfileobj(open(get_image_path(name), 'rb'), f)
         assert form.is_valid()
         form.save(addon)
         preview = addon.previews.all()[0]
@@ -368,8 +370,8 @@ class TestEditThemeForm(TestCase):
             'tags': 'ag, sw',
             'textcolor': '#EFFFFF',
 
-            'name_en-us': unicode(self.instance.name),
-            'description_en-us': unicode(self.instance.description),
+            'name_en-us': six.text_type(self.instance.name),
+            'description_en-us': six.text_type(self.instance.description),
         }
         data.update(**kw)
         return data
@@ -413,17 +415,17 @@ class TestEditThemeForm(TestCase):
     def test_success(self):
         self.save_success()
         self.instance = self.instance.reload()
-        assert unicode(self.instance.persona.accentcolor) == (
+        assert six.text_type(self.instance.persona.accentcolor) == (
             self.data['accentcolor'].lstrip('#'))
         assert self.instance.categories.all()[0].id == self.data['category']
         assert self.instance.persona.license == self.data['license']
-        assert unicode(self.instance.name) == self.data['name_en-us']
-        assert unicode(self.instance.description) == (
+        assert six.text_type(self.instance.name) == self.data['name_en-us']
+        assert six.text_type(self.instance.description) == (
             self.data['description_en-us'])
         self.assertSetEqual(
             set(self.instance.tags.values_list('tag_text', flat=True)),
             {self.data['tags']})
-        assert unicode(self.instance.persona.textcolor) == (
+        assert six.text_type(self.instance.persona.textcolor) == (
             self.data['textcolor'].lstrip('#'))
 
     def test_success_twice(self):
@@ -580,7 +582,7 @@ class TestDistributionChoiceForm(TestCase):
             label = form.fields['channel'].choices[0][1]
 
             expected = 'On this site.'
-            label = unicode(label)
+            label = six.text_type(label)
             assert label.startswith(expected)
 
         with translation.override('de'):
@@ -588,5 +590,5 @@ class TestDistributionChoiceForm(TestCase):
             label = form.fields['channel'].choices[0][1]
 
             expected = 'Auf dieser Website.'
-            label = unicode(label)
+            label = six.text_type(label)
             assert label.startswith(expected)

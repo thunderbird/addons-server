@@ -7,13 +7,10 @@ import os
 import re
 import shutil
 import stat
-import StringIO
 import struct
 import tempfile
 import zipfile
-import scandir
 
-from cStringIO import StringIO as cStringIO
 from datetime import datetime, timedelta
 from waffle import switch_is_active
 from xml.dom import minidom
@@ -30,8 +27,11 @@ from django.utils.translation import ugettext
 
 import flufl.lock
 import rdflib
+import scandir
+import six
 
 from signing_clients.apps import get_signer_organizational_unit_name
+from six import text_type
 
 import olympia.core.logger
 
@@ -44,7 +44,6 @@ from olympia.lib.safe_xml import lxml
 from olympia.users.utils import (
     mozilla_signed_extension_submission_allowed,
     system_addon_submission_allowed)
-
 from olympia.versions.compare import version_int as vint
 
 
@@ -84,7 +83,7 @@ def get_filepath(fileorpath):
     This supports various input formats, a path, a django `File` object,
     `olympia.files.File`, a `FileUpload` or just a regular file-like object.
     """
-    if isinstance(fileorpath, basestring):
+    if isinstance(fileorpath, six.string_types):
         return fileorpath
     elif isinstance(fileorpath, DjangoFile):
         return fileorpath
@@ -97,6 +96,23 @@ def get_filepath(fileorpath):
     return fileorpath
 
 
+def id_to_path(pk):
+    """
+    Generate a path from an id, to distribute folders in the file system.
+    1 => 1/1/1
+    12 => 2/12/12
+    123456 => 6/56/123456
+    """
+    pk = six.text_type(pk)
+    path = [pk[-1]]
+    if len(pk) >= 2:
+        path.append(pk[-2:])
+    else:
+        path.append(pk)
+    path.append(pk)
+    return os.path.join(*path)
+
+
 def get_file(fileorpath):
     """Get a file-like object, whether given a FileUpload object or a path."""
     if hasattr(fileorpath, 'path'):  # FileUpload
@@ -107,7 +123,7 @@ def get_file(fileorpath):
 
 
 def make_xpi(files):
-    f = cStringIO()
+    f = six.BytesIO()
     z = ZipFile(f, 'w')
     for path, data in files.items():
         z.writestr(path, data)
@@ -166,7 +182,7 @@ def get_simple_version(version_string):
     """
     if not version_string:
         return ''
-    return re.sub('[<=>]', '', version_string)
+    return re.sub(r'[<=>]', '', version_string)
 
 
 class RDFExtractor(object):
@@ -193,7 +209,8 @@ class RDFExtractor(object):
     def __init__(self, zip_file, certinfo=None):
         self.zip_file = zip_file
         self.certinfo = certinfo
-        self.rdf = rdflib.Graph().parse(data=zip_file.read('install.rdf'))
+        self.rdf = rdflib.Graph().parse(
+            data=force_text(zip_file.read('install.rdf')))
         self.package_type = None
         self.find_root()  # Will set self.package_type
 
@@ -260,9 +277,12 @@ class RDFExtractor(object):
             self.is_experiment = self.package_type in self.EXPERIMENT_TYPES
             return self.TYPES[self.package_type]
 
+
+        name = force_text(self.zip_file.source.name)
+
         # Look for Complete Themes.
         is_complete_theme = (
-            self.zip_file.source.name.endswith('.jar') or
+            name.endswith('.jar') or
             self.find('internalName')
         )
         if is_complete_theme:
@@ -302,7 +322,7 @@ class RDFExtractor(object):
         match = list(self.rdf.objects(ctx, predicate=self.uri(name)))
         # These come back as rdflib.Literal, which subclasses unicode.
         if match:
-            return unicode(match[0])
+            return six.text_type(match[0])
 
     def apps(self):
         rv = []
@@ -354,7 +374,7 @@ class ManifestJSONExtractor(object):
         self.certinfo = certinfo
 
         if not data:
-            data = zip_file.read('manifest.json')
+            data = force_text(zip_file.read('manifest.json'))
 
         lexer = JsLexer()
 
@@ -534,7 +554,7 @@ class ManifestJSONExtractor(object):
         """Guess target_locale for a dictionary from manifest contents."""
         try:
             dictionaries = self.get('dictionaries', {})
-            key = force_text(dictionaries.keys()[0])
+            key = force_text(list(dictionaries.keys())[0])
             return key[:255]
         except (IndexError, UnicodeDecodeError):
             # This shouldn't happen: the linter should prevent it, but
@@ -771,8 +791,7 @@ class SafeZip(object):
         if type == 'jar':
             parts = path.split('!')
             for part in parts[:-1]:
-                jar = self.__class__(
-                    StringIO.StringIO(jar.zip_file.read(part)))
+                jar = self.__class__(six.BytesIO(jar.zip_file.read(part)))
             path = parts[-1]
         return jar.read(path[1:] if path.startswith('/') else path)
 
@@ -863,12 +882,12 @@ def get_all_files(folder, strip_prefix='', prefix=None):
     def iterate(path):
         path_dirs, path_files = storage.listdir(path)
         for dirname in sorted(path_dirs):
-            full = os.path.join(path, dirname)
+            full = os.path.join(force_text(path), force_text(dirname))
             all_files.append(full)
             iterate(full)
 
         for filename in sorted(path_files):
-            full = os.path.join(path, filename)
+            full = os.path.join(force_text(path), force_text(filename))
             all_files.append(full)
 
     iterate(folder)
@@ -912,15 +931,16 @@ def parse_xpi(xpi, addon=None, minimal=False, user=None):
     except forms.ValidationError:
         raise
     except IOError as e:
+        err = e
         if len(e.args) < 2:
-            err, strerror = None, e[0]
-        else:
-            err, strerror = e
-        log.error('I/O error({0}): {1}'.format(err, strerror))
+            err = e[0]
+        log.error('I/O error({0})'.format(err))
+        print(err)
         raise forms.ValidationError(ugettext(
             'Could not parse the manifest file.'))
-    except Exception:
+    except Exception as ex:
         log.error('XPI parse error', exc_info=True)
+        print(ex)
         raise forms.ValidationError(ugettext(
             'Could not parse the manifest file.'))
 
@@ -1027,6 +1047,7 @@ def parse_addon(pkg, addon=None, user=None, minimal=False):
     it should always contain at least guid, type, version and is_webextension.
     """
     name = getattr(pkg, 'name', pkg)
+    name = force_text(name)
     if name.endswith('.xml'):
         parsed = parse_search(pkg, addon)
     else:
@@ -1247,7 +1268,7 @@ def resolve_i18n_message(message, messages, locale, default_locale=None):
     :param messages: A dictionary of messages, e.g the return value
                      of `extract_translations`.
     """
-    if not message or not isinstance(message, basestring):
+    if not message or not isinstance(message, six.string_types):
         # Don't even attempt to extract invalid data.
         # See https://github.com/mozilla/addons-server/issues/3067
         # for more details

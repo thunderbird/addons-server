@@ -10,11 +10,13 @@ import operator
 import os
 import random
 import re
+import scandir
 import shutil
+import six
+import string
+import subprocess
 import time
 import unicodedata
-import urllib
-import urlparse
 import string
 import subprocess
 import scandir
@@ -32,7 +34,7 @@ from django.forms.fields import Field
 from django.http import HttpResponse
 from django.template import engines, loader
 from django.utils import translation
-from django.utils.encoding import force_bytes, force_text
+from django.utils.encoding import force_bytes, force_text, force_str
 from django.utils.http import _urlparse as django_urlparse, quote_etag
 
 import bleach
@@ -47,7 +49,7 @@ from easy_thumbnails import processors
 from html5lib.serializer.htmlserializer import HTMLSerializer
 from PIL import Image
 from rest_framework.utils.encoders import JSONEncoder
-from validator import unicodehelper
+from six.moves.urllib_parse import parse_qsl, ParseResult, unquote_to_bytes
 
 from olympia.amo import ADDON_ICON_SIZES, search
 from olympia.amo.pagination import ESPaginator
@@ -55,6 +57,7 @@ from olympia.amo.urlresolvers import linkify_with_outgoing, reverse
 from olympia.translations.models import Translation
 from olympia.users.models import UserNotification
 from olympia.users.utils import UnsubscribeCode
+from olympia.lib import unicodehelper
 
 from . import logger_log as log
 
@@ -79,21 +82,22 @@ def urlparams(url_, hash=None, **query):
     New query params will be appended to existing parameters, except duplicate
     names, which will be replaced.
     """
-    url = django_urlparse(force_text(url_))
+    url = django_urlparse(force_str(url_))
 
     fragment = hash if hash is not None else url.fragment
 
     # Use dict(parse_qsl) so we don't get lists of values.
-    q = url.query
-    query_dict = dict(urlparse.parse_qsl(force_bytes(q))) if q else {}
+    query_dict = dict(parse_qsl(force_str(url.query))) if url.query else {}
     query_dict.update(
-        (k, force_bytes(v) if v is not None else v) for k, v in query.items())
+        (k, force_bytes(v) if v is not None else v) for k, v in query.items()
+    )
     query_string = urlencode(
-        [(k, urllib.unquote(v)) for k, v in query_dict.items()
-         if v is not None])
-    new = urlparse.ParseResult(url.scheme, url.netloc, url.path, url.params,
-                               query_string, fragment)
-    return new.geturl()
+        [(k, unquote_to_bytes(v)) for k, v in query_dict.items() if v is not None]
+    )
+    result = ParseResult(
+        url.scheme, url.netloc, url.path, url.params, query_string, fragment
+    )
+    return result.geturl()
 
 
 def partial(func, *args, **kw):
@@ -186,12 +190,12 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
     if not recipient_list:
         return True
 
-    if isinstance(recipient_list, basestring):
+    if isinstance(recipient_list, six.string_types):
         raise ValueError('recipient_list should be a list, not a string.')
 
     # Check against user notification settings
     if perm_setting:
-        if isinstance(perm_setting, str):
+        if isinstance(perm_setting, six.string_types):
             perm_setting = notifications.NOTIFICATIONS_BY_SHORT[perm_setting]
         perms = dict(UserNotification.objects
                                      .filter(user__email__in=recipient_list,
@@ -217,8 +221,8 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
         from_email = settings.DEFAULT_FROM_EMAIL
 
     if cc:
-        # If not basestring, assume it is already a list.
-        if isinstance(cc, basestring):
+        # If not six.string_types, assume it is already a list.
+        if isinstance(cc, six.string_types):
             cc = [cc]
 
     if not headers:
@@ -399,7 +403,7 @@ def chunked(seq, n):
     [6, 7]
     """
     seq = iter(seq)
-    while 1:
+    while True:
         rv = list(itertools.islice(seq, 0, n))
         if not rv:
             break
@@ -409,9 +413,10 @@ def chunked(seq, n):
 def urlencode(items):
     """A Unicode-safe URLencoder."""
     try:
-        return urllib.urlencode(items)
+        return six.moves.urllib_parse.urlencode(items)
     except UnicodeEncodeError:
-        return urllib.urlencode([(k, force_bytes(v)) for k, v in items])
+        return six.moves.urllib_parse.urlencode(
+            [(k, force_bytes(v)) for k, v in items])
 
 
 def randslice(qs, limit, exclude=None):
@@ -452,11 +457,11 @@ def slugify(s, ok=SLUG_OK, lower=True, spaces=False, delimiter='-'):
             rv.append(' ')
     new = ''.join(rv).strip()
     if not spaces:
-        new = re.sub('[-\s]+', delimiter, new)
+        new = re.sub(r'[-\s]+', delimiter, new)
     return new.lower() if lower else new
 
 
-def normalize_string(value, strip_puncutation=False):
+def normalize_string(value, strip_punctuation=False):
     """Normalizes a unicode string.
 
      * decomposes unicode characters
@@ -466,9 +471,9 @@ def normalize_string(value, strip_puncutation=False):
     value = unicodedata.normalize('NFD', force_text(value))
     value = value.encode('utf-8', 'ignore')
 
-    if strip_puncutation:
-        value = value.translate(None, string.punctuation)
-    return force_text(' '.join(value.split()))
+    if strip_punctuation:
+        value = value.translate(None, force_bytes(string.punctuation))
+    return force_text(b' '.join(value.split()))
 
 
 def slug_validator(s, ok=SLUG_OK, lower=True, spaces=False, delimiter='-',
@@ -641,13 +646,13 @@ class ImageCheck(object):
 
         if self.img.format == 'PNG':
             self._img.seek(0)
-            data = ''
+            data = b''
             while True:
                 chunk = self._img.read(size)
                 if not chunk:
                     break
                 data += chunk
-                acTL, IDAT = data.find('acTL'), data.find('IDAT')
+                acTL, IDAT = data.find(b'acTL'), data.find(b'IDAT')
                 if acTL > -1 and acTL < IDAT:
                     return True
             return False
@@ -706,7 +711,7 @@ class HttpResponseSendFile(HttpResponse):
         super(HttpResponseSendFile, self).__init__('', status=status,
                                                    content_type=content_type)
         header_path = self.path
-        if isinstance(header_path, unicode):
+        if isinstance(header_path, six.text_type):
             header_path = header_path.encode('utf8')
         if settings.XSENDFILE:
             self[settings.XSENDFILE_HEADER] = header_path
@@ -725,7 +730,7 @@ class HttpResponseSendFile(HttpResponse):
             self['Content-Length'] = os.path.getsize(self.path)
 
             def wrapper():
-                while 1:
+                while True:
                     data = fp.read(chunk)
                     if not data:
                         break
@@ -777,7 +782,7 @@ def escape_all(value):
     Only linkify full urls, including a scheme, if "linkify_only_full" is True.
 
     """
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         value = jinja2.escape(force_text(value))
         value = linkify_with_outgoing(value)
         return value
@@ -785,7 +790,7 @@ def escape_all(value):
         for i, lv in enumerate(value):
             value[i] = escape_all(lv)
     elif isinstance(value, dict):
-        for k, lv in value.iteritems():
+        for k, lv in six.iteritems(value):
             value[k] = escape_all(lv)
     elif isinstance(value, Translation):
         value = jinja2.escape(force_text(value))
@@ -834,23 +839,8 @@ class LocalFileStorage(FileSystemStorage):
 
     def path(self, name):
         """Actual file system path to name without any safety checks."""
-        return os.path.normpath(os.path.join(self.location, force_bytes(name)))
-
-
-def translations_for_field(field):
-    """Return all the translations for a given field.
-
-    This returns a dict of locale:localized_string, not Translation objects.
-
-    """
-    if field is None:
-        return {}
-
-    translation_id = getattr(field, 'id')
-    qs = Translation.objects.filter(id=translation_id,
-                                    localized_string__isnull=False)
-    translations = dict(qs.values_list('locale', 'localized_string'))
-    return translations
+        return os.path.normpath(
+            os.path.join(force_bytes(self.location), force_bytes(name)))
 
 
 def attach_trans_dict(model, objs):
@@ -863,8 +853,10 @@ def attach_trans_dict(model, objs):
     # Get translations in a dict, ids will be the keys. It's important to
     # consume the result of sorted_groupby, which is an iterator.
     qs = Translation.objects.filter(id__in=ids, localized_string__isnull=False)
-    all_translations = dict((k, list(v)) for k, v in
-                            sorted_groupby(qs, lambda trans: trans.id))
+    all_translations = {
+        field_id: sorted(list(translations), key=lambda t: t.locale)
+        for field_id, translations in sorted_groupby(qs, lambda t: t.id)
+    }
 
     def get_locale_and_string(translation, new_class):
         """Convert the translation to new_class (making PurifiedTranslations
@@ -872,7 +864,7 @@ def attach_trans_dict(model, objs):
         converted_translation = new_class()
         converted_translation.__dict__ = translation.__dict__
         return (converted_translation.locale.lower(),
-                unicode(converted_translation))
+                six.text_type(converted_translation))
 
     # Build and attach translations for each field on each object.
     for obj in objs:
@@ -895,8 +887,9 @@ def rm_local_tmp_dir(path):
     certain that your executing code is operating on a local temp dir, not a
     directory managed by the Django Storage API.
     """
-    assert path.startswith(settings.TMP_PATH)
-
+    path = force_text(path)
+    tmp_path = force_text(settings.TMP_PATH)
+    assert path.startswith(tmp_path)
     return shutil.rmtree(path)
 
 
