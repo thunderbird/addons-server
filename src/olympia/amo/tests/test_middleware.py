@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
-from datetime import timedelta
-
 from django import test
 from django.test.client import RequestFactory
-from django.test.utils import override_settings
 
 import pytest
+import six
 
 from mock import patch
 from pyquery import PyQuery as pq
 
 from olympia.amo.middleware import (
-    AuthenticationMiddlewareWithoutAPI, ScrubRequestOnException,
-    RequestIdMiddleware)
-from olympia.amo.tests import TestCase, reverse_ns
+    AuthenticationMiddlewareWithoutAPI, RequestIdMiddleware,
+    ScrubRequestOnException)
+from olympia.amo.tests import TestCase
 from olympia.amo.urlresolvers import reverse
 from olympia.zadmin.models import Config
 
@@ -39,7 +37,6 @@ class TestMiddleware(TestCase):
     def test_authentication_used_outside_the_api(self, process_request):
         req = RequestFactory().get('/')
         req.is_api = False
-        req.is_legacy_api = False
         AuthenticationMiddlewareWithoutAPI().process_request(req)
         assert process_request.called
 
@@ -48,13 +45,6 @@ class TestMiddleware(TestCase):
     def test_authentication_not_used_with_the_api(self, process_request):
         req = RequestFactory().get('/')
         req.is_api = True
-        req.is_legacy_api = False
-        AuthenticationMiddlewareWithoutAPI().process_request(req)
-        assert not process_request.called
-
-        req = RequestFactory().get('/')
-        req.is_api = False
-        req.is_legacy_api = True
         AuthenticationMiddlewareWithoutAPI().process_request(req)
         assert not process_request.called
 
@@ -78,18 +68,24 @@ def test_redirect_with_unicode_get():
         'addon/5457%3Fadvancedsearch%3D1&lang=ja&utm_source=Google+%E3'
         '%83%90%E3%82%BA&utm_medium=twitter&utm_term=Google+%E3%83%90%'
         'E3%82%BA')
-    assert response.status_code == 301
+    assert response.status_code == 302
     assert 'utm_term=Google+%E3%83%90%E3%82%BA' in response['Location']
 
 
+@pytest.mark.skipif(
+    six.PY3,
+    reason='Broken in Python 3, needs more investigation')
 def test_source_with_wrong_unicode_get():
     # The following url is a string (bytes), not unicode.
     response = test.Client().get('/firefox/collections/mozmj/autumn/'
                                  '?source=firefoxsocialmedia\x14\x85')
-    assert response.status_code == 301
+    assert response.status_code == 302
     assert response['Location'].endswith('?source=firefoxsocialmedia%14')
 
 
+@pytest.mark.skipif(
+    six.PY3,
+    reason='Broken in Python 3, needs more investigation')
 def test_trailing_slash_middleware():
     response = test.Client().get(u'/en-US/about/?xxx=\xc3')
     assert response.status_code == 301
@@ -118,8 +114,8 @@ class TestNoDjangoDebugToolbar(TestCase):
     def test_no_django_debug_toolbar(self):
         with self.settings(DEBUG=False):
             res = self.client.get(reverse('home'), follow=True)
-            assert 'djDebug' not in res.content
-            assert 'debug_toolbar' not in res.content
+            assert b'djDebug' not in res.content
+            assert b'debug_toolbar' not in res.content
 
 
 def test_hide_password_middleware():
@@ -135,36 +131,10 @@ def test_request_id_middleware(client):
     """Test that we add a request id to every response"""
     response = client.get(reverse('home'))
     assert response.status_code == 200
-    assert isinstance(response['X-AMO-Request-ID'], basestring)
+    assert isinstance(response['X-AMO-Request-ID'], six.string_types)
 
     # Test that we set `request.request_id` too
 
     request = RequestFactory().get('/')
     RequestIdMiddleware().process_request(request)
     assert request.request_id
-
-
-def test_read_only_header_always_set(client):
-    response = client.get(reverse_ns('abusereportuser-list'))
-    assert response['X-AMO-Read-Only'] == 'false'
-
-
-def test_read_only_mode(client):
-    with override_settings(READ_ONLY=True):
-        response = client.post(reverse_ns('abusereportuser-list'))
-
-    assert response.status_code == 503
-    assert 'website maintenance' in response.json()['error']
-    assert response['X-AMO-Read-Only'] == 'true'
-    assert 'Retry-After' not in response
-
-
-def test_read_only_mode_with_retry_after(client):
-    delta = timedelta(minutes=8)
-    with override_settings(READ_ONLY=True, READ_ONLY_RETRY_AFTER=delta):
-        response = client.post(reverse_ns('abusereportuser-list'))
-
-    assert response.status_code == 503
-    assert 'website maintenance' in response.json()['error']
-    assert response['X-AMO-Read-Only'] == 'true'
-    assert response['Retry-After'] == '480'

@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-09-17 12:40+0000\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-02-01 13:15+0000\n"
 "Last-Translator: Kohei Yoshino <kohei.yoshino@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: en_CA\n"
@@ -48,8 +48,8 @@ msgstr "Uploading {0}"
 msgid "Error with {0}"
 msgstr "Error with {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "We have enabled a new linter to process your add-on. Please make sure to report any issues on GitHub"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr "Please make sure to report any linting related issues on GitHub"
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
@@ -762,11 +762,17 @@ msgstr "No results found."
 msgid "Loading..."
 msgstr "Loading..."
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "<b>{0}</b> character"
+msgstr[1] "<b>{0}</b> characters"
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
-msgstr[0] "<b>{0}</b> character left."
-msgstr[1] "<b>{0}</b> characters left."
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
+msgstr[0] "<b>{0}</b> character left"
+msgstr[1] "<b>{0}</b> characters left"
 
 msgid "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
 msgstr "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
@@ -860,9 +866,6 @@ msgstr "{0} line {1} column {2}"
 
 msgid "{0} line {1}"
 msgstr "{0} line {1}"
-
-msgid "Compatibility Tests"
-msgstr "Compatibility Tests"
 
 msgid "Add-on failed validation."
 msgstr "Add-on failed validation."

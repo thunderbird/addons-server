@@ -4,9 +4,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-05-14 11:59+0000\n"
-"Last-Translator: pratikmdabhi <pratikmdabhi@gmail.com>\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2018-10-27 08:57+0000\n"
+"Last-Translator: Mohammad Yahya <mohmmadyahyam@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: gu_IN\n"
 "MIME-Version: 1.0\n"
@@ -48,12 +48,12 @@ msgstr "અપલોડ કરી રહ્યું છે {0}"
 msgid "Error with {0}"
 msgstr "ભૂલ સાથે {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "અમે તમારા ઍડ-ઑનની પ્રક્રિયા કરવા માટે એક નવું લિનટર સક્ષમ કર્યું છે. કૃપા કરીને GitHub પર કોઈપણ સમસ્યાઓની જાણ કરવાની ખાતરી કરો"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr ""
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
-msgstr[0] ""
+msgstr[0] "તમારી ઍડ-ઑન {0} ભૂલ સાથે નિષ્ફળ માન્યતા."
 msgstr[1] "તમારી ઍડ-ઓન {0} ભૂલો સાથે માન્યતા નિષ્ફળ."
 
 msgid "&hellip;and {0} more"
@@ -574,7 +574,7 @@ msgstr "એડ-ઓન સુધારાશે, છેલ્લા {0} દિવ
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Add-ons Updated from {0} to {1}"
-msgstr ""
+msgstr "એડ-ઓન {0} થી {1} સુધી સુધારાશે"
 
 #. L10n: {0} is an integer.
 msgid "Reviews Written, last {0} days"
@@ -586,11 +586,11 @@ msgstr ""
 
 #. L10n: {0} is an integer.
 msgid "User Signups, last {0} days"
-msgstr ""
+msgstr "વપરાશકર્તા સાઇનઅપ્સ, છેલ્લા {0} દિવસ"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "User Signups from {0} to {1}"
-msgstr ""
+msgstr "{0} થી {1} સુધીનાં વપરાશકર્તા સાઇનઅપ્સ"
 
 #. L10n: {0} is an integer.
 msgid "Collections Created, last {0} days"
@@ -602,19 +602,19 @@ msgstr ""
 
 #. L10n: {0} is an integer.
 msgid "Subscribers, last {0} days"
-msgstr ""
+msgstr "સબ્સ્ક્રાઇબર્સ, છેલ્લા {0} દિવસ"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Subscribers from {0} to {1}"
-msgstr ""
+msgstr "{0} થી {1} સુધી સબ્સ્ક્રાઇબર્સ"
 
 #. L10n: {0} is an integer.
 msgid "Ratings, last {0} days"
-msgstr ""
+msgstr "રેટિંગ્સ, છેલ્લા {0} દિવસ"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Ratings from {0} to {1}"
-msgstr ""
+msgstr "{0} થી {1} સુધીની રેટિંગ્સ"
 
 #. L10n: {0} is an integer.
 msgid "Sales, last {0} days"
@@ -626,7 +626,7 @@ msgstr ""
 
 #. L10n: {0} is an integer.
 msgid "Installs, last {0} days"
-msgstr ""
+msgstr "ઇન્સ્ટોલ કરવાના, છેલ્લા {0} દિવસ"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Installs from {0} to {1}"
@@ -769,9 +769,15 @@ msgstr ""
 msgid "Loading..."
 msgstr ""
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] ""
+msgstr[1] ""
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -866,9 +872,6 @@ msgid "{0} line {1} column {2}"
 msgstr ""
 
 msgid "{0} line {1}"
-msgstr ""
-
-msgid "Compatibility Tests"
 msgstr ""
 
 msgid "Add-on failed validation."

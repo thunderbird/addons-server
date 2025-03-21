@@ -1,19 +1,20 @@
 import os
-
 from datetime import datetime
-from urlparse import urlsplit
 
 from django import forms
 from django.conf import settings
 from django.core.files.storage import default_storage as storage
 from django.forms.formsets import BaseFormSet, formset_factory
+from django.utils.encoding import force_text
 from django.utils.translation import ugettext, ugettext_lazy as _, ungettext
+
+import waffle
+from six.moves.urllib_parse import urlsplit
 
 import olympia.core.logger
 
 from olympia import amo
 from olympia.access import acl
-from olympia.activity.models import ActivityLog
 from olympia.addons import tasks as addons_tasks
 from olympia.addons.models import (
     Addon, AddonCategory, Category, DeniedSlug, Persona)
@@ -24,6 +25,7 @@ from olympia.amo.fields import (
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import (
     remove_icons, slug_validator, slugify, sorted_groupby)
+from olympia.amo.validators import OneOrMoreLetterOrNumberCharacterValidator
 from olympia.devhub import tasks as devhub_tasks
 from olympia.devhub.utils import (
     fetch_existing_translations_from_addon, get_addon_akismet_reports)
@@ -32,8 +34,6 @@ from olympia.translations import LOCALES
 from olympia.translations.fields import TransField, TransTextarea
 from olympia.translations.forms import TranslationFormMixin
 from olympia.translations.models import Translation
-from olympia.translations.utils import transfield_changed
-from olympia.users.models import UserEmailField
 from olympia.versions.models import Version
 
 
@@ -135,8 +135,10 @@ class AkismetSpamCheckFormMixin(object):
             data=data,
             existing_data=existing_data)
         error_msg = ugettext('The text entered has been flagged as spam.')
+        error_if_spam = waffle.switch_is_active('akismet-addon-action')
         for prop, report in reports:
-            if report.is_spam:
+            is_spam = report.is_spam
+            if error_if_spam and is_spam:
                 self.add_error(prop, forms.ValidationError(error_msg))
         return super(AkismetSpamCheckFormMixin, self).clean()
 
@@ -147,6 +149,10 @@ class AddonFormBase(TranslationFormMixin, forms.ModelForm):
         self.request = kw.pop('request')
         self.version = kw.pop('version', None)
         super(AddonFormBase, self).__init__(*args, **kw)
+        for field in ('name', 'summary'):
+            if field in self.fields:
+                self.fields[field].validators.append(
+                    OneOrMoreLetterOrNumberCharacterValidator())
 
     class Meta:
         models = Addon
@@ -175,77 +181,10 @@ class AddonFormBase(TranslationFormMixin, forms.ModelForm):
                         .values_list('tag_text', flat=True))
 
 
-class AddonFormBasic(AkismetSpamCheckFormMixin, AddonFormBase):
-    name = TransField(max_length=50)
-    slug = forms.CharField(max_length=30)
-    summary = TransField(widget=TransTextarea(attrs={'rows': 4}),
-                         max_length=250)
-    tags = forms.CharField(required=False)
-    contributions = HttpHttpsOnlyURLField(required=False, max_length=255)
-    is_experimental = forms.BooleanField(required=False)
-    requires_payment = forms.BooleanField(required=False)
-
-    fields_to_akismet_comment_check = ['name', 'summary']
-
-    class Meta:
-        model = Addon
-        fields = ('name', 'slug', 'summary', 'tags', 'is_experimental',
-                  'requires_payment', 'contributions')
-
-    def __init__(self, *args, **kw):
-        super(AddonFormBasic, self).__init__(*args, **kw)
-
-        if self.fields.get('tags'):
-            self.fields['tags'].initial = ', '.join(
-                self.get_tags(self.instance))
-
-    def clean_contributions(self):
-        if self.cleaned_data['contributions']:
-            hostname = urlsplit(self.cleaned_data['contributions']).hostname
-            if not hostname.endswith(amo.VALID_CONTRIBUTION_DOMAINS):
-                raise forms.ValidationError(ugettext(
-                    'URL domain must be one of [%s], or a subdomain.'
-                ) % ', '.join(amo.VALID_CONTRIBUTION_DOMAINS))
-        return self.cleaned_data['contributions']
-
-    def save(self, addon, commit=False):
-        if self.fields.get('tags'):
-            tags_new = self.cleaned_data['tags']
-            tags_old = [slugify(t, spaces=True) for t in self.get_tags(addon)]
-
-            # Add new tags.
-            for t in set(tags_new) - set(tags_old):
-                Tag(tag_text=t).save_tag(addon)
-
-            # Remove old tags.
-            for t in set(tags_old) - set(tags_new):
-                Tag(tag_text=t).remove_tag(addon)
-
-        # We ignore `commit`, since we need it to be `False` so we can save
-        # the ManyToMany fields on our own.
-        addonform = super(AddonFormBasic, self).save(commit=False)
-        addonform.save()
-
-        return addonform
-
-
-class AddonFormBasicUnlisted(AkismetSpamCheckFormMixin, AddonFormBase):
-    name = TransField(max_length=50)
-    slug = forms.CharField(max_length=30)
-    summary = TransField(widget=TransTextarea(attrs={'rows': 4}),
-                         max_length=250)
-
-    fields_to_akismet_comment_check = ['name', 'summary']
-
-    class Meta:
-        model = Addon
-        fields = ('name', 'slug', 'summary')
-
-
 class CategoryForm(forms.Form):
-    application = forms.TypedChoiceField(amo.APPS_CHOICES, coerce=int,
-                                         widget=forms.HiddenInput,
-                                         required=True)
+    application = forms.TypedChoiceField(
+        choices=amo.APPS_CHOICES, coerce=int, widget=forms.HiddenInput,
+        required=True)
     categories = forms.ModelMultipleChoiceField(
         queryset=Category.objects.all(), widget=CategoriesSelectMultiple)
 
@@ -254,7 +193,7 @@ class CategoryForm(forms.Form):
         categories_new = [c.id for c in self.cleaned_data['categories']]
         categories_old = [
             c.id for c in
-            addon.app_categories.get(amo.APP_IDS[application], [])]
+            addon.app_categories.get(amo.APP_IDS[application].short, [])]
 
         # Add new categories.
         for c_id in set(categories_new) - set(categories_old):
@@ -287,7 +226,7 @@ class CategoryForm(forms.Form):
                 'You can have only {0} categories.',
                 max_cat).format(max_cat))
 
-        has_misc = filter(lambda x: x.misc, categories)
+        has_misc = list(filter(lambda x: x.misc, categories))
         if has_misc and total > 1:
             raise forms.ValidationError(ugettext(
                 'The miscellaneous category cannot be combined with '
@@ -315,7 +254,7 @@ class BaseCategoryFormSet(BaseFormSet):
             apps = []
 
         for app in apps:
-            cats = self.addon.app_categories.get(app, [])
+            cats = self.addon.app_categories.get(app.short, [])
             self.initial.append({'categories': [c.id for c in cats]})
 
         for app, form in zip(apps, self.forms):
@@ -349,8 +288,8 @@ def icons():
     icons = [('image/jpeg', 'jpeg'), ('image/png', 'png'), ('', 'default')]
     dirs, files = storage.listdir(settings.ADDON_ICONS_DEFAULT_PATH)
     for fname in files:
-        if '32' in fname and 'default' not in fname:
-            icon_name = fname.split('-')[0]
+        if b'32' in fname and b'default' not in fname:
+            icon_name = force_text(fname.split(b'-')[0])
             icons.append(('icon/%s' % icon_name, icon_name))
     return sorted(icons)
 
@@ -387,20 +326,35 @@ class AddonFormMedia(AddonFormBase):
         return super(AddonFormMedia, self).save(commit)
 
 
-class AddonFormDetails(AkismetSpamCheckFormMixin, AddonFormBase):
+class AdditionalDetailsForm(AddonFormBase):
     default_locale = forms.TypedChoiceField(choices=LOCALES)
     homepage = TransField.adapt(HttpHttpsOnlyURLField)(required=False)
-
-    fields_to_akismet_comment_check = ['description']
+    tags = forms.CharField(required=False)
+    contributions = HttpHttpsOnlyURLField(required=False, max_length=255)
 
     class Meta:
         model = Addon
-        fields = ('description', 'default_locale', 'homepage')
+        fields = ('default_locale', 'homepage', 'tags', 'contributions')
+
+    def __init__(self, *args, **kw):
+        super(AdditionalDetailsForm, self).__init__(*args, **kw)
+
+        if self.fields.get('tags'):
+            self.fields['tags'].initial = ', '.join(
+                self.get_tags(self.instance))
+
+    def clean_contributions(self):
+        if self.cleaned_data['contributions']:
+            hostname = urlsplit(self.cleaned_data['contributions']).hostname
+            if not hostname.endswith(amo.VALID_CONTRIBUTION_DOMAINS):
+                raise forms.ValidationError(ugettext(
+                    'URL domain must be one of [%s], or a subdomain.'
+                ) % ', '.join(amo.VALID_CONTRIBUTION_DOMAINS))
+        return self.cleaned_data['contributions']
 
     def clean(self):
         # Make sure we have the required translations in the new locale.
         required = 'name', 'summary', 'description'
-        data = self.cleaned_data
         if not self.errors and 'default_locale' in self.changed_data:
             fields = dict((k, getattr(self.instance, k + '_id'))
                           for k in required)
@@ -410,36 +364,38 @@ class AddonFormDetails(AkismetSpamCheckFormMixin, AddonFormBase):
                                              localized_string__isnull=False)
                   .values_list('id', flat=True))
             missing = [k for k, v in fields.items() if v not in qs]
-            # They might be setting description right now.
-            if 'description' in missing and locale in data['description']:
-                missing.remove('description')
             if missing:
                 raise forms.ValidationError(ugettext(
                     'Before changing your default locale you must have a '
                     'name, summary, and description in that locale. '
                     'You are missing %s.') % ', '.join(map(repr, missing)))
-        return super(AddonFormDetails, self).clean()
+        return super(AdditionalDetailsForm, self).clean()
+
+    def save(self, addon, commit=False):
+        if self.fields.get('tags'):
+            tags_new = self.cleaned_data['tags']
+            tags_old = [slugify(t, spaces=True) for t in self.get_tags(addon)]
+
+            # Add new tags.
+            for t in set(tags_new) - set(tags_old):
+                Tag(tag_text=t).save_tag(addon)
+
+            # Remove old tags.
+            for t in set(tags_old) - set(tags_new):
+                Tag(tag_text=t).remove_tag(addon)
+
+        # We ignore `commit`, since we need it to be `False` so we can save
+        # the ManyToMany fields on our own.
+        addonform = super(AdditionalDetailsForm, self).save(commit=False)
+        addonform.save()
+
+        return addonform
 
 
-class AddonFormDetailsUnlisted(AddonFormDetails):
+class AdditionalDetailsFormUnlisted(AdditionalDetailsForm):
     # We want the same fields as the listed version. In particular,
     # default_locale is referenced in the template and needs to exist.
     pass
-
-
-class AddonFormSupport(AddonFormBase):
-    support_url = TransField.adapt(HttpHttpsOnlyURLField)(required=False)
-    support_email = TransField.adapt(forms.EmailField)(required=False)
-
-    class Meta:
-        model = Addon
-        fields = ('support_email', 'support_url')
-
-    def __init__(self, *args, **kw):
-        super(AddonFormSupport, self).__init__(*args, **kw)
-
-    def save(self, addon, commit=True):
-        return super(AddonFormSupport, self).save(commit)
 
 
 class AddonFormTechnical(AddonFormBase):
@@ -447,8 +403,7 @@ class AddonFormTechnical(AddonFormBase):
 
     class Meta:
         model = Addon
-        fields = ('developer_comments', 'view_source', 'external_software',
-                  'auto_repackage', 'public_stats')
+        fields = ('developer_comments', 'view_source', 'public_stats')
 
 
 class AddonFormTechnicalUnlisted(AddonFormBase):
@@ -565,187 +520,3 @@ class ThemeForm(ThemeFormBase):
         AddonCategory(addon=addon, category=data['category']).save()
 
         return addon
-
-
-class EditThemeForm(AddonFormBase):
-    name = TransField(max_length=50, label=_('Give Your Theme a Name.'))
-    slug = forms.CharField(max_length=30)
-    category = forms.ModelChoiceField(queryset=Category.objects.all(),
-                                      widget=forms.widgets.RadioSelect)
-    description = TransField(
-        widget=TransTextarea(attrs={'rows': 4}),
-        max_length=500, required=False, label=_('Describe your Theme.'))
-    tags = forms.CharField(required=False)
-    accentcolor = ColorField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'color-picker'}),
-    )
-    textcolor = ColorField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'color-picker'}),
-    )
-    license = forms.TypedChoiceField(
-        choices=amo.PERSONA_LICENSES_CHOICES, coerce=int, empty_value=None,
-        widget=forms.HiddenInput,
-        error_messages={'required': _(u'A license must be selected.')})
-
-    # Theme re-upload.
-    header = forms.FileField(required=False)
-    header_hash = forms.CharField(widget=forms.HiddenInput, required=False)
-
-    class Meta:
-        model = Addon
-        fields = ('name', 'slug', 'description', 'tags')
-
-    def __init__(self, *args, **kw):
-        self.request = kw.pop('request')
-
-        super(AddonFormBase, self).__init__(*args, **kw)
-
-        addon = Addon.objects.get(id=self.instance.id)
-        persona = addon.persona
-
-        # Allow theme artists to localize Name and Description.
-        for trans in Translation.objects.filter(id=self.initial['name']):
-            self.initial['name_' + trans.locale.lower()] = trans
-        for trans in Translation.objects.filter(
-                id=self.initial['description']):
-            self.initial['description_' + trans.locale.lower()] = trans
-
-        self.old_tags = self.get_tags(addon)
-        self.initial['tags'] = ', '.join(self.old_tags)
-        if persona.accentcolor:
-            self.initial['accentcolor'] = '#' + persona.accentcolor
-        if persona.textcolor:
-            self.initial['textcolor'] = '#' + persona.textcolor
-        self.initial['license'] = persona.license
-
-        cats = sorted(Category.objects.filter(type=amo.ADDON_PERSONA,
-                                              weight__gte=0),
-                      key=lambda x: x.name)
-        self.fields['category'].choices = [(c.id, c.name) for c in cats]
-        try:
-            self.initial['category'] = addon.categories.values_list(
-                'id', flat=True)[0]
-        except IndexError:
-            pass
-
-        for field in ('header', ):
-            self.fields[field].widget.attrs = {
-                'data-upload-url': reverse('devhub.personas.reupload_persona',
-                                           args=[addon.slug,
-                                                 'persona_%s' % field]),
-                'data-allowed-types': amo.SUPPORTED_IMAGE_TYPES
-            }
-
-    def clean_slug(self):
-        return clean_addon_slug(self.cleaned_data['slug'], self.instance)
-
-    def save(self):
-        addon = self.instance
-        persona = addon.persona
-        data = self.cleaned_data
-
-        # Update Persona-specific data.
-        persona_data = {
-            'license': int(data['license']),
-            'accentcolor': data['accentcolor'].lstrip('#'),
-            'textcolor': data['textcolor'].lstrip('#'),
-            'author': self.request.user.username,
-            'display_username': self.request.user.name
-        }
-        changed = False
-        for k, v in persona_data.iteritems():
-            if v != getattr(persona, k):
-                changed = True
-                setattr(persona, k, v)
-        if changed:
-            persona.save()
-
-        if self.changed_data:
-            ActivityLog.create(amo.LOG.EDIT_PROPERTIES, addon)
-        self.instance.modified = datetime.now()
-
-        # Update Addon-specific data.
-        changed = (
-            set(self.old_tags) != data['tags'] or  # Check if tags changed.
-            self.initial['slug'] != data['slug'] or  # Check if slug changed.
-            transfield_changed('description', self.initial, data) or
-            transfield_changed('name', self.initial, data))
-        if changed:
-            # Only save if addon data changed.
-            super(EditThemeForm, self).save()
-
-        # Update tags.
-        tags_new = data['tags']
-        tags_old = [slugify(t, spaces=True) for t in self.old_tags]
-        # Add new tags.
-        for t in set(tags_new) - set(tags_old):
-            Tag(tag_text=t).save_tag(addon)
-        # Remove old tags.
-        for t in set(tags_old) - set(tags_new):
-            Tag(tag_text=t).remove_tag(addon)
-
-        # Update category.
-        if data['category'].id != self.initial['category']:
-            addon_cat = addon.addoncategory_set.all()[0]
-            addon_cat.category = data['category']
-            addon_cat.save()
-
-        # Theme reupload.
-        if not addon.is_pending():
-            if data['header_hash']:
-                addons_tasks.save_theme_reupload.delay(
-                    data['header_hash'], addon.pk)
-
-        return data
-
-
-class EditThemeOwnerForm(forms.Form):
-    owner = UserEmailField()
-
-    def __init__(self, *args, **kw):
-        self.instance = kw.pop('instance')
-
-        super(EditThemeOwnerForm, self).__init__(*args, **kw)
-
-        addon = self.instance
-
-        self.fields['owner'].widget.attrs['placeholder'] = _(
-            "Enter a new author's email address")
-
-        try:
-            self.instance_addonuser = addon.addonuser_set.all()[0]
-            self.initial['owner'] = self.instance_addonuser.user.email
-        except IndexError:
-            # If there was never an author before, then don't require one now.
-            self.instance_addonuser = None
-            self.fields['owner'].required = False
-
-    def save(self):
-        data = self.cleaned_data
-
-        if data.get('owner'):
-            changed = (not self.instance_addonuser or
-                       self.instance_addonuser != data['owner'])
-            if changed:
-                # Update Persona-specific data.
-                persona = self.instance.persona
-                persona.author = data['owner'].username
-                persona.display_username = data['owner'].name
-                persona.save()
-
-            if not self.instance_addonuser:
-                # If there previously never another owner, create one.
-                self.instance.addonuser_set.create(user=data['owner'],
-                                                   role=amo.AUTHOR_ROLE_OWNER)
-            elif self.instance_addonuser != data['owner']:
-                # If the owner has changed, update the `AddonUser` object.
-                self.instance_addonuser.user = data['owner']
-                self.instance_addonuser.role = amo.AUTHOR_ROLE_OWNER
-                self.instance_addonuser.save()
-
-            self.instance.modified = datetime.now()
-            self.instance.save()
-
-        return data

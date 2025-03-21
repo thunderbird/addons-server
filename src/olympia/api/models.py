@@ -1,7 +1,9 @@
+import binascii
 import os
 import random
 
 from django.db import models
+from django.utils.encoding import force_text, python_2_unicode_compatible
 
 from aesfield.field import AESField
 
@@ -19,12 +21,14 @@ API_KEY_TYPES = [
 ]
 
 
+@python_2_unicode_compatible
 class APIKey(ModelBase):
     """
     A developer's key/secret pair to access the API.
     """
     id = PositiveAutoField(primary_key=True)
-    user = models.ForeignKey(UserProfile, related_name='api_keys')
+    user = models.ForeignKey(
+        UserProfile, related_name='api_keys', on_delete=models.CASCADE)
 
     # A user can only have one active key at the same time, it's enforced by
     # a unique db constraint. Since we keep old inactive keys though, nulls
@@ -42,7 +46,7 @@ class APIKey(ModelBase):
         db_table = 'api_key'
         unique_together = (('user', 'is_active'),)
 
-    def __unicode__(self):
+    def __str__(self):
         return (
             u'<{cls} user={user}, type={type}, key={key} secret=...>'
             .format(cls=self.__class__.__name__, key=self.key,
@@ -65,9 +69,9 @@ class APIKey(ModelBase):
         Returns an instance of APIKey.
         """
         key = cls.get_unique_key('user:{}:'.format(user.pk))
-        return cls.objects.create(key=key, secret=cls.generate_secret(32),
-                                  type=SYMMETRIC_JWT_TYPE, user=user,
-                                  is_active=True)
+        return cls.objects.create(
+            key=key, secret=cls.generate_secret(32),
+            type=SYMMETRIC_JWT_TYPE, user=user, is_active=True)
 
     @classmethod
     def get_unique_key(cls, prefix, try_count=1, max_tries=1000):
@@ -97,4 +101,4 @@ class APIKey(ModelBase):
             raise ValueError(
                 '{} is too short; secrets must be longer than 32 bytes'
                 .format(byte_length))
-        return os.urandom(byte_length).encode('hex')
+        return force_text(binascii.b2a_hex(os.urandom(byte_length)))

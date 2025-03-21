@@ -9,6 +9,59 @@
   <form method="post" id="submit-describe" class="item">
     {{ form.non_field_errors() }}
     {% csrf_token %}
+    {% if waffle.switch('content-optimization') %}
+    <div class="addon-submission-field">
+      <div class="combine-name-summary">
+        <label for="id_name">{{ _("Name and Summary:") }}<span class="req" title="{{ _('required') }}">*</span></label>
+        {{ form.name }}&nbsp;{{ form.summary }}
+        {{ form.name.errors }}
+        {{ form.summary.errors }}
+      </div>
+      <div class="edit-addon-details">
+        {{ _('The summary should explain what your add-on does, clearly and '
+             'concisely. Both the name and summary will appear on your product '
+             'page and search results. They have a combined maximum length of '
+             '70 characters and a minimum length of 2 characters for each.') }}
+        <div class="char-count"
+             data-for-names="name,summary"
+             data-maxlength="{{ form.name.field.min_length + form.summary.field.max_length }}"></div>
+        <div class="char-count"
+             data-text-prefix="{{ _('Summary') }}&nbsp;"
+             data-text-postfix=";&nbsp;"
+             data-for-startswith="{{ form.summary.auto_id }}_"
+             data-minlength="{{ form.summary.field.min_length }}"></div>
+        <div class="char-count"
+             data-text-prefix="{{ _('Name') }}&nbsp;"
+             data-text-postfix=";&nbsp;"
+             data-for-startswith="{{ form.name.auto_id }}_"
+             data-minlength="{{ form.name.field.min_length }}"></div>
+      </div>
+      <div class="edit-addon-details">
+        <div id="name-summary-locales-warning" class="error">
+          {% trans max_length=form.name.field.min_length + form.summary.field.max_length %}
+          Warning: you have name/summary values in other locales that will be
+          automatically cropped to fit under the limit of {{ max_length }}
+          characters.  To edit these go to Edit Product Page after the submission
+          process is complete.
+          {% endtrans %}
+        </div>
+      </div>
+    </div>
+    <div class="addon-submission-field slug-edit">
+      <label>{{ _("Add-on URL:") }}</label>
+      <div id="slug_edit" class="edit_with_prefix edit_initially_hidden">
+        <span>{{ settings.SITE_URL }}</span>{{ form.slug }}
+        <div class="edit-addon-details">
+          {{ _('Please use only letters, numbers, underscores, and dashes in your URL.') }}
+        </div>
+      </div>
+      <span id="slug_readonly">
+        {{ settings.SITE_URL }}/&hellip;/<span id="slug_value"></span>
+        <a id="edit_slug" href="#">{{ _('Edit') }}</a>
+      </span>
+      {{ form.slug.errors }}
+    </div>
+    {% else %}
     <div class="addon-submission-field">
       <label for="id_name">{{ _("Name:") }}</label>
       <span class="tip tooltip" title="{{ _('Name on listing on this site. May be different to the name inside the add-on, which is shown inside Firefox') }}" data-oldtitle="">?</span>
@@ -40,6 +93,28 @@
              data-maxlength="{{ form.summary.field.max_length }}"></div>
       </div>
     </div>
+    {% endif %}
+    {% if addon.type == amo.ADDON_EXTENSION %}
+    <div class="addon-submission-field">
+      <label>{{ _('Description:') }}
+      {% if form.description.field.min_length %}
+        <span class="req" title="{{ _('required') }}">*</span>
+      {% endif %}</label>
+      {{ form.description }}
+      {{ form.description.errors }}
+      <div class="edit-addon-details">
+        {{ _("A longer explanation of features, functionality, and other relevant information. "
+             "This field is only displayed on the addon's product page. " +
+             ('Minimum length: 10 characters; ' if form.description.field.min_length else '') +
+             "Recommended length: 250 characters. "
+             "If you need a longer description, make sure the first 250 characters contain the most important description points.") }}
+        <div class="char-count"
+             data-for-startswith="{{ form.description.auto_id }}_"
+             data-minlength="{{ form.description.field.min_length }}"></div>
+      </div>
+      {{ some_html_tip() }}
+    </div>
+    {% endif %}
     {% if addon.type != amo.ADDON_STATICTHEME %}
     <div class="addon-submission-field">
       <label for="{{ form.is_experimental.auto_id }}">
@@ -121,25 +196,25 @@
       </div>
     {% endif %}
     {% if addon.type != amo.ADDON_STATICTHEME %}
-      {% set values = form.data if form.is_bound else form.initial %}
+      {% set policy_form_data = policy_form.data if policy_form.is_bound else policy_form.initial %}
       <div class="optional-terms">
         <div class="addon-submission-field">
-          {{ form.has_priv }}
-          {{ form.has_priv.label_tag() }}
+          {{ policy_form.has_priv }}
+          {{ policy_form.has_priv.label_tag() }}
           <span class="tip tooltip"
             title="{{ _("If your add-on transmits any data from the user's computer, "
                         "a privacy policy is required that explains what data is sent "
                         "and how it is used.")
                   }}">?</span>
-          <div class="priv {{ 'hidden' if not values.has_priv }}">
-            {{ form.privacy_policy.errors }}
-            {{ form.privacy_policy.label_tag() }}
-            {{ form.privacy_policy }}
+          <div class="priv {{ 'hidden' if not policy_form_data.has_priv }}">
+            {{ policy_form.privacy_policy.errors }}
+            {{ policy_form.privacy_policy.label_tag() }}
+            {{ policy_form.privacy_policy }}
           </div>
         </div>
       </div>
       <div class="addon-submission-field">
-        <label for="{{ reviewer_form.approvalnotes.auto_id }}">
+        <label for="{{ reviewer_form.approval_notes.auto_id }}">
           {{ _('Notes to Reviewer:') }}
         </label>
         <div class="source-submission-note">
@@ -155,18 +230,18 @@
             </p>
           {% endif %}
         </div>
-        {{ reviewer_form.approvalnotes }}
+        {{ reviewer_form.approval_notes }}
         <p>{{ _('These notes will only be visible to you and our reviewers.') }}</p>
       </div>
     {% endif %}
     <div class="submission-buttons addon-submission-field">
-      <button class="delete-button" type="submit" formnovalidate
-              formaction="{{ url('devhub.addons.cancel', addon.slug) }}">
-          {{ _('Cancel and Disable Version') }}
-      </button>
-      &nbsp;
       <button type="submit">
         {{ _('Submit Version') }}
+      </button>
+      &nbsp;
+      <button class="delete-button" formnovalidate  type="submit"
+              formaction="{{ url('devhub.addons.cancel', addon.slug) }}">
+          {{ _('Cancel and Disable Version') }}
       </button>
     </div>
   </form>

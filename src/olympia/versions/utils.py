@@ -1,15 +1,19 @@
 import os
-import StringIO
 import subprocess
 import tempfile
+
 from base64 import b64encode
 
 from django.conf import settings
-from django.core.files.storage import default_storage as storage
+from django.utils.encoding import force_text
+
+import six
 
 from PIL import Image
 
 import olympia.core.logger
+
+from olympia.lib.safe_xml import lxml
 
 
 log = olympia.core.logger.getLogger('z.versions.utils')
@@ -26,7 +30,7 @@ def write_svg_to_png(svg_content, out):
 
         try:
             if not os.path.exists(os.path.dirname(out)):
-                os.makedirs(out)
+                os.makedirs(os.path.dirname(out))
             command = [
                 settings.RSVG_CONVERT_BIN,
                 '--output', out,
@@ -42,16 +46,21 @@ def write_svg_to_png(svg_content, out):
     return True
 
 
-def encode_header_image(path):
+def encode_header(header_blob, file_ext):
     try:
-        with storage.open(path, 'rb') as image:
-            header_blob = image.read()
-            with Image.open(StringIO.StringIO(header_blob)) as header_image:
+        if file_ext == '.svg':
+            tree = lxml.etree.fromstring(header_blob)
+            width = int(tree.get('width'))
+            height = int(tree.get('height'))
+            img_format = 'svg+xml'
+        else:
+            with Image.open(six.BytesIO(header_blob)) as header_image:
                 (width, height) = header_image.size
-            src = 'data:image/%s;base64,%s' % (
-                header_image.format.lower(), b64encode(header_blob))
-    except IOError as io_error:
-        log.debug(io_error)
+                img_format = header_image.format.lower()
+        src = 'data:image/%s;base64,%s' % (
+            img_format, force_text(b64encode(header_blob)))
+    except (IOError, ValueError, TypeError, lxml.etree.XMLSyntaxError) as err:
+        log.debug(err)
         return (None, 0, 0)
     return (src, width, height)
 
@@ -74,13 +83,13 @@ class AdditionalBackground(object):
         else:
             return ('', '')
 
-    def __init__(self, path, alignment, tiling, header_root):
+    def __init__(self, path, alignment, tiling, background):
         # If there an unequal number of alignments or tiling to srcs the value
         # will be None so use defaults.
         self.alignment = (alignment or 'right top').lower()
         self.tiling = (tiling or 'no-repeat').lower()
-        self.src, self.width, self.height = encode_header_image(
-            os.path.join(header_root, path))
+        file_ext = os.path.splitext(path)[1]
+        self.src, self.width, self.height = encode_header(background, file_ext)
 
     def calculate_pattern_offsets(self, svg_width, svg_height):
         align_x, align_y = self.split_alignment(self.alignment)
@@ -88,13 +97,13 @@ class AdditionalBackground(object):
         if align_x == 'right':
             self.pattern_x = svg_width - self.width
         elif align_x == 'center':
-            self.pattern_x = (svg_width - self.width) / 2
+            self.pattern_x = (svg_width - self.width) // 2
         else:
             self.pattern_x = 0
         if align_y == 'bottom':
             self.pattern_y = svg_height - self.height
         elif align_y == 'center':
-            self.pattern_y = (svg_height - self.height) / 2
+            self.pattern_y = (svg_height - self.height) // 2
         else:
             self.pattern_y = 0
 
@@ -119,5 +128,6 @@ CHROME_COLOR_TO_CSS = {
 def process_color_value(prop, value):
     prop = CHROME_COLOR_TO_CSS.get(prop, prop)
     if isinstance(value, list) and len(value) == 3:
-        return prop, u'rgb(%s, %s, %s)' % tuple(value)
-    return prop, unicode(value)
+        return prop, u'rgb(%s,%s,%s)' % tuple(value)
+    # strip out spaces because jquery.minicolors chokes on them
+    return prop, six.text_type(value).replace(' ', '')

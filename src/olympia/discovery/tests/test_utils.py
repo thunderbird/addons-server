@@ -111,7 +111,7 @@ def test_get_disco_recommendations(call_recommendation_server):
     ]
     recommendations = get_disco_recommendations('0', [])
     call_recommendation_server.assert_called_with(
-        'https://taar.dev.mozaws.net/api/recommendations/', '0', None,
+        'https://taar.dev.mozaws.net/v1/api/recommendations/', '0', None,
         verb='post')
     assert [result.addon for result in recommendations] == expected_addons
 
@@ -125,6 +125,16 @@ def test_get_disco_recommendations(call_recommendation_server):
     ]
     recommendations = get_disco_recommendations('0', [])
     assert [result.addon for result in recommendations] == expected_addons
+
+
+@mock.patch('olympia.discovery.utils.call_recommendation_server')
+def test_get_disco_recommendations_empty(call_recommendation_server):
+    call_recommendation_server.return_value = None
+    recommendations = get_disco_recommendations('0', [])
+    assert recommendations == []
+    call_recommendation_server.assert_called_with(
+        'https://taar.dev.mozaws.net/v1/api/recommendations/', '0', None,
+        verb='post')
 
 
 @mock.patch('olympia.discovery.utils.call_recommendation_server')
@@ -144,7 +154,7 @@ def test_get_disco_recommendations_overrides(call_recommendation_server):
         }
     }
     call_recommendation_server.assert_called_with(
-        'https://taar.dev.mozaws.net/api/recommendations/', 'xxx', data,
+        'https://taar.dev.mozaws.net/v1/api/recommendations/', 'xxx', data,
         verb='post')
 
 

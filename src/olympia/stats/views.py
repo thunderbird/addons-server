@@ -1,6 +1,4 @@
-import cStringIO
 import csv
-import itertools
 import json
 import time
 
@@ -12,24 +10,26 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import get_storage_class
 from django.db import connection
-from django.db.models import Q
 from django.db.transaction import non_atomic_requests
 from django.utils.cache import add_never_cache_headers, patch_cache_control
+from django.utils.encoding import force_text
+
+import six
 
 from dateutil.parser import parse
-from product_details import product_details
+from six import moves
 
 import olympia.core.logger
 
 from olympia import amo
 from olympia.access import acl
-from olympia.stats.decorators import addon_view_stats
-from olympia.lib.cache import memoize
-from olympia.amo.decorators import allow_cross_site_request, json_view
+from olympia.amo.decorators import allow_cross_site_request
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import AMOJSONEncoder, render
+from olympia.core.languages import ALL_LANGUAGES
+from olympia.lib.cache import memoize
+from olympia.stats.decorators import addon_view_stats
 from olympia.stats.forms import DateForm
-from olympia.zadmin.models import SiteEvent
 
 from .models import DownloadCount, ThemeUserCount, UpdateCount
 
@@ -76,7 +76,7 @@ def get_series(model, extra_field=None, source=None, **filters):
     for val in qs[:365]:
         # Convert the datetimes to a date.
         date_ = parse(val['date']).date()
-        rv = dict(count=val['count'], date=date_, end=date_)
+        rv = {'count': val['count'], 'date': date_, 'end': date_}
         if source:
             rv['data'] = extract(val[source])
         elif extra_field:
@@ -97,7 +97,9 @@ def csv_fields(series):
         fields.update(row['data'])
         rv.append(row['data'])
         row['data'].update(count=row['count'], date=row['date'])
-    return rv, fields
+    # Sort the fields before returning them - we don't care much about column
+    # ordering, but it helps make the tests stable.
+    return rv, sorted(fields)
 
 
 def extract(dicts):
@@ -172,17 +174,20 @@ def zip_overview(downloads, updates):
     downloads, updates = iter(downloads), iter(updates)
 
     def iterator(series):
-        item = next(series)
-        next_date = start_date
-        while 1:
-            if item['date'] == next_date:
-                yield item['count']
-                item = next(series)
-            else:
-                yield 0
-            next_date = next_date - timedelta(days=1)
+        try:
+            item = next(series)
+            next_date = start_date
+            while True:
+                if item['date'] == next_date:
+                    yield item['count']
+                    item = next(series)
+                else:
+                    yield 0
+                next_date = next_date - timedelta(days=1)
+        except StopIteration:
+            pass
 
-    series = itertools.izip_longest(iterator(downloads), iterator(updates))
+    series = six.moves.zip_longest(iterator(downloads), iterator(updates))
     for idx, (dl_count, up_count) in enumerate(series):
         yield {'date': start_date - timedelta(days=idx),
                'data': {'downloads': dl_count, 'updates': up_count}}
@@ -277,8 +282,8 @@ def flatten_applications(series):
                 app = amo.APP_GUIDS.get(app)
                 if not app:
                     continue
-                # unicode() to decode the gettext proxy.
-                appname = unicode(app.pretty)
+                # six.text_type() to decode the gettext proxy.
+                appname = six.text_type(app.pretty)
                 for ver, count in versions.items():
                     key = ' '.join([appname, ver])
                     new[key] = count
@@ -288,8 +293,10 @@ def flatten_applications(series):
 
 def process_locales(series):
     """Convert locale codes to pretty names, skip any unknown locales."""
-    languages = dict((k.lower(), v['native'])
-                     for k, v in product_details.languages.items())
+    languages = {
+        key.lower(): value['native']
+        for key, value in ALL_LANGUAGES.items()}
+
     for row in series:
         if 'data' in row:
             new = {}
@@ -380,43 +387,6 @@ def get_daterange_or_404(start, end):
     )
 
 
-@json_view
-@non_atomic_requests
-def site_events(request, start, end):
-    """Return site events in the given timeframe."""
-    start, end = get_daterange_or_404(start, end)
-    qs = SiteEvent.objects.filter(
-        Q(start__gte=start, start__lte=end) |
-        Q(end__gte=start, end__lte=end))
-
-    events = list(site_event_format(request, qs))
-
-    type_pretty = unicode(amo.SITE_EVENT_CHOICES[amo.SITE_EVENT_RELEASE])
-
-    releases = product_details.firefox_history_major_releases
-
-    for version, date_ in releases.items():
-        events.append({
-            'start': date_,
-            'type_pretty': type_pretty,
-            'type': amo.SITE_EVENT_RELEASE,
-            'description': 'Firefox %s released' % version,
-        })
-    return events
-
-
-def site_event_format(request, events):
-    for e in events:
-        yield {
-            'start': e.start.isoformat(),
-            'end': e.end.isoformat() if e.end else None,
-            'type_pretty': unicode(amo.SITE_EVENT_CHOICES[e.event_type]),
-            'type': e.event_type,
-            'description': e.description,
-            'url': e.more_info_url,
-        }
-
-
 def daterange(start_date, end_date):
     for n in range((end_date - start_date).days):
         yield start_date + timedelta(n)
@@ -433,6 +403,7 @@ _KEYS = {
     'review_count_new': 'reviews_created',
     'collection_count_new': 'collections_created',
 }
+_ALL_KEYS = list(_KEYS)
 
 _CACHED_KEYS = sorted(_KEYS.values())
 
@@ -451,8 +422,8 @@ def _site_query(period, start, end, field=None, request=None):
                "AND name IN (%s) "
                "GROUP BY %s(date), name "
                "ORDER BY %s(date) DESC;"
-               % (', '.join(['%s' for key in _KEYS.keys()]), period, period))
-        cursor.execute(sql, [start, end] + _KEYS.keys())
+               % (', '.join(['%s' for key in _ALL_KEYS]), period, period))
+        cursor.execute(sql, [start, end] + _ALL_KEYS)
 
         # Process the results into a format that is friendly for render_*.
         default = {k: 0 for k in _CACHED_KEYS}
@@ -465,7 +436,7 @@ def _site_query(period, start, end, field=None, request=None):
                 result[date_]['data'] = {}
             result[date_]['data'][_KEYS[name]] = int(count)
 
-    return result.values(), _CACHED_KEYS
+    return list(result.values()), _CACHED_KEYS
 
 
 @non_atomic_requests
@@ -520,34 +491,39 @@ def fudge_headers(response, stats):
         patch_cache_control(response, max_age=seven_days)
 
 
-class UnicodeCSVDictWriter(csv.DictWriter):
-    """A DictWriter that writes a unicode stream."""
+if six.PY2:
+    class CSVDictWriterClass(csv.DictWriter):
+        """A DictWriter that writes a unicode stream, because the python 2
+        csv module doesn't."""
 
-    def __init__(self, stream, fields, **kw):
-        # We have the csv module write into our buffer as bytes and then we
-        # dump the buffer to the real stream as unicode.
-        self.buffer = cStringIO.StringIO()
-        csv.DictWriter.__init__(self, self.buffer, fields, **kw)
-        self.stream = stream
+        def __init__(self, stream, fields, **kw):
+            # We have the csv module write into our buffer as bytes and then we
+            # dump the buffer to the real stream as unicode.
+            self.buffer = moves.cStringIO()
+            csv.DictWriter.__init__(self, self.buffer, fields, **kw)
+            self.stream = stream
 
-    def writeheader(self):
-        self.writerow(dict(zip(self.fieldnames, self.fieldnames)))
+        def writeheader(self):
+            self.writerow(dict(zip(self.fieldnames, self.fieldnames)))
 
-    def try_encode(self, obj):
-        return obj.encode('utf-8') if isinstance(obj, unicode) else obj
+        def try_encode(self, obj):
+            return obj.encode('utf-8') if isinstance(
+                obj, six.string_types) else obj
 
-    def writerow(self, rowdict):
-        row = self._dict_to_list(rowdict)
-        # Write to the buffer as ascii.
-        self.writer.writerow(map(self.try_encode, row))
-        # Dump the buffer to the real stream as utf-8.
-        self.stream.write(self.buffer.getvalue().decode('utf-8'))
-        # Clear the buffer.
-        self.buffer.truncate(0)
+        def writerow(self, rowdict):
+            row = self._dict_to_list(rowdict)
+            # Write to the buffer as ascii.
+            self.writer.writerow(map(self.try_encode, row))
+            # Dump the buffer to the real stream as utf-8.
+            self.stream.write(self.buffer.getvalue().decode('utf-8'))
+            # Clear the buffer.
+            self.buffer.truncate(0)
 
-    def writerows(self, rowdicts):
-        for rowdict in rowdicts:
-            self.writerow(rowdict)
+        def writerows(self, rowdicts):
+            for rowdict in rowdicts:
+                self.writerow(rowdict)
+else:
+    CSVDictWriterClass = csv.DictWriter
 
 
 @allow_cross_site_request
@@ -560,9 +536,8 @@ def render_csv(request, addon, stats, fields,
     context = {'addon': addon, 'timestamp': ts, 'title': title,
                'show_disclaimer': show_disclaimer}
     response = render(request, 'stats/csv_header.txt', context)
-
-    writer = UnicodeCSVDictWriter(response, fields, restval=0,
-                                  extrasaction='ignore')
+    writer = CSVDictWriterClass(
+        response, fields, restval=0, extrasaction='ignore')
     writer.writeheader()
     writer.writerows(stats)
 
@@ -575,9 +550,9 @@ def render_csv(request, addon, stats, fields,
 @non_atomic_requests
 def render_json(request, addon, stats):
     """Render a stats series in JSON."""
-    response = http.HttpResponse(content_type='text/json')
+    response = http.HttpResponse(content_type='application/json')
 
     # Django's encoder supports date and datetime.
     json.dump(stats, response, cls=AMOJSONEncoder)
-    fudge_headers(response, response.content != json.dumps([]))
+    fudge_headers(response, force_text(response.content) != json.dumps([]))
     return response

@@ -4,20 +4,17 @@ import errno
 import hashlib
 import json
 import os
+import io
 import re
 import shutil
 import stat
-import StringIO
 import struct
+import tarfile
 import tempfile
 import zipfile
-import scandir
 
-from cStringIO import StringIO as cStringIO
 from datetime import datetime, timedelta
-from waffle import switch_is_active
-from xml.dom import minidom
-from zipfile import ZipFile
+from six import text_type
 
 from django import forms
 from django.conf import settings
@@ -30,8 +27,12 @@ from django.utils.translation import ugettext
 
 import flufl.lock
 import rdflib
+import six
 
-from signing_clients.apps import get_signer_organizational_unit_name
+from xml.parsers.expat import ExpatError
+
+from defusedxml import minidom
+from defusedxml.common import DefusedXmlException
 
 import olympia.core.logger
 
@@ -41,6 +42,8 @@ from olympia.addons.utils import verify_mozilla_trademark
 from olympia.amo.utils import decode_json, find_language, rm_local_tmp_dir
 from olympia.applications.models import AppVersion
 from olympia.lib.safe_xml import lxml
+from olympia.lib.crypto.signing import get_signer_organizational_unit_name
+from olympia.lib import unicodehelper
 from olympia.users.utils import (
     mozilla_signed_extension_submission_allowed,
     system_addon_submission_allowed)
@@ -55,8 +58,8 @@ class ParseError(forms.ValidationError):
     pass
 
 
-VERSION_RE = re.compile('^[-+*.\w]{,32}$')
-SIGNED_RE = re.compile('^META\-INF/(\w+)\.(rsa|sf)$')
+VERSION_RE = re.compile(r'^[-+*.\w]{,32}$')
+SIGNED_RE = re.compile(r'^META\-INF/(\w+)\.(rsa|sf)$')
 
 # This is essentially what Firefox matches
 # (see toolkit/components/extensions/ExtensionUtils.jsm)
@@ -84,7 +87,7 @@ def get_filepath(fileorpath):
     This supports various input formats, a path, a django `File` object,
     `olympia.files.File`, a `FileUpload` or just a regular file-like object.
     """
-    if isinstance(fileorpath, basestring):
+    if isinstance(fileorpath, six.string_types):
         return fileorpath
     elif isinstance(fileorpath, DjangoFile):
         return fileorpath
@@ -97,23 +100,44 @@ def get_filepath(fileorpath):
     return fileorpath
 
 
+def id_to_path(pk):
+    """
+    Generate a path from an id, to distribute folders in the file system.
+    1 => 1/1/1
+    12 => 2/12/12
+    123456 => 6/56/123456
+    """
+    pk = six.text_type(pk)
+    path = [pk[-1]]
+    if len(pk) >= 2:
+        path.append(pk[-2:])
+    else:
+        path.append(pk)
+    path.append(pk)
+    return os.path.join(*path)
+
+
 def get_file(fileorpath):
     """Get a file-like object, whether given a FileUpload object or a path."""
     if hasattr(fileorpath, 'path'):  # FileUpload
-        return storage.open(fileorpath.path)
+        return storage.open(fileorpath.path, 'rb')
     if hasattr(fileorpath, 'name'):
         return fileorpath
-    return storage.open(fileorpath)
+    return storage.open(fileorpath, 'rb')
 
 
 def make_xpi(files):
-    f = cStringIO()
-    z = ZipFile(f, 'w')
+    file_obj = six.BytesIO()
+    zip_file = zipfile.ZipFile(file_obj, 'w')
     for path, data in files.items():
-        z.writestr(path, data)
-    z.close()
-    f.seek(0)
-    return f
+        zip_file.writestr(path, data)
+    zip_file.close()
+    file_obj.seek(0)
+    return file_obj
+
+
+class UnsupportedFileType(forms.ValidationError):
+    pass
 
 
 class Extractor(object):
@@ -193,7 +217,8 @@ class RDFExtractor(object):
     def __init__(self, zip_file, certinfo=None):
         self.zip_file = zip_file
         self.certinfo = certinfo
-        self.rdf = rdflib.Graph().parse(data=zip_file.read('install.rdf'))
+        self.rdf = rdflib.Graph().parse(
+            data=force_text(zip_file.read('install.rdf')))
         self.package_type = None
         self.find_root()  # Will set self.package_type
 
@@ -241,13 +266,6 @@ class RDFExtractor(object):
 
             # `experiment` is detected in in `find_type`.
             data['is_experiment'] = self.is_experiment
-            multiprocess_compatible = self.find('multiprocessCompatible')
-            if multiprocess_compatible == 'true':
-                data['e10s_compatibility'] = amo.E10S_COMPATIBLE
-            elif multiprocess_compatible == 'false':
-                data['e10s_compatibility'] = amo.E10S_INCOMPATIBLE
-            else:
-                data['e10s_compatibility'] = amo.E10S_UNKNOWN
         return data
 
     def find_type(self):
@@ -260,10 +278,11 @@ class RDFExtractor(object):
             self.is_experiment = self.package_type in self.EXPERIMENT_TYPES
             return self.TYPES[self.package_type]
 
+        name = force_text(self.zip_file.source.name)
+
         # Look for Complete Themes.
         is_complete_theme = (
-            self.zip_file.source.name.endswith('.jar') or
-            self.find('internalName')
+            name.endswith('.jar') or self.find('internalName')
         )
         if is_complete_theme:
             return amo.ADDON_THEME
@@ -302,7 +321,7 @@ class RDFExtractor(object):
         match = list(self.rdf.objects(ctx, predicate=self.uri(name)))
         # These come back as rdflib.Literal, which subclasses unicode.
         if match:
-            return unicode(match[0])
+            return six.text_type(match[0])
 
     def apps(self):
         rv = []
@@ -313,10 +332,8 @@ class RDFExtractor(object):
                 continue
             if app.guid not in amo.APP_GUIDS or app.id in seen_apps:
                 continue
-            if (app not in amo.APP_USAGE_FIREFOXES_ONLY and
-                    switch_is_active('disallow-thunderbird-and-seamonkey')):
-                # Ignore non-firefoxes compatibility (APP_GUIDS still contain
-                # thunderbird and seamonkey at the moment).
+            if app not in amo.APP_USAGE:
+                # Ignore non-firefoxes compatibility.
                 continue
             seen_apps.add(app.id)
 
@@ -356,9 +373,8 @@ class ManifestJSONExtractor(object):
         if not data:
             data = zip_file.read('manifest.json')
 
-        lexer = JsLexer()
-
-        json_string = ''
+        # Remove BOM if present.
+        data = unicodehelper.decode(data)
 
         # Run through the JSON and remove all comments, then try to read
         # the manifest file.
@@ -370,22 +386,26 @@ class ManifestJSONExtractor(object):
         #
         # But block level comments are not allowed. We just flag them elsewhere
         # (in the linter).
+        json_string = ''
+        lexer = JsLexer()
         for name, token in lexer.lex(data):
             if name not in ('blockcomment', 'linecomment'):
                 json_string += token
 
-        self.data = decode_json(json_string)
+        self.data = json.loads(json_string)
 
     def get(self, key, default=None):
         return self.data.get(key, default)
 
     @property
     def is_experiment(self):
-        """Return whether or not the webextension uses experiments API.
+        """Return whether or not the webextension uses
+        experiments or theme experiments API.
 
         In legacy extensions this is a different type, but for webextensions
         we just look at the manifest."""
-        return bool(self.get('experiment_apis', False))
+        experiment_keys = ('experiment_apis', 'theme_experiment')
+        return any(bool(self.get(key)) for key in experiment_keys)
 
     @property
     def is_theme_experiment(self):
@@ -450,15 +470,13 @@ class ManifestJSONExtractor(object):
                 (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_DICT_MIN_VERSION_THUNDERBIRD),
             )
         else:
+            webext_min = (
+                amo.DEFAULT_WEBEXT_MIN_VERSION
+                if self.get('browser_specific_settings', None) is None
+                else amo.DEFAULT_WEBEXT_MIN_VERSION_BROWSER_SPECIFIC)
             apps = (
                 (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD),
             )
-
-        doesnt_support_no_id = (
-            self.strict_min_version and
-            (vint(self.strict_min_version) <
-                vint(amo.DEFAULT_WEBEXT_MIN_VERSION_NO_ID))
-        )
 
         if self.guid is None:
             raise forms.ValidationError(
@@ -502,39 +520,19 @@ class ManifestJSONExtractor(object):
             strict_max_version = (
                 self.strict_max_version or amo.DEFAULT_WEBEXT_MAX_VERSION)
 
-            # Don't attempt to add support for this app to the WebExtension
-            # if the `strict_min_version` is below the default minimum version
-            # that is required to run WebExtensions (48.* for Android and 42.*
-            # for Firefox).
-            skip_app = (
-                self.strict_min_version and vint(self.strict_min_version) <
-                vint(default_min_version)
-            )
-            if skip_app:
-                continue
-
             try:
                 min_appver, max_appver = get_appversions(
                     app, strict_min_version, strict_max_version)
                 yield Extractor.App(
                     appdata=app, id=app.id, min=min_appver, max=max_appver)
             except AppVersion.DoesNotExist:
-                couldnt_find_version = True
-
-        specified_versions = self.strict_min_version or self.strict_max_version
-
-        if couldnt_find_version and specified_versions:
-            msg = ugettext(
-                'Cannot find min/max version. Maybe '
-                '"strict_min_version" or "strict_max_version" '
-                'contains an unsupported version?')
-            raise forms.ValidationError(msg)
+                continue
 
     def target_locale(self):
         """Guess target_locale for a dictionary from manifest contents."""
         try:
             dictionaries = self.get('dictionaries', {})
-            key = force_text(dictionaries.keys()[0])
+            key = force_text(list(dictionaries.keys())[0])
             return key[:255]
         except (IndexError, UnicodeDecodeError):
             # This shouldn't happen: the linter should prevent it, but
@@ -560,6 +558,9 @@ class ManifestJSONExtractor(object):
         if self.certinfo is not None:
             data.update(self.certinfo.parse())
 
+        if self.type == amo.ADDON_STATICTHEME:
+            data['theme'] = self.get('theme', {})
+
         # Langpacks, legacy add-ons, and experiments have strict compatibility
         # enabled, rest of webextensions don't.
         strict_compatibility = (
@@ -567,6 +568,7 @@ class ManifestJSONExtractor(object):
             or data['type'] == amo.ADDON_LPAPP
             or self.is_experiment
         )
+
         if not minimal:
             data.update({
                 'name': self.get('name'),
@@ -574,9 +576,10 @@ class ManifestJSONExtractor(object):
                 'summary': self.get('description'),
                 'is_restart_required': self.get('legacy') is not None,
                 'apps': list(self.apps()),
-                'e10s_compatibility': amo.E10S_COMPATIBLE_WEBEXTENSION,
+                # Langpacks have strict compatibility enabled, rest of
+                # webextensions don't.
                 'strict_compatibility': strict_compatibility,
-                'default_locale': self.get('default_locale'),
+                'is_experiment': self.is_experiment,
             })
             if self.type == amo.ADDON_EXTENSION:
                 # Only extensions have permissions and content scripts
@@ -584,8 +587,6 @@ class ManifestJSONExtractor(object):
                     'permissions': self.get('permissions', []),
                     'content_scripts': self.get('content_scripts', []),
                 })
-            elif self.type == amo.ADDON_STATICTHEME:
-                data['theme'] = self.get('theme', {})
             elif self.type == amo.ADDON_DICT:
                 data['target_locale'] = self.target_locale()
         return data
@@ -609,10 +610,7 @@ class SigningCertificateInformation(object):
 
 
 def extract_search(content):
-    rv = {}
-    dom = minidom.parse(content)
-
-    def text(tag):
+    def _text(tag):
         try:
             return dom.getElementsByTagName(tag)[0].childNodes[0].wholeText
         except (IndexError, AttributeError):
@@ -620,9 +618,20 @@ def extract_search(content):
                 ugettext('Could not parse uploaded file, missing or empty '
                          '<%s> element') % tag)
 
-    rv['name'] = text('ShortName')
-    rv['description'] = text('Description')
-    return rv
+    # Only catch basic errors, most of that validation already happened in
+    # devhub.tasks:annotate_search_plugin_validation
+    try:
+        dom = minidom.parse(content)
+    except DefusedXmlException:
+        raise forms.ValidationError(
+            ugettext('OpenSearch: XML Security error.'))
+    except ExpatError:
+        raise forms.ValidationError(ugettext('OpenSearch: XML Parse Error.'))
+
+    return {
+        'name': _text('ShortName'),
+        'description': _text('Description')
+    }
 
 
 def parse_search(fileorpath, addon=None):
@@ -645,8 +654,11 @@ def parse_search(fileorpath, addon=None):
             'version': datetime.now().strftime('%Y%m%d')}
 
 
-class FsyncedZipFile(zipfile.ZipFile):
-    """Subclass of ZipFile that calls `fsync` for file extractions.
+class FSyncMixin(object):
+    """Mixin that implements fsync for file extractions.
+
+    This mixin uses the `_extract_member` interface used by `ziplib` and
+    `tarfile` so it's somewhat unversal.
 
     We need this to make sure that on EFS / NFS all data is immediately
     written to avoid any data loss on the way.
@@ -667,7 +679,7 @@ class FsyncedZipFile(zipfile.ZipFile):
         os.fsync(descriptor)
         os.close(descriptor)
 
-    def _extract_member(self, member, targetpath, pwd):
+    def _extract_member(self, member, targetpath, *args, **kwargs):
         """Extends `ZipFile._extract_member` to call fsync().
 
         For every extracted file we are ensuring that it's data has been
@@ -680,14 +692,62 @@ class FsyncedZipFile(zipfile.ZipFile):
         This is inspired by https://github.com/2ndquadrant-it/barman/
         (see backup.py -> backup_fsync_and_set_sizes and utils.py)
         """
-        targetpath = super(FsyncedZipFile, self)._extract_member(
-            member, targetpath, pwd)
+        super(FSyncMixin, self)._extract_member(
+            member, targetpath, *args, **kwargs)
 
-        parent_dir = os.path.dirname(targetpath)
+        parent_dir = os.path.dirname(os.path.normpath(targetpath))
         if parent_dir:
             self._fsync_dir(parent_dir)
 
         self._fsync_file(targetpath)
+
+
+class FSyncedZipFile(FSyncMixin, zipfile.ZipFile):
+    """Subclass of ZipFile that calls `fsync` for file extractions."""
+    pass
+
+
+class FSyncedTarFile(FSyncMixin, tarfile.TarFile):
+    """Subclass of TarFile that calls `fsync` for file extractions."""
+    pass
+
+
+def archive_member_validator(archive, member):
+    """Validate a member of an archive member (TarInfo or ZipInfo)."""
+    filename = getattr(member, 'filename', getattr(member, 'name', None))
+    filesize = getattr(member, 'file_size', getattr(member, 'size', None))
+
+    if filename is None or filesize is None:
+        raise forms.ValidationError(ugettext('Unsupported archive type.'))
+
+    try:
+        force_text(filename)
+    except UnicodeDecodeError:
+        # We can't log the filename unfortunately since it's encoding
+        # is obviously broken :-/
+        log.error('Extraction error, invalid file name encoding in '
+                  'archive: %s' % archive)
+        # L10n: {0} is the name of the invalid file.
+        msg = ugettext(
+            'Invalid file name in archive. Please make sure '
+            'all filenames are utf-8 or latin1 encoded.')
+        raise forms.ValidationError(msg.format(filename))
+
+    if '..' in filename or filename.startswith('/'):
+        log.error('Extraction error, invalid file name (%s) in '
+                  'archive: %s' % (filename, archive))
+        # L10n: {0} is the name of the invalid file.
+        msg = ugettext('Invalid file name in archive: {0}')
+        raise forms.ValidationError(msg.format(filename))
+
+    if filesize > settings.FILE_UNZIP_SIZE_LIMIT:
+        log.error('Extraction error, file too big (%s) for file (%s): '
+                  '%s' % (archive, filename, filesize))
+        # L10n: {0} is the name of the invalid file.
+        raise forms.ValidationError(
+            ugettext(
+                'File exceeding size limit in archive: {0}'
+            ).format(filename))
 
 
 class SafeZip(object):
@@ -707,41 +767,14 @@ class SafeZip(object):
             return True
 
         if self.force_fsync:
-            zip_file = FsyncedZipFile(self.source, self.mode)
+            zip_file = FSyncedZipFile(self.source, self.mode)
         else:
             zip_file = zipfile.ZipFile(self.source, self.mode)
 
         info_list = zip_file.infolist()
 
         for info in info_list:
-            try:
-                force_text(info.filename)
-            except UnicodeDecodeError:
-                # We can't log the filename unfortunately since it's encoding
-                # is obviously broken :-/
-                log.error('Extraction error, invalid file name encoding in '
-                          'archive: %s' % self.source)
-                # L10n: {0} is the name of the invalid file.
-                msg = ugettext(
-                    'Invalid file name in archive. Please make sure '
-                    'all filenames are utf-8 or latin1 encoded.')
-                raise forms.ValidationError(msg.format(info.filename))
-
-            if '..' in info.filename or info.filename.startswith('/'):
-                log.error('Extraction error, invalid file name (%s) in '
-                          'archive: %s' % (info.filename, self.source))
-                # L10n: {0} is the name of the invalid file.
-                msg = ugettext('Invalid file name in archive: {0}')
-                raise forms.ValidationError(msg.format(info.filename))
-
-            if info.file_size > settings.FILE_UNZIP_SIZE_LIMIT:
-                log.error('Extraction error, file too big (%s) for file (%s): '
-                          '%s' % (self.source, info.filename, info.file_size))
-                # L10n: {0} is the name of the invalid file.
-                raise forms.ValidationError(
-                    ugettext(
-                        'File exceeding size limit in archive: {0}'
-                    ).format(info.filename))
+            archive_member_validator(self.source, info)
 
         self.info_list = info_list
         self.zip_file = zip_file
@@ -771,8 +804,7 @@ class SafeZip(object):
         if type == 'jar':
             parts = path.split('!')
             for part in parts[:-1]:
-                jar = self.__class__(
-                    StringIO.StringIO(jar.zip_file.read(part)))
+                jar = self.__class__(six.BytesIO(jar.zip_file.read(part)))
             path = parts[-1]
         return jar.read(path[1:] if path.startswith('/') else path)
 
@@ -831,6 +863,49 @@ def extract_zip(source, remove=False, force_fsync=False):
     return tempdir
 
 
+def extract_extension_to_dest(source, dest=None, force_fsync=False):
+    """Extract `source` to `dest`.
+
+    `source` can be an extension or extension source, can be a zip, tar
+    (gzip, bzip) or a search provider (.xml file).
+
+    Note that this doesn't verify the contents of `source` except for
+    that it requires something valid to be extracted.
+
+    :returns: Extraction target directory, if `dest` is `None` it'll be a
+              temporary directory.
+    """
+    target, tempdir = None, None
+
+    if dest is None:
+        target = tempdir = tempfile.mkdtemp(dir=settings.TMP_PATH)
+    else:
+        target = dest
+
+    try:
+        source = force_text(source)
+        if source.endswith((u'.zip', u'.xpi')):
+            with open(source, 'rb') as source_file:
+                zip_file = SafeZip(source_file, force_fsync=force_fsync)
+                zip_file.extract_to_dest(target)
+        elif source.endswith((u'.tar.gz', u'.tar.bz2', u'.tgz')):
+            tarfile_class = (
+                tarfile.TarFile
+                if not force_fsync else FSyncedTarFile)
+            with tarfile_class.open(source) as archive:
+                archive.extractall(target)
+        elif source.endswith(u'.xml'):
+            shutil.copy(source, target)
+            if force_fsync:
+                FSyncMixin()._fsync_file(target)
+    except (zipfile.BadZipfile, tarfile.ReadError, IOError):
+        if tempdir is not None:
+            rm_local_tmp_dir(tempdir)
+        raise forms.ValidationError(
+            ugettext('Invalid or broken archive.'))
+    return target
+
+
 def copy_over(source, dest):
     """
     Copies from the source to the destination, removing the destination
@@ -863,12 +938,12 @@ def get_all_files(folder, strip_prefix='', prefix=None):
     def iterate(path):
         path_dirs, path_files = storage.listdir(path)
         for dirname in sorted(path_dirs):
-            full = os.path.join(path, dirname)
+            full = os.path.join(path, force_text(dirname))
             all_files.append(full)
             iterate(full)
 
         for filename in sorted(path_files):
-            full = os.path.join(path, filename)
+            full = os.path.join(path, force_text(filename))
             all_files.append(full)
 
     iterate(folder)
@@ -913,9 +988,9 @@ def parse_xpi(xpi, addon=None, minimal=False, user=None):
         raise
     except IOError as e:
         if len(e.args) < 2:
-            err, strerror = None, e[0]
+            err, strerror = None, e.args[0]
         else:
-            err, strerror = e
+            err, strerror = e.args
         log.error('I/O error({0}): {1}'.format(err, strerror))
         raise forms.ValidationError(ugettext(
             'Could not parse the manifest file.'))
@@ -1029,8 +1104,16 @@ def parse_addon(pkg, addon=None, user=None, minimal=False):
     name = getattr(pkg, 'name', pkg)
     if name.endswith('.xml'):
         parsed = parse_search(pkg, addon)
-    else:
+    elif name.endswith(amo.VALID_ADDON_FILE_EXTENSIONS):
         parsed = parse_xpi(pkg, addon, minimal=minimal, user=user)
+    else:
+        valid_extensions_string = u'(%s)' % u', '.join(
+            amo.VALID_ADDON_FILE_EXTENSIONS)
+        raise UnsupportedFileType(
+            ugettext(
+                'Unsupported file type, please upload an a supported '
+                'file {extensions}.'.format(
+                    extensions=valid_extensions_string)))
 
     if not minimal:
         if user is None:
@@ -1039,64 +1122,26 @@ def parse_addon(pkg, addon=None, user=None, minimal=False):
             raise forms.ValidationError(ugettext('Unexpected error.'))
 
         # FIXME: do the checks depending on user here.
-
         if addon and addon.type != parsed['type']:
             msg = ugettext(
-                "<em:type> in your install.rdf (%s) "
-                "does not match the type of your add-on on AMO (%s)")
+                'The type (%s) does not match the type of your add-on on '
+                'AMO (%s)')
             raise forms.ValidationError(msg % (parsed['type'], addon.type))
     return parsed
 
 
-def _get_hash(filename, block_size=2 ** 20, hash=hashlib.sha256):
-    """Returns an sha256 hash for a filename."""
-    f = open(filename, 'rb')
-    hash_ = hash()
-    while True:
-        data = f.read(block_size)
-        if not data:
-            break
-        hash_.update(data)
-    return hash_.hexdigest()
+def get_sha256(file_obj, block_size=io.DEFAULT_BUFFER_SIZE):
+    """Calculate a sha256 hash for `file_obj`.
 
-
-def get_sha256(filename, **kw):
-    return _get_hash(filename, hash=hashlib.sha256, **kw)
-
-
-def zip_folder_content(folder, filename):
-    """Compress the _content_ of a folder."""
-    with zipfile.ZipFile(filename, 'w', zipfile.ZIP_DEFLATED) as dest:
-        # Add each file/folder from the folder to the zip file.
-        for root, dirs, files in scandir.walk(folder):
-            relative_dir = os.path.relpath(root, folder)
-            for file_ in files:
-                dest.write(os.path.join(root, file_),
-                           # We want the relative paths for the files.
-                           arcname=os.path.join(relative_dir, file_))
-
-
-@contextlib.contextmanager
-def repack(xpi_path):
-    """Unpack the XPI, yield the temp folder, and repack on exit.
-
-    Usage:
-        with repack('foo.xpi') as temp_folder:
-            # 'foo.xpi' files are extracted to the temp_folder.
-            modify_files(temp_folder)  # Modify the files in the temp_folder.
-        # The 'foo.xpi' extension is now repacked, with the file changes.
+    `file_obj` must be an open file descriptor. The caller needs to take
+    care of closing it properly.
     """
-    # Unpack.
-    tempdir = extract_zip(xpi_path, remove=False)
-    yield tempdir
-    try:
-        # Repack.
-        repacked = u'{0}.repacked'.format(xpi_path)  # Temporary file.
-        zip_folder_content(tempdir, repacked)
-        # Overwrite the initial file with the repacked one.
-        shutil.move(repacked, xpi_path)
-    finally:
-        rm_local_tmp_dir(tempdir)
+    hash_ = hashlib.sha256()
+
+    for chunk in iter(lambda: file_obj.read(block_size), b''):
+        hash_.update(chunk)
+
+    return hash_.hexdigest()
 
 
 def update_version_number(file_obj, new_version_number):
@@ -1120,7 +1165,7 @@ def update_version_number(file_obj, new_version_number):
     shutil.move(updated, file_obj.file_path)
 
 
-def write_crx_as_xpi(chunks, storage, target):
+def write_crx_as_xpi(chunks, target):
     """Extract and strip the header from the CRX, convert it to a regular ZIP
     archive, then write it to `target`. Read more about the CRX file format:
     https://developer.chrome.com/extensions/crx
@@ -1247,7 +1292,7 @@ def resolve_i18n_message(message, messages, locale, default_locale=None):
     :param messages: A dictionary of messages, e.g the return value
                      of `extract_translations`.
     """
-    if not message or not isinstance(message, basestring):
+    if not message or not isinstance(message, six.string_types):
         # Don't even attempt to extract invalid data.
         # See https://github.com/mozilla/addons-server/issues/3067
         # for more details
@@ -1280,25 +1325,41 @@ def resolve_i18n_message(message, messages, locale, default_locale=None):
     return message['message']
 
 
-def extract_header_img(file_obj, theme_data, dest_path):
-    """Extract static theme header image from `file_obj`."""
+def get_background_images(file_obj, theme_data, header_only=False):
+    """Extract static theme header image from `file_obj` and return in dict."""
     xpi = get_filepath(file_obj)
+    if not theme_data:
+        # we might already have theme_data, but otherwise get it from the xpi.
+        try:
+            parsed_data = parse_xpi(xpi, minimal=True)
+            theme_data = parsed_data.get('theme', {})
+        except forms.ValidationError:
+            # If we can't parse the existing manifest safely return.
+            return {}
     images_dict = theme_data.get('images', {})
     # Get the reference in the manifest.  theme_frame is the Chrome variant.
     header_url = images_dict.get(
         'headerURL', images_dict.get('theme_frame'))
     # And any additional backgrounds too.
-    additional_urls = images_dict.get('additional_backgrounds', [])
+    additional_urls = (
+        images_dict.get('additional_backgrounds', []) if not header_only
+        else [])
     image_urls = [header_url] + additional_urls
+    images = {}
     try:
         with zipfile.ZipFile(xpi, 'r') as source:
             for url in image_urls:
+                _, file_ext = os.path.splitext(text_type(url).lower())
+                if file_ext not in amo.THEME_BACKGROUND_EXTS:
+                    # Just extract image files.
+                    continue
                 try:
-                    source.extract(url, dest_path)
+                    images[url] = source.read(url)
                 except KeyError:
                     pass
     except IOError as ioerror:
         log.debug(ioerror)
+    return images
 
 
 @contextlib.contextmanager

@@ -25,8 +25,8 @@ class TestNamespacing(WithDynamicEndpoints, TestCase):
             r'baa', EmptyViewSet.as_view(actions={'get': 'list'}), name='baa')
         both_url = url(
             r'yay', EmptyViewSet.as_view(actions={'get': 'list'}), name='yay')
-        v3_url = url(r'v3/', include([v3_only_url, both_url], namespace='v3'))
-        v4_url = url(r'v4/', include([v4_only_url, both_url], namespace='v4'))
+        v3_url = url(r'v3/', include(([v3_only_url, both_url], 'v3')))
+        v4_url = url(r'v4/', include(([v4_only_url, both_url], 'v4')))
         self.endpoint(
             include([v3_url, v4_url]),
             url_regex=r'^api/')
@@ -36,14 +36,14 @@ class TestNamespacing(WithDynamicEndpoints, TestCase):
         response = self.client.get(
             'api/v3/foo', HTTP_ORIGIN='testserver', follow=True)
         assert response.status_code == 200
-        assert response.content == '{"version":"v3"}'
+        assert response.json() == {'version': 'v3'}
         url_ = reverse_ns('foo', api_version='v3')
         assert '/api/v3/' in url_
         # And the common one
         response = self.client.get(
             'api/v3/yay', HTTP_ORIGIN='testserver', follow=True)
         assert response.status_code == 200
-        assert response.content == '{"version":"v3"}'
+        assert response.json() == {'version': 'v3'}
         url_ = reverse_ns('yay', api_version='v3')
         assert '/api/v3/' in url_
         # But no baa in v3
@@ -58,14 +58,14 @@ class TestNamespacing(WithDynamicEndpoints, TestCase):
         response = self.client.get(
             'api/v4/baa', HTTP_ORIGIN='testserver', follow=True)
         assert response.status_code == 200
-        assert response.content == '{"version":"v4"}'
+        assert response.json() == {'version': 'v4'}
         url_ = reverse_ns('baa', api_version='v4')
         assert '/api/v4/' in url_
         # And the common one
         response = self.client.get(
             'api/v4/yay', HTTP_ORIGIN='testserver', follow=True)
         assert response.status_code == 200
-        assert response.content == '{"version":"v4"}'
+        assert response.json() == {'version': 'v4'}
         url_ = reverse_ns('yay', api_version='v4')
         assert '/api/v4/' in url_
         # But no foo in v4

@@ -1,3 +1,4 @@
+import binascii
 import os
 import random
 import re
@@ -10,13 +11,13 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.signals import user_logged_in
 from django.core import validators
+from django.core.files.storage import default_storage as storage
 from django.db import models
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
-from django.utils.encoding import force_text
+from django.utils.encoding import force_text, python_2_unicode_compatible
 from django.utils.functional import cached_property, lazy
 from django.utils.translation import ugettext
-from django.core.files.storage import default_storage as storage
 
 import olympia.core.logger
 
@@ -26,9 +27,9 @@ from olympia.amo.decorators import use_primary_db
 from olympia.amo.fields import PositiveAutoField
 from olympia.amo.models import ManagerBase, ModelBase, OnChangeMixin
 from olympia.amo.urlresolvers import reverse
+from olympia.lib.cache import cache_get_or_set
 from olympia.translations.query import order_by_translation
 from olympia.users.notifications import NOTIFICATIONS_BY_ID
-from olympia.lib.cache import cache_get_or_set
 
 
 log = olympia.core.logger.getLogger('z.users')
@@ -54,6 +55,8 @@ class UserForeignKey(models.ForeignKey):
         # since it's the same for every instance.
         kwargs.pop('to', None)
         self.to = 'users.UserProfile'
+        if 'on_delete' not in kwargs:
+            kwargs['on_delete'] = models.CASCADE
         super(UserForeignKey, self).__init__(self.to, *args, **kwargs)
 
     def value_from_object(self, obj):
@@ -116,13 +119,15 @@ class UserManager(BaseUserManager, ManagerBase):
         return user
 
 
+@python_2_unicode_compatible
 class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
     objects = UserManager()
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
     username = models.CharField(max_length=255, default='', unique=True)
-    display_name = models.CharField(max_length=255, default='', null=True,
-                                    blank=True)
+    display_name = models.CharField(
+        max_length=50, default='', null=True, blank=True,
+        validators=[validators.MinLengthValidator(2)])
 
     email = models.EmailField(unique=True, null=True, max_length=75)
 
@@ -171,7 +176,7 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
         if self.username:
             self.username = force_text(self.username)
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s: %s' % (self.id, self.display_name or self.username)
 
     @property
@@ -253,26 +258,21 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
         return salted_hmac(key_salt, str(self.auth_id)).hexdigest()
 
     @staticmethod
-    def create_user_url(id_, username=None, url_name='profile', src=None,
-                        args=None):
+    def create_user_url(id_, url_name='profile', src=None, args=None):
         """
         We use <username> as the slug, unless it contains gross
         characters - in which case use <id> as the slug.
         """
         from olympia.amo.utils import urlparams
-        chars = '/<>"\''
-        if not username or any(x in chars for x in username):
-            username = id_
         args = args or []
-        url = reverse('users.%s' % url_name, args=[username] + args)
+        url = reverse('users.%s' % url_name, args=[id_] + args)
         return urlparams(url, src=src)
 
     def get_themes_url_path(self, src=None, args=None):
-        return self.create_user_url(self.id, self.username, 'themes', src=src,
-                                    args=args)
+        return self.create_user_url(self.id, 'themes', src=src, args=args)
 
     def get_url_path(self, src=None):
-        return self.create_user_url(self.id, self.username, 'profile', src=src)
+        return self.create_user_url(self.id, 'profile', src=src)
 
     @cached_property
     def groups_list(self):
@@ -372,13 +372,8 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
     def name(self):
         if self.display_name:
             return force_text(self.display_name)
-        elif self.has_anonymous_username:
-            # L10n: {id} will be something like "13ad6a", just a random number
-            # to differentiate this user from other anonymous users.
-            return ugettext('Firefox user {id}').format(
-                id=self._anonymous_username_id())
         else:
-            return force_text(self.username)
+            return ugettext('Firefox user {id}').format(id=self.id)
 
     welcome_name = name
 
@@ -386,11 +381,7 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
         return self.name
 
     def get_short_name(self):
-        return self.username
-
-    def _anonymous_username_id(self):
-        if self.has_anonymous_username:
-            return self.username.split('-')[1][:6]
+        return self.name
 
     def anonymize_username(self):
         """Set an anonymous username."""
@@ -398,7 +389,8 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
             log.info('Anonymizing username for {}'.format(self.pk))
         else:
             log.info('Generating username for {}'.format(self.email))
-        self.username = 'anonymous-{}'.format(os.urandom(16).encode('hex'))
+        self.username = 'anonymous-{}'.format(
+            force_text(binascii.b2a_hex(os.urandom(16))))
         return self.username
 
     @property
@@ -407,7 +399,7 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
 
     @property
     def has_anonymous_display_name(self):
-        return not self.display_name and self.has_anonymous_username
+        return not self.display_name
 
     @cached_property
     def ratings(self):
@@ -547,8 +539,10 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
         return self.collectionwatcher_set.values_list('collection', flat=True)
 
 
+@python_2_unicode_compatible
 class UserNotification(ModelBase):
-    user = models.ForeignKey(UserProfile, related_name='notifications')
+    user = models.ForeignKey(
+        UserProfile, related_name='notifications', on_delete=models.CASCADE)
     notification_id = models.IntegerField()
     enabled = models.BooleanField(default=False)
 
@@ -563,11 +557,12 @@ class UserNotification(ModelBase):
         return (
             u'{user}, {notification}, enabled={enabled}'
             .format(
-                user=self.user.display_name or self.user.email,
+                user=self.user.name,
                 notification=self.notification.short,
                 enabled=self.enabled))
 
 
+@python_2_unicode_compatible
 class DeniedName(ModelBase):
     """Denied User usernames and display_names + Collections' names."""
     name = models.CharField(max_length=255, unique=True, default='')
@@ -575,7 +570,7 @@ class DeniedName(ModelBase):
     class Meta:
         db_table = 'users_denied_name'
 
-    def __unicode__(self):
+    def __str__(self):
         return self.name
 
     @classmethod
@@ -598,7 +593,8 @@ class DeniedName(ModelBase):
 class UserHistory(ModelBase):
     id = PositiveAutoField(primary_key=True)
     email = models.EmailField(max_length=75)
-    user = models.ForeignKey(UserProfile, related_name='history')
+    user = models.ForeignKey(
+        UserProfile, related_name='history', on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'users_history'

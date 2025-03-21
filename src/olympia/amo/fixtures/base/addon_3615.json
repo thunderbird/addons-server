@@ -153,7 +153,6 @@
             "disabled_by_user": false,
             "guid": "{2fa4ed95-0317-4c6a-a74c-5f3e3912c1f9}",
             "description": 15002,
-            "locale_disambiguation": null,
             "weekly_downloads": 13053,
             "support_url": 149594,
             "average_rating": "3.03",
@@ -166,7 +165,6 @@
             "privacy_policy": 42022,
             "default_locale": "en-US",
             "target_locale": null,
-            "external_software": true,
             "name": 15000,
             "created": "2006-10-23 12:57:41",
             "type": 1,
@@ -191,9 +189,9 @@
         "fields": {
             "license": 93,
             "created": "2009-10-21 09:58:52",
-            "releasenotes": 650353,
+            "release_notes": 650353,
             "modified": "2009-10-21 10:02:38",
-            "approvalnotes": "",
+            "approval_notes": "",
             "version": "2.1.072",
             "addon": 3615
         }
@@ -291,42 +289,6 @@
         }
     },
     {
-        "pk": 2222,
-        "model": "translations.translation",
-        "fields": {
-            "localized_string": "Bookmarks",
-            "created": "2009-05-11 22:06:47",
-            "modified": "2009-05-11 22:06:47",
-            "locale": "en-US",
-            "id": 2222,
-            "localized_string_clean": null
-        }
-    },
-    {
-        "pk": 2323,
-        "model": "translations.translation",
-        "fields": {
-            "localized_string": "Feeds",
-            "created": "2009-05-11 22:06:47",
-            "modified": "2009-05-11 22:06:47",
-            "locale": "en-US",
-            "id": 2323,
-            "localized_string_clean": null
-        }
-    },
-    {
-        "pk": 2424,
-        "model": "translations.translation",
-        "fields": {
-            "localized_string": "Social",
-            "created": "2009-05-11 22:06:47",
-            "modified": "2009-05-11 22:06:47",
-            "locale": "en-US",
-            "id": 2424,
-            "localized_string_clean": null
-        }
-    },
-    {
         "pk": 1,
         "model": "addons.category",
         "fields": {
@@ -336,8 +298,7 @@
             "modified": "2010-02-23 19:17:32",
             "application": 1,
             "type": 1,
-            "slug": "feeds-news-blogging",
-            "db_name": 2323
+            "slug": "feeds-news-blogging"
         }
     },
     {
@@ -350,8 +311,7 @@
             "modified": "2010-02-23 19:17:32",
             "application": 1,
             "type": 1,
-            "slug": "bookmarks",
-            "db_name": 2222
+            "slug": "bookmarks"
         }
     },
     {
@@ -364,8 +324,7 @@
             "modified": "2010-02-23 19:17:32",
             "application": 1,
             "type": 1,
-            "slug": "social-communication",
-            "db_name": 2424
+            "slug": "social-communication"
         }
     },
     {

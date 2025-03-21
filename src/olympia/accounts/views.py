@@ -1,4 +1,5 @@
 import base64
+import binascii
 import functools
 import os
 
@@ -6,14 +7,15 @@ from django.conf import settings
 from django.contrib.auth import login, logout
 from django.contrib.auth.signals import user_logged_in
 from django.core import signing
-from django.urls import reverse
 from django.db.models import Q
 from django.http import Http404, HttpResponseRedirect
-from django.utils.encoding import force_bytes
+from django.urls import reverse
+from django.utils.encoding import force_bytes, force_text
 from django.utils.html import format_html
 from django.utils.http import is_safe_url
 from django.utils.translation import ugettext, ugettext_lazy as _
 
+import six
 import waffle
 
 from rest_framework import serializers
@@ -37,7 +39,7 @@ from olympia.access import acl
 from olympia.access.models import GroupUser
 from olympia.amo import messages
 from olympia.amo.decorators import use_primary_db
-from olympia.amo.utils import fetch_subscribed_newsletters
+from olympia.amo.utils import fetch_subscribed_newsletters, dev_bypass_auth
 from olympia.api.authentication import (
     JWTKeyAuthentication, WebTokenAuthentication)
 from olympia.api.permissions import AnyOf, ByHttpMethod, GroupPermission
@@ -83,7 +85,7 @@ API_TOKEN_COOKIE = 'frontend_auth_token'
 
 
 def safe_redirect(url, action):
-    if not is_safe_url(url):
+    if not is_safe_url(url, allowed_hosts=(settings.DOMAIN,)):
         url = reverse('home')
     log.info(u'Redirecting after {} to: {}'.format(action, url))
     return HttpResponseRedirect(url)
@@ -171,14 +173,14 @@ def render_error(request, error, next_path=None, format=None):
         status = ERROR_STATUSES.get(error, 422)
         response = Response({'error': error}, status=status)
     else:
-        if not is_safe_url(next_path):
+        if not is_safe_url(next_path, allowed_hosts=(settings.DOMAIN,)):
             next_path = None
         messages.error(
             request,
             fxa_error_message(LOGIN_ERROR_MESSAGES[error], LOGIN_HELP_URL),
             extra_tags='fxa')
         if next_path is None:
-            response = HttpResponseRedirect(reverse('users.login'))
+            response = HttpResponseRedirect('/')
         else:
             response = HttpResponseRedirect(next_path)
     return response
@@ -197,7 +199,7 @@ def parse_next_path(state_parts):
             log.info('Error decoding next_path {}'.format(
                 encoded_path))
             pass
-    if not is_safe_url(next_path):
+    if not is_safe_url(next_path, allowed_hosts=(settings.DOMAIN,)):
         next_path = None
     return next_path
 
@@ -260,8 +262,26 @@ def with_user(format, config=None):
                     request, ERROR_NO_PROFILE, next_path=next_path,
                     format=format)
             else:
+                user = find_user(identity)
+                if (waffle.switch_is_active('2fa-for-developers') and
+                        user and user.is_addon_developer and
+                        not identity.get('twoFactorAuthentication')):
+                    # https://github.com/mozilla/addons/issues/732
+                    # The user is an add-on developer (with other types of
+                    # add-ons than just themes), but hasn't logged in with a
+                    # second factor. Immediately redirect them to start the FxA
+                    # flow again, this time requesting 2FA to be present.
+                    return HttpResponseRedirect(
+                        fxa_login_url(
+                            config=fxa_config,
+                            state=request.session['fxa_state'],
+                            next_path=next_path,
+                            action='signin',
+                            force_two_factor=True
+                        )
+                    )
                 return fn(
-                    self, request, user=find_user(identity), identity=identity,
+                    self, request, user=user, identity=identity,
                     next_path=next_path)
         return inner
     return outer
@@ -316,6 +336,16 @@ class FxAConfigMixin(object):
 class LoginStartBaseView(FxAConfigMixin, APIView):
 
     def get(self, request):
+        if dev_bypass_auth():
+            # Dev work-around for local auth
+            user = UserProfile.objects.first()
+            identity = {
+                'uid': '1234',
+                'email': user.email,
+            }
+            login_user(self.__class__, request, user, identity)
+            return HttpResponseRedirect('/')
+
         request.session.setdefault('fxa_state', generate_fxa_state())
         return HttpResponseRedirect(
             fxa_login_url(
@@ -338,6 +368,9 @@ class AuthenticateView(FxAConfigMixin, APIView):
 
     @with_user(format='html')
     def get(self, request, user, identity, next_path):
+        # At this point @with_user guarantees that we have a valid fxa
+        # identity. We are proceeding with either registering the user or
+        # logging them on.
         if user is None:
             user = register_user(self.__class__, request, identity)
             fxa_config = self.get_fxa_config(request)
@@ -474,7 +507,7 @@ class ProfileView(APIView):
         account_viewset = AccountViewSet(
             request=request,
             permission_classes=self.permission_classes,
-            kwargs={'pk': unicode(self.request.user.pk)})
+            kwargs={'pk': six.text_type(self.request.user.pk)})
         account_viewset.format_kwarg = self.format_kwarg
         return account_viewset.retrieve(request)
 
@@ -495,7 +528,7 @@ class AccountSuperCreate(APIView):
         data = serializer.data
 
         group = serializer.validated_data.get('group', None)
-        user_token = os.urandom(4).encode('hex')
+        user_token = force_text(binascii.b2a_hex(os.urandom(4)))
         username = data.get('username', 'super-created-{}'.format(user_token))
         fxa_id = data.get('fxa_id', None)
         email = data.get('email', '{}@addons.mozilla.org'.format(username))
@@ -569,11 +602,8 @@ class AccountNotificationViewSet(ListModelMixin, GenericViewSet):
         user = self.get_account_viewset().get_object()
         queryset = UserNotification.objects.filter(user=user)
 
-        # Fetch all `UserNotification` instances and then, if the
-        # waffle-switch is active overwrite their value with the
-        # data from basket. Once we switched the integration "on" on prod
-        # all `UserNotification` instances that are now handled by basket
-        # can be deleted.
+        # Fetch all `UserNotification` instances and then,
+        # overwrite their value with the data from basket.
 
         # Put it into a dict so we can easily check for existence.
         set_notifications = {
@@ -581,18 +611,17 @@ class AccountNotificationViewSet(ListModelMixin, GenericViewSet):
             if user_nfn.notification}
         out = []
 
-        if waffle.switch_is_active('activate-basket-sync'):
-            newsletters = None  # Lazy - fetch the first time needed.
-            by_basket_id = REMOTE_NOTIFICATIONS_BY_BASKET_ID
-            for basket_id, notification in by_basket_id.items():
-                if notification.group == 'dev' and not user.is_developer:
-                    # We only return dev notifications for developers.
-                    continue
-                if newsletters is None:
-                    newsletters = fetch_subscribed_newsletters(user)
-                user_notification = self._get_default_object(notification)
-                user_notification.enabled = basket_id in newsletters
-                set_notifications[notification.short] = user_notification
+        newsletters = None  # Lazy - fetch the first time needed.
+        by_basket_id = REMOTE_NOTIFICATIONS_BY_BASKET_ID
+        for basket_id, notification in by_basket_id.items():
+            if notification.group == 'dev' and not user.is_developer:
+                # We only return dev notifications for developers.
+                continue
+            if newsletters is None:
+                newsletters = fetch_subscribed_newsletters(user)
+            user_notification = self._get_default_object(notification)
+            user_notification.enabled = basket_id in newsletters
+            set_notifications[notification.short] = user_notification
 
         for notification in NOTIFICATIONS_COMBINED:
             if notification.group == 'dev' and not user.is_developer:

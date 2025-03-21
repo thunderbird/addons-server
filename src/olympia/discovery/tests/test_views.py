@@ -2,6 +2,9 @@
 from django.test.utils import override_settings
 
 import mock
+import six
+
+from waffle import switch_is_active
 from waffle.testutils import override_switch
 
 from olympia import amo
@@ -23,6 +26,7 @@ class DiscoveryTestMixin(object):
         assert data['is_strict_compatibility_enabled'] is False
         assert data['files']
         assert len(data['files']) == 1
+        assert data['id'] == version.id
 
         result_file = data['files'][0]
         file_ = version.files.latest('pk')
@@ -45,9 +49,10 @@ class DiscoveryTestMixin(object):
         addon = item.addon
         assert result['addon']['id'] == item.addon_id == addon.pk
         if flat_name:
-            assert result['addon']['name'] == unicode(addon.name)
+            assert result['addon']['name'] == six.text_type(addon.name)
         else:
-            assert result['addon']['name'] == {'en-US': unicode(addon.name)}
+            assert result['addon']['name'] == {
+                'en-US': six.text_type(addon.name)}
         assert result['addon']['slug'] == addon.slug
         assert result['addon']['icon_url'] == absolutify(
             addon.get_icon_url(64))
@@ -56,8 +61,6 @@ class DiscoveryTestMixin(object):
 
         assert result['heading'] == item.heading
         assert result['description'] == item.description
-        assert result['heading_text'] == item.heading_text
-        assert result['description_text'] == item.description_text
 
         self._check_disco_addon_version(
             result['addon']['current_version'], addon.current_version)
@@ -66,16 +69,15 @@ class DiscoveryTestMixin(object):
         addon = item.addon
         assert result['addon']['id'] == item.addon_id == addon.pk
         if flat_name:
-            assert result['addon']['name'] == unicode(addon.name)
+            assert result['addon']['name'] == six.text_type(addon.name)
         else:
-            assert result['addon']['name'] == {'en-US': unicode(addon.name)}
+            assert result['addon']['name'] == {
+                'en-US': six.text_type(addon.name)}
         assert result['addon']['slug'] == addon.slug
         assert result['addon']['theme_data'] == addon.persona.theme_data
 
         assert result['heading'] == item.heading
         assert result['description'] == item.description
-        assert result['heading_text'] == item.heading_text
-        assert result['description_text'] == item.description_text
 
 
 class TestDiscoveryViewList(DiscoveryTestMixin, TestCase):
@@ -105,8 +107,11 @@ class TestDiscoveryViewList(DiscoveryTestMixin, TestCase):
             DiscoveryItem.objects.create(addon=addon, position_china=i)
 
     def test_list(self):
-        with self.assertNumQueries(16):
-            # 16? queries:
+        # Precache waffle-switch to not rely on switch caching behavior
+        switch_is_active('disco-recommendations')
+
+        with self.assertNumQueries(11):
+            # 11 queries:
             # - 1 to fetch the waffle switch 'disco-recommendations'
             # - 1 to fetch the discovery items
             # - 1 to fetch the add-ons (can't be joined with the previous one

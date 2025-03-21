@@ -4,9 +4,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-09-26 01:22+0000\n"
-"Last-Translator: Georgianizator <georgianization@outlook.com>\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-02-18 18:50+0000\n"
+"Last-Translator: G12r <georgianization@outlook.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: ka\n"
 "MIME-Version: 1.0\n"
@@ -22,17 +22,8 @@ msgstr "ბმულები დაშვებული არაა."
 msgid "This display name cannot be used."
 msgstr "ამ სახელის გამოყენება შეუძლებელია."
 
-msgid "Usernames cannot contain only digits."
-msgstr "მეტსახელები არ უნდა შედგებოდეს მხოლოდ ციფრებისგან."
-
-msgid "Enter a valid username consisting of letters, numbers, underscores or hyphens."
-msgstr "შეიყვანეთ მომხმარებლის სახელი, რომელიც შეიძლება შედგებოდეს ასოებისგან, ციფრებისგან, ტირესა და დეფისისგან."
-
-msgid "This username cannot be used."
-msgstr "მომხმარებლის ამ სახელის გამოყენება შეუძლებელია."
-
-msgid "This username is already in use."
-msgstr "მომხმარებლის ეს სახელი უკვე გამოყენებულია."
+msgid "The homepage field can only be used to link to external websites."
+msgstr "მთავარი გვერდის ველი გამოიყენება, მხოლოდ გარეშე საიტების ბმულების მისათითებლად."
 
 msgid "Images must be either PNG or JPG."
 msgstr "სურათი უნდა იყოს PNG ან JPG ფორმატში."
@@ -50,8 +41,8 @@ msgstr "თქვენ უკვე შესული ხართ."
 msgid "Your login attempt could not be parsed. Please try again."
 msgstr "თქვენი შესვლის მცდელობები წარუმატებლად დასრულდა. გთხოვთ სცადოთ ხელახლა."
 
-msgid "Your account could not be found. Please try again."
-msgstr "თქვენი ანგარიში ვერ მოიძებნა. გთხოვთ სცადოთ ხელახლა."
+msgid "Your Firefox Account could not be found. Please try again."
+msgstr "თქვენი Firefox-ანგარიში ვერ მოიძებნა. გთხოვთ სცადოთ ხელახლა."
 
 msgid "You could not be logged in. Please try again."
 msgstr "შესვლა ვერ მოხერხდა. გთხოვთ სცადოთ ხელახლა."
@@ -74,6 +65,9 @@ msgstr "მიმოხილვის შენიშვნა"
 
 msgid "Only latest versions of addons can have notes added."
 msgstr "შენიშვნების დართვა შესაძლებელია დამატებების, მხოლოდ, უახლეს ვერსიებზე."
+
+msgid "Ratings"
+msgstr "შეფასება"
 
 msgid "Status"
 msgstr "მდგომარეობა"
@@ -137,10 +131,6 @@ msgstr[1] "ჭდეები, სულ მცირე {0} სიმბოლ�
 msgid "The text entered has been flagged as spam."
 msgstr "შეყვანილი ტექსტი მონიშნულია არასასურველად."
 
-#, python-format
-msgid "URL domain must be one of [%s], or a subdomain."
-msgstr "URL დომენი უნდა წარმოადგენდეს ერთ-ერთი ამათგანს [%s], ან მათ ქვედომენს."
-
 msgid "Categories cannot be changed while your add-on is featured for this application."
 msgstr "თქვენი დამატების ამ განაცხადში ყოფნისას კატეგორიის შეცვლა შეუძლებელია."
 
@@ -154,20 +144,15 @@ msgid "The miscellaneous category cannot be combined with additional categories.
 msgstr "კატეგორია „სხვადასხვა“, ვერ გაერთიანდება სხვა კატეგორიებთან."
 
 #, python-format
+msgid "URL domain must be one of [%s], or a subdomain."
+msgstr "URL დომენი უნდა წარმოადგენდეს ერთ-ერთი ამათგანს [%s], ან მათ ქვედომენს."
+
+#, python-format
 msgid "Before changing your default locale you must have a name, summary, and description in that locale. You are missing %s."
 msgstr "ნაგულისხმევი ლოკალის შეცვლამდე, სახელი, შეჯამება და აღწერა ამ ლოკალზე უნდა გქონდეთ. ახლა გაკლიათ %s."
 
 msgid "A license must be selected."
 msgstr "ლიცენზიის მითითება აუცილებელია."
-
-msgid "Give Your Theme a Name."
-msgstr "დაარქვით თემას სახელი."
-
-msgid "Describe your Theme."
-msgstr "აღწერეთ თქვენი თემა."
-
-msgid "Enter a new author's email address"
-msgstr "შეიყვანეთ შემქმნელის ახალი ელფოსტის მისამართი"
 
 msgid "Listed"
 msgstr "გამოქვეყნებულია"
@@ -204,7 +189,6 @@ msgid "This add-on has been marked as experimental by its developers."
 msgstr "შემმუშავებლების მიერ აღნიშნულია, რომ ეს დამატება არის საცდელი."
 
 #. {0} is the name of the add-on.
-#. {0} is the name of the add-on
 msgid "End-User License Agreement for {0}"
 msgstr "მომხმარებლის სალიცენზიო შეთანხმება {0}-სთვის"
 
@@ -462,9 +446,6 @@ msgstr "ნებართვები"
 msgid "This add-on has been marked as experimental by its developers"
 msgstr "შემმუშავებლების მიერ აღნიშნულია, რომ ეს დამატება არის საცდელი"
 
-msgid "This add-on requires the following add-ons to work properly:"
-msgstr "ეს დამატება, სრულყოფილად მუშაობისთვის საჭიროებს შემდეგ დამატებებს:"
-
 msgid "Average"
 msgstr "საშუალო"
 
@@ -560,18 +541,18 @@ msgid "Some add-ons ask for permission to perform certain functions (example: a 
 msgstr "დამატებების ნაწილი ითხოვს ნებართვებს, გარკვეული მოქმედებებისთვის (მაგალითად: ჩანართების მმართველი დამატება, მოითხოვს ბრაუზერის ჩანართების სისტემასთან წვდომას და ა.შ.)."
 
 msgid ""
-"Since you’re in control of your Thunderbird, the choice to grant or deny these requests is yours. Accepting permissions does not inherently compromise your browser’s performance or security, but in "
+"Since you’re in control of your Firefox, the choice to grant or deny these requests is yours. Accepting permissions does not inherently compromise your browser’s performance or security, but in "
 "some rare cases risk may be involved."
 msgstr ""
-"Thunderbird-ის მართვის სადავეები თქვენს ხელშია და არჩევანიც თქვენზეა, დათანხმდებით თუ უარყოფთ, მოთხოვნილი უფლებების მინიჭებას. ნებართვებზე თანხმობა, არსებითად არ იმოქმედებს თქვენი ბრაუზერის წარმადობაზე "
+"Firefox-ის მართვის სადავეები თქვენს ხელშია და არჩევანიც თქვენზეა, დათანხმდებით თუ უარყოფთ, მოთხოვნილი უფლებების მინიჭებას. ნებართვებზე თანხმობა, არსებითად არ იმოქმედებს თქვენი ბრაუზერის წარმადობაზე "
 "ან უსაფრთხოებაზე უარყოფითი კუთხით, მაგრამ იშვიათ შემთხვევებში, შეიძლება არსებობდეს ამის საფრთხეც."
 
 #. This is a header of a list of things the add-on can do.
 msgid "This add-on can:"
 msgstr "ამ დამატებას შეეძლება:"
 
-msgid "Some add-ons ask for permission to perform certain functions. Since you’re in control of your Thunderbird, the choice to grant or deny these requests is yours."
-msgstr "დამატებების ნაწილი ითხოვს ნებართვებს, გარკვეული მოქმედებებისთვის. Thunderbird-ის მართვის სადავეები თქვენს ხელშია და არჩევანიც თქვენზეა, დართავთ ნებას, თუ არა."
+msgid "Some add-ons ask for permission to perform certain functions. Since you’re in control of your Firefox, the choice to grant or deny these requests is yours."
+msgstr "დამატებების ნაწილი ითხოვს ნებართვებს, გარკვეული მოქმედებებისთვის. Firefox-ის მართვის სადავეები თქვენს ხელშია და არჩევანიც თქვენზეა, დართავთ ნებას, თუ არა."
 
 msgid "Please note this add-on uses legacy technology, which gives it access to all browser functions and data without requesting your permission."
 msgstr "გაითვალისწინეთ, რომ ეს დამატება იყენებს მოძველებულ ტექნოლოგიებს, რაც აძლევს წვდომის საშუალებას ბრაუზერის ყველა შესაძლებლობასა და მონაცემზე, ნებართვის მოთხოვნის გარეშე."
@@ -698,6 +679,10 @@ msgstr "ადმინისტრატორის ხელსაწყო�
 msgid "Positive integer"
 msgstr "დადებითი მთელი რიცხვი"
 
+#, python-format
+msgid "This field can only be used to link to external websites. URLs on %(domain)s are not allowed."
+msgstr "ეს ველი გამოიყენება, მხოლოდ გარეშე საიტების ბმულების მისათითებლად. URL-ბმულები %(domain)s მისამართებზე არაა დაშვებული."
+
 msgid "Incorrect, please try again."
 msgstr "არასწორია, გთხოვთ სცადოთ ხელახლა."
 
@@ -709,6 +694,12 @@ msgstr "ფერის თექვსმ. კოდი უნდა მით�
 
 msgid "Some features are temporarily disabled while we perform website maintenance. We'll be back to full capacity shortly."
 msgstr "ზოგიერთი შესაძლებლობები დროებით შეზღუდულია, ვებსაიტზე ტექნიკური სამუშაოების მიმდინარეობის გამო. მოკლე ხანში, სრული დატვირთვით ამუშავდება."
+
+msgid "Must contain at least one printable character."
+msgstr "აუცილებლად უნდა შეიცავდეს სულ მცირე ერთ ამოსაბეჭდ სიმბოლოს."
+
+msgid "Ensure this field contains at least one letter or number character."
+msgstr "აუცილებლად უნდა შეიცავდეს სულ მცირე ერთ ასონიშანს ან ციფრს."
 
 msgid "Not allowed"
 msgstr "არ არის ნებადართული"
@@ -758,7 +749,7 @@ msgid "Add-ons Home Page"
 msgstr "დამატების მთავარი გვერდი"
 
 #, python-format
-msgid "If you followed a link from somewhere, please %(open_bug_link)sfile an issue%(close_bug_link)s. Tell us where you came from and what you were looking for, and we'll do our best to fix it."
+msgid "If you followed a link from somewhere, please %(open_bug_link)sfile an issue %(close_bug_link)s. Tell us where you came from and what you were looking for, and we'll do our best to fix it."
 msgstr "თუ ბმულს გამოჰყევით, %(open_bug_link)sგთხოვთ მოგვახსენოთ ხარვეზის შესახებ%(close_bug_link)s. გვაცნობეთ, რომელი გვერდიდან გადმოხვედით, რას ეძებდით და აუცილებლად გავასწორებთ."
 
 msgid "Not Found"
@@ -767,16 +758,16 @@ msgstr "ვერ მოიძებნა"
 #, python-format
 msgid ""
 "<h1>We're sorry, but we can't find what you're looking for.</h1> <p> The page or file you requested wasn't found on our site. It's possible that you clicked a link that's out of date, or typed in "
-"the address incorrectly. </p> <ul> <li>If you typed in the address, please double check the spelling.</li> <li> If you followed a link from somewhere, please <a href=\"https://github.com/mozilla/"
-"addons-server/issues/new/\">file an issue</a>. Tell us where you came from and what you were looking for, and we'll do our best to fix it. </li> </ul> <p>Or you can just jump over to some of the "
-"popular pages on our website.</p> <ul> <li>Are you interested in a <a href=\"%(rec)s\">list of featured add-ons</a>?</li> <li> Do you want to <a href=\"%(search)s\">search for add-ons</a>? You may "
-"go to the <a href=\"%(search)s\">search page</a> or just use the search field above. </li> <li> If you prefer to start over, just go to the <a href=\"%(home)s\">add-ons front page</a>. </li> </ul>"
+"the address incorrectly. </p> <ul> <li>If you typed in the address, please double check the spelling.</li> <li> If you followed a link from somewhere, please %(open_bug_link)sfile an issue"
+"%(close_bug_link)s. Tell us where you came from and what you were looking for, and we'll do our best to fix it. </li> </ul> <p>Or you can just jump over to some of the popular pages on our website."
+"</p> <ul> <li>Are you interested in a <a href=\"%(rec)s\">list of featured add-ons</a>?</li> <li> Do you want to <a href=\"%(search)s\">search for add-ons</a>? You may go to the <a href=\"%(search)s"
+"\">search page</a> or just use the search field above. </li> <li> If you prefer to start over, just go to the <a href=\"%(home)s\">add-ons front page</a>. </li> </ul>"
 msgstr ""
 "<h1>ვწუხვართ, მაგრამ ვერ მოვნახეთ, რასაც ეძებდით.</h1> <p> მოთხოვნილი გვერდი ან ფაილი, საიტზე არ მოიძებნა. შესაძლოა, ვადაგასულ ბმულზე გადახვედით, ან მისამართი იყო არასწორად აკრეფილი. </p> <ul> "
-"<li>თუ მისამართი ხელით აიკრიფა, გთხოვთ კარგად გადაამოწმოთ მართლწერა.</li> <li> ხოლო, თუ ბმულზე გადახვედით, გთხოვთ <a href=\"https://github.com/mozilla/addons-server/issues/new/\">მოგვახსენოთ "
-"ხარვეზის შესახებ</a>. გვაცნობეთ, რომელი საიტიდან რომელ გვერდზე გადახვედით და აუცილებლად გავასწორებთ. </li> </ul> <p>ან შეგიძლიათ მოინახულოთ ჩვენი საიტის სხვა სასურველი გვერდები. </p> <ul> "
-"<li>გაინტერესებთ <a href=\"%(rec)s\">რჩეული დამატებები</a>?</li> <li> გსურთ, <a href=\"%(search)s\">მათი მოძიება</a>? გადადით <a href=\"%(search)s\">ძიების გვერდზე</a> ან უბრალოდ, გამოიყენეთ ზემოთ "
-"არსებული ძიების ველი. </li> <li> თუ თავიდან დაწყება გირჩევნიათ, იხილეთ <a href=\"%(home)s\">დამატებების მთავარი გვერდი</a>. </li> </ul>"
+"<li>თუ მისამართი ხელით აიკრიფა, გთხოვთ კარგად გადაამოწმოთ მართლწერა.</li> <li> ხოლო, თუ ბმულზე გადახვედით, გთხოვთ %(open_bug_link)sმოგვახსენოთ ხარვეზის შესახებ%(close_bug_link)s. გვაცნობეთ, რომელი "
+"საიტიდან რომელ გვერდზე გადახვედით და აუცილებლად გავასწორებთ. </li> </ul> <p>ან შეგიძლიათ მოინახულოთ ჩვენი საიტის სხვა სასურველი გვერდები. </p> <ul> <li>გაინტერესებთ <a href=\"%(rec)s\">რჩეული "
+"დამატებები</a>?</li> <li> გსურთ, <a href=\"%(search)s\">მათი მოძიება</a>? გადადით <a href=\"%(search)s\">ძიების გვერდზე</a> ან უბრალოდ, გამოიყენეთ ზემოთ არსებული ძიების ველი. </li> <li> თუ თავიდან "
+"დაწყება გირჩევნიათ, იხილეთ <a href=\"%(home)s\">დამატებების მთავარი გვერდი</a>. </li> </ul>"
 
 msgid "Oops"
 msgstr "უი!"
@@ -849,9 +840,6 @@ msgstr "კრებულები"
 msgid "Collections I've Made"
 msgstr "ჩემ მიერ შექმნილი კრებულები"
 
-msgid "My Favorite Add-ons"
-msgstr "ჩემი რჩეული დამატებები"
-
 msgid "More&hellip;"
 msgstr "სხვა&hellip;"
 
@@ -859,7 +847,7 @@ msgid "Add-ons for Mobile"
 msgstr "დამატებები მობილურისთვის"
 
 msgid "Dictionaries & Language Packs"
-msgstr "ლექსიკონები და ენის პაკეტები"
+msgstr "ლექსიკონები და ენის ნაკრებები"
 
 msgid "Search Tools"
 msgstr "ძიების ხელსაწყოები"
@@ -982,9 +970,6 @@ msgstr "აღწერეთ თქვენი კრებული (ბმ�
 msgid "Privacy:"
 msgstr "პირადულობა:"
 
-msgid "Icon"
-msgstr "ხატულა"
-
 msgid "Please don't fill out this field, it's used to catch bots"
 msgstr "გთხოვთ ეს ველი გამოტოვეთ, ის ბოტების დასაჭერად გამოიყენება."
 
@@ -993,12 +978,6 @@ msgstr "ამ სახელის გამოყენება შეუძ
 
 msgid "This url is already in use by another collection"
 msgstr "ამ ბმულს სხვა კრებული უკვე იყენებს"
-
-msgid "Icons must be either PNG or JPG."
-msgstr "ხატულები უნდა იყოს PNG ან JPG."
-
-msgid "Icons cannot be animated."
-msgstr "ხატულები არ იმოძრავებს."
 
 msgid "This custom URL is already in use by another one of your collections."
 msgstr "URL-ბმულის ეს დაბოლოება უკვე გამოყენებულია თქვენს ერთ-ერთ კრებულში."
@@ -1038,15 +1017,12 @@ msgstr "კრებული განახლდა!"
 msgid "<a href=\"%(url)s\">View your collection</a> to see the changes."
 msgstr "<a href=\"%(url)s\">გადადით თქვენი კრებულის ბმულზე</a>, ცვლილებების სანახავად."
 
-msgid "Icon Deleted"
-msgstr "ხატულა წაიშალა"
-
 msgid "Create a New Collection"
 msgstr "ახალი კრებულის შექმნა"
 
 #, python-format
 msgid "As noted in our <a href=\"%(legal)s\">Legal Notices</a>, individual collection arrangements are governed by the Creative Commons Attribution Share-Alike License"
-msgstr "ჩვენი <a href=\"%(legal)s\">სამართლებრივი შენიშვნების</a> თანახმად, ცალკეული კრებულების შეთანხმებები რეგულირდება Creative Commons Attribution Share Alike ლიცენზიით"
+msgstr "ჩვენი <a href=\"%(legal)s\">სამართლებრივი შენიშვნების</a> თანახმად, ცალკეული კრებულების შეთანხმებები ექვემდებარება Creative Commons Attribution Share Alike ლიცენზიას"
 
 msgid "Create Collection"
 msgstr "კრებულის შექმნა"
@@ -1120,9 +1096,6 @@ msgstr "კრებულები არის გარკვეული ნ
 msgid "Explore Collections"
 msgstr "დაათვალიერეთ კრებულები"
 
-msgid "Common Tags"
-msgstr "საერთო ჭდეები"
-
 msgid ""
 "Add-ons that you mark as favorites using the <b>Add to Favorites</b> feature appear below. This collection is currently <b>public</b>, which means everyone can see it. If you would like to hide it "
 "from public view, click the button below to make it private."
@@ -1181,7 +1154,7 @@ msgstr "რჩეულებიდან მოცილება"
 msgid "Add to favorites"
 msgstr "რჩეულებში დამატება"
 
-#. {0} is a username.
+#. {0} is a the user's name.
 msgid "Collections by {0}"
 msgstr "კრებულების შემქმნელი: {0}"
 
@@ -1198,20 +1171,14 @@ msgstr ""
 msgid "by %(author_link)s"
 msgstr "შემქმნელი: %(author_link)s"
 
+msgid "My Favorite Add-ons"
+msgstr "ჩემი რჩეული დამატებები"
+
 msgid "Create a Collection"
 msgstr "კრებულის შექმნა"
 
 msgid "Collections make it easy to keep track of favorite add-ons and share your perfectly customized browser with others."
 msgstr "კრებულები აადვილებს რჩეული დამატებების სიახლეებზე თვალის მიდევნებას და სრულყოფილად მორგებული ბრაუზერის, სხვებისთვის გაზიარებას."
-
-msgid "Collection Icon"
-msgstr "კრებულის ხატულა"
-
-msgid "Reset"
-msgstr "საწყის მდგომარეობაზე დაბრუნება"
-
-msgid "PNG and JPG supported.  Image will be resized to 32x32."
-msgstr "PNG და JPG მხარდაჭერილია.  სურათის ზომა შეიცვლება 32x32-ზე."
 
 msgid "There are errors in this form.  Please correct them below."
 msgstr "ამ ველებში შეცდომებია.  გთხოვთ გაასწოროთ ქვემოთ."
@@ -1226,7 +1193,7 @@ msgid "Add-on"
 msgstr "დამატება"
 
 msgid "Comment"
-msgstr "კომენტარი"
+msgstr "შენიშვნა"
 
 msgid "Remove"
 msgstr "ამოშლა"
@@ -1241,7 +1208,7 @@ msgid "Pending"
 msgstr "ლოდინი"
 
 msgid "Add a comment"
-msgstr "კომენტარის დამატება"
+msgstr "შენიშვნის დამატება"
 
 msgid "Remove this add-on from the collection"
 msgstr "ამ დამატების კრებულიდან ამოშლა"
@@ -1322,27 +1289,21 @@ msgid "Install Dictionary"
 msgstr "ლექსიკონის დაყენება"
 
 msgid "Install Language Pack"
-msgstr "ენის დაყენება"
-
-msgid "Download Dictionary"
-msgstr "ლექსიკონის ჩამოტვირთვა"
-
-msgid "Download Language Pack"
-msgstr "ენის პაკეტის ჩამოტვირთვა"
+msgstr "ენის ნაკრების დაყენება"
 
 #, python-format
 msgid ""
 "Installing a dictionary add-on will add a new language option to your %(app_name)s spell-checker, which checks your spelling when you fill out Web forms. Language pack add-ons change the language "
 "of the entire application."
 msgstr ""
-"ლექსიკონის დამატების ჩადგმით, თქვენს %(app_name)s-ის მართლწერის შემმოწმებელს დაემატება ახალი ენა, რომელიც შეამოწმებს ვებგვერდებზე არსებულ ველებში შეყვანილ ტექსტს. ენის პაკეტის დამატება კი მთლიანად "
+"ლექსიკონის დამატების ჩადგმით, თქვენს %(app_name)s-ის მართლწერის შემმოწმებელს დაემატება ახალი ენა, რომელიც შეამოწმებს ვებგვერდებზე არსებულ ველებში შეყვანილ ტექსტს. ენის ნაკრების დამატება კი მთლიანად "
 "შეცვლის პროგრამის ენას."
 
 msgid "Available in your locale"
 msgstr "თქვენს ენაზე ხელმისაწვდომი"
 
 msgid "List of language packs and dictionaries available in your locale."
-msgstr "თქვენს ენაზე ხელმისაწვდომი ენის პაკეტების და ლექსიკონების ჩამონათვალი."
+msgstr "თქვენს ენაზე ხელმისაწვდომი ნაკრებისა და ლექსიკონების ჩამონათვალი."
 
 msgid "Language"
 msgstr "ენა"
@@ -1351,13 +1312,13 @@ msgid "Dictionary"
 msgstr "ლექსიკონი"
 
 msgid "Language Pack"
-msgstr "ენის პაკეტი"
+msgstr "ენის ნაკრები"
 
 msgid "All locales"
 msgstr "ყველა ენა"
 
 msgid "List of language packs and dictionaries."
-msgstr "ენის პაკეტების და ლექსიკონების სია."
+msgstr "ენის ნაკრებებისა და ლექსიკონების სია."
 
 #. {0} is a category name, like "Music".
 msgid "{0} :: Search Tools"
@@ -1498,78 +1459,6 @@ msgstr "ყველა ზრდადი მოთხოვნის მქო
 msgid "No themes found"
 msgstr "თემები ვერ მოიძებნა"
 
-msgid "All"
-msgstr "ყველა"
-
-msgid "Add-on Compatibility Reports"
-msgstr "მოხსენებები დამატებების თავსებადობაზე"
-
-#, python-format
-msgid ""
-"<p> Reports submitted to us through the <a href=\"%(url_)s\">Add-on Compatibility Reporter</a> are collected here for developers to view. These reports help us determine which add-ons will need "
-"help supporting an upcoming Firefox version. </p>"
-msgstr ""
-"<p> <a href=\"%(url_)s\">დამატებების თავსებადობის მომხსენებლის</a> მიერ გადმოგზავნილი მოხსენებები, იკრიბება და გადაეცემა შემმუშავებლებს განსახილველად. ეს მოხსენებები, გვეხმარება დამატებების "
-"თავსებადობის ხარვეზების დადგენაში, Firefox-ის ახალ ვერსიასთან მიმართებაში. </p>"
-
-msgid "Reports for your Add-ons"
-msgstr "მოხსენებები, თქვენი დამატებების შესახებ"
-
-msgid "Enter the GUID of an add-on below to view any reports we've received."
-msgstr "მიუთითეთ დამატების GUID ქვემოთ, მიღებული მოხსენებების სანახავად."
-
-msgid "{addon} Compatibility Reports"
-msgstr "{addon} დამატების მოხსენებები თავსებადობაზე"
-
-msgid "{0} success report"
-msgid_plural "{0} success reports"
-msgstr[0] "{0} მოხსენება წარმატების შესახებ"
-msgstr[1] "{0} მოხსენება წარმატების შესახებ"
-
-msgid "{0} problem report"
-msgid_plural "{0} problem reports"
-msgstr[0] "{0} მოხსენება ხარვეზის შესახებ"
-msgstr[1] "{0} მოხსენება ხარვეზის შესახებ"
-
-msgid "View all"
-msgstr "ყველას ნახვა"
-
-msgid "Filter by Application"
-msgstr "პროგრამების მიხედვით გამორჩევა"
-
-msgid "Report Type"
-msgstr "მოხსენების სახე"
-
-msgid "Version"
-msgstr "ვერსია"
-
-msgid "Application Version"
-msgstr "პროგრამის ვერსია"
-
-msgid "Application Build"
-msgstr "პროგრამის ანაწყობი"
-
-msgid "Platform"
-msgstr "პლატფორმა"
-
-msgid "e10s Enabled"
-msgstr "e10s ჩართულია"
-
-msgid "e10s Compatible"
-msgstr "e10s-სთან თავსებადი"
-
-msgid "Submitted"
-msgstr "წარდგენილია"
-
-msgid "Success"
-msgstr "წარმატება"
-
-msgid "Problem"
-msgstr "ხარვეზი"
-
-msgid "No reports found."
-msgstr "მოხსენებები ვერ მოიძებნა."
-
 msgid "{addon} was created."
 msgstr "{addon} შექმნილია."
 
@@ -1600,7 +1489,7 @@ msgstr "{addon} ჩართულია."
 
 #. L10n: {status} is the status
 msgid "{addon} status changed to {status}."
-msgstr "{addon} მდგომარეობა გახდა {status}."
+msgstr "{addon} მდგომარეობად მიეთითა {status}."
 
 msgid "{version} added to {addon}."
 msgstr "{version} დაემატა {addon}-ს."
@@ -1661,10 +1550,10 @@ msgid "The addon has been flagged for Admin Review.  It's still in our review qu
 msgstr "თქვენი დამატება მონიშნულია ადმინისტრაციული განხილვისთვის.  ჯერ კიდევ რიგშია, მაგრამ საჭიროა ერთმა ადმინისტრატორმა მაინც შეამოწმოს. რის გამოც, ეს განხილვა, ჩვეულზე მეტხანს შეიძლება გაგრძელდეს."
 
 msgid "Comment on {addon} {version}."
-msgstr "კომენტარი {addon} {version}-ზე."
+msgstr "შენიშვნა {addon} {version}-ზე."
 
 msgid "Commented"
-msgstr "კომენტარი დამატებულია"
+msgstr "შენიშვნა დამატებულია"
 
 msgid "{tag} added to {addon}."
 msgstr "{tag} დამატებულია {addon}-ზე."
@@ -1924,7 +1813,7 @@ msgid "Owner"
 msgstr "მფლობელი"
 
 msgid "Developer"
-msgstr "დეველოპერი"
+msgstr "შემმუშავებელი"
 
 msgid "Extension"
 msgstr "გაფართოება"
@@ -1936,10 +1825,10 @@ msgid "Search Engine"
 msgstr "საძიებო სისტემა"
 
 msgid "Language Pack (Application)"
-msgstr "ენის პაკეტი (პროგრამა)"
+msgstr "ენის ნაკრები (პროგრამა)"
 
 msgid "Language Pack (Add-on)"
-msgstr "ენის პაკეტი (დამატება)"
+msgstr "ენის ნაკრები (დამატება)"
 
 msgid "Plugin"
 msgstr "მოდული"
@@ -1957,10 +1846,10 @@ msgid "Dictionaries"
 msgstr "ლექსიკონები"
 
 msgid "Language Packs (Application)"
-msgstr "ენის პაკეტები (პროგრამა)"
+msgstr "ენის ნაკრები (პროგრამა)"
 
 msgid "Language Packs (Add-on)"
-msgstr "ენის პაკეტები (დამატება)"
+msgstr "ენის ნაკრებები (დამატება)"
 
 msgid "Plugins"
 msgstr "მოდულები"
@@ -1968,63 +1857,165 @@ msgstr "მოდულები"
 msgid "Themes (Static)"
 msgstr "თემა (უცვლელი)"
 
-#. Review points sources other than add-ons and themes.
-msgid "Other"
-msgstr "სხვა"
-
-msgid "Exception"
-msgstr "გამონაკლისი"
-
-msgid "Release"
-msgstr "გამოშვება"
-
-msgid "Change"
-msgstr "შეცვლა"
-
-msgid "Compatible"
-msgstr "თავსებადი"
-
-msgid "Incompatible"
-msgstr "არათავსებადი"
-
 msgid "Alerts & Updates"
 msgstr "უწყებები და განახლებები"
+
+msgid "Download Firefox extensions that help you stay up-to-date, track tasks, improve efficiency. Find extensions that reload tabs, manage productivity, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც დაგეხმარებათ მუდამ იყოთ თანამედროვე და მეტად შედეგიანად იმუშაოთ. მონახეთ გაფართოებები ჩანართების განახლებისთვის, საქმიანობის სამართავად და ა.შ."
 
 msgid "Appearance"
 msgstr "იერსახე"
 
+msgid "Download extensions that modify the appearance of websites and the browser Firefox. This category includes extensions for dark themes, tab management, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც სრულად შეცვლის საიტებისა და ბრაუზერის იერსახეს. ეს ჯგუფი მოიცავს გაფართოებებს მუქი თემების, ჩანართების მართვის და ა.შ."
+
 msgid "Bookmarks"
 msgstr "სანიშნები"
+
+msgid "Download extensions that enhance bookmarks by password-protecting them, searching for duplicates, finding broken bookmarks, and more."
+msgstr "ჩამოტვირთეთ გაფართოებები, რომლებიც გააუმჯობესებს სანიშნებით სარგებლობას, მათი პაროლით დაცვის გზით, ორმაგი ჩანაწერების მოცილებით, დაზიანებულების პოვნით და ა.შ."
 
 msgid "Download Management"
 msgstr "ჩამოტვირთვების მართვა"
 
+msgid "Download Firefox extensions that can help download web, music and video content. You can also find extensions to manage downloads, share files, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც დაგეხმარებათ მარტივად გადმოწეროთ ვებშიგთავსი, სიმღერები და ვიდეოები. აგრეთვე შეგიძლიათ მონახოთ გაფართოებები ჩამოტვირთვების სამართავად, ფაილების "
+"გასაზიარებლად და ა.შ."
+
 msgid "Feeds, News & Blogging"
 msgstr "სიახლეების არხები და სვეტები"
+
+msgid "Download Firefox extensions that remove clutter so you can stay up-to-date on social media, catch up on blogs, RSS feeds, reduce eye strain, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც მოაცილებს ზედმეტ და უსარგებლო ნაწილების გვერდებიდან, რის შედეგადაც შეძლებთ უკეთ ადევნოთ თვალი სოციალურ ქსელს, არ ჩამორჩეთ ახალ ამბებს, RSS-არხებს, "
+"შეამციროთ თვალებზე დატვირთვა და ა.შ."
 
 msgid "Games & Entertainment"
 msgstr "თამაშები და გართობა"
 
+msgid "Download Firefox extensions to boost your entertainment experience. This category includes extensions that can enhance gaming, control video playback, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომელთა დახმარებითაც უკეთ შეძლებთ გართობას. ეს ჯგუფი მოიცავს იმ გაფართოებებს, რომლებიც აუმჯობესებს თამაშის მიმდინარეობას, მეტ შესაძლებლობებს იძლევა ვიდეოების "
+"გაშვებისას და ა.შ."
+
 msgid "Language Support"
 msgstr "ენის ხელსაწყოები"
+
+msgid "Download Firefox extensions that offer language support like grammar check, look-up words, translate text, provide text-to-speech, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც გთავაზობთ გაუმჯობესებულ მხარდაჭერას თქვენი ენისთვის, როგორიცაა მართლწერის შემოწმება, სიტყვების მნიშვნელობების მოძიება, სტატიების თარგმნა, ტექსტის "
+"წარმოთქმა და ა.შ."
 
 msgid "Photos, Music & Videos"
 msgstr "ფოტო, მუსიკა და ვიდეო"
 
+msgid "Download Firefox extensions that enhance photo, music and video experiences. Extensions in this category modify audio and video, reverse image search, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც გააუმჯობესებს სურათებით, სიმღერებითა და ვიდეოებით სარგებლობის შესაძლებლობებს. ამ ჯგუფის გაფართოებებით შესაძლებელია ხმოვანი ან ვიდეოფაილების გარდაქმნა, "
+"სურათებით მსგავსი სურათების მოძიება და ა.შ."
+
 msgid "Privacy & Security"
 msgstr "პირადულობა და უსაფრთხოება"
+
+msgid "Download Firefox extensions to browse privately and securely. This category includes extensions to block annoying ads, prevent tracking, manage redirects, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომელთა საშუალებითაც გვერდებს მოინახულებთ უსაფრთხოდ და პირადი მონაცემების დაცვით. ეს ჯგუფის მოიცავს გაფართოებებს, რომლებიც ზღუდავს რეკლამებს, გვერდს უვლის "
+"თვალთვალს, ამოწმებს გადამისამართებებს და ა.შ."
+
+msgid "Download Firefox extensions for search and look-up. This category includes extensions that highlight and search text, lookup IP addresses/domains, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის გაფართოებები, ძიებისა და პოვნისთვის. ეს ჯგუფი მოიცავს გაფართოებებს, რომლებიც გამოარჩევს და მოიძიებს მითითებულ ტექსტს, მოიპოვებს IP-მისამართებს/დასახელებებს და ა.შ."
 
 msgid "Shopping"
 msgstr "ვაჭრობა"
 
+msgid "Download Firefox extensions that can enhance your online shopping experience with coupon finders, deal finders, review analyzers, more."
+msgstr "ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც დაგეხმარებათ შენაძენების გაკეთებაში, ფასდაკლების ბარათების მოძიებით, საუკეთესო შემოთავაზებების მონახვით, მიმოხილვების გარჩევითა და ა.შ."
+
 msgid "Social & Communication"
 msgstr "სოციალური ქსელები"
+
+msgid "Download Firefox extensions to enhance social media and instant messaging. This category includes improved tab notifications, video downloaders, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც დაგეხმარებათ სოციალური ქსელებისა და მყისიერი მიმოწერის პროგრამების გამოყენებაში. ეს ჯგუფი მოიცავს გაფართოებებს, ჩანართების შეტყობინებების "
+"გასაუმჯობესებლად, ვიდეოების ჩამოსატვირთად და ა.შ."
 
 msgid "Tabs"
 msgstr "ჩანართები"
 
+msgid "Download Firefox extension to customize tabs and the new tab page. Discover extensions that can control tabs, change the way you interact with them, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, ჩანართებისა და ახალი გვერდების მოსარგებად. აღმოაჩინეთ გაფართოებები, რომლებიც გამართავენ თქვენს ჩანართებს, სრულად შეცვლიან მისი გამოყენების შესაძლებლობებს და ა.შ."
+
 msgid "Web Development"
 msgstr "ვებშემუშავება"
+
+msgid "Download Firefox extensions that feature web development tools. This category includes extensions for GitHub, user agent switching, cookie management, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც გააუმჯობესებს ვებშემუშავების ხელსაწყოებს. ეს ჯგუფი მოიცავს გაფართოებებს, GitHub-ისთვის, მომხმარებლის პროგრამის გადართვისთვის, ფუნთუშების მართვისთვის და "
+"ა.შ."
+
+#. Review points sources other than add-ons and themes.
+msgid "Other"
+msgstr "სხვა"
+
+msgid "Download Firefox extensions that can be unpredictable and creative, yet useful for those odd tasks."
+msgstr "ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც შეიძლება აღმოჩნდეს მეტად უჩვეულო, ახლებური და გამოსადეგი სხვადასხვა საქმიანობისთვის."
+
+msgid "Device Features & Location"
+msgstr "მოწყობილობის შესაძლებლობები და ადგილმდებარეობა"
+
+msgid "Download extensions to enhance Firefox for Android. Perform quick searches, free up system resources, take notes, and more."
+msgstr "ჩამოტვირთეთ გაფართოებები Firefox-ის გასაუმჯობესებლად Android-ზე. მოიძიეთ სწრაფად, მოხსენით სისტემის დატვირთულობა, გააკეთეთ ჩანიშვნები და ა.შ."
+
+msgid "Experimental"
+msgstr "საცდელი"
+
+msgid "Download Firefox extensions that are regularly updated and ready for public testing. Your feedback informs developers on changes to make in upcoming versions."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც მუდმივად ახლდება და მზადაა საჯარო გამოცდისთვის. თქვენი გამოხმაურება დაეხმარება შემმუშავებლებს უფრო მეტი ცვლილებების შემოთავაზებაში, მომავალი "
+"ვერსიებისთვის."
+
+msgid "Performance"
+msgstr "წარმადობა"
+
+msgid "Download extensions that give Firefox a performance boost. Find extensions that help you be more productive and efficient by blocking annoying ads and more."
+msgstr ""
+"ჩამოტვირთეთ გაფართოებები, რომლებიც Firefox-ის წარმადობას აამაღლებს. მონახეთ გაფართოებები, რომლებიც დაგეხმარებათ შედეგიანობისა და სარგებლიანობის გაზრდაში, მომაბეზრებელი რეკლამების შეზღუდვით და ა.შ."
+
+msgid "Photos & Media"
+msgstr "ფოტო და მედია"
+
+msgid "Download Firefox extensions to enhance photos and media. This category includes extensions to reverse search images, capture full page screenshots, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომლებიც გააუმჯობესებს სურათებით და სხვა ფაილებით სარგებლობის შესაძლებლობებს. ამ ჯგუფის გაფართოებებით შესაძლებელია სურათებით, მსგავსი სურათების მოძიება, სრული "
+"ვებგვერდისთვის სურათის გადაღება და ა.შ."
+
+msgid "Security & Privacy"
+msgstr "უსაფრთხოება და პირადულობა"
+
+msgid "Download Firefox extensions to surf safely and privately. Discover extensions that can stop sneaky ad trackers in their tracks, easily clear browsing history, and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის გაფართოებები, რომელთა საშუალებითაც გვერდებს მოინახულებთ უსაფრთხოდ და პირადი მონაცემების დაცვით. აღმოაჩინეთ გაფართოებებს, რომლებიც ზღუდავს გაიძვერა რეკლამებს და მათ მიერ "
+"თვალთვალს, მარტივად ასუფთავებს ისტორიას და ა.შ."
+
+msgid "Social Networking"
+msgstr "სოციალური ქსელები"
+
+msgid "Download Firefox extensions to enhance your experience on popular social networking websites such as YouTube, GitHub, Reddit, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის გაფართოებები, რომელთა საშუალებითაც უკეთ შეძლებთ ისარგებლოთ სოციალური ქსელებით, მათ შორის YouTube, GitHub, Reddit და ა.შ."
+
+msgid "Sports & Games"
+msgstr "სპორტი და თამაშები"
+
+msgid "Download Firefox extensions to give your entertainment experience a boost with live stream enhancers, sports updates, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის გაფართოებები, რომელთა საშუალებითაც უკეთ გაერთობით და გაუმჯობესებულად შეძლებთ პირდაპირ ეთერში ადევნოთ თვალი სპორტის სიახლეებს და ა.შ."
+
+msgid "User Interface"
+msgstr "სამომხმარებლო გარემო"
+
+msgid "Download user interface Firefox extensions to alter web pages for easier reading, searching, browsing, and more."
+msgstr "ჩამოტვირთეთ იერსახის შემცვლელი Firefox-ის გაფართოებები, რომლებიც სრულად გადაასხვაფერებენ ვებგვერდებს, ტექსტების უკეთ ამოსაკითხად, ძიების გასამარტივებლად და ა.შ."
 
 msgid "Animals"
 msgstr "ცხოველები"
@@ -2056,35 +2047,83 @@ msgstr "სპორტი"
 msgid "Abstract"
 msgstr "აბსტრაქტული"
 
+msgid "Download Firefox artistic and conceptual themes. This category includes colorful palettes and shapes, fantasy landscapes, playful cats, psychedelic flowers."
+msgstr ""
+"ჩამოტვირთეთ თემები, რომლებიც წარმოადგენს ხელოვნების ნიმუშს ან გააჩნია შემეცნებით ხასიათი. ეს ყველაფერი მოიცავს ფერად ნაწილებსა და მოხაზულობას, წარმოსახვით ხედებს, თამაშის მოყვარულ კატებს, კაშკაშა "
+"ყვავილებს."
+
 msgid "Causes"
 msgstr "მრწამსი"
+
+msgid "Download Firefox themes for niche interests and topics. This category includes sports themes, holidays, philanthropic causes, nationalities, and much more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, თქვენი მისწრაფებებისა და გემოვნების მიხედვით. ეს ჯგუფი მოიცავს სპორტის თემებს, არდადეგებს, საქველმოქმედო მიზნების მქონეს, ეროვნების აღმნიშვნელს და ა.შ."
 
 msgid "Fashion"
 msgstr "მოდა"
 
+msgid "Download Firefox themes that celebrate style of all forms—patterns, florals, textures, models, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, ყველანაირი სახის მოხატულობის — უჯრედებიანი, ყვავილებიანი, მოცულობითი, ნიმუშებიანი და ა.შ."
+
 msgid "Film and TV"
 msgstr "ფილმები და ტელევიზია"
+
+msgid "Download Firefox themes with movies and television. This category includes anime like Uchiha Madara, movies like The Matrix, shows (Game of Thrones), and more."
+msgstr ""
+"ჩამოტვირთეთ Firefox-ის თემები, სატელევიზიო ფილმებისა და სერიალების, ამ ჯგუფში იხილავთ ანიმეებს, მათ შორის „უჩიჰა მადარას“, ფილმებს როგორიცაა „მატრიცა“, სერიალებს („სამეფო კარის თამაშები“) და ა.შ."
+
+msgid "Download Firefox themes with the Firefox browser theme. This category includes colorful, diverse depictions of the Firefox logo, including more general fox themes."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, Firefox-ის ბრაუზერის გაფორმებით. ეს ჯგუფი მოიცავს ფერად, სხვადასხვაგვარ გამოსახულებებს Firefox-ის ლოგოებისა და ხატულების, ასევე ზოგადად მელაკუდას თემებს."
 
 msgid "Foxkeh"
 msgstr "Foxkeh"
 
+msgid "Download Firefox themes with the Japanese Firefox. This category includes themes that depict the cute Foxkeh mascot in various poses on diverse landscapes."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, იაპონური Firefox-ისთვის. ეს ჯგუფი მოიცავს გაფორმებებს, საყვარელი Foxkeh-ის გამოსახულებებით, სხვადასხვა ხედების ფონზე."
+
 msgid "Holiday"
 msgstr "დღესასწაული"
+
+msgid "Download Firefox themes with holidays. This category includes Christmas, Halloween, Thanksgiving, St. Patrick’s Day, Easter, Fourth of July, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, შვებულებებისთვის. ეს ჯგუფი მოიცავს გაფორმებებს შობის, მადლიერების დღის, ჰელოუინის, წმ. პატრიკის დღის, აღდგომის, ოთხი ივლისისთვის და ა.შ."
 
 msgid "Music"
 msgstr "მუსიკა"
 
+msgid "Download Firefox themes for musical interests and artists. This category includes popular bands like Nirvana and BTS, instruments, music videos, and much more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, მუსიკალური მისწრაფებებსა და ხელოვანებთან დაკავშირებით. ეს ჯგუფი მოიცავს ცნობილ ჯგუფებს, როგორიცაა ნირვანა და BTS, ინსტრუმენტებს, მუსიკალურ ვიდეოებს და ა.შ."
+
+msgid "Download Firefox themes with animals and natural landscapes. This category includes flowers, sunsets, foxes, seasons, planets, kittens, birds, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, ცხოველების სურათებითა და ბუნების ხედებით. ეს ჯგუფი მოიცავს ყვავილებს, მზის ჩასვლის ხედებს, წელიწადის დროებს, პლანეტებს, კნუტებს, ფრინველებს და ა.შ."
+
+msgid "Download Firefox themes that are interesting, creative, and unique."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, რომლებიც მეტად საინტერესო, ორიგინალური და გამორჩეულია."
+
 msgid "Scenery"
 msgstr "ხედები"
+
+msgid "Download Firefox themes that feature the environment and the natural world. This category includes sunsets, beaches, illustrations, city skylines, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები დაკავშირებული გარემოსა და ბუნებასთან. ეს ჯგუფი მოიცავს მზის ჩასვლის ხედებს, სანაპიროებს, ქალაქის სილუეტებს და ა.შ."
 
 msgid "Seasonal"
 msgstr "სეზონური"
 
+msgid "Download Firefox themes for all four seasons—fall, winter, spring, and summer. Autumn leaves, snowy mountain peaks, sunny summer days, and spring flowers."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, წელიწადის ყველა დროისთვის — შემოდგომის, ზამთრის, გაზაფხულისა და ზაფხულის. ფოთოლცვენა, თოვლიანი მთის მწვერვალები, ზაფხულის მზიანი დღეები, გაზაფხულის ყვავილები."
+
 msgid "Solid"
 msgstr "მთლიანი"
 
+msgid "Download Firefox themes with solid and gradient colors to personalize your browser. This category includes bold reds, pastels, soft greys, and much more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, ერთიანი და გარდამავალი ფერებით, თქვენი ბრაუზერის მოსარგებად. ეს ჯგუფი მოიცავს მუქ წითელს, რბილ ნაცრისფერს, პასტელურ ფერებს და ა.შ."
+
+msgid "Download Firefox themes that feature a variety of sports. This category includes country flags, sports teams, soccer, hockey, and more."
+msgstr "ჩამოტვირთეთ Firefox-ის თემებს სპორტის სხვადასხვა სახეობასთან დაკავშირებით. ეს ჯგუფი მოიცავს ქვეყნის დროშებს, გუნდებს, ფეხბურთს, ჰოკეის და ა.შ."
+
 msgid "Websites"
 msgstr "ვებგვერდები"
+
+msgid "Download Firefox themes that capture the essence of the web—captivating, unusual, and distinctive."
+msgstr "ჩამოტვირთეთ Firefox-ის თემები, რომლებიც გამოხატავს ინტერნეტის შინაარსს — მომხიბლავი, უჩვეულო, გამორჩეული."
 
 msgid "General"
 msgstr "ზოგადი"
@@ -2118,81 +2157,6 @@ msgstr "მოგზაურობა"
 
 msgid "Video"
 msgstr "ვიდეო"
-
-msgid "Device Features & Location"
-msgstr "მოწყობილობის შესაძლებლობები და ადგილმდებარეობა"
-
-msgid "Experimental"
-msgstr "საცდელი"
-
-msgid "Feeds, News, & Blogging"
-msgstr "არხები, სიახლეები და სვეტები"
-
-msgid "Performance"
-msgstr "წარმადობა"
-
-msgid "Photos & Media"
-msgstr "ფოტო და მედია"
-
-msgid "Security & Privacy"
-msgstr "უსაფრთხოება და პირადულობა"
-
-msgid "Social Networking"
-msgstr "სოციალური ქსელები"
-
-msgid "Sports & Games"
-msgstr "სპორტი და თამაშები"
-
-msgid "User Interface"
-msgstr "სამომხმარებლო გარემო"
-
-msgid "Appearance and Customization"
-msgstr "იერსახე და მორგება"
-
-msgid "Calendar and Date/Time"
-msgstr "კალენდარი, თარიღი/დრო"
-
-msgid "Chat and IM"
-msgstr "საუბარი და შეტყობინებები"
-
-msgid "Message Composition"
-msgstr "შეტყობინების გაგზავნა"
-
-msgid "Contacts"
-msgstr "კონტაქტები"
-
-msgid "Folders and Filters"
-msgstr "საქაღალდეები და დახარისხება"
-
-msgid "Import/Export"
-msgstr "შეტანა/გატანა"
-
-msgid "Message and News Reading"
-msgstr "სიახლეების და ცნობების წამკითხველი"
-
-msgid "Privacy and Security"
-msgstr "პირადულობა და უსაფრთხოება"
-
-msgid "Downloading and File Management"
-msgstr "ჩამოტვირთვებისა და ფაილების მართვა"
-
-msgid "Interface Customizations"
-msgstr "იერსახის მორგება"
-
-msgid "Language Support and Translation"
-msgstr "ენების მხარდაჭერა და თარგმნა"
-
-msgid "Photos and Media"
-msgstr "ფოტო და მედია ფაილები"
-
-msgid "RSS, News and Blogging"
-msgstr "RSS არხები, სიახლეები და სვეტები"
-
-msgid "Site-specific"
-msgstr "საიტზე მორგებული"
-
-msgid "Web and Developer Tools"
-msgstr "ვებშემმუშავებლის ხელსაწყოები"
 
 msgid "All Rights Reserved"
 msgstr "All Rights Reserved (ყველა უფლება დაცულია)"
@@ -2279,13 +2243,13 @@ msgid "Updated Dictionary Review"
 msgstr "ლექსიკონის განახლებული მიმოხილვა"
 
 msgid "New Language Pack Review"
-msgstr "ენის ახალი პაკეტის განხილვა"
+msgstr "ენის ახალი ნაკრების განხილვა"
 
 msgid "Preliminary Language Pack Review"
-msgstr "ენის პაკეტის წინასწარი მიმოხილვა"
+msgstr "ენის ნაკრები წინასწარი მიმოხილვა"
 
 msgid "Updated Language Pack Review"
-msgstr "ენის პაკეტის განახლებული მიმოხილვა"
+msgstr "ენის ნაკრები განახლებული მიმოხილვა"
 
 msgid "Theme Review"
 msgstr "თემის მიმოხილვა"
@@ -2411,6 +2375,18 @@ msgstr "%s ბოლო ცვლილებები"
 msgid "Recent Changes for My Add-ons"
 msgstr "ბოლო ცვლილებები ჩემს დამატებებში"
 
+msgid "Legacy extensions are no longer supported in Firefox."
+msgstr "მოძველებული სახის გაფართოებები აღარაა მხარდაჭერილი Firefox-ში."
+
+msgid "Add-ons for Thunderbird and SeaMonkey are now listed and maintained on addons.thunderbird.net. You can use the same account to update your add-ons on the new site."
+msgstr "დამატებები Thunderbird და SeaMonkey პროგრამებისთვის, ახლა უკვე განთავსებულია addons.thunderbird.net საიტზე. თქვენი დამატებებისთვის, შეგიძლიათ იგივე ანგარიში გამოიყენოთ ახალ საიტზეც."
+
+msgid "We allow and encourage an upgrade but you cannot reverse this process. Once your users have the WebExtension installed, they will not be able to install a legacy add-on."
+msgstr "ჩვენ საშუალებას ვიძლევით და ხელს ვუწყობთ განახლებას, მაგრამ ეს ქმედება შეუქცევადია. თუ თქვენი მომხმარებლები დააყენებენ WebExtension-ს, მოძველებული დამატებების დაყენებას, ვეღარ შეძლებენ."
+
+msgid "[{field}] The text in the \"{field}\" field has been flagged as spam."
+msgstr "[{field}] ტექსტი „{field}“ ველში აღნიშნა არასასურველად."
+
 msgid "Must have at least one owner."
 msgstr "აუცილებელია, სულ მცირე ერთი მფლობელის მითითება მაინც."
 
@@ -2450,6 +2426,9 @@ msgstr "გთხოვთ მიუთითოთ თქვენი დამ
 msgid "Unsupported file type, please upload an archive file {extensions}."
 msgstr "ამ სახის ფაილი არაა მხარდაჭერილი, გთხოვთ ატვირთოთ დაარქივებული ფაილი {extensions}."
 
+msgid "Invalid or broken archive."
+msgstr "უმართებულო ან დაზიანებული არქივი."
+
 msgid "View current"
 msgstr "ამჟამინდელის ნახვა"
 
@@ -2483,14 +2462,8 @@ msgstr "თქვენ არ აგიტვირთავთ წყარო
 msgid "Source file uploaded but you indicated no source was needed."
 msgstr "წყაროს ფაილი ატვირთულია, თუმცა მითითებული გაქვთ, რომ წყარო საჭირო არ იყო."
 
-msgid "Application"
-msgstr "პროგრამა"
-
-msgid "Select an application first"
-msgstr "ჯერ მიუთითეთ პროგრამა"
-
-msgid "There cannot be more than 3 required add-ons."
-msgstr "3-ზე მეტი აუცილებელი დამატების მითითება შეუძლებელია."
+msgid "Ensure name and summary combined are at most {limit_value} characters (they have {show_value})."
+msgstr "დარწმუნდით, რომ სახელი და შეჯამება ერთიანად არ აჭარბებს {limit_value} სიმბოლოს (ახლა არის {show_value})."
 
 msgid ""
 "On this site. <span class=\"helptext\">Your submission will be listed on this site and the Firefox Add-ons Manager for millions of users, after it passes code review. Automatic updates are handled "
@@ -2509,44 +2482,11 @@ msgstr ""
 msgid "Categories cannot be changed while your add-on is featured."
 msgstr "რჩეული დამატებისთვის, კატეგორიის შეცვლა შეუძლებელია."
 
-msgid "Add-ons for Thunderbird and SeaMonkey are now listed and maintained on addons.thunderbird.net. You can use the same account to update your add-ons on the new site."
-msgstr "დამატებები Thunderbird და SeaMonkey პროგრამებისთვის, ახლა უკვე განთავსებულია addons.thunderbird.net საიტზე. თქვენი დამატებებისთვის, შეგიძლიათ იგივე ანგარიში გამოიყენოთ ახალ საიტზეც."
-
-msgid "Legacy extensions are no longer supported in Firefox."
-msgstr "მოძველებული სახის გაფართოებები აღარაა მხარდაჭერილი Firefox-ში."
-
-msgid "Starting with Firefox 53, new add-ons on this site can only be WebExtensions."
-msgstr "Firefox 53 ვერსიიდან დაწყებული, ამ საიტზე ნებადართულია მხოლოდ ახალი, WebExtensions დამატებების გამოქვეყნება."
-
-msgid "Legacy add-ons are not compatible with Firefox 57 or higher. Use a maxVersion of 56.* or lower."
-msgstr "მოძველებული დამატებები არაა თავსებადი Firefox 57 ან უფრო მაღალ ვერსიებთან. maxVersion მიუთითეთ 56.* ან უფრო დაბალი."
-
-msgid "Legacy language packs for Firefox are no longer supported. A WebExtensions install manifest is required. See {mdn_link} for more details."
-msgstr "ენის მოძველებული პაკეტები Firefox-ისთვის, აღარაა მხარდაჭერილი. აუცილებელია WebExtensions მანიფესტს. ვრცლად, იხილეთ {mdn_link} ბმულზე."
-
-msgid "We allow and encourage an upgrade but you cannot reverse this process. Once your users have the WebExtension installed, they will not be able to install a legacy add-on."
-msgstr "ჩვენ საშუალებას ვიძლევით და ხელს ვუწყობთ განახლებას, მაგრამ ეს ქმედება შეუქცევადია. თუ თქვენი მომხმარებლები დააყენებენ WebExtension-ს, მოძველებული დამატებების დაყენებას, ვეღარ შეძლებენ."
-
-msgid "You cannot update a WebExtensions add-on with a legacy add-on. Your users would not be able to use your new version because Firefox does not support this type of update."
-msgstr "WebExtensions დამატების მოძველებული დამატებით განახლება, არ შეგიძლიათ. თქვენი მომხმარებლები ვერ ისარგებლებენ ახალი ვერსიით, რადგან Firefox-ში არაა მხარდაჭერილი, ასეთი სახის განახლება."
-
 msgid "Your developer API key was found in the submitted file. To protect your account, the key will be revoked."
 msgstr "თქვენი შემმუშავებლის API გასაღები ნაპოვნია წარდგენილ ფაილში. თქვენი ანგარიშის უსაფრთხოებისთვის, ეს გასაღები გაუქმდება."
 
 msgid "The developer API key of a coauthor was found in the submitted file. To protect your add-on, the key will be revoked."
 msgstr "თანაავტორის შემმუშავებლის API გასაღები ნაპოვნია წარდგენილ ფაილში. თქვენი დამატების უსაფრთხოებისთვის, ეს გასაღები გაუქმდება."
-
-#, python-format
-msgid "%s responded with %s (%s)."
-msgstr "%s უპასუხა %s-ს (%s)."
-
-#, python-format
-msgid "Connection to \"%s\" timed out."
-msgstr "„%s“-თან კავშირი ვადაგასულია."
-
-#, python-format
-msgid "Could not contact host at \"%s\"."
-msgstr "„%s“-თან დაკავშირება ვერ ხერხდება."
 
 msgid "Mozilla Security Notice: Your AMO API credentials have been revoked"
 msgstr "Mozilla-ს უსაფრთხოების განაცხადი: თქვენი AMO API მონაცემები გაუქმებულია"
@@ -2573,12 +2513,6 @@ msgstr "მომხმარებლის კრებულები"
 msgid "User Reviews"
 msgstr "მომხმარებელთა მიმოხილვები"
 
-msgid "Changes successfully saved."
-msgstr "ცვლილებები შეინახა წარმატებით."
-
-msgid "Please check the form for errors."
-msgstr "გთხოვთ შეამოწმოთ ველები შეცდომებზე."
-
 msgid "Add-on cannot be deleted. Disable this add-on instead."
 msgstr "დამატების წაშლა ვერ ხერხდება. სცადეთ მისი ამორთვა."
 
@@ -2603,11 +2537,17 @@ msgstr "თქვენს დამატებაზე ერთ-ერთ �
 msgid "An author has been removed from your add-on"
 msgstr "თქვენს დამატებას ერთ-ერთი ავტორი გამოაკლდა"
 
+msgid "Changes successfully saved."
+msgstr "ცვლილებები შეინახა წარმატებით."
+
 msgid "Validate Add-on"
 msgstr "შეამოწმეთ დამატება"
 
-msgid "Check Add-on Compatibility"
-msgstr "დამატების თავსებადობის შემოწმება"
+msgid "Icons must be either PNG or JPG."
+msgstr "ხატულები უნდა იყოს PNG ან JPG."
+
+msgid "Icons cannot be animated."
+msgstr "ხატულები არ იმოძრავებს."
 
 #, python-format
 msgid "Images cannot be larger than %dKB."
@@ -2616,6 +2556,18 @@ msgstr "სურათის მოცულობა არ უნდა ა�
 #. L10n: {0} is an image width (in pixels), {1} is a height.
 msgid "Image must be exactly {0} pixels wide and {1} pixels tall."
 msgstr "სურათი უნდა იყოს ზუსტად {0} პიქსელის სიგრძის და {1} პიქსელის სიმაღლის."
+
+msgid "Image must be at least {0} pixels wide and {1} pixels tall."
+msgstr "სურათი უნდა იყოს ზუსტად {0} პიქსელის სიგრძის და {1} პიქსელის სიმაღლის."
+
+msgid "Image dimensions must be in the ratio 4:3."
+msgstr "სურათი ზომების შეფარდება უნდა იყოს 4:3."
+
+msgid "Icon must be at least {0} pixels wide and tall."
+msgstr "სურათი უნდა იყოს სულ მცირე {0} პიქსელის სიგრძისა და სიმაღლის."
+
+msgid "Icon must be square (same width and height)."
+msgstr "ხატულა უნდა იყოს კვადარტული (ტოლი სიგანითა და სიმაღლით)."
 
 msgid "There was an error uploading your preview."
 msgstr "წინასწარი ვერსიის ატვირთვისას მოხდა შეცდომა."
@@ -2634,6 +2586,45 @@ msgstr "%s ვერსია ხელახლაა ჩართული."
 
 msgid "This upload has failed validation, and may lack complete validation results. Please take due care when reviewing it."
 msgstr "ატვირთვის დამოწმება ვერ მოხერხდა და შეიძლება, საბოლოო დამოწმების შედეგებზე, გავლენა მოახდინოს. გთხოვთ გაითვალისწინოთ ეს, მიმოხილვისას."
+
+msgid "Header area background"
+msgstr "ზედა ნაწილის ფონი"
+
+msgid "The color of the header area background, displayed in the part of the header not covered or visible through the header image. Manifest field:  accentcolor."
+msgstr "ზედა ნაწილის ფონის ფერი, გამოჩნდება იმ ადგილებში, რომელსაც სურათი არ დაფარავს. Manifest ველი:  accentcolor."
+
+msgid "Header area text and icons"
+msgstr "ზედა ნაწილის ტექსტი"
+
+msgid "The color of the text and icons in the header area, except the active tab. Manifest field:  textcolor."
+msgstr "ზედა ნაწილში არსებული წარწერის და ხატულების ფერი, მოხქმედი ჩანართის გარდა. მანიფესტის ველი:  textcolor."
+
+msgid "Toolbar area background"
+msgstr "ხელსაწყოთა ზოლის ფონი"
+
+msgid "The background color for the navigation bar, the bookmarks bar, and the selected tab.  Manifest field:  toolbar."
+msgstr "ფონის ფერი გადასაადგილებელი ღილაკებისთვის, სანიშნების ზოლისა და არჩეული ჩანართისთვის.  მანიფესტის ველი:  toolbar."
+
+msgid "Toolbar area text and icons"
+msgstr "ხელსაწყოთა ზოლის ტექსტი და ხატულები"
+
+msgid "The color of the text and icons in the toolbar and the active tab. Manifest field:  toolbar_text."
+msgstr "ხელსაწყოთა ზოლის ველებში და მოქმედ ჩანართზე არსებული ტექსტის და ხატულების ფერი. მანიფესტის ველი:  toolbar_field_text."
+
+msgid "Toolbar field area background"
+msgstr "ხელსაწყოთა ზოლზე არსებული ველების ფონი"
+
+msgid "The background color for fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field."
+msgstr "ხელსაწყოთა ზოლზე არსებული ველების ფონის ფერი, მაგალითად, მისამართების ჩასაწერი ველის. მანიფესტის ველი:  toolbar_field."
+
+msgid "Toolbar field area text"
+msgstr "ხელსაწყოთა ზოლის ველებში არსებული ტექსტი"
+
+msgid "The color of text in fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field_text."
+msgstr "ხელსაწყოთა ზოლის ველებში არსებული ტექსტის ფერი, მაგალითად მისამართების ველის. მანიფესტის ველი:  toolbar_field_text."
+
+msgid "Please check the form for errors."
+msgstr "გთხოვთ შეამოწმოთ ველები შეცდომებზე."
 
 msgid "Review requested."
 msgstr "საჭიროებს განხილვას."
@@ -2701,14 +2692,11 @@ msgstr "გაფართოების შემუშავება"
 msgid "Lightweight Themes"
 msgstr "მსუბუქი თემები"
 
-msgid "Add-on Policies"
-msgstr "დამატების დებულებები"
+msgid "Developer Policies"
+msgstr "შემმუშავებლის დებულებები"
 
 msgid "Add-on Validator"
 msgstr "დამატების შემმოწმებელი"
-
-msgid "Add-on Compatibility Checker"
-msgstr "დამატების თავსებადობის დამდგენი"
 
 msgid "Development Add-ons"
 msgstr "დამატებების შემუშავება"
@@ -2732,14 +2720,7 @@ msgid "Search"
 msgstr "ძიება"
 
 msgid "Use the field below to upload your add-on package."
-msgstr "დამატების პაკეტის ასატვირთად გამოიყენეთ ქვემოთ მოცემული ველი."
-
-#, python-format
-msgid "Note that this tool only works with legacy add-ons. WebExtension APIs are thoroughly <a href=\"%(webext_doc_url)s\">documented here</a>."
-msgstr "გაითვალისწინეთ, რომ ეს ხელსაწყო მუშაობს, მხოლოდ ძველ დამატებებთან. WebExtension API-ებზე, ვრცლად <a href=\"%(webext_doc_url)s\">იხილეთ აქ</a>."
-
-msgid "After upload, a series of automated validation tests will run to check compatibility with the following application version:"
-msgstr "ატვირთვის შემდეგ, რიგი ავტომატური შესამოწმებელი ტესტები გაეშვება, მოცემული ვერსიის პროგრამასთან თავსებადობის შესამოწმებლად:"
+msgstr "დამატების ნაკრების ასატვირთად გამოიყენეთ ქვემოთ მოცემული ველი."
 
 msgid "After upload, a series of automated validation tests will be run on your file."
 msgstr "ატვირთვის შემდეგ, რიგი ავტომატური ტესტები გაეშვება, თქვენი ფაილის შესამოწმებლად."
@@ -2756,9 +2737,6 @@ msgstr "შემოწმების შედეგები"
 
 msgid "Validated at:"
 msgstr "შემოწმების თარიღი:"
-
-msgid "Tested for compatibility against:"
-msgstr "შეთავსებადობაზე შემოწმდა ვერსიით:"
 
 msgid "Recent Activity for My Add-ons"
 msgstr "დამატებებთან დაკავშირებული ბოლო მოქმედებები"
@@ -2797,7 +2775,7 @@ msgstr ""
 "<a href=\"#\" class=\"button compat-update\" data-updateurl=\"%(update_url)s\">თავსებადობის განახლება</a> <a href=\"%(version_url)s\" class=\"button\">ახალი ვერსიის ატვირთვა</a> ან <a href=\"#\" "
 "class=\"close\">უგულებელყოფა</a>"
 
-msgid "View and update application compatibility ranges."
+msgid "View and update application compatibility ranges"
 msgstr "გაეცანით და განაახლეთ პროგრამის თავსებადობის ხარისხი."
 
 msgid "Compatibility"
@@ -2808,6 +2786,9 @@ msgstr "თავსებადობის განახლება"
 
 msgid "Adjusting application information here will allow users to install your add-on even if the install manifest in the package indicates that the add-on is incompatible."
 msgstr "პროგრამის მონაცემების აქ მითითება, მომხმარებლებს საშუალებას მისცემს დააყენონ თქვენი დამატება მაშინაც კი, თუ მანიფესტში მითითებულია, რომ დამატება არათავსებადია."
+
+msgid "Application"
+msgstr "პროგრამა"
 
 msgid "Supported Versions"
 msgstr "მხარდაჭერილი ვერსიები"
@@ -2834,8 +2815,8 @@ msgid_plural "<b>{0}</b> themes"
 msgstr[0] "<b>{0}</b> თემა"
 msgstr[1] "<b>{0}</b> თემა"
 
-msgid "Edit Information"
-msgstr "მონაცემების შესწორება"
+msgid "Edit Product Page"
+msgstr "პროდუქტის გვერდის ჩასწორება"
 
 msgid "None"
 msgstr "არცერთი"
@@ -2866,12 +2847,68 @@ msgstr ""
 "საკითხების გადაწყვეტა, მათ შორის სხვა ავტორების დამატება და წაშლა</li> <li><b>შემმუშავებლის:</b> რომელსაც შეეძლება დამატების გამოქვეყნებასთან დაკავშირებული საკითხების გადაწყვეტა, გარდა ავტორების "
 "დამატებისა და წაშლის</li> </ul>"
 
-msgid "Basic Information"
-msgstr "ძირითადი მონაცემები"
+msgid "Additional Details"
+msgstr "დამატებითი მონაცემები"
+
+msgid "Additional Details for {0}"
+msgstr "{0} – დამატებითი მონაცემები"
+
+msgid "Tags help users find your add-on and should be short descriptors such as tabs, toolbar, or twitter. You may have a maximum of {0} tags."
+msgstr "ჭდეები ეხმარება მომხმარებლებს დამატებების ძიებისას და უნდა წარმოადგენდეს მოკლე აღწერას, მაგალითად: „ჩანართები“, „ხელსაწყოები“, ან „twitter“. სულ შეგიძლიათ {0} ჭდის მითითება."
+
+msgid "Comma-separated, minimum of {0} character."
+msgid_plural "Comma-separated, minimum of {0} characters."
+msgstr[0] "მძიმით გამოყოფილი, არანაკლებ {0} სიმბოლოთი."
+msgstr[1] "მძიმით გამოყოფილი, არანაკლებ {0} სიმბოლოთი."
+
+msgid "Example: dark, cinema, noir. Limit 20."
+msgstr "მაგალითად: მუქი, კინო, თრილერი. არაუმეტეს 20 ცალი."
+
+msgid "Reserved tag:"
+msgid_plural "Reserved tags:"
+msgstr[0] "სათადარიგო ჭდეები:"
+msgstr[1] "სათადარიგო ჭდეები:"
+
+msgid "Contributions URL"
+msgstr "შემოწირულობების URL"
+
+msgid "If you would like to request monetary contributions from your users, set this to a page where they can do so."
+msgstr "თუ გსურთ მომხმარებლებისგან მიიღოთ ფულადი შემოწირულობები, მიუთითეთ გვერდი, სადაც ამას შეძლებენ."
+
+msgid "Default Locale"
+msgstr "ძირითადი ენა"
+
+msgid "Information about your add-on is displayed in this locale unless you override it with a locale-specific translation. It is only relevant for listed add-ons."
+msgstr "დამატების შესახებ ინფორმაცია გამოჩნდება ამ ენაზე, სანამ არ ჩაანაცვლებთ განსაზღვრულ ენაზე თარგმანით. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
+
+msgid "Homepage"
+msgstr "მთავარი გვერდი"
+
+msgid ""
+"If your add-on has another homepage, enter its address here. If your website is localized into other languages multiple translations of this field can be added. It is only relevant for listed add-"
+"ons."
+msgstr ""
+"თუ თქვენს დამატებას აქვს საკუთარი ვებგვერდი, მისამართი შეიყვანეთ აქ. თუ თქვენი ვებ-გვერდი თარგმნილია სხვადასხვა ენებზე, ამ ველში შეიძლება ჩაემატოს თარგმანიც. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
+
+msgid "Describe Add-on"
+msgstr "დამატების აღწერა"
 
 #. {0} is the addon name
-msgid "Basic Information for {0}"
-msgstr "{0} დამატების ძირითადი მონაცემები"
+msgid "Describe {0}"
+msgstr "{0} – აღწერა"
+
+msgid "Name and Summary"
+msgstr "სახელი და შეჯამება"
+
+msgid ""
+"The summary should explain what your add-on does, clearly and concisely. Both the name and summary will appear on your product page and search results. They have a combined maximum length of 70 "
+"characters and a minimum length of 2 characters for each."
+msgstr ""
+"შეჯამება უნდა გადმოსცემდეს, თუ რას აკეთებს თქვენი დამატება, ნათლად და გარკვევით. ორივე, სახელიც და შეჯამებაც გამოჩნდება თქვენი ნამუშევრის გვერდზე და ძიების შედეგებში. ერთიანად ჯამში მათი სიგრძე არ "
+"უნდა აღემატებოდეს 70 სიმბოლოს და თითოეული უნდა შედგებოდეს სულ მცირე 2 სიმბოლოსგან."
+
+msgid "Summary"
+msgstr "შეჯამება"
 
 msgid "Add-on URL"
 msgstr "დამატების URL"
@@ -2882,8 +2919,8 @@ msgstr "შეარჩიეთ მოკლე, უნიკალური UR
 msgid "View Listing"
 msgstr "იხილეთ საიტზე"
 
-msgid "Summary"
-msgstr "შეჯამება"
+msgid "View Product Page"
+msgstr "ნამუშევრის გვერდის ნახვა"
 
 msgid "This summary should clearly explain what your add-on does. It will be shown in listings and searches, and it will be used by reviewers to test your add-on."
 msgstr "ეს შეჯამება ნათლად აჩვენებს თქვენი დამატების რაობას. იგი გამოჩნდება საიტსა და ძიებებში, მიმომხილველები კი გამოიყენებენ თქვენი დამატების გამოცდის დროს."
@@ -2892,7 +2929,7 @@ msgid "Experimental?"
 msgstr "საცდელია?"
 
 msgid "If your add-on on is experimental or otherwise not ready for general use.  The add-on will be listed but will have reduced visibility. "
-msgstr "თუ თქვენი დამატება საცდელია, ან არაა მზად საბოლოო მოხმარებისთვის.  დამატება გამოქვეყნდება, მაგრამ იქნება ნაკლებად შესამჩნევი. "
+msgstr "თუ თქვენი დამატება საცდელია ან არაა მზად საბოლოო მოხმარებისთვის.  დამატება გამოქვეყნდება, მაგრამ იქნება ნაკლებად შესამჩნევი. "
 
 msgid "This add-on is experimental."
 msgstr "ეს დამატება საცდელია"
@@ -2924,63 +2961,6 @@ msgstr "კატეგორიის შეცვლა შეუძლებ�
 msgid "Categories cannot be changed while your add-on is featured. Please email <a href=\"mailto:%(email)s\">%(email)s</a> if there is a reason you need to modify your categories."
 msgstr "კატეგორიის შეცვლა შეუძლებელია, როცა დამატება რჩეულადაა მიჩნეული. გთხოვთ მოგვწეროთ <a href=\"mailto:%(email)s\">%(email)s</a> ელფოსტაზე მიზეზი, თუ რატომ გსურთ, კატეგორიის შეცვლა."
 
-msgid "Tags help users find your add-on and should be short descriptors such as tabs, toolbar, or twitter. You may have a maximum of {0} tags."
-msgstr "ჭდეები ეხმარება მომხმარებლებს დამატებების ძიებისას და უნდა წარმოადგენდეს მოკლე აღწერას, მაგალითად: „ჩანართები“, „ხელსაწყოები“, ან „twitter“. სულ შეგიძლიათ {0} ჭდის მითითება."
-
-msgid "Comma-separated, minimum of {0} character."
-msgid_plural "Comma-separated, minimum of {0} characters."
-msgstr[0] "მძიმით გამოყოფილი, არანაკლებ {0} სიმბოლოთი."
-msgstr[1] "მძიმით გამოყოფილი, არანაკლებ {0} სიმბოლოთი."
-
-msgid "Example: dark, cinema, noir. Limit 20."
-msgstr "მაგალითად: მუქი, კინო, თრილერი. არაუმეტეს 20 ცალი."
-
-msgid "Reserved tag:"
-msgid_plural "Reserved tags:"
-msgstr[0] "სათადარიგო ჭდეები:"
-msgstr[1] "სათადარიგო ჭდეები:"
-
-msgid "Contributions URL"
-msgstr "შემოწირულობების URL"
-
-msgid "If you would like to request monetary contributions from your users, set this to a page where they can do so."
-msgstr "თუ გსურთ მომხმარებლებისგან მიიღოთ ფულადი შემოწირულობები, მიუთითეთ გვერდი, სადაც ამას შეძლებენ."
-
-msgid "Add-on Details"
-msgstr "დამატების მონაცემები"
-
-msgid "Add-on Details for {0}"
-msgstr "{0} დამატების მონაცემები"
-
-msgid "A longer explanation of features, functionality, and other relevant information. This field is only displayed on the add-on's details page. It is only relevant for listed add-ons."
-msgstr ""
-"ვრცელი განმარტება ფუნქციების და შესაძლებლობების, ასევე დამატებითი საჭირო ინფორმაცია. მოცემული ველი გამოჩნდება მხოლოდ დამატების სრული მონაცემების გვერდზე. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
-
-msgid "Default Locale"
-msgstr "ძირითადი ენა"
-
-msgid "Information about your add-on is displayed in this locale unless you override it with a locale-specific translation. It is only relevant for listed add-ons."
-msgstr "დამატების შესახებ ინფორმაცია გამოჩნდება ამ ენაზე, სანამ არ ჩაანაცვლებთ განსაზღვრულ ენაზე თარგმანით. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
-
-msgid "Homepage"
-msgstr "მთავარი გვერდი"
-
-msgid ""
-"If your add-on has another homepage, enter its address here. If your website is localized into other languages multiple translations of this field can be added. It is only relevant for listed add-"
-"ons."
-msgstr ""
-"თუ თქვენს დამატებას აქვს საკუთარი ვებგვერდი, მისამართი შეიყვანეთ აქ. თუ თქვენი ვებ-გვერდი თარგმნილია სხვადასხვა ენებზე, ამ ველში შეიძლება ჩაემატოს თარგმანიც. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
-
-msgid "Images"
-msgstr "სურათები"
-
-msgid "Support Information"
-msgstr "დამხმარე ინფორმაცია"
-
-#. {0} is an addon name
-msgid "Support Information for {0}"
-msgstr "დამხმარე ინფორმაცია {0}-ისთვის"
-
 msgid "Email"
 msgstr "ელფოსტა"
 
@@ -3001,6 +2981,9 @@ msgstr ""
 "თუ თქვენს დამატებას აქვს განსახილველი საიტი ან ფორუმი, მისამართი შეიყვანეთ აქ. თუ თქვენი ვებგვერდი თარგმნილია სხვადასხვა ენებზე, ამ ველში შეიძლება ჩაემატოს თარგმანიც. ეხება, მხოლოდ გამოქვეყნებულ "
 "დამატებებს."
 
+msgid "Images"
+msgstr "სურათები"
+
 msgid "Technical Details"
 msgstr "ტექნიკური მონაცემები"
 
@@ -3017,21 +3000,6 @@ msgid ""
 msgstr ""
 "ნებისმიერი სახის ინფორმაცია, რომელიც გსურთ მიაწოდოთ მომხმარებლებს და რომლის მითითებაც არაა აუცილებელი დამატების მონაცემებსა და აღწერაში. ჩვეულებრივ, ეს შეიძლება იყოს ცნობილი ხარვეზების სია, "
 "პრობლემის შესახებ მოხსენების გაგზავნის გზები, ახალი ვერსიის გამოშვების თარიღის დაანონსება და ა.შ. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
-
-msgid "Required Add-ons"
-msgstr "საჭირო დამატებები"
-
-msgid "Limit 3"
-msgstr "შეზღუდვა 3"
-
-msgid "Add-on Flags"
-msgstr "დამატების მონიშვნები"
-
-msgid "These flags are used to classify add-ons. It is only relevant for listed add-ons."
-msgstr "ეს მონიშვნები გამოიყენება დამატებების დასაჯგუფებლად. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
-
-msgid "This add-on requires external software."
-msgstr "ამ დამატებას ესაჭიროება გარე პროგრამა."
 
 msgid "View Source?"
 msgstr "წყაროს ნახვა?"
@@ -3057,18 +3025,6 @@ msgstr "ამ დამატების სტატისტიკა სა
 msgid "No, this add-on's stats are not publicly viewable."
 msgstr "არა, ამ დამატების სტატისტიკა, არაა საჯაროდ ხელმისაწვდომი."
 
-msgid "Upgrade SDK?"
-msgstr "SDK-ს განახლება?"
-
-msgid "If selected, we will try to automatically upgrade your add-on when a new version of the SDK is released. It is only relevant for listed add-ons."
-msgstr "თუ მონიშნულია, ჩვენ შევეცდებით ავტომატურად განვაახლოთ თქვენი დამატება, SDK -ს ახალი ვერსიის გამოსვლისთანავე. ეხება, მხოლოდ გამოქვეყნებულ დამატებებს."
-
-msgid "This add-on will be automatically upgraded to new versions of the Add-on SDK."
-msgstr "ეს დამატება ავტომატურად განახლდება დამატების SDK-ს ახალ ვერსიაზე."
-
-msgid "No, this add-on will be upgraded manually."
-msgstr "არა, ეს დამატება განახლდება ხელით."
-
 msgid "Universally unique identifier"
 msgstr "ყოვლისმომცველი უნიკალური მოწმობა"
 
@@ -3087,12 +3043,6 @@ msgid ""
 msgstr ""
 "შენიშვნების გვერდი არის ადგილი, სადაც შეიძლება განთავსდეს თქვენს დამატებასთან დაკავშირებული ინფორმაცია, ვერსიის განურჩევლად. გამოიყენეთ დამატების გამოცდის გზებისა და სხვა საჭირო ინფორმაციის "
 "მისათითებლად. არსებული ინფორმაციის შეცვლა, შეეძლებათ შემსწორებლებს."
-
-msgid "Remove this dependent add-on"
-msgstr "დაქვემდებარებული დამატების ამოშლა"
-
-msgid "Enter the name of an add-on"
-msgstr "დამატების სახელის მითითება"
 
 msgid "Add-on Media for {0}"
 msgstr "მედია დამატება {0}-სთვის"
@@ -3124,11 +3074,24 @@ msgstr "64x64px"
 msgid "Used in add-on detail pages."
 msgstr "გამოჩნდება დამატებების მთავარ გვერდზე."
 
+#. The size of the icon
+msgid "128x128px"
+msgstr "128x128 პიქსელი"
+
+msgid "Will be the standard in future add-on detail pages."
+msgstr "განკუთვნილი იქნება დამატების მთავარ გვერდზე წარმოსადგენად."
+
 msgid "Upload a Custom Icon..."
 msgstr "საკუთარი ხატულის ატვირთვა..."
 
-msgid "PNG and JPG supported. Icons resized to 64x64 pixels if larger."
-msgstr "მხარდაჭერილია PNG და JPG. ზომების გადაჭარბების შემთხვევაში, ხატულის სიგრძე/სიმაღლე, შემცირდება 64x64 პიქსელამდე."
+msgid "PNG and JPG supported."
+msgstr "მხარდაჭერილია PNG და JPG."
+
+msgid "Icons must be square and a minimum size of 128x128 pixels."
+msgstr "ხატულები უნდა იყოს კვადრატული და სულ მცირე 128x128 ზომის."
+
+msgid "Icons will be resized to 128x128 pixels if larger."
+msgstr "ხატულები დაპატარავდება 128x128 პიქსელამდე, დაშვებული ზომის გადაჭარბებისას."
 
 msgid "Screenshots"
 msgstr "ეკრანის სურათები"
@@ -3142,12 +3105,14 @@ msgstr "გთხოვთ მიუთითოთ წარწერა, ს�
 msgid "Add a Screenshot..."
 msgstr "სურათების დამატება..."
 
-msgid ""
-"PNG and JPG supported. The maximum and recommended size for screenshots is 1280x800 pixels. 640x400 pixels is a good alternative if you only have smaller images. Having screenshots in your listing "
-"page greatly increases its chances of being installed and being featured in the homepage."
-msgstr ""
-"მხარდაჭერილია PNG და JPG. ეკრანის სურათების უმაღლესი დასაშვები და ამასთანავე სასურველი ზომაა 1280x800 პიქსელი, სანაცვლოდ 640x400 პიქსელიც მისაღებია, თუ შედარებით პატარა ზომის სურათები გაქვთ. "
-"სურათების არსებობა დამატებების ჩამონათვალში, საგრძნობლად ზრდის მისი გამოყენების ალბათობას და მომავალში მთავარ გვერდზე, რჩეულებში მოხვედრის საწინდარიცაა."
+msgid "PNG and JPG supported, PNG recommended. The maximum and recommended size for screenshots is 2400x1800 pixels."
+msgstr "PNG და JPG მხარდაჭერილია, PNG მეტად სასურველია. სურათის ზომა არ უნდა აღემატებოდეს და სასურველია შეადგენდეს 2400x1800 პიქსელს."
+
+msgid "Minimum size is 1000x750, and a ratio of 4:3 is required."
+msgstr "უმცირესი ზომაა 1000x750, ხოლო ფარდობა უნდა იყოს 4:3."
+
+msgid "Having screenshots in your product page greatly increases its chances of being installed and being featured in the homepage."
+msgstr "თქვენი ნამუშევრის გვერდზე სურათის დამატება მნიშვნელოვნად გაზრდის მისი გამოყენების მსურველთა რაოდენობას და მთავარ გვერდზე მოხვედრის ალბათობას."
 
 msgid "Continue"
 msgstr "გაგრძელება"
@@ -3175,9 +3140,6 @@ msgstr "სხვა ლიცენზიის არჩევა."
 
 msgid "More information on Creative Commons licenses"
 msgstr "ვრცლად, Creative Commons ლიცენზიების შესახებ"
-
-msgid "Tests"
-msgstr "შემოწმება"
 
 msgid "General Tests"
 msgstr "ზოგადი შემოწმება"
@@ -3231,8 +3193,8 @@ msgstr "გთხოვთ გვაცნობოთ მიზეზი, რ�
 msgid "Actions"
 msgstr "მოქმედებები"
 
-msgid "Resume the submission process for this add-on."
-msgstr "დამატების წარდგენის პროცესის გაგრძელება."
+msgid "Resume the submission process for this add-on"
+msgstr "დამატების წარდგენის გაგრძელება"
 
 msgid "Resume"
 msgstr "გაგრძელება"
@@ -3243,17 +3205,17 @@ msgstr "დამატების წაშლა"
 msgid "Delete"
 msgstr "წაშლა"
 
-msgid "Edit information about this add-on."
-msgstr "დამატების მონაცემების შესწორება."
+msgid "Edit details on this add-on's product page"
+msgstr "მონაცემების ჩასწორება დამატების გვერდზე"
 
-msgid "Upload a new version of this add-on."
-msgstr "დამატების ახალი ვერსიის ატვირთვა."
+msgid "Upload a new version of this add-on"
+msgstr "დამატების ახალი ვერსიის ატვირთვა"
 
 msgid "New Version"
 msgstr "ახალი ვერსია"
 
-msgid "Daily statistics on downloads and users."
-msgstr "ჩამოტვირთვებისა და მომხმარებლების დღიური სტატისტიკა."
+msgid "Daily statistics on downloads and users"
+msgstr "ჩამოტვირთვებისა და მომხმარებლების დღიური სტატისტიკა"
 
 msgid "Statistics"
 msgstr "სტატისტიკური მონაცემები"
@@ -3261,31 +3223,25 @@ msgstr "სტატისტიკური მონაცემები"
 msgid "Manage Status & Versions"
 msgstr "მდგომარეობისა და ვერსიების მართვა"
 
-msgid "View Add-on Listing"
-msgstr "დამატებების ნახვა საიტზე"
-
 msgid "View Recent Changes"
 msgstr "ბოლო ცვლილებების ნახვა"
 
-msgid "Edit details about this theme's listing."
-msgstr "მონაცემების ჩასწორება, თემების გვერდზე."
+msgid "Edit details on this theme's product page"
+msgstr "მონაცემების ჩასწორება თემის გვერდზე"
 
-msgid "Edit Listing"
-msgstr "გვერდის ჩასწორება"
-
-msgid "View the popularity of this theme over time."
-msgstr "ყველა დროის სასურველი გაფორმებების ნახვა."
+msgid "View the popularity of this theme over time"
+msgstr "ამ გაფორმების გამოყენების სიხშირის ნახვა დროის მიხედვით"
 
 msgid "View Statistics"
 msgstr "სტატისტიკის ნახვა"
 
-msgid "Change the owner of this theme."
-msgstr "თემის მფლობელის შეცვლა."
+msgid "Change the owner of this theme"
+msgstr "თემის მფლობელის შეცვლა"
 
 msgid "Transfer Ownership"
 msgstr "საკუთრების გადაცემა"
 
-msgid "Delete this theme."
+msgid "Delete this theme"
 msgstr "თემის წაშლა"
 
 msgid "This add-on is missing some required information before it can be submitted for publication."
@@ -3313,11 +3269,19 @@ msgstr[1] "<strong>{0}</strong> მოქმედი მომხმარე�
 msgid "Submit a New Version"
 msgstr "ახალი ვერსიის წარდგენა"
 
-msgid "Describe Add-on"
-msgstr "დამატების აღწერა"
+msgid "Name and Summary:"
+msgstr "სახელი და შეჯამება:"
 
-msgid "Name on listing on this site. May be different to the name inside the add-on, which is shown inside Firefox"
-msgstr "დასახელება საიტზე. შეიძლება განსხვავდებოდეს დამატების იმ დასახელებისგან, რომელიც უშუალოდ Firefox-ში გამოჩნდება"
+msgid "required"
+msgstr "აუცილებელია"
+
+#, python-format
+msgid ""
+"Warning: you have name/summary values in other locales that will be automatically cropped to fit under the limit of %(max_length)s characters.  To edit these go to Edit Product Page after the "
+"submission process is complete."
+msgstr ""
+"ყურადღება: თქვენ გაქვთ სახელის/შეჯამების მნიშვნელობები მითითებული სხვა ენებზე, რომლებიც ავტომატურად მოიჭრება დაშვებულ %(max_length)s სიმბოლომდე.  ამის შესაცვლელად, ჩაასწორეთ მთავარი გვერდი "
+"წარდგენის დასრულების შემდგომ."
 
 msgid "Add-on URL:"
 msgstr "დამატების URL:"
@@ -3325,11 +3289,14 @@ msgstr "დამატების URL:"
 msgid "Please use only letters, numbers, underscores, and dashes in your URL."
 msgstr "გთხოვთ გამოიყენოთ მხოლოდ ასოები, ციფრები, დეფისი და ტირე, თქვენს URL-ბმულში."
 
+msgid "Name on listing on this site. May be different to the name inside the add-on, which is shown inside Firefox"
+msgstr "დასახელება საიტზე. შეიძლება განსხვავდებოდეს დამატების იმ დასახელებისგან, რომელიც უშუალოდ Firefox-ში გამოჩნდება"
+
 msgid "Summary:"
 msgstr "შეჯამება:"
 
-msgid "required"
-msgstr "აუცილებელია"
+msgid "Description:"
+msgstr "აღწერა:"
 
 msgid "This add-on is experimental"
 msgstr "ეს დამატება საცდელია"
@@ -3377,11 +3344,11 @@ msgstr ""
 msgid "These notes will only be visible to you and our reviewers."
 msgstr "შენიშვნები ხილული იქნება მხოლოდ თქვენთვის და ჩვენი მიმომხილველთათვის."
 
-msgid "Cancel and Disable Version"
-msgstr "გაუქმება და ვერსიის შეზღუდვა"
-
 msgid "Submit Version"
 msgstr "ვერსიის გადაგზავნა"
+
+msgid "Cancel and Disable Version"
+msgstr "გაუქმება და ვერსიის შეზღუდვა"
 
 msgid "Describe Version"
 msgstr "ვერსიის აღწერა"
@@ -3529,11 +3496,14 @@ msgstr "დამატების ატვირთვა"
 msgid "Where to Host Version"
 msgstr "სად გსურთ ვერსიის განთავსება"
 
+msgid "Change"
+msgstr "შეცვლა"
+
 msgid "Upload Version"
 msgstr "ვერსიის ატვირთვა"
 
 msgid "Use the fields below to upload your add-on package. After upload, a series of automated validation tests will be run on your file."
-msgstr "გამოიყენეთ ქვემოთ მოცემული ველები დამატების პაკეტის ასატვირთად. ატვირთვის შემდეგ, ავტომატურად დაიწყება თქვენი ფაილის შემოწმება."
+msgstr "გამოიყენეთ ქვემოთ მოცემული ველები დამატების ნაკრები ასატვირთად. ატვირთვის შემდეგ, ავტომატურად დაიწყება თქვენი ფაილის შემოწმება."
 
 msgid "Which applications is this version compatible with?"
 msgstr "რომელ პროგრამებთანაა თავსებადი ეს ვერსია?"
@@ -3555,6 +3525,9 @@ msgstr "თემის დამზადება"
 
 msgid "Theme generator"
 msgstr "თემის დამამზადებელი"
+
+msgid "Warning: the following manifest properties that your most recent version upload used in it's manifest are unsupported in this wizard and will be ignored:"
+msgstr "გაფრთხილება: მანიფესტის მოცემული პარამეტრები, რომლებიც უახლესი ვერსიის ატვირთვისას გამოყენებულია მანიფესტში, არაა მხარდაჭერილი ამ მეგზურში და უგულებელყოფილი იქნება:"
 
 msgid "Theme name"
 msgstr "თემის სახელი"
@@ -3580,56 +3553,20 @@ msgstr "სხვა ზედა სურათის არჩევა"
 msgid "Select colors for your theme"
 msgstr "ფერების შერჩევა თემისთვის"
 
-msgid "Header area background"
-msgstr "ზედა ნაწილის ფონი"
-
-msgid "The color of the header area background, displayed in the part of the header not covered or visible through the header image. Manifest field:  accentcolor."
-msgstr "ზედა ნაწილის ფონის ფერი, გამოჩნდება იმ ადგილებში, რომელსაც სურათი არ დაფარავს. Manifest ველი:  accentcolor."
-
-msgid "Header area text and icons"
-msgstr "ზედა ნაწილის ტექსტი"
-
-msgid "The color of the text and icons in the header area, except the active tab. Manifest field:  textcolor."
-msgstr "ზედა ნაწილში არსებული წარწერის და ხატულების ფერი, მოხქმედი ჩანართის გარდა. მანიფესტის ველი:  textcolor."
-
-msgid "Toolbar area background"
-msgstr "ხელსაწყოთა ზოლის ფონი"
-
-msgid "The background color for the navigation bar, the bookmarks bar, and the selected tab.  Manifest field:  toolbar."
-msgstr "ფონის ფერი გადასაადგილებელი ღილაკებისთვის, სანიშნების ზოლისა და არჩეული ჩანართისთვის.  მანიფესტის ველი:  toolbar."
-
-msgid "Toolbar area text and icons"
-msgstr "ხელსაწყოთა ზოლის ტექსტი და ხატულები"
-
-msgid "The color of the text and icons in the toolbar and the active tab. Manifest field:  toolbar_text."
-msgstr "ხელსაწყოთა ზოლის ველებში და მოქმედ ჩანართზე არსებული ტექსტის და ხატულების ფერი. მანიფესტის ველი:  toolbar_field_text."
-
-msgid "Toolbar field area background"
-msgstr "ხელსაწყოთა ზოლზე არსებული ველების ფონი"
-
-msgid "The background color for fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field."
-msgstr "ხელსაწყოთა ზოლზე არსებული ველების ფონის ფერი, მაგალითად, მისამართების ჩასაწერი ველის. მანიფესტის ველი:  toolbar_field."
-
-msgid "Toolbar field area text"
-msgstr "ხელსაწყოთა ზოლის ველებში არსებული ტექსტი"
-
-msgid "The color of text in fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field_text."
-msgstr "ხელსაწყოთა ზოლის ველებში არსებული ტექსტის ფერი, მაგალითად მისამართების ველის. მანიფესტის ველი:  toolbar_field_text."
-
 msgid "optional"
 msgstr "არასავალდებულო"
 
 msgid "Browser preview"
 msgstr "შეთვალიერება"
 
-msgid "Back"
-msgstr "უკან"
-
 msgid "Uploading Theme"
 msgstr "თემა იტვირთება"
 
 msgid "Finish Theme"
 msgstr "თემის შედგენის დასრულება"
+
+msgid "Back"
+msgstr "უკან"
 
 msgid "API Credentials"
 msgstr "API მონაცემები"
@@ -3690,26 +3627,20 @@ msgid "Created:"
 msgstr "შემქმნელი:"
 
 #. {0} is a date. dennis-ignore: E201,E202,W202
-msgid "Add-on Multi Process Status:"
-msgstr "დამატების მრავალპროცესიანობა:"
-
-msgid "Your add-on compatibility with Multi Process Firefox (e10s)."
-msgstr "თქვენი დამატება თავსებადია მრავალპროცესიან Firefox (e10s) ვერსიასთან."
-
-msgid "Listed on this site after passing code review. Automatic updates are handled by this site."
-msgstr "საიტზე გამოქვეყნდება კოდის მიმოხილვის გავლის შემდეგ. თვითგანახლებები იმართება ამ საიტით."
+msgid "Listed on this site after passing code review. Automatic updates are handled by this site"
+msgstr "საიტზე გამოქვეყნდება კოდის მიმოხილვის გავლის შემდეგ. თვითგანახლებები იმართება ამ საიტით"
 
 msgid "Listed Version:"
 msgstr "გამოქვეყნებული ვერსია:"
 
-msgid "This is the version of your add-on that will be installed if someone clicks the Install button on addons.mozilla.org."
-msgstr "ეს არის თქვენი დამატების ის ვერსია, რომლის ჩადგმის ღილაკზე, ნებისმიერს შეუძლია დაწკაპება და დაყენება, addons.mozilla.org საიტიდან."
+msgid "This is the version of your add-on that will be installed if someone clicks the Install button on addons.mozilla.org"
+msgstr "ესაა თქვენი დამატების ის ვერსია, რომლის ჩადგმის ღილაკზე, ნებისმიერს შეუძლია დაწკაპება და დაყენება, addons.mozilla.org საიტიდან"
 
 msgid "Next Listed Version:"
 msgstr "მომდევნო გამოსაქვეყნებელი ვერსია:"
 
-msgid "This is the newest uploaded version, however it isn’t live on the site yet."
-msgstr "ეს არის ყველაზე ბოლოს ატვირთული ვერსია, სავარაუდოდ, ჯერ არ იქნება საიტზე გამოჩენილი."
+msgid "This is the newest uploaded version, however it isn’t live on the site yet"
+msgstr "ესაა ყველაზე ბოლოს ატვირთული ვერსია, სავარაუდოდ, ჯერ არ იქნება საიტზე გამოჩენილი"
 
 msgid "Queues are not reviewed strictly in order"
 msgstr "განსახილველად გადასაცემთა რიგში, თანმიმდევრობა მკაცრად არ მოწმდება"
@@ -3727,8 +3658,8 @@ msgstr "დამოწმებულია თვითგავრცელ�
 msgid "Latest Version:"
 msgstr "ბოლო ვერსია:"
 
-msgid "This is the newest uploaded unlisted version."
-msgstr "ეს არის ყველაზე ბოლოს ატვირთული, გამოუქვეყნებელი ვერსია."
+msgid "This is the newest uploaded unlisted version"
+msgstr "ესაა ყველაზე ბოლოს ატვირთული, გამოუქვეყნებელი ვერსია"
 
 msgid "Upload New Version"
 msgstr "ახალი ვერსიის ატვირთვა"
@@ -3745,17 +3676,8 @@ msgstr "გამოუქვეყნებლის განსახილ�
 msgid "View Statistics Dashboard"
 msgstr "სტატისტიკური მონაცემების გვერდი"
 
-msgid "Compatibility Reports"
-msgstr "თავსებადობის მოხსენებები"
-
-msgid "{0} failure reports"
-msgstr "{0} მოხსენება წარუმატებლობის შესახებ"
-
-msgid "{0} success reports"
-msgstr "{0} მოხსენება წარმატების შესახებ"
-
 msgid "Developer News"
-msgstr "დეველოპერის სიახლეები"
+msgstr "შემმუშავებლის სიახლეები"
 
 msgid "View the blog &#9658;"
 msgstr "ეწვიეთ სვეტს &#9658;"
@@ -3838,9 +3760,6 @@ msgstr "დაგვიკავშირდით"
 msgid "Support"
 msgstr "მხარდაჭერა"
 
-msgid "Policies"
-msgstr "დებულებები"
-
 msgid "Report Bug"
 msgstr "მოხსენება ხარვეზის შესახებ"
 
@@ -3849,9 +3768,6 @@ msgstr "საიტის მდგომარეობა"
 
 msgid "Web-Ext: build & test extensions"
 msgstr "Web-Ext: შექმენით და გამოცადეთ გაფართოებები"
-
-msgid "Compatibility Checker"
-msgstr "თავსებადობის დამდგენი"
 
 msgid "Promote"
 msgstr "ხელშეწყობა"
@@ -3904,29 +3820,21 @@ msgstr "დამატებების მართვა"
 msgid "Sign In to Edit and Update Your Add-on"
 msgstr "შედით ანგარიშზე, თქვენი დამატებების ჩასასწორებლად და გასაახლებლად"
 
-msgid "Resources for a successful launch"
-msgstr "სასარგებლო მასალები, წარმატებული გაშვებისთვის"
+msgid "Write one code base for many browsers"
+msgstr "დაწერეთ ერთი კოდი მრავალი ბრაუზერისთვის"
 
-#, python-format
 msgid ""
-"You've built your extension and are ready to publish it. What comes next? Check out our tips for creating an appealing listing page, getting your extension featured on %(amo_link_open)saddons."
-"mozilla.org%(amo_link_close)s, finding answers to development questions, and staying up-to-date with news and events relevant to extension developers."
+"With the WebExtensions API, it’s easy to create extensions that will run on Firefox, Chrome, Opera, and Edge with only a few small changes. Learn more about the differences in extension development "
+"between the four major browsers and how you can make your extension cross-browser compatible."
 msgstr ""
-"გაფართოება უკვე შემუშავებულია და მზადაა გამოსაქვეყნებლად. რა იქნება შემდეგ? გაეცანით ჩვენს რჩევებს, მიმზიდველი გვერდის შექმნის თაობაზე, თქვენი გაფართოების შესაძლებლობების სრულად წარმოსაჩენად "
-"%(amo_link_open)saddons.mozilla.org%(amo_link_close)s საიტზე, მოიძიეთ პასუხები შემუშავებასთან დაკავშირებულ კითხვებზე და მუდმივად მიიღეთ სიახლეები, გაფართოებების შემმუშავებლებთან დაკავშირებული "
-"ღონისძიებების შესახებ."
+"WebExtensions API-ით, მარტივადაა შესაძლებელი გაფართოებების შექმნა, რომლებიც გაეშვება Firefox-ზე, Chrome-ზე, Opera-სა და Edge-ზე, მცირე შესწორებების შეტანით. იხილეთ ვრცლად, გაფართოებების შემუშავების "
+"განსხვავებების შესახებ ოთხი ძირითადი ბრაუზერისთვის და როგორ შეგიძლიათ შექმნათ მრავალ ბრაუზერთან თავსებადი გაფართოება."
 
-msgid "View Resources for Publishers"
-msgstr "სასარგებლო მასალები, ნამუშევრის გამოქვეყნებისთვის"
+msgid "View Best Practices for Cross-Browser Development"
+msgstr "იხილეთ საუკეთესო გადაწყვეტები მრავალი ბრაუზერისთვის შესამუშავებლად"
 
 msgid "Welcome Back"
 msgstr "კეთილი იყოს თქვენი დაბრუნება"
-
-msgid "Help users discover your extension by creating an appealing listing."
-msgstr "დაეხმარეთ მომხმარებლებს თქვენი გაფართოების აღმოჩენაში, მიმზიდველი ჩამონათვალის შექმნით."
-
-msgid "Learn How"
-msgstr "გაიგეთ, როგორ"
 
 #, python-format
 msgid "Want your extension to be featured on %(amo_link_open)saddons.mozilla.org%(amo_link_close)s? Our featured extensions policies will tell you what you need to know."
@@ -3935,6 +3843,15 @@ msgstr ""
 
 msgid "Learn More"
 msgstr "იხილეთ ვრცლად"
+
+msgid "You can help users gain confidence and trust in your extension by following our best practices for onboarding users."
+msgstr "მომხმარებლებისგან თქვენი გაფართოების მიმართ ნდობის მოსაპოვებლად, მიჰყევით ჩვენს რჩევებს დამწყებთათვის."
+
+msgid "See Best Practices"
+msgstr "იხილეთ საუკეთესო გადაწყვეტები"
+
+msgid "Listed on this site after passing code review. Automatic updates are handled by this site."
+msgstr "საიტზე გამოქვეყნდება კოდის მიმოხილვის გავლის შემდეგ. თვითგანახლებები იმართება ამ საიტით."
 
 #. {0} is a date. dennis-ignore: E201,E202,W202
 msgid "View All Submissions"
@@ -3991,6 +3908,9 @@ msgstr ""
 "Firefox-ში მხარდაჭერილია WebExtension API-ები, რაც უმეტეს შემთხვევაში თავსებადია Chrome-ის, Opera-სა და Edge-ს API-ებთან, ასე რომ, თქვენი გაფართოება, მცირე ხელის შევლების შედეგად, მარტივად გაეშვება "
 "Firefox-შიც."
 
+msgid "Learn How"
+msgstr "გაიგეთ, როგორ"
+
 msgid "Publish Your Add-on"
 msgstr "გამოაქვეყნეთ თქვენი დამატება"
 
@@ -4021,96 +3941,9 @@ msgstr "პირდაპირი შემოწმება"
 msgid "Temporarily install your extension in Firefox for live testing and debugging."
 msgstr "გაფართოების დროებით დაყენება Firefox-ში, პირდაპირ რეჟიმში შესამოწმებლად და გასამართად."
 
-msgid "Transfer ownership"
-msgstr "საკუთრების გადაცემა"
-
-msgid "Theme Details"
-msgstr "თემის მონაცემები"
-
-msgid "Supply a pretty URL for your detail page."
-msgstr "შეუსაბამეთ სასურველი URL-ბმული თქვენს გვერდს."
-
-msgid "Select the category that best describes your Theme."
-msgstr "მიუთითეთ კატეგორია, რომელიც ყველაზე უკეთ მიესადაგება თქვენს თემას."
-
-msgid "Add some tags to describe your Theme."
-msgstr "დაამატეთ ჭდეები, თემის უკეთ აღწერისთვის."
-
-msgid "A short explanation of your theme's basic functionality that is displayed in search and browse listings, as well as at the top of your theme's details page."
-msgstr "მოკლე აღწერა თქვენი თემის ძირითადი შესაძლებლობების, რომელიც გამოჩნდება საიტზე, ძიებასა და ასევე თქვენი თემის გვერდის დასაწყისში."
-
-msgid "Theme License"
-msgstr "თემის ლიცენზია"
-
-msgid "Can others share your Theme, as long as you're given credit?"
-msgstr "აძლევთ სხვებს უფლებას, გაავრცელონ თქვენი თემა, ავტორის მითითებით?"
-
-msgid "The licensor permits others to copy, distribute, display, and perform the work, including for commercial purposes."
-msgstr "ლიცენზიის მფლობელი ნებას რთავს მსურველებს, გაამრავლონ, გაავრცელონ და გამოიყენონ თავიანთი საჭიროებისამებრ, მათ შორის მოგების მიზნითაც."
-
-msgid "The licensor permits others to copy, distribute, display, and perform the work for non-commercial purposes only."
-msgstr "ლიცენზიის მფლობელი ნებას რთავს მსურველებს, გაამრავლონ, გაავრცელონ და გამოიყენონ თავიანთი საჭიროებისამებრ, მხოლოდ არამომგებიანი დანიშნულებით."
-
-msgid "Can others make commercial use of your Theme?"
-msgstr "აძლევთ სხვებს უფლებას, მოგების მიზნით გამოიყენონ თქვენი თემა?"
-
-msgid "Can others create derivative works from your Theme?"
-msgstr "აძლევთ სხვებს, თქვენი თემის გადამუშავების უფლებას?"
-
-msgid "The licensor permits others to copy, distribute, display and perform the work, as well as make derivative works based on it."
-msgstr "ლიცენზიის მფლობელი ნებას რთავს მსურველებს, გაამრავლონ, გაავრცელონ და გამოიყენონ თავიანთი საჭიროებისამებრ, მათ შორის, გადამუშავებული სახით."
-
-msgid "The licensor permits others to copy, distribute and transmit only unaltered copies of the work — not derivative works based on it."
-msgstr "ლიცენზიის მფლობელი ნებას რთავს მსურველებს, გაამრავლონ, გაავრცელონ და გამოიყენონ თავიანთი საჭიროებისამებრ, მხოლოდ არსებული სახით – გადამუშავების გარეშე."
-
-msgid "Your Theme will be released under the following license:"
-msgstr "თქვენი თემა გამოშვებული იქნება, მოცემული ლიცენზიის ქვეშ:"
-
-msgid "Select a license for your Theme."
-msgstr "აირჩიეთ ლიცენზია თქვენი თემისთვის."
-
-msgid "Theme Design"
-msgstr "თემის გაფორმება"
-
-msgid "Upload New Design"
-msgstr "ახალი იერსახის ატვირთვა"
-
-msgid "Upon upload and form submission, the AMO Team will review your updated design. Your current design will still be public in the meantime."
-msgstr "ატვირთვის და წარდგენისთანავე, AMO-ს გუნდი განიხილავს თქვენ მიერ განახლებულ იერსახეს. გარკვეული დროის განმავლობაში, ისევ არსებული იერსახე იქნება საჯაროდ ხელმისაწვდომი."
-
-msgid "Your previously resubmitted design, which is under pending review."
-msgstr "თქვენ უკვე წარდგენილი გაქვთ ეს იერსახე, რომელიც ელოდება განხილვას."
-
-msgid "Pending Header"
-msgstr "ზედა სურათი ელოდება განხილვას"
-
-msgid "You may update your theme design here once it has been approved."
-msgstr "თემის გაფორმების განახლება შეგეძლებათ აქ, დამოწმების შემდეგ."
-
-msgid "Header"
-msgstr "ზედა სურათი"
-
-msgid "Select colors for your Theme."
-msgstr "ფერების შერჩევა თემისთვის."
-
-msgid "Foreground Text"
-msgstr "წინა პლანზე არსებული ტექსტი"
-
-msgid "This is the color of the tab text."
-msgstr "ჩანართის სათაურის ფერი."
-
-msgid "Background"
-msgstr "ფონი"
-
-msgid "This is the color of the tabs."
-msgstr "ჩანართის ფონის ფერი."
-
-msgid "Your Theme's Name"
-msgstr "თქვენი თემის სახელი"
-
-#, python-format
-msgid "by <a href=\"%(profile_url)s\">%(user)s</a>"
-msgstr "<a href=\"%(profile_url)s\">%(user)s</a>-ისგან"
+#, fuzzy
+msgid "Lightweight Theme editing has been disabled."
+msgstr "მსუბუქი თემები მიმოხილვის ჩანაწერები"
 
 msgid "Create a New Theme"
 msgstr "ახალი თემის შექმნა"
@@ -4121,8 +3954,57 @@ msgstr ""
 "ფონის შემცვლელი თემები, საშუალებას გაძლევთ მარტივად მოარგოთ Firefox-ის იერსახე, თქვენს გემოვნებას. წარადგინეთ საკუთარი ნამუშევარი ქვემოთ, ან <a href=\"%(submit_url)s\">შეიტყვეთ, როგორ ხდება მისი "
 "შექმნა</a>!"
 
+msgid "Theme Details"
+msgstr "თემის მონაცემები"
+
 msgid "Give your Theme a name."
 msgstr "დაარქვით თემას სახელი."
+
+msgid "Supply a pretty URL for your detail page."
+msgstr "შეუსაბამეთ სასურველი URL-ბმული თქვენს გვერდს."
+
+msgid "Select the category that best describes your Theme."
+msgstr "მიუთითეთ კატეგორია, რომელიც ყველაზე უკეთ მიესადაგება თქვენს თემას."
+
+msgid "Add some tags to describe your Theme."
+msgstr "დაამატეთ ჭდეები, თემის უკეთ აღწერისთვის."
+
+msgid "Describe your Theme."
+msgstr "აღწერეთ თქვენი თემა."
+
+msgid "A short explanation of your theme's basic functionality that is displayed in search and browse listings, as well as at the top of your theme's details page"
+msgstr "მოკლე აღწერა თქვენი თემის ძირითადი შესაძლებლობების, რომელიც გამოჩნდება საიტზე, ძიებასა და ასევე თქვენი თემის გვერდის დასაწყისში"
+
+msgid "Theme License"
+msgstr "თემის ლიცენზია"
+
+msgid "Select a license for your Theme."
+msgstr "აირჩიეთ ლიცენზია თქვენი თემისთვის."
+
+msgid "Theme Design"
+msgstr "თემის გაფორმება"
+
+msgid "Select colors for your Theme."
+msgstr "ფერების შერჩევა თემისთვის."
+
+msgid "Foreground Text"
+msgstr "წინა პლანზე არსებული ტექსტი"
+
+msgid "This is the color of the tab text"
+msgstr "ჩანართის სათაურის ფერი"
+
+msgid "Background"
+msgstr "ფონი"
+
+msgid "This is the color of the tabs"
+msgstr "ჩანართის ფონის ფერი"
+
+msgid "Your Theme's Name"
+msgstr "თქვენი თემის სახელი"
+
+#, python-format
+msgid "by <a href=\"%(profile_url)s\">%(user_name)s</a>"
+msgstr "ავტორი: <a href=\"%(profile_url)s\">%(user_name)s</a>"
 
 #, python-format
 msgid ""
@@ -4259,12 +4141,12 @@ msgstr "პასუხი"
 msgid "Listing visibility"
 msgstr "დამატებების ხილულობა"
 
-msgid "{label_open}Visible:{label_close} Visible to everyone on {site_url} and included in search results and listing pages."
+msgid "{label_open}Visible:{label_close} Visible to everyone on {site_url} and included in search results and product pages."
 msgstr "{label_open}ხილული:{label_close} ხილული ყველასთვის {site_url} საიტზე, მათ შორის ძიების შედეგებსა და ცალკეულ გვერდებზე."
 
 msgid ""
-"{label_open}Invisible:{label_close} Won't be included in search results, and its listing page will indicate you disabled it. New version submissions for listing won't be accepted in this state."
-msgstr "{label_open}უხილავი:{label_close} არ გამოჩნდება არც ძიების შედეგებში, ხოლო მის გვერდზე მითითებული იქნება რომ გამორთულია. ამ პირობებში, ახალი წარდგენილი ვერსიები გამოსაქვეყნებლად, არ მიიღება."
+"{label_open}Invisible:{label_close} Won't be included in search results, and its product page will indicate you disabled it. New version submissions for product won't be accepted in this state."
+msgstr "{label_open}უხილავი:{label_close} არ გამოჩნდება ძიების შედეგებში, ხოლო მის გვერდზე მითითებული იქნება რომ მიუწვდომელია. ამ პირობებში, ახალი წარდგენილი ვერსიები გამოსაქვეყნებლად, არ მიიღება."
 
 msgid "Listed versions"
 msgstr "გამოქვეყნებული ვერსიები"
@@ -4289,6 +4171,9 @@ msgstr "ყველა ვერსია"
 
 msgid "Upload a New Version"
 msgstr "ახალი ვერსიის ატვირთვა"
+
+msgid "Version"
+msgstr "ვერსია"
 
 msgid "Delete Version {version}"
 msgstr "{version} ვერსიის წაშლა"
@@ -4753,14 +4638,6 @@ msgid "Get the best coupons automatically applied to your shopping cart at check
 msgstr "შეძენისას საუკეთესოდ შერჩეული ფასდაკლების ბარათის ავტომატური გამოყენება."
 
 #. editorial content for the discovery pane.
-msgid "Swift translations {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "სწრაფი თარგმნა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Translate highlighted text or the entire webpage"
-msgstr "თარგმნეთ მონიშნული ტექსტი ან მთლიანი ვებგვერდი"
-
-#. editorial content for the discovery pane.
 msgid "Improve Reddit {start_sub_heading}with {addon_name}{end_sub_heading}"
 msgstr "გააუმჯობესეთ Reddit {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
@@ -4945,14 +4822,6 @@ msgid "Modify your new tab page to display a beautiful background, set your dail
 msgstr "შეცვალეთ ახალი ჩანართის გვერდი და განათავსეთ სასურველი ფონი, მიუთითეთ ყოველდღიურად შესასრულებელი მიზნები და ა.შ."
 
 #. editorial content for the discovery pane.
-msgid "View images {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "სურათების ნახვა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Brings back the \"View image\" button while searching on Google Images."
-msgstr "„სურათის ნახვის“ ღილაკის დაბრუნება, Google სურათებში ძიებისას."
-
-#. editorial content for the discovery pane.
 msgid "Increase productivity {start_sub_heading}with {addon_name}{end_sub_heading}"
 msgstr "გაზარდეთ სარგებლიანობა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
@@ -5041,14 +4910,6 @@ msgid "Grab images from any website and download them."
 msgstr "აიღეთ და ჩამოტვირთეთ სასურველი სურათები ნებისმიერი ვებსაიტიდან."
 
 #. editorial content for the discovery pane.
-msgid "Mask your location {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "შენიღბეთ თქვენი ადგილმდებარეობა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Disguise your location to throw off trackers and protect your privacy."
-msgstr "დამალეთ თქვენი ადგილმდებარეობა, მეთვალყურეების ასარიდებლად და პირადულობის შესანარჩუნებლად."
-
-#. editorial content for the discovery pane.
 msgid "Self-censor {start_sub_heading}with {addon_name}{end_sub_heading}"
 msgstr "თვითშეზღუდვა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
@@ -5081,28 +4942,12 @@ msgid "Easily customize the built-in privacy settings in Firefox."
 msgstr "მარტივად მოირგეთ Firefox-ის პირადულობის პარამეტრები."
 
 #. editorial content for the discovery pane.
-msgid "Enhance your experience on VK {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "უკეთ გამოიყენეთ VK საიტი {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Remove ads and download audio from VK."
-msgstr "მოაცილეთ რეკლამები და ჩამოტვირთეთ ხმოვანი ფაილები VK-დან."
-
-#. editorial content for the discovery pane.
 msgid "Get instant translations {start_sub_heading}with {addon_name}{end_sub_heading}"
 msgstr "სწრაფი თარგმნა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
 #. editorial content for the discovery pane.
 msgid "Access immediate translation by highlighting text and clicking the button that pops up."
 msgstr "მიიღეთ თარგმანი მყისიერად, ტექსტის მონიშვნითა და ამომხტარ ღილაკზე დაწკაპებით."
-
-#. editorial content for the discovery pane.
-msgid "Customize new tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "მოირგეთ ახალი ჩანართის გვერდი {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Get creative and customize your new tab page by displaying your favorite sites and selecting a theme."
-msgstr "მიუდექით შემოქმედებითად და მოირგეთ ახალი ჩანართის გვერდი, რჩეული საიტებისა და თემის შერჩევით."
 
 #. editorial content for the discovery pane.
 msgid "No more redirects {start_sub_heading}with {addon_name}{end_sub_heading}"
@@ -5169,14 +5014,6 @@ msgid "Reverse image search by leveraging the power of multiple search providers
 msgstr "მოიძიეთ სურათით მსგავსი სურათები, მთელი რიგი საძიებო სისტემების საშუალებით."
 
 #. editorial content for the discovery pane.
-msgid "Save it for later {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "გადაინახეთ სამომავლოდ {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Store web pages to access across devices."
-msgstr "შეინახეთ ვებგვერდები, სხვადასხვა მოწყობილობებიდან წვდომისთვის."
-
-#. editorial content for the discovery pane.
 msgid "Easily select bookmark locations {start_sub_heading}with {addon_name}{end_sub_heading}"
 msgstr "სანიშნების ადგილმდებარეობის მარტივი შერჩევა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
@@ -5203,14 +5040,6 @@ msgstr "გამოყავით ბმულები {start_sub_heading}{ad
 #. editorial content for the discovery pane.
 msgid "Instantly display all links from a webpage in new tabs."
 msgstr "საიტიდან ყველა ბმულის მყისიერად ჩვენება, ახალ ჩანართებში."
-
-#. editorial content for the discovery pane.
-msgid "View documents {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "დოკუმენტების ნახვა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Access PDFs using your preferred PDF application."
-msgstr "იხილეთ PDF ფაილები მითითებული PDF პროგრამით."
 
 #. editorial content for the discovery pane.
 msgid "Skip redirects & trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
@@ -5267,14 +5096,6 @@ msgstr "წაშალეთ მონაცემები {start_sub_heading}
 #. editorial content for the discovery pane.
 msgid "Clear your browser cache with a click or keystroke."
 msgstr "გაასუფთავეთ ბრაუზერში საიტის მონაცემები ერთი ღილაკით ან ერთი დაწკაპებით."
-
-#. editorial content for the discovery pane.
-msgid "Never forget again {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "აღარაფერი დაგავიწყდებათ {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Create and manage a to-do list in your browser."
-msgstr "შექმენით და მართეთ გასაკეთებელი საქმეების სიები თქვენს ბრაუზერში."
 
 #. editorial content for the discovery pane.
 msgid "Highlight text {start_sub_heading}with {addon_name}{end_sub_heading}"
@@ -5341,14 +5162,6 @@ msgid "Store passwords securely and sign in to known websites automatically."
 msgstr "შეინახეთ პაროლები უსაფრთხოდ და შედით ანგარიშზე ავტომატურად, დამახსოვრებულ საიტებზე."
 
 #. editorial content for the discovery pane.
-msgid "Block ads & tracking {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "შეზღუდეთ რეკლამები და თვალყურის დევნება {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Protect your privacy by blocking ads and trackers (plus, you'll speed up page loads)."
-msgstr "დაიცავით თქვენი პირადი მონაცემები რეკლამებისა და მეთვალყურეების შეზღუდვით (თან გაზრდით გვერდის გახსნის სიჩქარეს)."
-
-#. editorial content for the discovery pane.
 msgid "Fill forms automatically {start_sub_heading}with {addon_name}{end_sub_heading}"
 msgstr "შეავსეთ ველები ავტომატურად {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
@@ -5405,20 +5218,12 @@ msgid "When looking at product pages on other online shops, if it's also availab
 msgstr "შესაძენი საქონლის სხვა ინტერნეტ-მაღაზიებში თვალიერებისას, თუ იგი Amazon მაღაზიაშიცაა ხელმისაწვდომი, მარტივი დაწკაპებით შეგეძლებათ იხილოთ Amazon-ის ჩამონათვალში."
 
 #. editorial content for the discovery pane.
-msgid "Tweet it out {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "დატვიტეთ {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Easily broadcast web content to your Twitter following."
-msgstr "მარტივად გააცანით სასურველი ვებშიგთავსი თქვენს მიმდევრებს ტვიტერზე."
-
-#. editorial content for the discovery pane.
 msgid "Ultimate tab control {start_sub_heading}with {addon_name}{end_sub_heading}"
 msgstr "ჩანართების გაუმჯობესებული მართვა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
 #. editorial content for the discovery pane.
 msgid "So many tab control options—close duplicate tabs, merge windows, copy the tab title, and more."
-msgstr "უამრავი დამატებითი შესაძლებლობა ჩანართების მართვისას — ერთნაირი ჩანართების დახურვა, ფანჯრების გაერთიანება, ჩანართის დასახელების დაკოპირება და ა.შ."
+msgstr "უამრავი დამატებითი შესაძლებლობა ჩანართების მართვისას — ერთნაირი ჩანართების დახურვა, ფანჯრების გაერთიანება, ჩანართის დასახელების ასლის აღება და ა.შ."
 
 #. editorial content for the discovery pane.
 msgid "Enjoy a strange education {start_sub_heading}with {addon_name}{end_sub_heading}"
@@ -5463,14 +5268,6 @@ msgstr "მარტივი წვდომა გახსნილ ჩან
 #. editorial content for the discovery pane.
 msgid "Lots of open tabs? Skip the scrolling and search via keyboard shortcuts."
 msgstr "უამრავი ჩანართია გახსნილი? სასურველი მონახეთ კლავიატურის მალსახმობებით, დაუსრულებლად გადაადგილების ნაცვლად."
-
-#. editorial content for the discovery pane.
-msgid "Explore what's beneath {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "გამოიკვლიეთ სიღრმეები {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Uncover the software that supports whatever website you're visiting."
-msgstr "გაეცანით, თუ რა ტექნოლოგიები, პროგრამები და სისტემებია გამოყენებული ვებსაიტზე, რომელსაც ნახულობთ."
 
 #. editorial content for the discovery pane.
 msgid "Prevent redirects & tracking {start_sub_heading}with {addon_name}{end_sub_heading}"
@@ -5578,7 +5375,7 @@ msgstr "პირადი სანიშნების პაროლით 
 
 #. editorial content for the discovery pane.
 msgid "Prevent IP address leaks {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "IP მისამართის გაჟონვის არიდება {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
+msgstr "IP-მისამართის გამჟღავნების არიდება {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
 
 #. editorial content for the discovery pane.
 msgid "Do you use a VPN? Your IP address may leak. Put a stop to that by disabling WebRTC."
@@ -5606,7 +5403,7 @@ msgstr "მოქმედებების გამარტივება {
 
 #. editorial content for the discovery pane.
 msgid "Just drag text, images, or links to perform actions like copy, open, search, and more."
-msgstr "უბრალოდ გადააადგილეთ ტექსტი, სურათები ან ბმულები ისეთი მოქმედებების შესასრულებლად, როგორიცაა დაკოპირება, ახალ გვერდზე გახსნა, მოძიება და ა.შ."
+msgstr "უბრალოდ გადააადგილეთ ტექსტი, სურათები ან ბმულები ისეთი მოქმედებების შესასრულებლად, როგორიცაა ასლის აღება, ახალ გვერდზე გახსნა, მოძიება და ა.შ."
 
 #. editorial content for the discovery pane.
 msgid "Harness the ability to download video and/or audio in multiple formats."
@@ -5668,6 +5465,38 @@ msgstr "დამალეთ კვალი {start_sub_heading}{addon_name} �
 msgid "Search with more security with tracker blocking, smarter encryption, private search, and other essentials."
 msgstr "მოიძიეთ მეტად უსაფრთხოდ მეთვალყურეების შეზღუდვით, ჭკვიანური დაშიფვრით, დაცული ძიებითა და სხვა საშუალებებით."
 
+#. editorial content for the discovery pane.
+msgid "Simplify tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr "მოსახერხებელი ჩანართები {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
+
+#. editorial content for the discovery pane.
+msgid "Organize your many open tabs in a vertical sidebar."
+msgstr "განალაგეთ გახსნილი ჩანართები შვეულად, გვერდით ზოლზე."
+
+#. editorial content for the discovery pane.
+msgid "Advanced cookie management {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr "ფუნთუშების გაუმჯობესებული მართვა {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
+
+#. editorial content for the discovery pane.
+msgid "Automatically delete unwanted cookies. Offers white and blacklist support."
+msgstr "ავტომატურად წაშალეთ არასასურველი ფუნთუშები. გააჩნია შეზღუდვებისა და გამონაკლისების დამატების შესაძლებლობა."
+
+#. editorial content for the discovery pane.
+msgid "See the big picture {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr "იხილეთ სრული ზომით {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
+
+#. editorial content for the discovery pane.
+msgid "With a mouse click you can watch videos in full screen glory."
+msgstr "თაგვის ერთი დაწკაპებით შეგიძლიათ უყუროთ ვიდეოებს სრულ ეკრანზე."
+
+#. editorial content for the discovery pane.
+msgid "Save memory with {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr "დაზოგეთ მეხსიერება {start_sub_heading}{addon_name} დამატების დახმარებით{end_sub_heading}"
+
+#. editorial content for the discovery pane.
+msgid "Stop wasting valuable memory space with inactive tabs."
+msgstr "შეწყვიტეთ საჭირო მეხსიერების უაზრო ხარჯვა, უქმი ჩანართებისთვის."
+
 #, python-format
 msgid "File viewer is locked, extraction for %s could be in progress. Please try again in approximately 5 minutes."
 msgstr "ფაილის მნახველი შეზღუდულია, მიმდინარეობს %s-იდან მონაცემები ამოღება. გთხოვთ სცადოთ ხელახლა, დაახლოებით 5 წუთში."
@@ -5695,30 +5524,27 @@ msgstr "ეს ფაილი წარმოადგენს საქაღ
 msgid "Cannot diff a version against itself"
 msgstr "diff ვერსიის საკუთარ თავთან შეპირისპირება შეუძლებელია"
 
-msgid "Access your data for {name}"
-msgstr "თქვენს მონაცემებთან წვდომა {name}-ზე"
-
-msgid "Access your data on the following websites:"
-msgstr "თქვენს მონაცემებთან წვდომა, შემდეგ საიტებზე:"
-
-msgid "Access your data for all websites"
-msgstr "თქვენს მონაცემებთან წვდომა ყველა საიტზე"
-
 msgid "GUID is required for Firefox 47 and below."
 msgstr "GUID აუცილებელია Firefox 47 და უფრო ძველ ვერსიებზე."
 
 msgid "Lowest supported \"strict_min_version\" is 42.0."
 msgstr "უმცირესი მხარდაჭერილი \"strict_min_version\" არის 42.0."
 
-msgid "Cannot find min/max version. Maybe \"strict_min_version\" or \"strict_max_version\" contains an unsupported version?"
-msgstr "უმცირესი/უდიდესი ვერსიების დადგენა ვერ მოხერხდა. იქნებ \"strict_min_version\" ან \"strict_max_version\" მხარდაუჭერელ ვერსიებს შეიცავს?"
-
 #, python-format
 msgid "Could not parse uploaded file, missing or empty <%s> element"
 msgstr "ატვირთული ფაილის დამუშავება ვერ მოხერხდა, <%s> ელემენტი აკლია, ან ცარიელია"
 
+msgid "OpenSearch: XML Security error."
+msgstr "OpenSearch: XML უსაფრთხოების შეცდომა."
+
+msgid "OpenSearch: XML Parse Error."
+msgstr "OpenSearch: XML დამუშავების შეცდომა."
+
 msgid "Could not parse uploaded file."
 msgstr "ატვირთული ფაილის დამუშავება ვერ მოხერხდა."
+
+msgid "Unsupported archive type."
+msgstr "მხარდაუჭერელი სახის არქივი."
 
 #. L10n: {0} is the name of the invalid file.
 msgid "Invalid file name in archive. Please make sure all filenames are utf-8 or latin1 encoded."
@@ -5766,12 +5592,15 @@ msgstr "არ შეგიძლიათ დამატების წარ
 msgid "You cannot submit a Mozilla Signed Extension"
 msgstr "Mozilla-ს მიერ დამოწმებული გაფართოების წარდგენა არ შეგიძლიათ"
 
+msgid "Unsupported file type, please upload an a supported file {extensions}."
+msgstr "მხარდაუჭერელი სახის ფაილი, გთხოვთ ატვირთოთ მხარდაჭერილი სახის ფაილი {extensions}."
+
 msgid "Unexpected error."
 msgstr "მოულოდნელი შეცდომა."
 
 #, python-format
-msgid "<em:type> in your install.rdf (%s) does not match the type of your add-on on AMO (%s)"
-msgstr "<em:type> თქვენს intall.rdf (%s) ფაილში, არ ემთხვევა თქვენი დამატების ტიპს AMO საიტზე (%s)"
+msgid "The type (%s) does not match the type of your add-on on AMO (%s)"
+msgstr "სახეობა (%s), არ ემთხვევა თქვენი დამატების სახეობას AMO-საიტზე (%s)"
 
 msgid "Back to review"
 msgstr "მიმოხილვაზე დაბრუნება"
@@ -5852,12 +5681,6 @@ msgstr "ასატვირთი ფაილები არ არის �
 
 msgid "Fetching file."
 msgstr "ფაილის თანხვედრა."
-
-msgid "The API version, {0:.1f}, you are using is not valid. Please upgrade to the current version {1:.1f} API."
-msgstr "API ვერსია, {0:.1f}, რომლითაც სარგებლობთ დაუმოწმებელია. გთხოვთ განაახლოთ მიმდინარე ვერსიამდე {1:.1f} API."
-
-msgid "Not implemented yet."
-msgstr "ჯერ არ დანერგილა."
 
 msgid "Shopping Made Easy"
 msgstr "მარტივი ვაჭრობა"
@@ -5943,62 +5766,6 @@ msgstr "აუცილებელი მულტიმედია"
 msgid "Take better screenshots, improve your online video experience, finally learn how to make a GIF, and other great media tools."
 msgstr ""
 "გადაუღეთ ეკრანს სურათები უფრო მარტივად და უკეთესად, გააუმჯობესეთ ვიდეოების შექმნის შესაძლებლობები, ისწავლეთ, როგორ გააკეთოთ GIF და ისარგებლეთ უამრავი სხვა ხელსაწყოებით, მედია ფაილებთან სამუშაოდ."
-
-msgid "Discover Add-ons"
-msgstr "აღმოაჩინეთ ახალი დამატებები"
-
-msgid "What are Add-ons?"
-msgstr "რა არის დამატებები?"
-
-#, python-format
-msgid "Add-ons are applications that let you personalize %(app)s with extra functionality or style. Try a time-saving sidebar, a weather notifier, or a themed look to make %(app)s your own."
-msgstr ""
-"დამატებები პატარა პროგრამებია, რომელიც საშუალებას გაძლევთ შემატოთ %(app)s-ს ახალი შესაძლებლობები და შეუცვალოთ გაფორმება. სცადეთ დროის დასაზოგად, ხელსაწყოების გვერდითი ზოლი, ამინდის პროგნოზის "
-"მომხსენებელი, ან იერსახის შემცვლელი თემები, რომ უფრო მეტად მოარგოთ %(app)s თქვენს გემოვნებას."
-
-msgid "Learn More About Add-ons"
-msgstr "იხილეთ ვრცლად, დამატებების შესახებ"
-
-msgid "See all"
-msgstr "ყველას ნახვა"
-
-msgid "More ways to customize"
-msgstr "სხვა საშუალებები მოსარგებად"
-
-msgid "Browse all add-ons"
-msgstr "დამატებების მოძიება"
-
-msgid "See all complete themes"
-msgstr "ყველა სრული გაფორმების ნახვა"
-
-msgid "Close Video"
-msgstr "ვიდეოს დახურვა"
-
-msgid "While the video plays, the add-ons being mentioned will appear here."
-msgstr "ვიდეოს გაშვებისას, მითითებული დამატებები გამოჩნდება აქ."
-
-#. {0} is the user's login name.
-msgid "Hi, {0}"
-msgstr "გამარჯობა, {0}"
-
-#, python-format
-msgid "Thanks for using %(app)s and supporting <a href=\"%(url)s\">Mozilla's mission</a>!"
-msgstr "გმადლობთ, %(app)s-ით სარგებლობისთვის და <a href=\"%(url)s\">Mozilla-ს მიზნების</a> მხარდაჭერისთვის!"
-
-msgid "Add-ons downloaded:"
-msgstr "ჩამოტვირთული დამატებები:"
-
-msgid "View Privacy Policy"
-msgstr "გაეცანით პირადი მონაცემების დაცვის დებულებას"
-
-msgid "Active Users"
-msgstr "მოქმედი მომხმარებლები"
-
-msgid "Last Updated"
-msgstr "ბოლო განახლება"
-
-msgid "Cancel Installation"
-msgstr "დაყენების შეწყვეტა"
 
 msgid "Mozilla&rsquo;s Pick of the Month!"
 msgstr "Mozilla – თვის დამატება!"
@@ -6139,7 +5906,7 @@ msgstr ""
 
 #, python-format
 msgid "If you really need to contact someone from the Mozilla team, please see our <a href=\"%(url)s\"> contact information</a> page."
-msgstr "თუ ნამდვილად გესაჭიროებათ Mozilla-ს გუნდის რომელიმე წევრთან დაკავშირება, გთხოვთ გაეცნოთ ჩვენს <a href=\"%(url)s\">საკონტაქტო მონაცემებს</a>."
+msgstr "თუ ნამდვილად გესაჭიროებათ Mozilla-ს გუნდის რომელიმე წევრთან გასაუბრება, გთხოვთ გაეცნოთ ჩვენს <a href=\"%(url)s\">მონაცემებს დასაკავშირებლად</a>."
 
 msgid "Who works on this website?"
 msgstr "ვინ მუშაობს ამ ვებსაიტზე?"
@@ -6222,7 +5989,7 @@ msgid "Include your own or anyone else’s email, phone number, or other persona
 msgstr "თქვენი საკუთარი ან სხვისი ელფოსტის მისამართის, ტელეფონის ნომრის ან სხვა პირადი მონაცემის მითითება."
 
 msgid "Post reviews for an add-on you or your organization wrote or represent."
-msgstr "მიმოხილვებში საკუთარი თავის ან ორგანიზაციის წარდგენა."
+msgstr "მიმოხილვებში საკუთარი თავის ან დაწესებულების წარდგენა."
 
 msgid ""
 "Criticize an add-on for something it’s intended to do. For example, leaving a negative review of an add-on for displaying ads or requiring data gathering, when that is the intended purpose of the "
@@ -6258,99 +6025,11 @@ msgstr ""
 "ზოგადად, არა. მაგრამ თუ მიმოხილვა არ შეესაბამება ჩვენი მიმოხილვის სახელმძღვანელოში მოცემულ წესებს, შეგიძლიათ დააწკაპოთ ბმულზე „მოხსენება ამ მიმოხილვაზე“ და გაუგზავნოთ შემსწორებელთა გუნდს. თუ "
 "მოხსენება შეიცავს უკმაყოფილებას იმ საკითხზე, რაც უკვე გამოსწორებულია ახალ ვერსიაში, ჩვენ შეიძლება წავშალოთ ასეთი მიმოხილვა."
 
-msgid "Start Now"
-msgstr "დაწყება ახლავე"
+msgid "User"
+msgstr "მომხმარებელი"
 
-msgid "Mozilla wants to figure out the best way to keep our users safe if they choose to use third-party software such as plugins. Participating in this study will help us find out!"
-msgstr ""
-"Mozilla-ს სურს გამოარკვიოს საუკეთესო გზები, მომხმარებლების უსაფრთხოების შესანარჩუნებლად, ცალკეული პროგრამებისა და მოდულებით სარგებლობისას. ამ კვლევაში თქვენი მონაწილეობა, დაგვეხმარება ამის საკითხის "
-"შესწავლაში!"
-
-msgid "What will happen next"
-msgstr "რა მოხდება შემდგომ"
-
-msgid "<strong>If you agree</strong> to participate:"
-msgstr "<strong>თუ ეთანხმებით</strong> მონაწილეობის მიღება:"
-
-msgid "We may add security and plugin control features to Firefox to help with online security and performance."
-msgstr "Firefox-ს შეიძლება დაემატოს მოდულების უსაფრთხოების შესამოწმებელი საშუალებები, დაცულობის და წარმადობის გასაზრდელად."
-
-msgid "Continue using Firefox as you normally would. Depending on how you use the Web, you may not notice any changes."
-msgstr "განაგრძეთ Firefox-ის გამოყენება ჩვეულებრივ. იმისდა მიხედვით, როგორ იყენებთ ინტერნეტს, შესაძლოა ვერც შეამჩნიოთ რამე სხვაობა."
-
-msgid "After a few weeks, the study will end on its own. Your Firefox will go back to normal."
-msgstr "რამდენიმე კვირაში, კვლევა თავისთავად დასრულდება. თქვენი Firefox დაუბრუნდება ჩვეულებრივ რეჟიმს."
-
-msgid "We will ask you to fill out a quick optional survey to tell us about your experience. The survey should take less than 5 minutes to complete."
-msgstr "ჩვენ შემოგთავაზებთ მცირე კითხვარს, თქვენი გამოცდილების გასაზიარებლად. კითხვარი არ გაგრძელდება 5 წუთზე მეტხანს."
-
-msgid "Leaving the study"
-msgstr "კვლევის დატოვება"
-
-msgid "The study will expire on its own in a few weeks. You may leave the study early. To do so, follow these steps:"
-msgstr "კვლევის ვადა თავისთავად ამოიწურება რამდენიმე კვირაში. მისი დატოვება, უფრო ადრეც შეგიძლიათ. ამისთვის, საჭირო იქნება შემდეგი ნაბიჯები:"
-
-msgid "Type about:addons into the location bar, and press enter."
-msgstr "აკრიფეთ about:addons მისამართების ზოლში და დააჭირეთ Enter ღილაკს."
-
-msgid "Find Plugin Safety in the addons list."
-msgstr "მონახეთ Plugin Safety დამატებების ჩამონათვალში."
-
-msgid "Click the remove button."
-msgstr "დააწკაპეთ ამოშლის ღილაკზე."
-
-msgid "If you opt out of the study early we will ask you to fill out a survey. We’re interested in hearing about your experience, even if you didn’t participate in the entire study."
-msgstr "თუ დროზე ადრე გსურთ კვლევის დატოვება, გთხოვთ მიიღოთ მონაწილეობა გამოკითხვაში. ჩვენ მაინც გვსურს მოვისმინოთ თქვენი მოსაზრება, მიუხედავად იმისა, დარჩებით თუ არა მონაწილედ, კვლევის ბოლომდე."
-
-msgid "Opting out of a study does not prevent you from participating in future studies."
-msgstr "კვლევაში მონაწილეობაზე უარის თქმა, არ გზღუდავთ მომავალ კვლევებში მონაწილეობისგან."
-
-msgid "Your privacy"
-msgstr "პირადი მონაცემების დაცულობა:"
-
-msgid "All Shield Studies"
-msgstr "ყველა Shield კვლევა"
-
-msgid "Every Shield Study collects data about important study events, such as install, uninstall, daily usage, and end of study. Studies also include an optional survey."
-msgstr ""
-"თითოეული Shield კვლევა აღრიცხავს მონაცემებს მნიშვნელოვანი საკვლევი მოვლენების შესახებ, როგორიცაა დაყენების რაოდენობა, ამოშლის რაოდენობა, დღიური გამოყენების რაოდენობა და კვლევის დასრულება. კვლევები "
-"შეიძლება მოიცავდეს არასავალდებულო კითხვარებსაც."
-
-#, python-format
-msgid "This data is associated with <a href=\"%(url)s\">Firefox Telemetry collection</a>."
-msgstr "ეს მონაცემები დაკავშირებულია <a href=\"%(url)s\">Firefox ტელემეტრიასთან</a>."
-
-msgid "This particular Study"
-msgstr "საგანგებო კვლევა"
-
-msgid "In addition to the data collected by all Shield Studies, Mozilla will collect information about:"
-msgstr "Shield კვლევებით აღრიცხული მონაცემების გარდა, Mozilla აგროვებს შემდეგ მონაცემებს:"
-
-msgid "Websites you visit that try to use plugins, and what content on the site requires the plugin;"
-msgstr "თქვენ მიერ მონახულებული საიტები, რომლებიც ცდილობს მოდულების ჩადგმას და შიგთავსის რომელი ნაწილი საჭიროებს მოდულს;"
-
-msgid "How you interact with plugin content on those sites, including whether and how you choose to allow the plugin to run."
-msgstr "თუ როგორ ურთიერთქმედებთ მოდულით შიგთავსზე ამ საიტებზე, მათ შორის როგორ იღებთ გადაწყვეტილებას, მოდულის გაშვების შესახებ, ან უშვებთ თუ არა, საერთოდ."
-
-msgid "Mozilla will keep this information private; any data will only be shared in aggregate or anonymized form."
-msgstr "Mozilla ამ ინფორმაციას ინახავს საიდუმლოდ; ყველა მონაცემი გაზიარდება გაერთიანებული, ან ანონიმური სახით."
-
-#, python-format
-msgid "You can learn more about the data collection for this study <a href=\"%(url)s\">here</a>."
-msgstr "მონაცემთა აღრიცხვის შესახებ მეტი ინფორმაციის მისაღებად, გაეცანით ამ <a href=\"%(url)s\">კვლევას</a>."
-
-msgid "You Help Make Firefox Better"
-msgstr "თქვენ გვეხმარებით, Firefox-ის გაუმჯობესებაში"
-
-msgid ""
-"At Mozilla, we pride ourselves on building products for you, the user! That’s why we need your help. By participating in this study, you will help us to make better decisions on your behalf and "
-"directly shape the future of Firefox!"
-msgstr ""
-"Mozilla-ში, ყველას გვეამაყება რომ პროდუქტს ვქმნით თქვენთვის, მომხმარებლისთვის! ამიტომ გვესაჭიროება თქვენი მხარდაჭერა. კვლევაში თქვენი მონაწილეობა დაგვეხმარება სწორი გადაწყვეტილებების მიღებასა და "
-"მომხმარებელზე უკეთ მორგებული Firefox-ის შექმნაში!"
-
-msgid "Brought to you by:"
-msgstr "წარმდგენი:"
+msgid "IP Address"
+msgstr "IP-მისამართი"
 
 #, python-format
 msgid "Reviews for %s"
@@ -6555,7 +6234,7 @@ msgstr "დასრულება"
 
 #. L10n: Description of what can be searched for
 msgid "add-on, reviewer or comment"
-msgstr "დამატება, მიმომხილველი, ან გამოხმაურება"
+msgstr "დამატება, მიმომხილველი ან გამოხმაურება"
 
 msgid "Search by add-on name / author email"
 msgstr "დამატების ძიება სახელით / ავტორის ელფოსტით"
@@ -6578,8 +6257,11 @@ msgstr "დამატების ძიება სახელით / ა�
 msgid "Max. Version"
 msgstr "უმაღლესი ვერსია"
 
+msgid "Select an application first"
+msgstr "ჯერ მიუთითეთ პროგრამა"
+
 msgid "Comments:"
-msgstr "კომენტარები:"
+msgstr "შენიშვნები:"
 
 msgid "Operating systems:"
 msgstr "საოპერაციო სისტემები:"
@@ -6737,7 +6419,7 @@ msgid "If you have concerns about this add-on that an admin reviewer should look
 msgstr "თუ გარკვეული მოსაზრებები გაგაჩნიათ ამ დამატების შესახებ, რომელიც გსურთ მიმომხილველმა ადმინისტრატორმა გაითვალისწინოს, დატოვეთ კომენტარი ქვემოთ. შემმუშავებელს არ გაეგზავნება."
 
 msgid "Make a comment on this version. The developer won't be able to see this."
-msgstr "კომენტარის დატოვება ამ ვერსიაზე. შემმუშავებელი ვერ იხილავს."
+msgstr "შენიშვნის დატოვება ამ ვერსიაზე. შემმუშავებელი ვერ იხილავს."
 
 msgid "Approve Content"
 msgstr "შიგთავსის მიღება"
@@ -6863,6 +6545,12 @@ msgstr "{addon} :: მოხსენება დარღვევის შ�
 msgid "Abuse Reports for {addon} and its developers ({num})"
 msgstr "დარღვევის შესახებ მოხსენებები, {addon} და მის შემმუშავებლებთან ({num}) დაკავშირებით"
 
+msgid "Add-on ID"
+msgstr "დამატების ID"
+
+msgid "Internal AMO ID"
+msgstr "AMO-ს შიდა ID"
+
 #. This refers to this version's compatible applications, such as Firefox 8.0
 msgid "Works with"
 msgstr "თავსებადია"
@@ -6878,6 +6566,9 @@ msgstr "საშუალო დღიური მომხმარებლ�
 
 msgid "Abuse Reports"
 msgstr "დარღვევების მოხსენებები"
+
+msgid "View Privacy Policy"
+msgstr "გაეცანით პირადი მონაცემების დაცვის დებულებას"
 
 msgid "Requires Payment"
 msgstr "გადახდა სავალდებულოა"
@@ -6899,9 +6590,6 @@ msgstr "თემის სურათები"
 
 msgid "Rendered Preview"
 msgstr "შემუშავებული წინასწარი ვარიანტი"
-
-msgid "Background file {0} of {1} - {2}"
-msgstr "ფონის ფაილი {0} / {1} – {2}"
 
 msgid "More about this add-on"
 msgstr "ვრცლად, ამ დამატების შესახებ"
@@ -7094,7 +6782,7 @@ msgid "This version has not been reviewed."
 msgstr "ეს ვერსია, ჯერ არ განხილულა."
 
 msgid "Please select one or more versions in the list above."
-msgstr "გთხოვთ მიუთითოთ ერთი, ან მეტი ვერსია, ზემოთ მოცემული ჩამონათვალიდან."
+msgstr "გთხოვთ მიუთითოთ ერთი ან მეტი ვერსია, ზემოთ მოცემული ჩამონათვალიდან."
 
 msgid "You can still submit this form, however only do so if you know it won't conflict."
 msgstr "ამ შევსებული ველების წარდგენა კიდევ შეგიძლიათ, მხოლოდ იმ შემთხვევაში, თუ იცით რომ არ იქნება წინააღმდეგობრივი."
@@ -7169,16 +6857,16 @@ msgid "Add-on has been deleted."
 msgstr "დამატება წაშლილია."
 
 msgid "Show Comments"
-msgstr "კომენტარების ჩვენება"
+msgstr "შენიშვნების გამოჩენა"
 
 msgid "Hide Comments"
-msgstr "კომენტარების დამალვა"
+msgstr "შენიშვნების დამალვა"
 
 msgid "No reviews found for this period."
 msgstr "დროის ამ მონაკვეთისთვის მიმოხილვები ვერ მოიძებნა."
 
-#, python-format
-msgid "%(user)s [%(ip_address)s] reported %(object)s on %(date)s"
+#, fuzzy, python-format
+msgid "%(user)s [%(country_code)s] reported %(object)s on %(date)s"
 msgstr "%(user)s [%(ip_address)s] მომხმარებლის მიმოხილვა %(object)s-ის შესახებ %(date)s"
 
 msgid "Dismiss this announcement"
@@ -7307,8 +6995,14 @@ msgstr "მიმომხილველის სახელმძღვა�
 msgid "Theme Review for {0}"
 msgstr "თემის მიმოხილვა {0}-ისთვის"
 
+msgid "Edit Listing"
+msgstr "გვერდის ჩასწორება"
+
 msgid "(Probable Duplicate Submission)"
 msgstr "(სავარაუდოდ განმეორებითი წარდგენა)"
+
+msgid "Submitted"
+msgstr "წარდგენილია"
 
 msgid "Past Review Notes"
 msgstr "წინა მიმოხილვის შენიშვნები"
@@ -7373,6 +7067,27 @@ msgstr "მონიშნულია"
 
 msgid "Updates"
 msgstr "განახლებები"
+
+#, python-format
+msgid "Invalid \"%s\" parameter."
+msgstr "არამართებული პარამეტრი „%s“."
+
+#, python-format
+msgid "Invalid combination of \"%s\" and \"%s\" parameters."
+msgstr "არამართებული შეთავსება პარამეტრების „%s“ და „%s“."
+
+msgid "Return To AMO is currently disabled"
+msgstr "AMO-ზე დაბრუნება ამჟამად გათიშულია"
+
+msgid "Invalid Return To AMO guid (not in base64url format?)"
+msgstr "AMO GUID-ზე არასწორი დაბრუნება (არ ეფუძნება base64url-სახეობას?)"
+
+msgid "Invalid Return To AMO guid (not a curated add-on)"
+msgstr "AMO GUID-ზე არასწორი დაბრუნება (დამატება არაა ზედამხედველობის ქვეშ)"
+
+#, python-format
+msgid "Invalid combination of \"%s\", \"%s\" and \"%s\" parameters."
+msgstr "არამართებული შეთავსება პარამეტრების „%s“, „%s“ და „%s“."
 
 msgid "Maximum query length exceeded."
 msgstr "მოთხოვნის სიგრძე აჭარბებს ზღვარს."
@@ -7461,8 +7176,8 @@ msgstr "{0} – {1} შედეგი {2}-იდან <strong>{3}</strong> ფ
 msgid "Showing {0} - {1} of {2} results"
 msgstr "ნაჩვენებია {0} – {1} შედეგი {2}-იდან"
 
-msgid "Could not find add-on with id \"{}\"."
-msgstr "დამატება id ნომრით „{}“ არ მოიძებნა."
+msgid "Could not find add-on with guid \"{}\"."
+msgstr "დამატება ნომრით „{}“ ვერ მოიძებნა."
 
 msgid "You do not own this addon."
 msgstr "თქვენ არ ფლობთ ამ დამატებას."
@@ -7477,8 +7192,9 @@ msgstr "დამატებაზე, რომლის მდგომარ
 msgid "Version does not match the manifest file."
 msgstr "ვერსია არ ემთხვევა მანიფესტის ფაილით განსაზღვრულს."
 
-msgid "Version already exists."
-msgstr "ვერსია უკვე არსებობს."
+#, python-format
+msgid "Version already exists. Latest version is: %s."
+msgstr "ეს ვერსია უკვე არსებობს. უახლესი ვერსიაა: %s."
 
 msgid "Only WebExtensions are allowed to omit the GUID"
 msgstr "GUID-ის გამოტოვება, მხოლოდ WebExtensions-ის შემთხვევაშია შესაძლებელი"
@@ -7828,12 +7544,6 @@ msgstr "{0} დამატების გვერდზე დაბრუნ
 msgid "<img alt=\"Firefox\" src=\"{0}\"> Add-ons"
 msgstr "<img alt=\"Firefox\" src=\"{0}\"> დამატებები"
 
-msgid "<img alt=\"Thunderbird\" src=\"{0}\"> Add-ons"
-msgstr "<img alt=\"Thunderbird\" src=\"{0}\"> დამატებები"
-
-msgid "<img alt=\"SeaMonkey\" src=\"{0}\"> Add-ons"
-msgstr "<img alt=\"SeaMonkey\" src=\"{0}\"> დამატებები"
-
 msgid "<img alt=\"\" src=\"{0}\"> Add-ons"
 msgstr "<img alt=\"\" src=\"{0}\"> დამატებები"
 
@@ -7924,9 +7634,6 @@ msgstr "პროფილის სურათი"
 msgid "Addons"
 msgstr "დამატებები"
 
-msgid "Ratings"
-msgstr "შეფასება"
-
 msgid "Activity Logs"
 msgstr "აღრიცხული მოქმედებები"
 
@@ -7942,8 +7649,8 @@ msgstr "მდებარეობა"
 msgid "Occupation"
 msgstr "საქმიანობა"
 
-msgid "See this help article for information on how to change your email address."
-msgstr ""
+msgid "You can change your email address on Firefox Accounts."
+msgstr "შეგიძლიათ შეცვალოთ თქვენი ელფოსტის მისამართი Firefox-ანგარიშებზე."
 
 msgid "This URL has an invalid format. Valid URLs look like http://example.com/my_page."
 msgstr "ეს URL-ბმული არასწორი სახისაა. მართებული URL-ბმულები გამოიყურება შემდეგნაირად: http://example.com/my_page."
@@ -7954,8 +7661,6 @@ msgstr "ანონიმურობისთვის, მიუთითე�
 msgid "No user with that email."
 msgstr "ამ ელფოსტით მომხმარებელი არ იძებნება."
 
-#. L10n: {id} will be something like "13ad6a", just a random number
-#. to differentiate this user from other anonymous users.
 msgid "Firefox user {id}"
 msgstr "Firefox-ის მომხმარებელი {id}"
 
@@ -7971,9 +7676,6 @@ msgstr "ახალი დამატებების ან Firefox-ის 
 msgid "my add-on's compatibility is upgraded successfully"
 msgstr "ჩემი დამატების თავსებადობა განახლდა წარმატებით"
 
-msgid "my sdk-based add-on is upgraded successfully"
-msgstr "ჩემი sdk-ზე დაფუძნებული დამატება განახლდა წარმატებით"
-
 msgid "someone writes a review of my add-on"
 msgstr "ვიღაცა წერს მიმოხილვას ჩემი დამატების შესახებ"
 
@@ -7982,9 +7684,6 @@ msgstr "გაეცანით სიახლეებსა და დამ
 
 msgid "my add-on's compatibility cannot be upgraded"
 msgstr "ჩემი დამატების თავსებადობის განახლება ვერ ხერხდება"
-
-msgid "my sdk-based add-on cannot be upgraded"
-msgstr "ჩემი sdk-ზე დაფუძნებული დამატების განახლება, ვერ ხერხდება"
 
 msgid "my add-on is reviewed by a reviewer"
 msgstr "ჩემი დამატება განხილულია მიმომხილველის მიერ"
@@ -8070,17 +7769,14 @@ msgstr "გთხოვთ მიუთითოთ გამოსაჩენ�
 msgid "Please set your display name or username to complete the registration process."
 msgstr "გთხოვთ მიუთითოთ გამოსაჩენი სახელი და მომხმარებლის სახელი, რეგისტრაციის დასასრულებლად."
 
-msgid "Manage basic account information."
-msgstr "ანგარიშის ძირითადი მონაცემების მართვა, როგორიცაა მომხმარებლის სახელი და ანგარიშის პარამეტრები."
-
-msgid "Username"
-msgstr "მომხმარებლის სახელი"
+msgid "Manage basic account information, such as your username and Firefox Accounts settings."
+msgstr "ანგარიშის ძირითადი მონაცემების მართვა, როგორიცაა მომხმარებლის სახელი და Firefox-ანგარიშის პარამეტრები."
 
 msgid "Email Address"
 msgstr "ელფოსტის მისამართი"
 
-msgid "Manage other account details..."
-msgstr "ანგარიშის მართვა..."
+msgid "Manage Firefox Account..."
+msgstr "Firefox-ანგარიშის მართვა..."
 
 msgid "Profile"
 msgstr "პროფილი"
@@ -8134,11 +7830,8 @@ msgstr "არცერთი"
 msgid "all"
 msgstr "ყველა"
 
-msgid "User Login"
-msgstr "მომხმარებლის შესვლა"
-
-msgid "Log in"
-msgstr "account-ით შესვლა"
+msgid "Mozilla Add-ons has transitioned to Firefox Accounts for login. Continue to complete the simple login process."
+msgstr "ანგარიშზე შესვლისთვის, Mozilla დამატებების საიტი გადამისამართდება Firefox-ანგარიშების საიტზე. გადადით და დაასრულეთ ანგარიშის მონაცემების შეყვანა."
 
 msgid "Password Reset"
 msgstr "პაროლის განულება"
@@ -8169,6 +7862,9 @@ msgstr "ცოტა უფრო ვრცლად..."
 
 msgid "Add-ons I've created"
 msgstr "ჩემ მიერ შექმნილი დამატებები"
+
+msgid "View all"
+msgstr "ყველას ნახვა"
 
 msgid "My Most Popular Themes"
 msgstr "ჩემ მიერ შექმნილი, ყველაზე მეტად სასურველი თემები"
@@ -8299,9 +7995,3 @@ msgstr "ქვემოთ მოცემული ვერსიები გ
 
 msgid "Deleted versions can`t be changed."
 msgstr "წაშლილი ვერსიის ცვლილება, შეუძლებელია."
-
-msgid "Binary"
-msgstr "ორობითი"
-
-msgid "Non-binary"
-msgstr "არაორობითი"

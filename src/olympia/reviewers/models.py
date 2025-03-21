@@ -8,23 +8,26 @@ from django.core.cache import cache
 from django.db import models
 from django.db.models import Q, Sum
 from django.template import loader
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext, ugettext_lazy as _
+
+import six
 
 import olympia.core.logger
 
 from olympia import amo
 from olympia.abuse.models import AbuseReport
 from olympia.access import acl
-from olympia.addons.models import Addon, Persona
+from olympia.addons.models import Addon
 from olympia.amo.fields import PositiveAutoField
-from olympia.amo.models import ManagerBase, ModelBase
+from olympia.amo.models import ModelBase
 from olympia.amo.templatetags.jinja_helpers import absolutify
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import cache_ns_key, send_mail
 from olympia.files.models import FileValidation
 from olympia.ratings.models import Rating
 from olympia.reviewers.sql_model import RawSQLModel
-from olympia.users.models import UserForeignKey, UserProfile
+from olympia.users.models import UserProfile
 from olympia.versions.models import Version, version_uploaded
 
 
@@ -51,7 +54,7 @@ VIEW_QUEUE_FLAGS = (
 
 
 def get_reviewing_cache_key(addon_id):
-    return '%s:review_viewing:%s' % (settings.CACHE_PREFIX, addon_id)
+    return 'review_viewing:{id}'.format(id=addon_id)
 
 
 def clear_reviewing_cache(addon_id):
@@ -70,6 +73,7 @@ def set_reviewing_cache(addon_id, user_id):
               amo.REVIEWER_VIEWING_INTERVAL * 2)
 
 
+@python_2_unicode_compatible
 class CannedResponse(ModelBase):
     id = PositiveAutoField(primary_key=True)
     name = models.CharField(max_length=255)
@@ -81,8 +85,8 @@ class CannedResponse(ModelBase):
     class Meta:
         db_table = 'cannedresponses'
 
-    def __unicode__(self):
-        return unicode(self.name)
+    def __str__(self):
+        return six.text_type(self.name)
 
 
 def get_flags(addon, version):
@@ -295,7 +299,8 @@ class ViewUnlistedAllList(RawSQLModel):
     @property
     def authors(self):
         ids = self._explode_concat(self._author_ids)
-        usernames = self._explode_concat(self._author_usernames, cast=unicode)
+        usernames = self._explode_concat(
+            self._author_usernames, cast=six.text_type)
         return list(set(zip(ids, usernames)))
 
 
@@ -331,8 +336,8 @@ class PerformanceGraph(RawSQLModel):
 
 
 class ReviewerSubscription(ModelBase):
-    user = models.ForeignKey(UserProfile)
-    addon = models.ForeignKey(Addon)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    addon = models.ForeignKey(Addon, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'editor_subscriptions'
@@ -382,10 +387,14 @@ version_uploaded.connect(send_notifications, dispatch_uid='send_notifications')
 
 class ReviewerScore(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    user = models.ForeignKey(UserProfile, related_name='_reviewer_scores')
-    addon = models.ForeignKey(Addon, blank=True, null=True, related_name='+')
-    version = models.ForeignKey(Version, blank=True, null=True,
-                                related_name='+')
+    user = models.ForeignKey(
+        UserProfile, related_name='_reviewer_scores', on_delete=models.CASCADE)
+    addon = models.ForeignKey(
+        Addon, blank=True, null=True, related_name='+',
+        on_delete=models.CASCADE)
+    version = models.ForeignKey(
+        Version, blank=True, null=True, related_name='+',
+        on_delete=models.CASCADE)
     score = models.IntegerField()
     # For automated point rewards.
     note_key = models.SmallIntegerField(choices=amo.REVIEWED_CHOICES.items(),
@@ -438,7 +447,14 @@ class ReviewerScore(ModelBase):
                     'No such version/auto approval summary when determining '
                     'event type to award points: %r', exception)
                 weight = 0
-            if weight > amo.POST_REVIEW_WEIGHT_HIGHEST_RISK:
+
+            if addon.type == amo.ADDON_DICT:
+                reviewed_score_name = 'REVIEWED_DICT_FULL'
+            elif addon.type in [amo.ADDON_LPAPP, amo.ADDON_LPADDON]:
+                reviewed_score_name = 'REVIEWED_LP_FULL'
+            elif addon.type == amo.ADDON_SEARCH:
+                reviewed_score_name = 'REVIEWED_SEARCH_FULL'
+            elif weight > amo.POST_REVIEW_WEIGHT_HIGHEST_RISK:
                 reviewed_score_name = 'REVIEWED_EXTENSION_HIGHEST_RISK'
             elif weight > amo.POST_REVIEW_WEIGHT_HIGH_RISK:
                 reviewed_score_name = 'REVIEWED_EXTENSION_HIGH_RISK'
@@ -489,10 +505,31 @@ class ReviewerScore(ModelBase):
                          auto-approved add-on.
 
         """
+
+        # If a webextension file gets approved manually (e.g. because
+        # auto-approval is disabled), 'post-review' is set to False, treating
+        # the file as a legacy file which is not what we want. The file is
+        # still a webextension and should treated as such, regardless of
+        # auto-approval being disabled or not.
+        # As a hack, we set 'post_review' to True.
+        if (version and
+                version.is_webextension and
+                addon.type in amo.GROUP_TYPE_ADDON):
+            post_review = True
+
+        user_log.info(
+            (u'Determining award points for user %s for version %s of addon %s'
+             % (user, version, addon.id)).encode('utf-8'))
+
         event = cls.get_event(
             addon, status, version=version, post_review=post_review,
             content_review=content_review)
         score = amo.REVIEWED_SCORES.get(event)
+
+        user_log.info(
+            (u'Determined %s award points (event: %s) for user %s for version '
+             u'%s of addon %s' % (score, event, user, version, addon.id))
+            .encode('utf-8'))
 
         # Add bonus to reviews greater than our limit to encourage fixing
         # old reviews. Does not apply to content-review/post-review at the
@@ -507,7 +544,7 @@ class ReviewerScore(ModelBase):
                 bonus = days_over * amo.REVIEWED_OVERDUE_BONUS
                 score = score + bonus
 
-        if score:
+        if score is not None:
             cls.objects.create(user=user, addon=addon, score=score,
                                note_key=event, note=extra_note,
                                version=version)
@@ -539,9 +576,9 @@ class ReviewerScore(ModelBase):
         if val is not None:
             return val
 
-        val = (ReviewerScore.objects.filter(user=user)
-                                    .aggregate(total=Sum('score'))
-                                    .values())[0]
+        val = list(ReviewerScore.objects.filter(user=user)
+                                        .aggregate(total=Sum('score'))
+                                        .values())[0]
         if val is None:
             val = 0
 
@@ -728,7 +765,7 @@ class ReviewerScore(ModelBase):
             if user_level < 0:
                 level = ''
             else:
-                level = unicode(amo.REVIEWED_LEVELS[user_level]['name'])
+                level = six.text_type(amo.REVIEWED_LEVELS[user_level]['name'])
 
             scores.append({
                 'user_id': user_id,
@@ -755,6 +792,7 @@ class AutoApprovalNoValidationResultError(Exception):
     pass
 
 
+@python_2_unicode_compatible
 class AutoApprovalSummary(ModelBase):
     """Model holding the results of an auto-approval attempt on a Version."""
     version = models.OneToOneField(
@@ -771,7 +809,7 @@ class AutoApprovalSummary(ModelBase):
     class Meta:
         db_table = 'editors_autoapprovalsummary'
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s %s' % (self.version.addon.name, self.version)
 
     def calculate_weight(self):
@@ -811,7 +849,8 @@ class AutoApprovalSummary(ModelBase):
                 max(min(int(addon.reputation or 0) * -100, 0), -300)),
             # Average daily users: value divided by 10000 is added to the
             # weight, up to a maximum of 100.
-            'average_daily_users': min(addon.average_daily_users / 10000, 100),
+            'average_daily_users': min(
+                addon.average_daily_users // 10000, 100),
             # Pas rejection history: each "recent" rejected version (disabled
             # with an original status of null, so not disabled by a developer)
             # adds 10 to the weight, up to a maximum of 100.
@@ -872,7 +911,11 @@ class AutoApprovalSummary(ModelBase):
                     if unknown_minified_code_count else 0),
                 # Size of code changes: 5kB is one point, up to a max of 100.
                 'size_of_code_changes': min(
-                    self.calculate_size_of_code_changes() / 5000, 100)
+                    self.calculate_size_of_code_changes() // 5000, 100),
+                # Seems to be using a coinminer: 2000
+                'uses_coinminer': (
+                    2000 if self.count_uses_uses_coinminer(self.version)
+                    else 0),
             }
         except AutoApprovalNoValidationResultError:
             # We should have a FileValidationResult... since we don't and
@@ -906,7 +949,7 @@ class AutoApprovalSummary(ModelBase):
                 data = json.loads(file_.validation.validation)
                 total_code_size += (
                     data.get('metadata', {}).get('totalScannedFileSize', 0))
-            return total_code_size / number_of_files
+            return total_code_size // number_of_files
 
         try:
             old_version = self.find_previous_confirmed_version()
@@ -1020,14 +1063,25 @@ class AutoApprovalSummary(ModelBase):
         return cls._count_linter_flag(version, 'MANIFEST_CSP')
 
     @classmethod
+    def count_uses_uses_coinminer(cls, version):
+        return cls._count_linter_flag(version, 'COINMINER_USAGE_DETECTED')
+
+    @classmethod
     def check_uses_native_messaging(cls, version):
         return any('nativeMessaging' in file_.webext_permissions_list
                    for file_ in version.all_files)
 
     @classmethod
     def check_is_locked(cls, version):
-        locked = get_reviewing_cache(version.addon.pk)
-        return bool(locked) and locked != settings.TASK_USER_ID
+        # Langpacks are submitted as part of Firefox release process and should
+        # never be blocked by a reviewer having opened the review page - they
+        # should always be auto-approved anyway.
+        is_langpack = version.addon.type == amo.ADDON_LPAPP
+        locked_by = get_reviewing_cache(version.addon.pk)
+        return (
+            not is_langpack and
+            bool(locked_by) and
+            locked_by != settings.TASK_USER_ID)
 
     @classmethod
     def check_has_auto_approval_disabled(cls, version):
@@ -1096,14 +1150,11 @@ class AutoApprovalSummary(ModelBase):
         """Return a queryset of Addon objects that have been auto-approved and
         need content review."""
         success_verdict = amo.AUTO_APPROVED
-        a_year_ago = datetime.now() - timedelta(days=365)
         qs = (
             Addon.objects.public()
             .filter(
-                _current_version__autoapprovalsummary__verdict=success_verdict)
-            .filter(
-                Q(addonapprovalscounter__last_content_review=None) |
-                Q(addonapprovalscounter__last_content_review__lt=a_year_ago))
+                _current_version__autoapprovalsummary__verdict=success_verdict,
+                addonapprovalscounter__last_content_review=None)
         )
         if not admin_reviewer:
             qs = qs.exclude(
@@ -1111,79 +1162,7 @@ class AutoApprovalSummary(ModelBase):
         return qs
 
 
-class RereviewQueueThemeManager(ManagerBase):
-
-    def __init__(self, include_deleted=False):
-        # DO NOT change the default value of include_deleted unless you've read
-        # through the comment just above the Addon managers
-        # declaration/instantiation and understand the consequences.
-        ManagerBase.__init__(self)
-        self.include_deleted = include_deleted
-
-    def get_queryset(self):
-        qs = super(RereviewQueueThemeManager, self).get_queryset()
-        if self.include_deleted:
-            return qs
-        else:
-            return qs.exclude(theme__addon__status=amo.STATUS_DELETED)
-
-
-class RereviewQueueTheme(ModelBase):
-    id = PositiveAutoField(primary_key=True)
-    theme = models.ForeignKey(Persona)
-    header = models.CharField(max_length=72, blank=True, default='')
-
-    # Holds whether this reuploaded theme is a duplicate.
-    dupe_persona = models.ForeignKey(Persona, null=True,
-                                     related_name='dupepersona')
-
-    # The order of those managers is very important: please read the lengthy
-    # comment above the Addon managers declaration/instantiation.
-    unfiltered = RereviewQueueThemeManager(include_deleted=True)
-    objects = RereviewQueueThemeManager()
-
-    class Meta:
-        db_table = 'rereview_queue_theme'
-        # This is very important: please read the lengthy comment in Addon.Meta
-        # description
-        base_manager_name = 'unfiltered'
-
-    def __str__(self):
-        return str(self.id)
-
-    @property
-    def header_path(self):
-        """Return the path to the header image."""
-        return self.theme._image_path(self.header or self.theme.header)
-
-    @property
-    def footer_path(self):
-        """Return the path to the optional footer image."""
-        footer = self.footer or self.theme.footer
-        return footer and self.theme._image_path(footer) or ''
-
-    @property
-    def header_url(self):
-        """Return the url of the header imager."""
-        return self.theme._image_url(self.header or self.theme.header)
-
-    @property
-    def footer_url(self):
-        """Return the url of the optional footer image."""
-        footer = self.footer or self.theme.footer
-        return footer and self.theme._image_url(footer) or ''
-
-
-class ThemeLock(ModelBase):
-    id = PositiveAutoField(primary_key=True)
-    theme = models.OneToOneField('addons.Persona')
-    reviewer = UserForeignKey()
-    expiry = models.DateTimeField()
-
-    class Meta:
-        db_table = 'theme_locks'
-
-
+@python_2_unicode_compatible
 class Whiteboard(ModelBase):
     addon = models.OneToOneField(
         Addon, on_delete=models.CASCADE, primary_key=True)
@@ -1193,6 +1172,6 @@ class Whiteboard(ModelBase):
     class Meta:
         db_table = 'review_whiteboard'
 
-    def __unicode__(self):
+    def __str__(self):
         return u'[%s] private: |%s| public: |%s|' % (
             self.addon.name, self.private, self.public)

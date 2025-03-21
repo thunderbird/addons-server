@@ -3,7 +3,7 @@ import mimetypes
 import os
 
 from datetime import datetime, timedelta
-from urlparse import urljoin
+from six.moves.urllib_parse import urljoin
 
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -23,7 +23,7 @@ import olympia
 from olympia import amo
 from olympia.amo import urlresolvers, utils
 from olympia.amo.templatetags import jinja_helpers
-from olympia.amo.tests import TestCase, reverse_ns
+from olympia.amo.tests import TestCase, reverse_ns, fix_webext_fixture
 from olympia.amo.utils import ImageCheck
 from olympia.versions.models import License
 
@@ -62,10 +62,10 @@ def test_slugify_spaces():
 
 def test_page_title():
     request = Mock()
-    request.APP = amo.THUNDERBIRD
+    request.APP = amo.ANDROID
     title = 'Oh hai!'
     s = render('{{ page_title("%s") }}' % title, {'request': request})
-    assert s == '%s :: Add-ons for Thunderbird' % title
+    assert s == '%s :: Add-ons for Firefox for Android' % title
 
     # pages without app should show a default
     request.APP = None
@@ -202,7 +202,7 @@ def test_urlparams():
 
     # Adding query with existing params.
     s = render('{{ base_query|urlparams(frag, sort=sort) }}', c)
-    amo.tests.assert_url_equal(s, '%s?sort=name&amp;x=y#frag' % url)
+    amo.tests.assert_url_equal(s, '%s?x=y&amp;sort=name#frag' % url)
 
     # Replacing a query param.
     s = render('{{ base_query|urlparams(frag, x="z") }}', c)
@@ -419,32 +419,33 @@ def get_image_path(name):
 
 
 def get_uploaded_file(name):
-    data = open(get_image_path(name)).read()
+    data = open(get_image_path(name), mode='rb').read()
     return SimpleUploadedFile(name, data,
                               content_type=mimetypes.guess_type(name)[0])
 
 
 def get_addon_file(name):
-    return os.path.join(ADDONS_TEST_FILES, name)
+    with fix_webext_fixture(os.path.join(ADDONS_TEST_FILES, name)) as temp_file:
+        return temp_file
 
 
 class TestAnimatedImages(TestCase):
 
     def test_animated_images(self):
-        img = ImageCheck(open(get_image_path('animated.png')))
+        img = ImageCheck(open(get_image_path('animated.png'), mode='rb'))
         assert img.is_animated()
-        img = ImageCheck(open(get_image_path('non-animated.png')))
+        img = ImageCheck(open(get_image_path('non-animated.png'), mode='rb'))
         assert not img.is_animated()
 
-        img = ImageCheck(open(get_image_path('animated.gif')))
+        img = ImageCheck(open(get_image_path('animated.gif'), mode='rb'))
         assert img.is_animated()
-        img = ImageCheck(open(get_image_path('non-animated.gif')))
+        img = ImageCheck(open(get_image_path('non-animated.gif'), mode='rb'))
         assert not img.is_animated()
 
     def test_junk(self):
         img = ImageCheck(open(__file__, 'rb'))
         assert not img.is_image()
-        img = ImageCheck(open(get_image_path('non-animated.gif')))
+        img = ImageCheck(open(get_image_path('non-animated.gif'), mode='rb'))
         assert img.is_image()
 
 
@@ -517,18 +518,3 @@ class TestMediaUrl(TestCase):
         settings.MEDIA_URL = '/mediapath/'
         url = jinja_helpers.user_media_url('userpics')
         assert url == '/mediapath/userpics/'
-
-
-class TestIdToPath(TestCase):
-
-    def test_with_1_digit(self):
-        assert jinja_helpers.id_to_path(1) == '1/1/1'
-
-    def test_with_2_digits(self):
-        assert jinja_helpers.id_to_path(12) == '2/12/12'
-
-    def test_with_3_digits(self):
-        assert jinja_helpers.id_to_path(123) == '3/23/123'
-
-    def test_with_many_digits(self):
-        assert jinja_helpers.id_to_path(123456789) == '9/89/123456789'

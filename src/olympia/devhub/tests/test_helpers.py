@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-import urllib
-
 from django.utils import translation
+from django.utils.encoding import force_bytes, force_text
 
 import pytest
+import six
 
 from mock import Mock
+from six.moves.urllib.parse import quote
 
 from olympia import amo
 from olympia.activity.models import ActivityLog
@@ -59,7 +60,7 @@ def test_summarize_validation():
 
 def test_log_action_class():
     v = Mock()
-    for k, v in amo.LOG_BY_ID.iteritems():
+    for k, v in six.iteritems(amo.LOG_BY_ID):
         if v.action_class is not None:
             cls = 'action-' + v.action_class
         else:
@@ -67,21 +68,21 @@ def test_log_action_class():
         assert render('{{ log_action_class(id) }}', {'id': v.id}) == cls
 
 
-class TestDisplayUrl(amo.tests.BaseTestCase):
+class TestDisplayUrl(amo.tests.TestCase):
 
     def setUp(self):
         super(TestDisplayUrl, self).setUp()
-        self.raw_url = u'http://host/%s' % 'フォクすけといっしょ'.decode('utf8')
+        self.raw_url = u'http://host/%s' % u'フォクすけといっしょ'
 
     def test_utf8(self):
-        url = urllib.quote(self.raw_url.encode('utf8'))
-        assert render('{{ url|display_url }}', {'url': url}) == (
+        url = quote(self.raw_url.encode('utf8'))
+        assert render(u'{{ url|display_url }}', {'url': url}) == (
             self.raw_url)
 
     def test_unicode(self):
-        url = urllib.quote(self.raw_url.encode('utf8'))
-        url = unicode(url, 'utf8')
-        assert render('{{ url|display_url }}', {'url': url}) == (
+        url = quote(self.raw_url.encode('utf8'))
+        url = force_text(force_bytes(url, 'utf8'), 'utf8')
+        assert render(u'{{ url|display_url }}', {'url': url}) == (
             self.raw_url)
 
 
@@ -98,7 +99,7 @@ class TestDevFilesStatus(TestCase):
     def expect(self, expected):
         cnt, msg = jinja_helpers.dev_files_status([self.file])[0]
         assert cnt == 1
-        assert msg == unicode(expected)
+        assert msg == six.text_type(expected)
 
     def test_unreviewed_public(self):
         self.addon.status = amo.STATUS_PUBLIC

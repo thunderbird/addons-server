@@ -3,32 +3,25 @@ import datetime
 import hashlib
 import json
 import os
-import socket
 import subprocess
 import tempfile
-import urllib2
-import shutil
 
 from copy import deepcopy
 from decimal import Decimal
 from functools import wraps
-from tempfile import NamedTemporaryFile
 from zipfile import BadZipfile
 
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.storage import default_storage as storage
-from django.core.management import call_command
 from django.core.validators import ValidationError
 from django.db import transaction
 from django.template import loader
+from django.utils.encoding import force_text
 from django.utils.translation import ugettext
 
 import celery
-import validator
-import waffle
 
-from celery.exceptions import SoftTimeLimitExceeded
 from celery.result import AsyncResult
 from django_statsd.clients import statsd
 
@@ -37,19 +30,17 @@ import olympia.core.logger
 from olympia import amo
 from olympia.addons.models import Addon, Persona, Preview
 from olympia.amo.celery import task
-from olympia.amo.decorators import atomic, set_modified_on, use_primary_db
+from olympia.amo.decorators import set_modified_on, use_primary_db
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import (
     image_size, pngcrush_image, resize_image, send_html_mail_jinja, send_mail,
     utc_millesecs_from_epoch)
 from olympia.api.models import SYMMETRIC_JWT_TYPE, APIKey
-from olympia.applications.management.commands import dump_apps
-from olympia.applications.models import AppVersion
+from olympia.devhub.utils import remove_privileged_errors
 from olympia.files.models import File, FileUpload, FileValidation
-from olympia.files.utils import parse_addon, SafeZip
-from olympia.lib.akismet.models import AkismetReport
-from olympia.versions.compare import version_int
+from olympia.files.utils import parse_addon, SafeZip, UnsupportedFileType
 from olympia.versions.models import Version
+from olympia.devhub import file_validation_annotations as annotations
 
 
 log = olympia.core.logger.getLogger('z.devhub.task')
@@ -66,9 +57,11 @@ def validate(file_, listed=None, subtask=None, synchronous=False,
 
     # Import loop.
     from .utils import Validator
+
     validator = Validator(file_, listed=listed)
 
     task_id = cache.get(validator.cache_key)
+
     if not synchronous and task_id:
         return AsyncResult(task_id)
     else:
@@ -96,6 +89,7 @@ def validate(file_, listed=None, subtask=None, synchronous=False,
             result = chain.apply()
         else:
             result = chain.delay()
+
             cache.set(validator.cache_key, result.task_id, 5 * 60)
 
         return result
@@ -119,7 +113,7 @@ def submit_file(addon_pk, upload_pk, channel):
                  'validation'.format(upload_uuid=upload.uuid))
 
 
-@atomic
+@transaction.atomic
 def create_version_for_upload(addon, upload, channel):
     """Note this function is only used for API uploads."""
     fileupload_exists = addon.fileupload_set.filter(
@@ -141,7 +135,7 @@ def create_version_for_upload(addon, upload, channel):
         # loudly in sentry.
         parsed_data = parse_addon(upload, addon, user=upload.user)
         version = Version.from_upload(
-            upload, addon, [x[0] for x in amo.APPS_FIREFOXES_ONLY_CHOICES],
+            upload, addon, [x[0] for x in amo.APPS_CHOICES],
             channel,
             parsed_data=parsed_data)
         # The add-on's status will be STATUS_NULL when its first version is
@@ -154,11 +148,6 @@ def create_version_for_upload(addon, upload, channel):
         add_dynamic_theme_tag(version)
 
 
-# Override the validator's stock timeout exception so that it can
-# detect and report celery timeouts.
-validator.ValidationTimeout = SoftTimeLimitExceeded
-
-
 def validation_task(fn):
     """Wrap a validation task so that it runs with the correct flags, then
     parse and annotate the results before returning.
@@ -167,24 +156,28 @@ def validation_task(fn):
     @task(bind=True, ignore_result=False,  # Required for groups/chains.
           soft_time_limit=settings.VALIDATOR_TIMEOUT)
     @wraps(fn)
-    def wrapper(task, akismet_results, id_, hash_, *args, **kw):
+    def wrapper(task, akismet_results, id_or_path, **kwargs):
         # This is necessary to prevent timeout exceptions from being set
         # as our result, and replacing the partial validation results we'd
         # prefer to return.
         task.ignore_result = True
         try:
-            data = fn(id_, hash_, *args, **kw)
-            result = json.loads(data)
+            data = fn(id_or_path, **kwargs)
+            results = json.loads(force_text(data))
             if akismet_results:
-                annotate_akismet_spam_check(result, akismet_results)
-            return result
-        except Exception as e:
-            log.exception('Unhandled error during validation: %r' % e)
-
-            is_webextension = kw.get('is_webextension', False)
-            if is_webextension:
-                return deepcopy(amo.VALIDATOR_SKELETON_EXCEPTION_WEBEXT)
-            return deepcopy(amo.VALIDATOR_SKELETON_EXCEPTION)
+                annotations.annotate_akismet_spam_check(
+                    results, akismet_results)
+            return results
+        except UnsupportedFileType as exc:
+            results = deepcopy(amo.VALIDATOR_SKELETON_RESULTS)
+            annotations.insert_validation_message(
+                results, type_='error',
+                message=exc.message, msg_id='unsupported_filetype',
+                compatibility_type=None)
+            return results
+        except Exception as exc:
+            log.exception('Unhandled error during validation: %r' % exc)
+            return deepcopy(amo.VALIDATOR_SKELETON_EXCEPTION_WEBEXT)
         finally:
             # But we do want to return a result after that exception has
             # been handled.
@@ -193,18 +186,44 @@ def validation_task(fn):
 
 
 @validation_task
-def validate_file_path(path, hash_, listed=True, is_webextension=False, is_experiment=False, **kw):
+def validate_file_path(path, channel, is_experiment=False, **kw):
     """Run the validator against a file at the given path, and return the
     results.
 
-    Should only be called directly by Validator."""
-    if is_webextension:
-        return run_addons_linter(path, listed=listed, is_experiment=is_experiment)
-    return run_validator(path, listed=listed)
+    Should only be called directly by Validator or `validate_file` task.
+
+    Search plugins don't call the linter but get linted by
+    `annotate_search_plugin_validation`.
+
+    All legacy extensions (including dictionaries, themes etc) are disabled
+    via `annotate_legacy_addon_restrictions` except if they're signed by
+    Mozilla.
+    """
+    if path.endswith('.xml'):
+        # search plugins are validated directly by addons-server
+        # so that we don't have to call the linter or validator
+        results = deepcopy(amo.VALIDATOR_SKELETON_RESULTS)
+        annotations.annotate_search_plugin_validation(
+            results=results, file_path=path, channel=channel)
+        return json.dumps(results)
+
+    # Annotate results with potential legacy add-ons restrictions.
+    data = parse_addon(path, minimal=True)
+    is_webextension = data.get('is_webextension') is True
+    is_mozilla_signed = data.get('is_mozilla_signed_extension', False)
+
+    if not is_webextension:
+        results = deepcopy(amo.VALIDATOR_SKELETON_RESULTS)
+        annotations.annotate_legacy_addon_restrictions(
+            path=path, results=results, parsed_data=data,
+            error=not is_mozilla_signed)
+        return json.dumps(results)
+
+    return run_addons_linter(path, channel=channel, is_experiment=is_experiment)
 
 
 @validation_task
-def validate_file(file_id, hash_, is_webextension=False, **kw):
+def validate_file(file_id):
     """Validate a File instance. If cached validation results exist, return
     those, otherwise run the validator.
 
@@ -214,13 +233,15 @@ def validate_file(file_id, hash_, is_webextension=False, **kw):
     try:
         return file_.validation.validation
     except FileValidation.DoesNotExist:
-        listed = file_.version.channel == amo.RELEASE_CHANNEL_LISTED
-        if is_webextension:
-            return run_addons_linter(
-                file_.current_file_path, listed=listed)
-
-        return run_validator(file_.current_file_path,
-                             listed=listed)
+        # Calling `validate_file_path` looks particularly nasty because of
+        # @validation_task wrapping a lot of it's functionalities and
+        # ins particular it's signature. @validation_task also returns the
+        # actual python-object, so we have to dump it as JSON for backwards
+        # compatibility (something we may want to change at a later point)
+        return json.dumps(validate_file_path(
+            akismet_results=[],
+            id_or_path=file_.current_file_path,
+            channel=file_.version.channel))
 
 
 @task
@@ -230,19 +251,6 @@ def handle_upload_validation_result(
     """Annotate a set of validation results and save them to the given
     FileUpload instance."""
     upload = FileUpload.objects.get(pk=upload_pk)
-    # Restrictions applying to new legacy submissions apply if:
-    # - It's the very first upload (there is no addon id yet)
-    # - It's the first upload in that channel
-    is_new_upload = (
-        not upload.addon_id or
-        not upload.addon.find_latest_version(channel=channel, exclude=()))
-
-    # Annotate results with potential legacy add-ons restrictions.
-    if not is_mozilla_signed:
-        results = annotate_legacy_addon_restrictions(
-            results=results, is_new_upload=is_new_upload)
-
-    annotate_legacy_langpack_restriction(results=results)
 
     # Check for API keys in submissions.
     # Make sure it is extension-like, e.g. no LWT or search plugin
@@ -253,7 +261,7 @@ def handle_upload_validation_result(
 
     # Annotate results with potential webext warnings on new versions.
     if upload.addon_id and upload.version:
-        results = annotate_webext_incompatibilities(
+        annotations.annotate_webext_incompatibilities(
             results=results, file_=None, addon=upload.addon,
             version_string=upload.version, channel=channel)
 
@@ -315,230 +323,11 @@ def handle_file_validation_result(results, file_id, *args):
 
     file_ = File.objects.get(pk=file_id)
 
-    annotate_webext_incompatibilities(
+    annotations.annotate_webext_incompatibilities(
         results=results, file_=file_, addon=file_.version.addon,
         version_string=file_.version.version, channel=file_.version.channel)
 
     return FileValidation.from_json(file_, results).pk
-
-
-def insert_validation_message(results, type_='error', message='', msg_id='',
-                              compatibility_type=None):
-    messages = results['messages']
-    messages.insert(0, {
-        'tier': 1,
-        'type': type_,
-        'id': ['validation', 'messages', msg_id],
-        'message': message,
-        'description': [],
-        'compatibility_type': compatibility_type,
-    })
-    # Need to increment 'errors' or 'warnings' count, so add an extra 's' after
-    # the type_ to increment the right entry.
-    results['{}s'.format(type_)] += 1
-
-
-def annotate_legacy_addon_restrictions(results, is_new_upload):
-    """
-    Annotate validation results to restrict uploads of legacy
-    (non-webextension) add-ons if specific conditions are met.
-    """
-    metadata = results.get('metadata', {})
-    is_webextension = metadata.get('is_webextension') is True
-
-    if is_webextension:
-        # If we're dealing with a webextension, return early as the whole
-        # function is supposed to only care about legacy extensions.
-        return results
-
-    target_apps = metadata.get('applications', {})
-    max_target_firefox_version = max(
-        version_int(target_apps.get('firefox', {}).get('max', '')),
-        version_int(target_apps.get('android', {}).get('max', ''))
-    )
-
-    is_extension_or_complete_theme = (
-        # Note: annoyingly, `detected_type` is at the root level, not under
-        # `metadata`.
-        results.get('detected_type') in ('theme', 'extension'))
-    is_targeting_firefoxes_only = target_apps and (
-        set(target_apps.keys()).intersection(('firefox', 'android')) ==
-        set(target_apps.keys())
-    )
-    is_targeting_thunderbird_or_seamonkey_only = target_apps and (
-        set(target_apps.keys()).intersection(('thunderbird', 'seamonkey')) ==
-        set(target_apps.keys())
-    )
-    is_targeting_firefox_lower_than_53_only = (
-        metadata.get('strict_compatibility') is True and
-        # version_int('') is actually 200100. If strict compatibility is true,
-        # the validator should have complained about the non-existant max
-        # version, but it doesn't hurt to check that the value is sane anyway.
-        max_target_firefox_version > 200100 and
-        max_target_firefox_version < 53000000000000
-    )
-    is_targeting_firefox_higher_or_equal_than_57 = (
-        max_target_firefox_version >= 57000000000000 and
-        max_target_firefox_version < 99000000000000)
-
-    # Thunderbird/Seamonkey only add-ons are moving to addons.thunderbird.net.
-    if (is_targeting_firefoxes_only and
-            waffle.switch_is_active('disallow-thunderbird-and-seamonkey')):
-        msg = ugettext(
-            u'Add-ons for Firefox only are listed at '
-            u'addons.mozilla.org. You can use the same '
-            u'account to update your add-ons on the old site.')
-
-        insert_validation_message(
-            results, message=msg, msg_id='thunderbird_and_seamonkey_migration')
-
-    # Legacy add-ons are no longer supported on AMO (if waffle is enabled).
-    elif (is_extension_or_complete_theme and
-            waffle.switch_is_active('disallow-legacy-submissions')):
-        msg = ugettext(
-            u'Legacy extensions are no longer supported in Firefox.')
-
-        insert_validation_message(
-            results, message=msg, msg_id='legacy_addons_unsupported')
-
-    # New legacy add-ons targeting Firefox only must target Firefox 53 or
-    # lower, strictly. Extensions targeting multiple other apps are exempt from
-    # this.
-    elif (is_new_upload and
-            is_extension_or_complete_theme and
-            is_targeting_firefoxes_only and
-            not is_targeting_firefox_lower_than_53_only):
-
-        msg = ugettext(
-            u'Starting with Firefox 53, new add-ons on this site can '
-            u'only be WebExtensions.')
-
-        insert_validation_message(
-            results, message=msg, msg_id='legacy_addons_restricted')
-
-    # All legacy add-ons (new or upgrades) targeting Firefox must target
-    # Firefox 56.* or lower, even if they target multiple apps.
-    elif (is_extension_or_complete_theme and
-            is_targeting_firefox_higher_or_equal_than_57):
-        # Note: legacy add-ons targeting '*' (which is the default for sdk
-        # add-ons) are excluded from this error, and instead are silently
-        # rewritten as supporting '56.*' in the manifest parsing code.
-        msg = ugettext(
-            u'Legacy add-ons are not compatible with Firefox 57 or higher. '
-            u'Use a maxVersion of 56.* or lower.')
-
-        insert_validation_message(
-            results, message=msg, msg_id='legacy_addons_max_version')
-
-    return results
-
-
-def annotate_legacy_langpack_restriction(results):
-    """
-    Annotate validation results to restrict uploads of legacy langpacks.
-    See https://github.com/mozilla/addons-linter/issues/1985 for more details.
-    """
-    if not waffle.switch_is_active('disallow-legacy-langpacks'):
-        return
-
-    metadata = results.get('metadata', {})
-
-    is_webextension = metadata.get('is_webextension') is True
-    target_apps = metadata.get('applications', {})
-
-    is_langpack = results.get('detected_type') == 'langpack'
-    is_targeting_firefoxes_only = (
-        set(target_apps.keys()).intersection(('firefox', 'android')) ==
-        set(target_apps.keys())
-    )
-
-    if not is_webextension and is_langpack and is_targeting_firefoxes_only:
-        link = (
-            'https://developer.mozilla.org/Add-ons/WebExtensions/'
-            'manifest.json')
-        msg = ugettext(
-            u'Legacy language packs for Firefox are no longer supported. '
-            u'A WebExtensions install manifest is required. See {mdn_link} '
-            u'for more details.')
-
-        insert_validation_message(
-            results, message=msg.format(mdn_link=link),
-            msg_id='legacy_langpacks_disallowed')
-
-    return results
-
-
-def annotate_webext_incompatibilities(results, file_, addon, version_string,
-                                      channel):
-    """Check for WebExtension upgrades or downgrades.
-
-    We avoid developers to downgrade their webextension to a XUL add-on
-    at any cost and warn in case of an upgrade from XUL add-on to a
-    WebExtension.
-
-    Firefox doesn't support a downgrade.
-
-    See https://github.com/mozilla/addons-server/issues/3061 and
-    https://github.com/mozilla/addons-server/issues/3082 for more details.
-    """
-    from .utils import find_previous_version
-
-    previous_version = find_previous_version(
-        addon, file_, version_string, channel)
-
-    if not previous_version:
-        return results
-
-    is_webextension = results['metadata'].get('is_webextension', False)
-    was_webextension = previous_version and previous_version.is_webextension
-
-    if is_webextension and not was_webextension:
-        results['is_upgrade_to_webextension'] = True
-
-        msg = ugettext(
-            'We allow and encourage an upgrade but you cannot reverse '
-            'this process. Once your users have the WebExtension '
-            'installed, they will not be able to install a legacy add-on.')
-
-        messages = results['messages']
-        messages.insert(0, {
-            'tier': 1,
-            'type': 'warning',
-            'id': ['validation', 'messages', 'webext_upgrade'],
-            'message': msg,
-            'description': [],
-            'compatibility_type': None})
-        results['warnings'] += 1
-    elif was_webextension and not is_webextension:
-        msg = ugettext(
-            'You cannot update a WebExtensions add-on with a legacy '
-            'add-on. Your users would not be able to use your new version '
-            'because Firefox does not support this type of update.')
-
-        messages = results['messages']
-        messages.insert(0, {
-            'tier': 1,
-            'type': ('error' if channel == amo.RELEASE_CHANNEL_LISTED
-                     else 'warning'),
-            'id': ['validation', 'messages', 'webext_downgrade'],
-            'message': msg,
-            'description': [],
-            'compatibility_type': None})
-        if channel == amo.RELEASE_CHANNEL_LISTED:
-            results['errors'] += 1
-        else:
-            results['warnings'] += 1
-
-    return results
-
-
-def annotate_akismet_spam_check(results, akismet_results):
-    msg = ugettext('The text entered has been flagged as spam.')
-    for report_result in akismet_results:
-        if report_result in (
-                AkismetReport.MAYBE_SPAM, AkismetReport.DEFINITE_SPAM):
-            insert_validation_message(
-                results, message=msg, msg_id='akismet_is_spam')
 
 
 def check_for_api_keys_in_file(results, upload):
@@ -561,8 +350,7 @@ def check_for_api_keys_in_file(results, upload):
             if zipinfo.file_size >= 64:
                 file_ = zipfile.read(zipinfo)
                 for key in keys:
-                    if key.secret in file_.decode(encoding='unicode-escape',
-                                                  errors="ignore"):
+                    if key.secret in file_.decode(errors="ignore"):
                         log.info('Developer API key for user %s found in '
                                  'submission.' % key.user)
                         if key.user == upload.user:
@@ -575,7 +363,7 @@ def check_for_api_keys_in_file(results, upload):
                                            'coauthor was found in the '
                                            'submitted file. To protect your '
                                            'add-on, the key will be revoked.')
-                        insert_validation_message(
+                        annotations.insert_validation_message(
                             results, type_='error',
                             message=msg, msg_id='api_key_detected',
                             compatibility_type=None)
@@ -615,107 +403,8 @@ def revoke_api_key(key_id):
         pass
 
 
-@task(soft_time_limit=settings.VALIDATOR_TIMEOUT)
-@use_primary_db
-def compatibility_check(upload_pk, app_guid, appversion_str, **kw):
-    log.info('COMPAT CHECK for upload %s / app %s version %s'
-             % (upload_pk, app_guid, appversion_str))
-    upload = FileUpload.objects.get(pk=upload_pk)
-    app = amo.APP_GUIDS.get(app_guid)
-    appver = AppVersion.objects.get(application=app.id, version=appversion_str)
-
-    result = run_validator(
-        upload.path,
-        for_appversions={app_guid: [appversion_str]},
-        test_all_tiers=True,
-        # Ensure we only check compatibility against this one specific
-        # version:
-        overrides={'targetapp_minVersion': {app_guid: appversion_str},
-                   'targetapp_maxVersion': {app_guid: appversion_str}},
-        compat=True)
-
-    upload.validation = result
-    upload.compat_with_app = app.id
-    upload.compat_with_appver = appver
-    upload.save()  # We want to hit the custom save().
-
-
-def run_validator(path, for_appversions=None, test_all_tiers=False,
-                  overrides=None, compat=False, listed=True):
-    """A pre-configured wrapper around the addon validator.
-
-    *file_path*
-        Path to addon / extension file to validate.
-
-    *for_appversions=None*
-        An optional dict of application versions to validate this addon
-        for. The key is an application GUID and its value is a list of
-        versions.
-
-    *test_all_tiers=False*
-        When False (default) the validator will not continue if it
-        encounters fatal errors.  When True, all tests in all tiers are run.
-        See bug 615426 for discussion on this default.
-
-    *overrides=None*
-        Normally the validator gets info from the manifest but there are a
-        few things we need to override. See validator for supported overrides.
-        Example: {'targetapp_maxVersion': {'<app guid>': '<version>'}}
-
-    *compat=False*
-        Set this to `True` when performing a bulk validation. This allows the
-        validator to ignore certain tests that should not be run during bulk
-        validation (see bug 735841).
-
-    *listed=True*
-        If the addon is unlisted, treat it as if it was a self hosted one
-        (don't fail on the presence of an updateURL).
-
-    To validate the addon for compatibility with Firefox 5 and 6,
-    you'd pass in::
-
-        for_appversions={amo.FIREFOX.guid: ['5.0.*', '6.0.*']}
-
-    Not all application versions will have a set of registered
-    compatibility tests.
-    """
-    from validator.validate import validate as validator_validate
-
-    apps = dump_apps.Command.get_json_path()
-
-    if not os.path.exists(apps):
-        call_command('dump_apps')
-
-    suffix = '_' + os.path.basename(path)
-
-    with NamedTemporaryFile(suffix=suffix, dir=settings.TMP_PATH) as temp:
-        if path and not os.path.exists(path) and storage.exists(path):
-            # This file doesn't exist locally. Write it to our
-            # currently-open temp file and switch to that path.
-            shutil.copyfileobj(storage.open(path), temp.file)
-            path = temp.name
-
-        with statsd.timer('devhub.validator'):
-            json_result = validator_validate(
-                path,
-                for_appversions=for_appversions,
-                format='json',
-                # When False, this flag says to stop testing after one
-                # tier fails.
-                determined=test_all_tiers,
-                approved_applications=apps,
-                overrides=overrides,
-                compat_test=compat,
-                listed=listed
-            )
-
-        track_validation_stats(json_result)
-
-        return json_result
-
-
-def run_addons_linter(path, listed=True, is_experiment=False):
-    from .utils import fix_addons_linter_output, remove_privileged_errors
+def run_addons_linter(path, channel, is_experiment=False):
+    from .utils import fix_addons_linter_output
 
     args = [
         settings.ADDONS_LINTER_BIN,
@@ -724,7 +413,7 @@ def run_addons_linter(path, listed=True, is_experiment=False):
         '--output=json'
     ]
 
-    if not listed:
+    if channel == amo.RELEASE_CHANNEL_UNLISTED:
         args.append('--self-hosted')
 
     # Needed with recent addons-linter update, enables support for the experimental api
@@ -764,31 +453,30 @@ def run_addons_linter(path, listed=True, is_experiment=False):
     if error:
         raise ValueError(error)
 
-    parsed_data = json.loads(output)
+    parsed_data = json.loads(force_text(output))
 
-    fixed_data = fix_addons_linter_output(parsed_data, listed)
+    fixed_data = fix_addons_linter_output(parsed_data, channel)
 
     # Remove any privileged errors
     result = json.dumps(remove_privileged_errors(fixed_data))
-    track_validation_stats(result, addons_linter=True)
+    track_validation_stats(result)
 
     return result
 
 
-def track_validation_stats(json_result, addons_linter=False):
+def track_validation_stats(json_result):
     """
     Given a raw JSON string of validator results, log some stats.
     """
-    result = json.loads(json_result)
+    result = json.loads(force_text(json_result))
     result_kind = 'success' if result['errors'] == 0 else 'failure'
-    runner = 'linter' if addons_linter else 'validator'
-    statsd.incr('devhub.{}.results.all.{}'.format(runner, result_kind))
+    statsd.incr('devhub.linter.results.all.{}'.format(result_kind))
 
     listed_tag = 'listed' if result['metadata']['listed'] else 'unlisted'
 
     # Track listed/unlisted success/fail.
-    statsd.incr('devhub.{}.results.{}.{}'
-                .format(runner, listed_tag, result_kind))
+    statsd.incr('devhub.linter.results.{}.{}'
+                .format(listed_tag, result_kind))
 
 
 @task
@@ -873,7 +561,7 @@ def resize_icon(source, dest_folder, target_sizes, **kw):
         # add-on. We only care about the first 8 chars of the md5, it's
         # unlikely a new icon on the same add-on would get the same first 8
         # chars, especially with icon changes being so rare in the first place.
-        with open(source) as fd:
+        with open(source, 'rb') as fd:
             icon_hash = hashlib.md5(fd.read()).hexdigest()[:8]
 
         # Keep a copy of the original image.
@@ -978,22 +666,6 @@ def failed_validation(*messages):
         m.append({'type': 'error', 'message': msg, 'tier': 1})
 
     return json.dumps({'errors': 1, 'success': False, 'messages': m})
-
-
-def _fetch_content(url):
-    try:
-        return urllib2.urlopen(url, timeout=15)
-    except urllib2.HTTPError as e:
-        raise Exception(
-            ugettext('%s responded with %s (%s).') % (url, e.code, e.msg))
-    except urllib2.URLError as e:
-        # Unpack the URLError to try and find a useful message.
-        if isinstance(e.reason, socket.timeout):
-            raise Exception(ugettext('Connection to "%s" timed out.') % url)
-        elif isinstance(e.reason, socket.gaierror):
-            raise Exception(ugettext('Could not contact host at "%s".') % url)
-        else:
-            raise Exception(str(e.reason))
 
 
 def check_content_type(response, content_type,

@@ -1,11 +1,15 @@
 import collections
+import datetime
+import os.path
 import tempfile
 
 from django.conf import settings
 from django.utils.functional import cached_property
 
+import freezegun
 import mock
 import pytest
+import six
 
 from babel import Locale
 
@@ -13,9 +17,8 @@ from olympia import amo
 from olympia.addons.models import Addon
 from olympia.amo.tests import TestCase, addon_factory
 from olympia.amo.utils import (
-    attach_trans_dict, get_locale_from_lang, pngcrush_image,
-    translations_for_field, walkfiles)
-from olympia.versions.models import Version
+    attach_trans_dict, extract_colors_from_image, get_locale_from_lang,
+    pngcrush_image, utc_millesecs_from_epoch, walkfiles)
 
 
 pytestmark = pytest.mark.django_db
@@ -38,10 +41,10 @@ class TestAttachTransDict(TestCase):
 
         # Quick sanity checks: is description properly escaped? The underlying
         # implementation should leave localized_string un-escaped but never use
-        # it for __unicode__. We depend on this behaviour later in the test.
+        # it for __str__. We depend on this behaviour later in the test.
         assert '<script>' in addon.description.localized_string
         assert '<script>' not in addon.description.localized_string_clean
-        assert '<script>' not in unicode(addon.description)
+        assert '<script>' not in six.text_type(addon.description)
 
         # Attach trans dict.
         attach_trans_dict(Addon, [addon])
@@ -57,16 +60,18 @@ class TestAttachTransDict(TestCase):
 
         # Build expected translations dict.
         expected_translations = {
-            addon.eula_id: [('en-us', unicode(addon.eula))],
+            addon.eula_id: [('en-us', six.text_type(addon.eula))],
             addon.description_id: [
-                ('en-us', unicode(addon.description))],
+                ('en-us', six.text_type(addon.description))],
             addon.developer_comments_id:
-                [('en-us', unicode(addon.developer_comments))],
-            addon.summary_id: [('en-us', unicode(addon.summary))],
-            addon.homepage_id: [('en-us', unicode(addon.homepage))],
-            addon.name_id: [('en-us', unicode(addon.name))],
-            addon.support_email_id: [('en-us', unicode(addon.support_email))],
-            addon.support_url_id: [('en-us', unicode(addon.support_url))]
+                [('en-us', six.text_type(addon.developer_comments))],
+            addon.summary_id: [('en-us', six.text_type(addon.summary))],
+            addon.homepage_id: [('en-us', six.text_type(addon.homepage))],
+            addon.name_id: [('en-us', six.text_type(addon.name))],
+            addon.support_email_id: [
+                ('en-us', six.text_type(addon.support_email))],
+            addon.support_url_id: [
+                ('en-us', six.text_type(addon.support_url))]
         }
         assert translations == expected_translations
 
@@ -92,20 +97,6 @@ class TestAttachTransDict(TestCase):
             set([('en-us', 'English 2 Name'),
                  ('es', 'Spanish 2 Name'),
                  ('fr', 'French 2 Name')]))
-
-    def test_translations_for_field(self):
-        version = Version.objects.create(addon=Addon.objects.create())
-
-        # No translations.
-        assert translations_for_field(version.releasenotes) == {}
-
-        # With translations.
-        initial = {'en-us': 'release notes', 'fr': 'notes de version'}
-        version.releasenotes = initial
-        version.save()
-
-        translations = translations_for_field(version.releasenotes)
-        assert translations == initial
 
 
 def test_has_links():
@@ -183,11 +174,11 @@ def test_get_locale_from_lang(lang):
     """Make sure all languages in settings.AMO_LANGUAGES can be resolved."""
     locale = get_locale_from_lang(lang)
 
-    debug_or_ignored_languages = ('cak', 'dbg', 'dbr', 'dbl')
+    ignored_languages = ('cak',)
     long_languages = ('ast', 'dsb', 'hsb', 'kab')
     expected_language = (
         lang[:3] if lang in long_languages else (
-            lang[:2] if lang not in debug_or_ignored_languages else 'en'
+            lang[:2] if lang not in ignored_languages else 'en'
         ))
 
     assert isinstance(locale, Locale)
@@ -203,7 +194,7 @@ def test_get_locale_from_lang(lang):
 @pytest.mark.parametrize('lang', settings.LANGUAGES_BIDI)
 def test_bidi_language_in_amo_languages(lang):
     """Make sure all bidi marked locales are in AMO_LANGUAGES too."""
-    assert lang in settings.AMO_LANGUAGES or lang in settings.DEBUG_LANGUAGES
+    assert lang in settings.AMO_LANGUAGES
 
 
 @mock.patch('olympia.amo.utils.subprocess')
@@ -224,3 +215,33 @@ def test_pngcrush_image(subprocess_mock):
     # Make sure that exceptions for this are silent.
     subprocess_mock.Popen.side_effect = Exception
     assert not pngcrush_image('/tmp/some_other_file.png')
+
+
+def test_utc_millesecs_from_epoch():
+
+    with freezegun.freeze_time('2018-11-18 06:05:04.030201'):
+        timestamp = utc_millesecs_from_epoch()
+    assert timestamp == 1542521104030
+
+    future_now = datetime.datetime(2018, 11, 20, 4, 8, 15, 162342)
+    timestamp = utc_millesecs_from_epoch(future_now)
+    assert timestamp == 1542686895162
+
+    new_timestamp = utc_millesecs_from_epoch(
+        future_now + datetime.timedelta(milliseconds=42))
+    assert new_timestamp == timestamp + 42
+
+
+def test_extract_colors_from_image():
+    path = os.path.join(
+        settings.ROOT,
+        'src/olympia/versions/tests/static_themes/weta.png')
+    expected = [
+        {'h': 45, 'l': 158, 'ratio': 0.40547158773994313, 's': 34},
+        {'h': 44, 'l': 94, 'ratio': 0.2812929380875291, 's': 28},
+        {'h': 68, 'l': 99, 'ratio': 0.13200103391513734, 's': 19},
+        {'h': 43, 'l': 177, 'ratio': 0.06251105336906689, 's': 93},
+        {'h': 47, 'l': 115, 'ratio': 0.05938209966397758, 's': 60},
+        {'h': 40, 'l': 201, 'ratio': 0.05934128722434598, 's': 83}
+    ]
+    assert extract_colors_from_image(path) == expected

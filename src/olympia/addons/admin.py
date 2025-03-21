@@ -1,4 +1,4 @@
-from urllib import urlencode
+from six.moves.urllib_parse import urlencode
 
 from django import forms
 from django.conf import settings
@@ -11,6 +11,8 @@ from django.utils.translation import ugettext, ugettext_lazy as _
 from olympia import amo
 from olympia.access import acl
 from olympia.amo.urlresolvers import reverse
+from olympia.ratings.models import Rating
+from olympia.zadmin.admin import related_content_link
 
 from . import models
 
@@ -23,12 +25,16 @@ class AddonAdmin(admin.ModelAdmin):
         js = ('js/admin/l10n.js',)
 
     exclude = ('authors',)
-    list_display = ('__unicode__', 'type', 'guid',
+    list_display = ('__str__', 'type', 'guid',
                     'status_with_admin_manage_link', 'average_rating')
     list_filter = ('type', 'status')
     search_fields = ('id', '^guid', '^slug')
 
-    readonly_fields = ('id', 'status_with_admin_manage_link',)
+    readonly_fields = ('id', 'status_with_admin_manage_link',
+                       'average_rating', 'bayesian_rating',
+                       'total_ratings_link', 'text_ratings_count',
+                       'weekly_downloads', 'total_downloads',
+                       'average_daily_users')
 
     fieldsets = (
         (None, {
@@ -44,22 +50,27 @@ class AddonAdmin(admin.ModelAdmin):
             'fields': ('support_url', 'support_email'),
         }),
         ('Stats', {
-            'fields': ('average_rating', 'bayesian_rating', 'total_ratings',
-                       'text_ratings_count',
+            'fields': ('total_ratings_link', 'average_rating',
+                       'bayesian_rating', 'text_ratings_count',
                        'weekly_downloads', 'total_downloads',
                        'average_daily_users'),
         }),
         ('Flags', {
             'fields': ('disabled_by_user', 'view_source', 'requires_payment', 'requires_sensitive_data_access',
-                       'public_stats', 'is_experimental',
-                       'external_software', 'reputation'),
+                       'public_stats', 'is_experimental', 'reputation'),
         }),
-        ('Dictionaries', {
-            'fields': ('target_locale', 'locale_disambiguation'),
+        ('Dictionaries and Language Packs', {
+            'fields': ('target_locale',),
         }))
 
     def queryset(self, request):
         return models.Addon.unfiltered
+
+    def total_ratings_link(self, obj):
+        return related_content_link(
+            obj, Rating, 'addon', related_manager='without_replies',
+            count=obj.total_ratings)
+    total_ratings_link.short_description = _(u'Ratings')
 
     def status_with_admin_manage_link(self, obj):
         # We don't want admins to be able to change the status without logging

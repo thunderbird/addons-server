@@ -7,6 +7,8 @@ from django.db.models.fields import related
 from django.utils import translation as translation_utils
 from django.utils.translation.trans_real import to_language
 
+import six
+
 from .hold import add_translation, make_key, save_translations
 from .widgets import TransInput, TransTextarea
 
@@ -33,7 +35,7 @@ class TranslationDescriptor(related.ForwardManyToOneDescriptor):
 
     def __set__(self, instance, value):
         lang = translation_utils.get_language()
-        if isinstance(value, basestring):
+        if isinstance(value, six.string_types):
             value = self.translation_from_string(instance, lang, value)
         elif hasattr(value, 'items'):
             value = self.translation_from_dict(instance, lang, value)
@@ -227,7 +229,7 @@ class _TransField(object):
         self._field_name = field_name
 
     def clean(self, value):
-        value = dict((k, v.strip() if v else v) for (k, v) in value.items())
+        value = {k: v.strip() if v else v for (k, v) in value.items()}
 
         # Raise an exception if the default locale is required and not present
         if self.default_locale.lower() not in value:

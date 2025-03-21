@@ -1,3 +1,4 @@
+import re
 import json
 import os.path
 import random
@@ -11,16 +12,21 @@ from django.db.models import Q
 from django.forms import ValidationError
 from django.utils.translation import ugettext
 
+import six
+import waffle
+
+from django_statsd.clients import statsd
+
 from olympia import amo
-from olympia.lib.cache import memoize, memoize_key
 from olympia.amo.utils import normalize_string, to_language
 from olympia.constants.categories import CATEGORIES_BY_ID
 from olympia.discovery.utils import call_recommendation_server
+from olympia.lib.cache import memoize, memoize_key
 from olympia.translations.fields import LocaleErrorMessage
 
 
 def generate_addon_guid():
-    return '{%s}' % str(uuid.uuid4())
+    return '@{%s}' % str(uuid.uuid4())
 
 
 def clear_get_featured_ids_cache(*args, **kwargs):
@@ -59,7 +65,7 @@ def get_featured_ids(app=None, lang=None, type=None, types=None):
     random.shuffle(ids)
     random.shuffle(other_ids)
     ids += other_ids
-    return map(int, ids)
+    return list(map(int, ids))
 
 
 @memoize('addons:creatured', timeout=60 * 10)
@@ -99,7 +105,7 @@ def get_creatured_ids(category, lang=None):
     per_locale = list(per_locale)
     random.shuffle(others)
     random.shuffle(per_locale)
-    return map(int, filter(None, per_locale + others))
+    return list(map(int, filter(None, per_locale + others)))
 
 
 def verify_mozilla_trademark(name, user, form=None):
@@ -108,13 +114,17 @@ def verify_mozilla_trademark(name, user, form=None):
         user.email.endswith(amo.ALLOWED_TRADEMARK_SUBMITTING_EMAILS))
 
     def _check(name):
-        name = normalize_string(name, strip_puncutation=True).lower()
+        name = normalize_string(name, strip_punctuation=True).lower()
 
         for symbol in amo.MOZILLA_TRADEMARK_SYMBOLS:
-            violates_trademark = (
-                name.count(symbol) > 1 or (
-                    name.count(symbol) >= 1 and not
-                    name.endswith(' for {}'.format(symbol))))
+            if waffle.switch_is_active('content-optimization'):
+                violates_trademark = symbol in name
+
+            else:
+                violates_trademark = (
+                    name.count(symbol) > 1 or (
+                        name.count(symbol) >= 1 and not
+                        name.endswith(' for {}'.format(symbol))))
 
             if violates_trademark:
                 raise forms.ValidationError(ugettext(
@@ -158,8 +168,7 @@ def get_addon_recommendations(guid_param, taar_enable):
     fail_reason = None
     if taar_enable:
         guids = call_recommendation_server(
-            guid_param, {},
-            settings.TAAR_LITE_RECOMMENDATION_ENGINE_URL)
+            settings.TAAR_LITE_RECOMMENDATION_ENGINE_URL, guid_param, {})
         outcome = (TAAR_LITE_OUTCOME_REAL_SUCCESS if guids
                    else TAAR_LITE_OUTCOME_REAL_FAIL)
         if not guids:
@@ -182,16 +191,23 @@ def get_addon_recommendations_invalid():
         TAAR_LITE_FALLBACK_REASON_INVALID)
 
 
+MULTIPLE_STOPS_REGEX = re.compile(r'\.{2,}')
+
+
+@statsd.timer('addons.tasks.migrate_lwts_to_static_theme.build_xpi')
 def build_static_theme_xpi_from_lwt(lwt, upload_zip):
     # create manifest
     accentcolor = (('#%s' % lwt.persona.accentcolor) if lwt.persona.accentcolor
                    else amo.THEME_ACCENTCOLOR_DEFAULT)
     textcolor = '#%s' % (lwt.persona.textcolor or '000')
+
+    lwt_header = MULTIPLE_STOPS_REGEX.sub(
+        u'.', six.text_type(lwt.persona.header))
     manifest = {
         "manifest_version": 2,
-        "name": unicode(lwt.name or lwt.slug),
+        "name": six.text_type(lwt.name) or six.text_type(lwt.slug),
         "version": '1.0',
-        "applications": {
+        "browser_specific_settings": {
             "gecko": {
                 "id": generate_addon_guid(),
                 "strict_min_version": "60.0"
@@ -208,7 +224,7 @@ def build_static_theme_xpi_from_lwt(lwt, upload_zip):
         }
     }
     if lwt.description:
-        manifest['description'] = unicode(lwt.description)
+        manifest['description'] = six.text_type(lwt.description)
 
     # build zip with manifest and background file
     with zipfile.ZipFile(upload_zip, 'w', zipfile.ZIP_DEFLATED) as dest:
@@ -282,7 +298,7 @@ def build_webext_dictionary_from_legacy(addon, destination):
 
         manifest = {
             'manifest_version': 2,
-            'name': unicode(addon.name),
+            'name': six.text_type(addon.name),
             'browser_specific_settings': {
                 'gecko': {
                     'id': addon.guid,

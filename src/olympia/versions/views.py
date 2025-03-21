@@ -1,4 +1,5 @@
 import os
+import six
 
 from django import http
 from django.db.transaction import non_atomic_requests
@@ -15,7 +16,6 @@ from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import HttpResponseSendFile, render, urlparams
 from olympia.files.models import File
 from olympia.versions.models import Version
-from olympia.lib.cache import cache_get_or_set, make_key
 
 
 # The version detail page redirects to the version within pagination, so we
@@ -46,31 +46,6 @@ def version_list(request, addon):
     Version.transformer(versions.object_list)
     return render(request, 'versions/version_list.html', {
         'addon': addon, 'versions': versions})
-
-
-@addon_view
-@non_atomic_requests
-def version_detail(request, addon, version_num):
-    # TODO: Does setting this in memcachd even make sense?
-    # This is specific to an add-ons version so the chance of this hitting
-    # the cache and not missing seems quite bad to me (cgrebs)
-    def _fetch():
-        qs = _version_list_qs(addon)
-        return list(qs.values_list('version', flat=True))
-
-    cache_key = make_key(
-        u'version-detail:{}:{}'.format(addon.id, version_num),
-        normalize=True)
-
-    ids = cache_get_or_set(cache_key, _fetch)
-
-    url = reverse('addons.versions', args=[addon.slug])
-    if version_num in ids:
-        page = 1 + ids.index(version_num) / PER_PAGE
-        to = urlparams(url, 'version-%s' % version_num, page=page)
-        return http.HttpResponseRedirect(to)
-    else:
-        raise http.Http404()
 
 
 @addon_view
@@ -137,7 +112,7 @@ def download_file(request, file_id, type=None, file_=None, addon=None):
                     file_id=file_id, user_id=request.user.pk))
             raise http.Http404()  # Not owner or admin.
 
-    attachment = (type == 'attachment' or not request.APP.browser)
+    attachment = bool(type == 'attachment')
 
     loc = urlparams(file_.get_file_cdn_url(attachment=attachment),
                     filehash=file_.hash)
@@ -183,7 +158,7 @@ def download_source(request, version_id):
             raise http.Http404  # Not listed, not owner or unlisted reviewer.
     res = HttpResponseSendFile(request, version.source.path)
     path = version.source.path
-    if not isinstance(path, unicode):
+    if not isinstance(path, six.text_type):
         path = path.decode('utf8')
     name = os.path.basename(path.replace(u'"', u''))
     disposition = u'attachment; filename="{0}"'.format(name).encode('utf8')

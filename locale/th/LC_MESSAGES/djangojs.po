@@ -3,9 +3,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2016-10-17 14:08+0000\n"
-"Last-Translator: Googleโครม! <tamisun32646@gmail.com>\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-01-17 16:25+0000\n"
+"Last-Translator: Top <teerapatxtop@yahoo.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: th\n"
 "MIME-Version: 1.0\n"
@@ -47,7 +47,7 @@ msgstr "กำลังอัปโหลด {0}"
 msgid "Error with {0}"
 msgstr "เกิดข้อผิดพลาดกับ {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
+msgid "Please make sure to report any linting related issues on GitHub"
 msgstr ""
 
 msgid "Your add-on failed validation with {0} error."
@@ -71,7 +71,7 @@ msgid "Received an empty response from the server; status: {0}"
 msgstr "ได้รับการตอบสนองที่ว่างเปล่าจากแม่ข่าย; สถานะ: {0}"
 
 msgid "Unexpected server error while validating."
-msgstr "ข้อผิดพลาดของแม่ข่ายที่ไม่คาดคิดขณะกำลังทำการตรวจสอบ"
+msgstr "เกิดข้อผิดพลาดเซิร์ฟเวอร์ที่ไม่คาดคิดขณะตรวจสอบ"
 
 msgid "Finished validating {0}"
 msgstr "เสร็จสิ้นการตรวจสอบ {0}"
@@ -752,9 +752,16 @@ msgstr "ไม่พบผลลัพธ์"
 msgid "Loading..."
 msgstr "กำลังโหลด…"
 
+#. L10n: {0} is the number of characters entered.
+#, fuzzy
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "เหลือ <b>{0}</b> ตัวอักษร"
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
+#, fuzzy
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
 msgstr[0] "เหลือ <b>{0}</b> ตัวอักษร"
 
 msgid "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
@@ -797,7 +804,7 @@ msgid "Average Reviews"
 msgstr ""
 
 msgid "Number of Reviews"
-msgstr ""
+msgstr "จำนวนคำวิจารณ์"
 
 msgid "Maximum upload size is {0} - choose a smaller background image."
 msgstr ""
@@ -850,9 +857,6 @@ msgstr "{0} บรรทัด {1} คอลัมน์ {2}"
 msgid "{0} line {1}"
 msgstr "{0} บรรทัด {1}"
 
-msgid "Compatibility Tests"
-msgstr "การทดสอบความเข้ากันได้"
-
 msgid "Add-on failed validation."
 msgstr "ส่วนเสริมของคุณไม่ผ่านการตรวจสอบ"
 
@@ -869,7 +873,7 @@ msgstr[0] "{0} คำเตือน"
 
 msgid "{0} notice"
 msgid_plural "{0} notices"
-msgstr[0] ""
+msgstr[0] "{0} ประกาศ"
 
 msgid "Validation task could not complete or completed with errors"
 msgstr "งานการตรวจสอบไม่สามารถเสร็จสิ้นได้เพราะมีข้อผิดพลาด"

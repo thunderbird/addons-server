@@ -1,5 +1,4 @@
 import logging
-import os
 
 from olympia.lib.settings_base import *  # noqa
 
@@ -10,6 +9,7 @@ CSP_BASE_URI += (
     'https://addons-dev.allizom.org',
 )
 CDN_HOST = 'https://addons-dev-cdn.allizom.org'
+CSP_CONNECT_SRC += (CDN_HOST,)
 CSP_FONT_SRC += (CDN_HOST,)
 CSP_IMG_SRC += (CDN_HOST,)
 CSP_SCRIPT_SRC += (
@@ -45,33 +45,21 @@ SESSION_COOKIE_DOMAIN = ".%s" % DOMAIN
 INBOUND_EMAIL_DOMAIN = env('INBOUND_EMAIL_DOMAIN',
                            default='addons-dev.allizom.org')
 
-NETAPP_STORAGE_ROOT = env('NETAPP_STORAGE_ROOT')
-NETAPP_STORAGE = os.path.join(NETAPP_STORAGE_ROOT, 'shared_storage')
-GUARDED_ADDONS_PATH = os.path.join(NETAPP_STORAGE_ROOT, 'guarded-addons')
-MEDIA_ROOT = os.path.join(NETAPP_STORAGE, 'uploads')
-TMP_PATH = os.path.join(NETAPP_STORAGE, 'tmp')
-PACKAGER_PATH = os.path.join(TMP_PATH, 'packager')
-
-ADDONS_PATH = os.path.join(NETAPP_STORAGE_ROOT, 'files')
-
-REVIEWER_ATTACHMENTS_PATH = os.path.join(MEDIA_ROOT, 'reviewer_attachment')
-
 DATABASES = {
-    'default': get_db_config('DATABASES_DEFAULT_URL'),
-    'slave': get_db_config('DATABASES_SLAVE_URL', atomic_requests=False),
+    'default': get_db_config('DATABASES_DEFAULT_URL', charset='utf8mb4'),
+    'slave': get_db_config(
+        'DATABASES_SLAVE_URL', atomic_requests=False, charset='utf8mb4'),
 }
 
 SERVICES_DATABASE = get_db_config('SERVICES_DATABASE_URL')
 
 SLAVE_DATABASES = ['slave']
 
-CACHE_MIDDLEWARE_KEY_PREFIX = CACHE_PREFIX
-
 CACHES = {}
 CACHES['default'] = env.cache('CACHES_DEFAULT')
 CACHES['default']['TIMEOUT'] = 500
 CACHES['default']['BACKEND'] = 'django.core.cache.backends.memcached.MemcachedCache'  # noqa
-CACHES['default']['KEY_PREFIX'] = CACHE_PREFIX
+CACHES['default']['KEY_PREFIX'] = CACHE_KEY_PREFIX
 
 # Celery
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
@@ -108,10 +96,6 @@ XSENDFILE_HEADER = 'X-Accel-Redirect'
 ALLOW_SELF_REVIEWS = True
 
 PERSONA_DEFAULT_PAGES = 2
-
-AMO_LANGUAGES = AMO_LANGUAGES + DEBUG_LANGUAGES
-LANGUAGES = lazy(lazy_langs, dict)(AMO_LANGUAGES)
-LANGUAGE_URL_MAP = dict([(i.lower(), i) for i in AMO_LANGUAGES])
 
 NEWRELIC_ENABLE = env.bool('NEWRELIC_ENABLE', default=False)
 
@@ -150,10 +134,6 @@ FXA_CONFIG = {
 }
 DEFAULT_FXA_CONFIG_NAME = 'default'
 ALLOWED_FXA_CONFIGS = ['default', 'amo', 'local']
-
-CORS_ENDPOINT_OVERRIDES = cors_endpoint_overrides(
-    ['amo.addons-dev.allizom.org', 'localhost:3000']
-)
 
 FXA_SQS_AWS_QUEUE_URL = (
     'https://sqs.us-east-1.amazonaws.com/927034868273/'

@@ -1,32 +1,45 @@
 from __future__ import division
+import operator
 import os
-from itertools import izip_longest
 
 from django.template import loader
+
+import six
+
+import olympia.core.logger
 
 from olympia import amo
 from olympia.amo.celery import task
 from olympia.amo.decorators import use_primary_db
-from olympia.amo.utils import pngcrush_image
+from olympia.amo.utils import extract_colors_from_image, pngcrush_image
 from olympia.devhub.tasks import resize_image
-from olympia.versions.models import VersionPreview
+from olympia.files.models import File
+from olympia.files.utils import get_background_images
+from olympia.versions.models import Version, VersionPreview
+from olympia.lib.git import AddonGitRepository
+from olympia.users.models import UserProfile
 
 from .utils import (
     AdditionalBackground, process_color_value,
-    encode_header_image, write_svg_to_png)
+    encode_header, write_svg_to_png)
 
 
-def _build_static_theme_preview_context(theme_manifest, header_root):
+log = olympia.core.logger.getLogger('z.versions.task')
+
+
+def _build_static_theme_preview_context(theme_manifest, file_):
     # First build the context shared by both the main preview and the thumb
     context = {'amo': amo}
-    context.update(
-        {process_color_value(prop, color)
-         for prop, color in theme_manifest.get('colors', {}).items()})
+    context.update(dict(
+        process_color_value(prop, color)
+        for prop, color in theme_manifest.get('colors', {}).items()))
     images_dict = theme_manifest.get('images', {})
     header_url = images_dict.get(
         'headerURL', images_dict.get('theme_frame', ''))
-    header_src, header_width, header_height = encode_header_image(
-        os.path.join(header_root, header_url))
+    file_ext = os.path.splitext(header_url)[1]
+    backgrounds = get_background_images(file_, theme_manifest)
+    header_src, header_width, header_height = encode_header(
+        backgrounds.get(header_url), file_ext)
     context.update(
         header_src=header_src,
         header_src_height=header_height,
@@ -39,8 +52,8 @@ def _build_static_theme_preview_context(theme_manifest, header_root):
     additional_tiling = (theme_manifest.get('properties', {})
                          .get('additional_backgrounds_tiling', []))
     additional_backgrounds = [
-        AdditionalBackground(path, alignment, tiling, header_root)
-        for (path, alignment, tiling) in izip_longest(
+        AdditionalBackground(path, alignment, tiling, backgrounds.get(path))
+        for (path, alignment, tiling) in six.moves.zip_longest(
             additional_srcs, additional_alignments, additional_tiling)
         if path is not None]
     context.update(additional_backgrounds=additional_backgrounds)
@@ -49,13 +62,20 @@ def _build_static_theme_preview_context(theme_manifest, header_root):
 
 @task
 @use_primary_db
-def generate_static_theme_preview(theme_manifest, header_root, version_pk):
+def generate_static_theme_preview(theme_manifest, version_pk):
+    # Make sure we import `index_addons` late in the game to avoid having
+    # a "copy" of it here that won't get mocked by our ESTestCase
+    from olympia.addons.tasks import index_addons
+
     tmpl = loader.get_template(
         'devhub/addons/includes/static_theme_preview_svg.xml')
-    context = _build_static_theme_preview_context(theme_manifest, header_root)
+    file_ = File.objects.filter(version_id=version_pk).first()
+    if not file_:
+        return
+    context = _build_static_theme_preview_context(theme_manifest, file_)
     sizes = sorted(
-        amo.THEME_PREVIEW_SIZES.values(),
-        lambda x, y: x['position'] - y['position'])
+        amo.THEME_PREVIEW_SIZES.values(), key=operator.itemgetter('position'))
+    colors = None
     for size in sizes:
         # Create a Preview for this size.
         preview = VersionPreview.objects.create(
@@ -67,13 +87,78 @@ def generate_static_theme_preview(theme_manifest, header_root, version_pk):
             resize_image(
                 preview.image_path, preview.thumbnail_path, size['thumbnail'])
             pngcrush_image(preview.image_path)
-            preview_sizes = {}
-            preview_sizes['image'] = size['full']
-            preview_sizes['thumbnail'] = size['thumbnail']
-            preview.update(sizes=preview_sizes)
+            # Extract colors once and store it for all previews.
+            # Use the thumbnail for extra speed, we don't need to be super
+            # accurate.
+            if colors is None:
+                colors = extract_colors_from_image(preview.thumbnail_path)
+            data = {
+                'sizes': {
+                    'image': size['full'],
+                    'thumbnail': size['thumbnail'],
+                },
+                'colors': colors,
+            }
+            preview.update(**data)
+    addon_id = Version.objects.values_list(
+        'addon_id', flat=True).get(id=version_pk)
+    index_addons.delay([addon_id])
 
 
 @task
 def delete_preview_files(pk, **kw):
     VersionPreview.delete_preview_files(
         sender=None, instance=VersionPreview.objects.get(pk=pk))
+
+
+@task
+@use_primary_db
+def extract_version_to_git(version_id, author_id=None):
+    """Extract a `File` into our git storage backend."""
+    version = Version.objects.get(pk=version_id)
+
+    if author_id is not None:
+        author = UserProfile.objects.get(pk=author_id)
+    else:
+        author = None
+
+    log.info('Extracting {version_id} into git backend'.format(
+        version_id=version_id))
+
+    repo = AddonGitRepository.extract_and_commit_from_version(
+        version=version, author=author)
+
+    log.info('Extracted {version} into {git_path}'.format(
+        version=version_id, git_path=repo.git_repository_path))
+
+    if version.source:
+        repo = AddonGitRepository.extract_and_commit_source_from_version(
+            version=version, author=author)
+
+        log.info(
+            'Extracted source files from {version} into {git_path}'.format(
+                version=version_id, git_path=repo.git_repository_path))
+
+
+@task
+@use_primary_db
+def extract_version_source_to_git(version_id, author_id=None):
+    version = Version.objects.get(pk=version_id)
+    if not version.source:
+        log.info('Tried to extract sources of {version_id} but there none.')
+        return
+
+    if author_id is not None:
+        author = UserProfile.objects.get(pk=author_id)
+    else:
+        author = None
+
+    log.info('Extracting {version_id} source into git backend'.format(
+        version_id=version_id))
+
+    repo = AddonGitRepository.extract_and_commit_source_from_version(
+        version=version, author=author)
+
+    log.info(
+        'Extracted source files from {version} into {git_path}'.format(
+            version=version_id, git_path=repo.git_repository_path))

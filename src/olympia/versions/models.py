@@ -2,15 +2,20 @@
 import datetime
 import os
 
+from base64 import b64encode
+
 import django.dispatch
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.storage import default_storage as storage
 from django.db import models
+from django.utils.encoding import force_text, python_2_unicode_compatible
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext
 
 import jinja2
+import six
+import waffle
 
 from django_extensions.db.fields.json import JSONField
 from django_statsd.clients import statsd
@@ -18,15 +23,12 @@ from django_statsd.clients import statsd
 import olympia.core.logger
 
 from olympia import activity, amo
-from olympia.amo.fields import PositiveAutoField
 from olympia.amo.decorators import use_primary_db
+from olympia.amo.fields import PositiveAutoField
 from olympia.amo.models import (
     BasePreview, ManagerBase, ModelBase, OnChangeMixin)
-from olympia.amo.templatetags.jinja_helpers import (
-    id_to_path, user_media_path, user_media_url)
 from olympia.amo.urlresolvers import reverse
-from olympia.amo.utils import (
-    sorted_groupby, utc_millesecs_from_epoch, walkfiles)
+from olympia.amo.utils import sorted_groupby, utc_millesecs_from_epoch
 from olympia.applications.models import AppVersion
 from olympia.constants.licenses import LICENSES_BY_BUILTIN
 from olympia.files import utils
@@ -39,10 +41,11 @@ from .compare import version_dict, version_int
 
 log = olympia.core.logger.getLogger('z.versions')
 
-VALID_SOURCE_EXTENSIONS = (
-    '.zip', '.tar', '.7z', '.tar.gz', '.tgz', '.tbz', '.txz', '.tar.bz2',
-    '.tar.xz'
-)
+
+# Valid source extensions. Used in error messages to the user and to skip
+# early in source_upload_path() if necessary, but the actual validation is
+# more complex and done in olympia.devhub.WithSourceMixin.clean_source
+VALID_SOURCE_EXTENSIONS = ('.zip', '.tar.gz', '.tar.bz2',)
 
 
 class VersionManager(ManagerBase):
@@ -89,7 +92,7 @@ def source_upload_path(instance, filename):
 
     return os.path.join(
         u'version_source',
-        id_to_path(instance.pk),
+        utils.id_to_path(instance.pk),
         u'{0}-{1}-src{2}'.format(
             instance.addon.slug,
             instance.version,
@@ -101,13 +104,16 @@ class VersionCreateError(ValueError):
     pass
 
 
+@python_2_unicode_compatible
 class Version(OnChangeMixin, ModelBase):
     id = PositiveAutoField(primary_key=True)
     addon = models.ForeignKey(
         'addons.Addon', related_name='versions', on_delete=models.CASCADE)
-    license = models.ForeignKey('License', null=True)
-    releasenotes = PurifiedField()
-    approvalnotes = models.TextField(default='', null=True)
+    license = models.ForeignKey(
+        'License', null=True, on_delete=models.CASCADE)
+    release_notes = PurifiedField(db_column='releasenotes')
+    approval_notes = models.TextField(
+        db_column='approvalnotes', default='', null=True)
     version = models.CharField(max_length=255, default='0.1')
     version_int = models.BigIntegerField(null=True, editable=False)
 
@@ -123,6 +129,7 @@ class Version(OnChangeMixin, ModelBase):
                                   default=amo.RELEASE_CHANNEL_LISTED)
 
     git_hash = models.CharField(max_length=40, blank=True)
+    source_git_hash = models.CharField(max_length=40, blank=True)
 
     # The order of those managers is very important: please read the lengthy
     # comment above the Addon managers declaration/instantiation.
@@ -140,7 +147,7 @@ class Version(OnChangeMixin, ModelBase):
         super(Version, self).__init__(*args, **kwargs)
         self.__dict__.update(version_dict(self.version or ''))
 
-    def __unicode__(self):
+    def __str__(self):
         return jinja2.escape(self.version)
 
     def save(self, *args, **kw):
@@ -172,7 +179,7 @@ class Version(OnChangeMixin, ModelBase):
         """
         assert parsed_data is not None
 
-        from olympia.addons.models import ( AddonFeatureCompatibility, AddonReviewerFlags )
+        from olympia.addons.models import ( AddonReviewerFlags )
 
         if addon.status == amo.STATUS_DISABLED:
             raise VersionCreateError(
@@ -184,13 +191,13 @@ class Version(OnChangeMixin, ModelBase):
                 channel=channel, exclude=())
             if previous_version and previous_version.license_id:
                 license_id = previous_version.license_id
-        approvalnotes = None
+        approval_notes = None
         if parsed_data.get('is_mozilla_signed_extension'):
-            approvalnotes = (u'This version has been signed with '
-                             u'Mozilla internal certificate.')
+            approval_notes = (u'This version has been signed with '
+                              u'Mozilla internal certificate.')
         version = cls.objects.create(
             addon=addon,
-            approvalnotes=approvalnotes,
+            approval_notes=approval_notes,
             version=parsed_data['version'],
             license_id=license_id,
             channel=channel,
@@ -198,14 +205,10 @@ class Version(OnChangeMixin, ModelBase):
         log.info(
             'New version: %r (%s) from %r' % (version, version.id, upload))
         activity.log_create(amo.LOG.ADD_VERSION, version, addon)
-        # Update the add-on e10s compatibility since we're creating a new
-        # version that may change that.
-        e10s_compatibility = parsed_data.get('e10s_compatibility')
-        if e10s_compatibility is not None:
-            feature_compatibility = (
-                AddonFeatureCompatibility.objects.get_or_create(addon=addon)[0]
-            )
-            feature_compatibility.update(e10s=e10s_compatibility)
+
+        if addon.type == amo.ADDON_STATICTHEME:
+            # We don't let developers select apps for static themes
+            selected_apps = [app.id for app in amo.APP_USAGE]
 
         compatible_apps = {}
         for app in parsed_data.get('apps', []):
@@ -247,17 +250,14 @@ class Version(OnChangeMixin, ModelBase):
         storage.delete(upload.path)
         version_uploaded.send(sender=version)
 
+        # Extract this version into git repository
+        extract_version_to_git_repository(version, upload)
+
         # Generate a preview and icon for listed static themes
         if (addon.type == amo.ADDON_STATICTHEME and
                 channel == amo.RELEASE_CHANNEL_LISTED):
-            dst_root = os.path.join(user_media_path('addons'), str(addon.id))
             theme_data = parsed_data.get('theme', {})
-            version_root = os.path.join(dst_root, unicode(version.id))
-
-            utils.extract_header_img(
-                version.all_files[0].file_path, theme_data, version_root)
-            generate_static_theme_preview(
-                theme_data, version_root, version.pk)
+            generate_static_theme_preview(theme_data, version.pk)
 
 
         # Adjust our `needs_sensitive_data_access_review` flag accordingly.
@@ -285,7 +285,7 @@ class Version(OnChangeMixin, ModelBase):
     def get_url_path(self):
         if self.channel == amo.RELEASE_CHANNEL_UNLISTED:
             return ''
-        return reverse('addons.versions', args=[self.addon.slug, self.version])
+        return reverse('addons.versions', args=[self.addon.slug])
 
     def delete(self, hard=False):
         # To avoid a circular import
@@ -440,8 +440,13 @@ class Version(OnChangeMixin, ModelBase):
 
     @cached_property
     def all_files(self):
-        """Shortcut for list(self.files.all()).  Heavily cached."""
+        """Shortcut for list(self.files.all()). Cached."""
         return list(self.files.all())
+
+    @property
+    def current_file(self):
+        """Shortcut for selecting the first file from self.all_files"""
+        return self.all_files[0]
 
     @cached_property
     def supported_platforms(self):
@@ -496,8 +501,9 @@ class Version(OnChangeMixin, ModelBase):
 
     @property
     def is_unreviewed(self):
-        return filter(lambda f: f.status in amo.UNREVIEWED_FILE_STATUSES,
-                      self.all_files)
+        return bool(list(filter(
+            lambda f: f.status in amo.UNREVIEWED_FILE_STATUSES, self.all_files
+        )))
 
     @property
     def is_all_unreviewed(self):
@@ -567,7 +573,7 @@ class Version(OnChangeMixin, ModelBase):
 
         def rollup(xs):
             groups = sorted_groupby(xs, 'version_id')
-            return dict((k, list(vs)) for k, vs in groups)
+            return {k: list(vs) for k, vs in groups}
 
         al_dict = rollup(al)
 
@@ -640,32 +646,39 @@ class Version(OnChangeMixin, ModelBase):
             pass
         return False
 
-    def get_background_image_urls(self):
-        if self.addon.type != amo.ADDON_STATICTHEME:
-            return []
-        background_images_folder = os.path.join(
-            user_media_path('addons'), str(self.addon.id), unicode(self.id))
-        background_images_url = '/'.join(
-            (user_media_url('addons'), str(self.addon.id), unicode(self.id)))
-        out = [
-            background.replace(background_images_folder, background_images_url)
-            for background in walkfiles(background_images_folder)]
-        return out
+    def get_background_images_encoded(self, header_only=False):
+        if not self.has_files:
+            return {}
+        file_obj = self.all_files[0]
+        return {
+            name: force_text(b64encode(background))
+            for name, background in utils.get_background_images(
+                file_obj, theme_data=None, header_only=header_only).items()}
 
 
-def generate_static_theme_preview(theme_data, version_root, version_pk):
+def generate_static_theme_preview(theme_data, version_pk):
     """This redirection is so we can mock generate_static_theme_preview, where
     needed, in tests."""
     # To avoid a circular import
     from . import tasks
-    tasks.generate_static_theme_preview.delay(
-        theme_data, version_root, version_pk)
+    tasks.generate_static_theme_preview.delay(theme_data, version_pk)
+
+
+def extract_version_to_git_repository(version, upload):
+    """Extract and commit ``version`` into our git-storage backend."""
+    from . import tasks
+    if waffle.switch_is_active('enable-uploads-commit-to-git-storage'):
+        tasks.extract_version_to_git.delay(
+            version_id=version.pk,
+            author_id=upload.user.pk if upload.user else None)
 
 
 class VersionPreview(BasePreview, ModelBase):
-    version = models.ForeignKey(Version, related_name='previews')
+    version = models.ForeignKey(
+        Version, related_name='previews', on_delete=models.CASCADE)
     position = models.IntegerField(default=0)
     sizes = JSONField(default={})
+    colors = JSONField(default=None, null=True)
     media_folder = 'version-previews'
 
     class Meta:
@@ -790,6 +803,7 @@ class LicenseManager(ManagerBase):
             builtin__gt=0, creative_commons=cc).order_by('builtin')
 
 
+@python_2_unicode_compatible
 class License(ModelBase):
     OTHER = 0
 
@@ -813,9 +827,9 @@ class License(ModelBase):
     class Meta:
         db_table = 'licenses'
 
-    def __unicode__(self):
+    def __str__(self):
         license = self._constant or self
-        return unicode(license.name)
+        return six.text_type(license.name)
 
     @property
     def _constant(self):
@@ -826,25 +840,37 @@ models.signals.pre_save.connect(
     save_signal, sender=License, dispatch_uid='license_translations')
 
 
+@python_2_unicode_compatible
 class ApplicationsVersions(models.Model):
     id = PositiveAutoField(primary_key=True)
     application = models.PositiveIntegerField(choices=amo.APPS_CHOICES,
                                               db_column='application_id')
     version = models.ForeignKey(
         Version, related_name='apps', on_delete=models.CASCADE)
-    min = models.ForeignKey(AppVersion, db_column='min',
-                            related_name='min_set')
-    max = models.ForeignKey(AppVersion, db_column='max',
-                            related_name='max_set')
+    min = models.ForeignKey(
+        AppVersion, db_column='min', related_name='min_set',
+        on_delete=models.CASCADE)
+    max = models.ForeignKey(
+        AppVersion, db_column='max', related_name='max_set',
+        on_delete=models.CASCADE)
 
     class Meta:
         db_table = u'applications_versions'
         unique_together = (("application", "version"),)
 
     def get_application_display(self):
-        return unicode(amo.APPS_ALL[self.application].pretty)
+        return six.text_type(amo.APPS_ALL[self.application].pretty)
 
-    def __unicode__(self):
+    def get_latest_application_version(self):
+        return (
+            AppVersion.objects
+            .filter(
+                ~models.Q(version__contains='*'),
+                application=self.application)
+            .order_by('-version_int')
+            .first())
+
+    def __str__(self):
         if (self.version.is_compatible_by_default and
                 self.version.is_compatible_app(amo.APP_IDS[self.application])):
             return ugettext(u'{app} {min} and later').format(

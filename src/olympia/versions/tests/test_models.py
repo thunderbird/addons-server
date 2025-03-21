@@ -9,26 +9,29 @@ from django.core.files.storage import default_storage as storage
 
 import mock
 import pytest
+import six
+
+from waffle.testutils import override_switch
 
 from olympia import amo, core
 from olympia.activity.models import ActivityLog
 from olympia.addons.models import (
-    Addon, AddonFeatureCompatibility, AddonReviewerFlags, CompatOverride,
-    CompatOverrideRange)
-from olympia.amo.templatetags.jinja_helpers import user_media_url
-from olympia.amo.tests import TestCase, addon_factory, version_factory
+    Addon, AddonReviewerFlags, CompatOverride, CompatOverrideRange)
+from olympia.amo.tests import (
+    TestCase, addon_factory, user_factory, version_factory)
 from olympia.amo.tests.test_models import BasePreviewMixin
 from olympia.amo.utils import utc_millesecs_from_epoch
 from olympia.applications.models import AppVersion
 from olympia.files.models import File
 from olympia.files.tests.test_models import UploadTest
 from olympia.files.utils import parse_addon
+from olympia.lib.git import AddonGitRepository
 from olympia.reviewers.models import (
     AutoApprovalSummary, ViewFullReviewQueue, ViewPendingQueue)
 from olympia.users.models import UserProfile
 from olympia.versions.compare import version_int
 from olympia.versions.models import (
-    ApplicationsVersions, source_upload_path, Version, VersionPreview)
+    ApplicationsVersions, Version, VersionPreview, source_upload_path)
 
 
 pytestmark = pytest.mark.django_db
@@ -94,13 +97,6 @@ class TestVersionManager(TestCase):
             type=amo.ADDON_LPAPP, target_locale='it',
             file_kw={'strict_compatibility': True},
             version_kw={'min_app_version': '59.0', 'max_app_version': '59.*'})
-        addon_factory(
-            name='Thunderbird Polish Language Pack',
-            type=amo.ADDON_LPAPP, target_locale='pl',
-            file_kw={'strict_compatibility': True},
-            version_kw={
-                'application': amo.THUNDERBIRD.id,
-                'min_app_version': '58.0', 'max_app_version': '58.*'})
         # Even add a pack with a compatible version... not public. And another
         # one with a compatible version... not listed.
         incompatible_pack2 = addon_factory(
@@ -420,7 +416,7 @@ class TestVersion(TestCase):
         version = version_factory(addon=addon, max_app_version='3.5')
         assert not version.is_compatible_app(amo.FIREFOX)
         # An app that isn't supported should also be False.
-        assert not version.is_compatible_app(amo.THUNDERBIRD)
+        assert not version.is_compatible_app(amo.ANDROID)
         # An app that can't do d2c should also be False.
         assert not version.is_compatible_app(amo.UNKNOWN_APP)
 
@@ -462,7 +458,7 @@ class TestVersion(TestCase):
             ViewPendingQueue: amo.STATUS_PUBLIC
         }
 
-        for queue, status in queue_to_status.iteritems():  # Listed queues.
+        for queue, status in six.iteritems(queue_to_status):  # Listed queues.
             self.version.addon.update(status=status)
             assert self.version.current_queue == queue
 
@@ -472,7 +468,7 @@ class TestVersion(TestCase):
 
     def test_get_url_path(self):
         assert self.version.get_url_path() == (
-            '/en-US/firefox/addon/a3615/versions/2.1.072')
+            '/en-US/firefox/addon/a3615/versions/')
 
     def test_valid_versions(self):
         addon = Addon.objects.get(id=3615)
@@ -627,8 +623,8 @@ class TestExtensionVersionFromUpload(TestVersionFromUpload):
             self.upload, self.addon, [self.selected_app],
             amo.RELEASE_CHANNEL_LISTED, parsed_data=self.dummy_parsed_data)
         assert version.is_mozilla_signed
-        assert version.approvalnotes == (u'This version has been signed with '
-                                         u'Mozilla internal certificate.')
+        assert version.approval_notes == (u'This version has been signed with '
+                                          u'Mozilla internal certificate.')
 
     def test_carry_over_license_no_version(self):
         self.addon.versions.all().delete()
@@ -680,13 +676,13 @@ class TestExtensionVersionFromUpload(TestVersionFromUpload):
         # Add an extra ApplicationsVersions. It should *not* appear in
         # version.compatible_apps, because that's a cached_property.
         new_app_vr_min = AppVersion.objects.create(
-            application=amo.THUNDERBIRD.id, version='1.0')
+            application=amo.ANDROID.id, version='1.0')
         new_app_vr_max = AppVersion.objects.create(
-            application=amo.THUNDERBIRD.id, version='2.0')
+            application=amo.ANDROID.id, version='2.0')
         ApplicationsVersions.objects.create(
-            version=version, application=amo.THUNDERBIRD.id,
+            version=version, application=amo.ANDROID.id,
             min=new_app_vr_min, max=new_app_vr_max)
-        assert amo.THUNDERBIRD not in version.compatible_apps
+        assert amo.ANDROID not in version.compatible_apps
         assert amo.FIREFOX in version.compatible_apps
         app = version.compatible_apps[amo.FIREFOX]
         assert app.min.version == '3.0'
@@ -822,48 +818,6 @@ class TestExtensionVersionFromUpload(TestVersionFromUpload):
             assert (actual_delta >= (rough_delta - fuzz) and
                     actual_delta <= (rough_delta + fuzz))
 
-    def test_new_version_is_10s_compatible_no_feature_compat_previously(self):
-        assert not self.addon.feature_compatibility.pk
-        self.upload = self.get_upload('multiprocess_compatible_extension.xpi')
-        parsed_data = parse_addon(self.upload, self.addon, user=mock.Mock())
-        version = Version.from_upload(
-            self.upload, self.addon, [self.selected_app],
-            amo.RELEASE_CHANNEL_LISTED,
-            parsed_data=parsed_data)
-        assert version.pk
-        assert self.addon.feature_compatibility.pk
-        assert self.addon.feature_compatibility.e10s == amo.E10S_COMPATIBLE
-
-    def test_new_version_is_10s_compatible(self):
-        AddonFeatureCompatibility.objects.create(addon=self.addon)
-        assert self.addon.feature_compatibility.e10s == amo.E10S_UNKNOWN
-        self.upload = self.get_upload('multiprocess_compatible_extension.xpi')
-        parsed_data = parse_addon(self.upload, self.addon, user=mock.Mock())
-        version = Version.from_upload(
-            self.upload, self.addon, [self.selected_app],
-            amo.RELEASE_CHANNEL_LISTED,
-            parsed_data=parsed_data)
-        assert version.pk
-        assert self.addon.feature_compatibility.pk
-        self.addon.feature_compatibility.reload()
-        assert self.addon.feature_compatibility.e10s == amo.E10S_COMPATIBLE
-
-    def test_new_version_is_webextension(self):
-        self.addon.update(guid='@webextension-guid')
-        AddonFeatureCompatibility.objects.create(addon=self.addon)
-        assert self.addon.feature_compatibility.e10s == amo.E10S_UNKNOWN
-        self.upload = self.get_upload('webextension.xpi')
-        parsed_data = parse_addon(self.upload, self.addon, user=mock.Mock())
-        version = Version.from_upload(
-            self.upload, self.addon, [self.selected_app],
-            amo.RELEASE_CHANNEL_LISTED,
-            parsed_data=parsed_data)
-        assert version.pk
-        assert self.addon.feature_compatibility.pk
-        self.addon.feature_compatibility.reload()
-        assert self.addon.feature_compatibility.e10s == (
-            amo.E10S_COMPATIBLE_WEBEXTENSION)
-
     def test_nomination_inherited_for_updates(self):
         assert self.addon.status == amo.STATUS_PUBLIC
         self.addon.current_version.update(nomination=self.days_ago(2))
@@ -875,6 +829,53 @@ class TestExtensionVersionFromUpload(TestVersionFromUpload):
             self.upload, self.addon, [self.selected_app],
             amo.RELEASE_CHANNEL_LISTED, parsed_data=self.dummy_parsed_data)
         assert upload_version.nomination == pending_version.nomination
+
+    @override_switch('enable-uploads-commit-to-git-storage', active=False)
+    def test_doesnt_commit_to_git_by_default(self):
+        addon = addon_factory(guid='webextension@example.org')
+        upload = self.get_upload('webextension_with_id.xpi')
+        user = user_factory(username='fancyuser')
+        parsed_data = parse_addon(upload, addon, user=user)
+        version = Version.from_upload(
+            upload, addon, [self.selected_app],
+            amo.RELEASE_CHANNEL_LISTED,
+            parsed_data=parsed_data)
+        assert version.pk
+
+        repo = AddonGitRepository(addon.pk)
+        assert not os.path.exists(repo.git_repository_path)
+
+    @override_switch('enable-uploads-commit-to-git-storage', active=True)
+    def test_commits_to_git_waffle_enabled(self):
+        addon = addon_factory(guid='webextension@example.org')
+        upload = self.get_upload('webextension_with_id.xpi')
+        user = user_factory(username='fancyuser')
+        parsed_data = parse_addon(upload, addon, user=user)
+        version = Version.from_upload(
+            upload, addon, [self.selected_app],
+            amo.RELEASE_CHANNEL_LISTED,
+            parsed_data=parsed_data)
+        assert version.pk
+
+        repo = AddonGitRepository(addon.pk)
+        assert os.path.exists(repo.git_repository_path)
+
+    @mock.patch('olympia.versions.tasks.extract_version_to_git.delay')
+    @override_switch('enable-uploads-commit-to-git-storage', active=True)
+    def test_commits_to_git_async(self, extract_mock):
+        addon = addon_factory(guid='webextension@example.org')
+        upload = self.get_upload('webextension_with_id.xpi')
+        upload.user = user_factory(username='fancyuser')
+        parsed_data = parse_addon(upload, addon, user=upload.user)
+        version = Version.from_upload(
+            upload, addon, [self.selected_app],
+            amo.RELEASE_CHANNEL_LISTED,
+            parsed_data=parsed_data)
+        assert version.pk
+
+        # Only once instead of twice
+        extract_mock.assert_called_once_with(
+            version_id=version.pk, author_id=upload.user.pk)
 
 
 class TestSearchVersionFromUpload(TestVersionFromUpload):
@@ -961,10 +962,6 @@ class TestStaticThemeFromUpload(UploadTest):
             parsed_data=parsed_data)
         assert len(version.all_files) == 1
         assert generate_static_theme_preview_mock.call_count == 1
-        assert version.get_background_image_urls() == [
-            '%s/%s/%s/%s' % (user_media_url('addons'), str(self.addon.id),
-                             unicode(version.id), 'weta.png')
-        ]
 
     @mock.patch('olympia.versions.models.generate_static_theme_preview')
     def test_new_version_while_public(
@@ -976,10 +973,6 @@ class TestStaticThemeFromUpload(UploadTest):
             parsed_data=parsed_data)
         assert len(version.all_files) == 1
         assert generate_static_theme_preview_mock.call_count == 1
-        assert version.get_background_image_urls() == [
-            '%s/%s/%s/%s' % (user_media_url('addons'), str(self.addon.id),
-                             unicode(version.id), 'weta.png')
-        ]
 
     @mock.patch('olympia.versions.models.generate_static_theme_preview')
     def test_new_version_with_additional_backgrounds(
@@ -994,14 +987,6 @@ class TestStaticThemeFromUpload(UploadTest):
             parsed_data=parsed_data)
         assert len(version.all_files) == 1
         assert generate_static_theme_preview_mock.call_count == 1
-        image_url_folder = u'%s/%s/%s/' % (
-            user_media_url('addons'), self.addon.id, version.id)
-
-        assert sorted(version.get_background_image_urls()) == [
-            image_url_folder + 'empty.png',
-            image_url_folder + 'transparent.gif',
-            image_url_folder + 'weta_for_tiling.png',
-        ]
 
 
 class TestApplicationsVersions(TestCase):
@@ -1013,19 +998,19 @@ class TestApplicationsVersions(TestCase):
     def test_repr_when_compatible(self):
         addon = addon_factory(version_kw=self.version_kw)
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 and later'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 and later'
 
     def test_repr_when_strict(self):
         addon = addon_factory(version_kw=self.version_kw,
                               file_kw=dict(strict_compatibility=True))
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 - 6.*'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 - 6.*'
 
     def test_repr_when_binary(self):
         addon = addon_factory(version_kw=self.version_kw,
                               file_kw=dict(binary_components=True))
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 - 6.*'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 - 6.*'
 
     def test_repr_when_type_in_no_compat(self):
         # addon_factory() does not create ApplicationsVersions for types in
@@ -1034,19 +1019,19 @@ class TestApplicationsVersions(TestCase):
         addon = addon_factory(version_kw=self.version_kw)
         addon.update(type=amo.ADDON_DICT)
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 5.0 and later'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 5.0 and later'
 
     def test_repr_when_low_app_support(self):
         addon = addon_factory(version_kw=dict(min_app_version='3.0',
                                               max_app_version='3.5'))
         version = addon.current_version
-        assert version.apps.all()[0].__unicode__() == 'Firefox 3.0 - 3.5'
+        assert six.text_type(version.apps.all()[0]) == 'Firefox 3.0 - 3.5'
 
     def test_repr_when_unicode(self):
         addon = addon_factory(version_kw=dict(min_app_version=u'ك',
                                               max_app_version=u'ك'))
         version = addon.current_version
-        assert unicode(version.apps.all()[0]) == u'Firefox ك - ك'
+        assert six.text_type(version.apps.all()[0]) == u'Firefox ك - ك'
 
 
 class TestVersionPreview(BasePreviewMixin, TestCase):

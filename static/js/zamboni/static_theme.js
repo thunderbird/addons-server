@@ -6,6 +6,15 @@ $(document).ready(function() {
 
     function initThemeWizard() {
         var $wizard = $(this);
+        var preLoadBlob = null;
+
+        function getFile() {
+            file_selector = $wizard.find('#header-img')[0];
+            file = file_selector.files[0];
+            if (file && $wizard.find('#header-img').attr('accept').split(',').indexOf(file.type) == -1)
+                return null;
+            return file ? file : preLoadBlob;
+        }
 
         $wizard.on('click', '.reset', _pd(function() {
             var $this = $(this),
@@ -16,25 +25,24 @@ $(document).ready(function() {
         $wizard.on('change', 'input[type="file"]', function() {
             var $row = $(this).closest('.row');
             var reader = new FileReader(),
-                file = getFile($row.find('input[type=file]'));
+                file = getFile();
             if (!file) return;  // don't do anything if no file selected.
-            $row.find('input[type=file], .note').hide();
-
             var $preview_img = $row.find('.preview');
+
             reader.onload = function(e) {
                 $preview_img.attr('src', e.target.result);
                 $preview_img.show().addClass('loaded');
                 $row.find('.reset').show().css('display', 'block');
+                $row.find('input[type=file], .note').hide();
+                var filename = file.name.replace(/\.[^/.]+$/, "");
+                $wizard.find('a.download').attr('download', filename + ".zip");
+                var name_input = $wizard.find('#theme-name');
+                if (!name_input.val()) {
+                    name_input.val(filename);
+                }
                 updateManifest();
             };
             reader.readAsDataURL(file);
-
-            var filename = file.name.replace(/\.[^/.]+$/, "");
-            $wizard.find('a.download').attr('download', filename + ".zip");
-            var name_input = $wizard.find('#theme-name');
-            if (!name_input.val()) {
-                name_input.val(filename);
-            }
         });
         $wizard.find('input[type="file"]').trigger('change');
 
@@ -47,6 +55,23 @@ $(document).ready(function() {
             $svg_img.attr('preserveAspectRatio', 'xMaxYMin '+ meetOrSlice);
         });
 
+        $wizard.find('#theme-header').each(function(index, element) {
+            var img_src = $(element).data('existing-header');
+            // If we already have a preview from a selected file don't overwrite it.
+            if (getFile() || !img_src) return;
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", window.location.href + "/background");
+            xhr.responseType = "json";
+            // load the image as a blob so we can treat it as a File
+            xhr.onload = function() {
+                jsonResponse = xhr.response;
+                preLoadBlob = b64toBlob(jsonResponse[img_src]);
+                preLoadBlob.name = img_src;
+                $wizard.find('input[type="file"]').trigger('change');
+            };
+            xhr.send();
+        });
+
         function updateManifest() {
             textarea = $wizard.find('#manifest').val(generateManifest());
             toggleSubmitIfNeeded();
@@ -56,13 +81,8 @@ $(document).ready(function() {
             $wizard.find('button.upload').attr('disabled', ! required_fields_present());
         }
 
-        function getFile($input) {
-            file_selector = $input[0];
-            return file_selector.files[0];
-        }
-
         function generateManifest() {
-            var headerFile = getFile($wizard.find('#header-img')),
+            var headerFile = getFile(),
                 headerURL = headerFile ? headerFile.name : "";
 
             function colVal(id) {
@@ -96,7 +116,7 @@ $(document).ready(function() {
         function buildZip() {
             var zip = new JSZip();
             zip.file('manifest.json', generateManifest());
-            var header_img = getFile($wizard.find('#header-img'));
+            var header_img = getFile();
             if (header_img) {
                 zip.file(header_img.name, header_img);
             }
@@ -106,13 +126,18 @@ $(document).ready(function() {
         var $color = $wizard.find('input.color-picker');
         $color.change(function() {
             var $this = $(this),
-                $svg_element = $('.' + $this[0].id);
+                color_property_selector = '.' + $this[0].id,
+                $svg_element = $(color_property_selector),
+                // If there's no value set and we have a fallback color we can use that instead
+                $have_fallback = $(color_property_selector + '[data-fallback]').not('[data-fallback=' + $this[0].id + ']');
             if (!$this.val()) {
                 $svg_element.attr('fill', $svg_element.data('fill'));
+                $have_fallback.attr('fill', $('#' + $svg_element.data('fallback')).val())
+                              .addClass($svg_element.data('fallback'));
             } else {
+                $have_fallback.removeClass($svg_element.data('fallback'));
                 $svg_element.attr('fill', $this.val());
             }
-
             updateManifest();
         }).trigger('change');
 
@@ -179,11 +204,18 @@ $(document).ready(function() {
                         dataType: 'json',
                         success: uploadDone,
                         error: function (xhr, text, error) {
-                            // Fake the validation so we can display as an error.
-                            uploadDone({validation:{
-                                errors:1,
-                                messages:[{message:error}]
-                            }});
+                            if (xhr.responseJSON && xhr.responseJSON.validation) {
+                                // even though we got an error response code, it's validation json.
+                                data = xhr.responseJSON;
+                            } else {
+                                // Fake the validation so we can display as an error.
+                                data = {
+                                    validation:{
+                                        errors:1,
+                                        messages:[{message:error}]
+                                }};
+                            }
+                            uploadDone(data);
                         }
                     });
                 }, 1000);
@@ -203,7 +235,7 @@ $(document).ready(function() {
 
         function required_fields_present() {
             return $wizard.find('#theme-name').val() !== "" &&
-                   $wizard.find('#header-img')[0].files.length > 0 &&
+                   getFile() &&
                    $wizard.find('#accentcolor').val() !== "" &&
                    $wizard.find('#textcolor').val() !== "";
         }

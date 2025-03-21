@@ -1,15 +1,18 @@
 import json
 import time
+
 from calendar import timegm
 from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core import signing
-from django.urls import reverse
 from django.test import RequestFactory
+from django.urls import reverse
+from django.utils.encoding import force_bytes
 
 import jwt
 import mock
+import six
 
 from freezegun import freeze_time
 from rest_framework.exceptions import AuthenticationFailed
@@ -74,8 +77,8 @@ class TestJWTKeyAuthentication(JWTAuthKeyTester, TestCase):
         issued_at = int(time.mktime(datetime.utcnow().timetuple()))
         payload = {
             'iss': api_key.key,
-            'iat': unicode(issued_at),
-            'exp': unicode(
+            'iat': six.text_type(issued_at),
+            'exp': six.text_type(
                 issued_at + settings.MAX_APIKEY_JWT_AUTH_TOKEN_LIFETIME),
         }
         token = self.encode_token_payload(payload, api_key.secret)
@@ -351,6 +354,6 @@ class TestWebTokenAuthentication(TestCase):
         # a timestamp and a signature, separated by ':'. The base64 encoding
         # lacks padding, which is why we need to use signing.b64_decode() which
         # handles that for us.
-        data = json.loads(signing.b64_decode(token.split(':')[0]))
+        data = json.loads(signing.b64_decode(force_bytes(token.split(':')[0])))
         assert data['user_id'] == self.user.pk
         assert data['auth_hash'] == self.user.get_session_auth_hash()

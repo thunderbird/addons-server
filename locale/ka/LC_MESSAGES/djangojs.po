@@ -4,9 +4,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-09-17 10:57+0000\n"
-"Last-Translator: Georgianizator <georgianization@outlook.com>\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-02-18 18:27+0000\n"
+"Last-Translator: G12r <georgianization@outlook.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: ka\n"
 "MIME-Version: 1.0\n"
@@ -48,8 +48,8 @@ msgstr "იტვირთება {0}"
 msgid "Error with {0}"
 msgstr "{0} – შეცდომა"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "თქვენი დამატებების დასამუშავებლად ახალი ინსტრუმენტები ჩავრთეთ. გთხოვთ, ყველანაირი პრობლემა შეგვატყობინეთ GitHub-ზე"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr "გთხოვთ, მოგვახსენოთ Linting-თან დაკავშირებული ყველა ხარვეზე GitHub-ზე"
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
@@ -99,13 +99,14 @@ msgid "Your submission will be automatically signed."
 msgstr "გადაცემული ფაილი ავტომატურად იქნება ხელმოწერილი."
 
 msgid "WebExtension upgrade"
-msgstr "WebExtensionგანახლება"
+msgstr "WebExtension-განახლება"
 
 msgid "We allow and encourage an upgrade but you cannot reverse this process. Once your users have the WebExtension installed, they will not be able to install a legacy add-on."
-msgstr "ჩვენ გაძლევთ საშუალებას განახლება. თუმცა, ეს პროცესი არ შეიძლება შეიცვალოს. ისინი, ვინც დაყენებული WebExtension შეგიძლიათ დააყენოთ ნებისმიერი add-on."
+msgstr ""
+"ჩვენ მოგცემთ საშუალებას და ხელს შეგიწყობთ განახლებაში, თუმცა, ეს ქმედება შეუქცევადია. მას შემდეგ, რაც თქვენი მომხმარებლები დააყენებენ WebExtension-ს, აღარ შეეძლებათ მოძველებული დამატების დაყენება."
 
 msgid "Porting a legacy Firefox add-on on MDN"
-msgstr "Porting a legacy Firefox add-on on MDN"
+msgstr "Firefox-ის მოძველებული დამატების გადაყვანის შესახებ MDN-ზე"
 
 msgid "Include detailed version notes (this can be done in the next step)."
 msgstr "მიუთითეთ ვერსიის შენიშვნები დეტალურად (ამის გაკეთება მომდევნო ნაბიჯში შეიძლება)."
@@ -713,10 +714,10 @@ msgid "Pending"
 msgstr "დგინდება"
 
 msgid "Add a comment"
-msgstr "კომენტარის დამატება"
+msgstr "შენიშვნის დამატება"
 
 msgid "Comment"
-msgstr "კომენტარი"
+msgstr "შენიშვნა"
 
 msgid "Remove this add-on from the collection"
 msgstr "ამ დამატების კრებულიდან ამოშლა"
@@ -764,11 +765,17 @@ msgstr "შედეგები ვერ მოიძებნა."
 msgid "Loading..."
 msgstr "იტვირთება...."
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "<b>{0}</b> სიმბოლო"
+msgstr[1] "<b>{0}</b> სიმბოლო"
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
-msgstr[0] "დარჩენილია <b>{0}</b> სიმბოლო."
-msgstr[1] "დარჩენილია <b>{0}</b> სიმბოლო."
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
+msgstr[0] "დარჩენილია <b>{0}</b> სიმბოლო"
+msgstr[1] "დარჩენილია <b>{0}</b> სიმბოლო"
 
 msgid "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
 msgstr "ვებსაიტზე ტექნიკური მომსახურების გამო ეს შესაძლებლობა დროებით გამორთულია. გთხოვთ სცადოთ მოგვიანებით."
@@ -862,9 +869,6 @@ msgstr "{0} სტრიქონი {1} სვეტი {2}"
 
 msgid "{0} line {1}"
 msgstr "{0} სტრიქონი {1}"
-
-msgid "Compatibility Tests"
-msgstr "თავსებადობის შემოწმება"
 
 msgid "Add-on failed validation."
 msgstr "დამატებამ შემოწმება ვერ გაიარა."

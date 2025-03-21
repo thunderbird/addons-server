@@ -1,5 +1,8 @@
 from django.db.models import Avg, Count, F
 from django.conf import settings
+import six
+
+import waffle
 
 import olympia.core.logger
 
@@ -42,14 +45,14 @@ def update_denorm(*pairs, **kw):
 @task
 @use_primary_db
 def addon_rating_aggregates(addons, **kw):
-    if isinstance(addons, (int, long)):  # Got passed a single addon id.
+    if isinstance(addons, six.integer_types):  # Got passed a single addon id.
         addons = [addons]
     log.info('[%s@%s] Updating total reviews and average ratings.' %
              (len(addons), addon_rating_aggregates.rate_limit))
     addon_objs = list(Addon.objects.filter(pk__in=addons))
     # The following returns something like
-    # [{'rating': 2.0, 'addon': 7L, 'count': 5},
-    #  {'rating': 3.75, 'addon': 6L, 'count': 8}, ...]
+    # [{'rating': 2.0, 'addon': 7, 'count': 5},
+    #  {'rating': 3.75, 'addon': 6, 'count': 8}, ...]
     qs = (Rating.without_replies.all()
           .filter(addon__in=addons, is_latest=True)
           .values('addon')  # Group by addon id.
@@ -121,13 +124,18 @@ def addon_grouped_rating(*addons, **kw):
 
 
 @task
-def check_with_akismet(rating_id, user_agent, referrer):
-    from olympia.ratings.models import Rating, RatingFlag  # circular import
+def check_akismet_reports(report_ids):
+    from olympia.ratings.models import RatingFlag  # circular import
 
-    rating = Rating.objects.get(id=rating_id)
-    akismet = AkismetReport.create_for_rating(rating, user_agent, referrer)
-    outcome = akismet.comment_check()
-    if outcome in (AkismetReport.DEFINITE_SPAM, AkismetReport.MAYBE_SPAM):
-        RatingFlag.objects.get_or_create(
-            rating=rating, user_id=settings.TASK_USER_ID, flag=RatingFlag.SPAM)
-        rating.update(editorreview=True)
+    flag_rating_if_spam = waffle.switch_is_active('akismet-rating-action')
+    reports = AkismetReport.objects.filter(id__in=report_ids)
+    for report in reports:
+        outcome = report.comment_check()
+        is_spammy = outcome in (
+            AkismetReport.DEFINITE_SPAM, AkismetReport.MAYBE_SPAM)
+        if is_spammy and flag_rating_if_spam:
+            rating = report.rating_instance
+            RatingFlag.objects.get_or_create(
+                rating=rating, user_id=settings.TASK_USER_ID,
+                flag=RatingFlag.SPAM)
+            rating.update(editorreview=True)

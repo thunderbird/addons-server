@@ -95,21 +95,22 @@ Maintainance Mode
 
 When returning ``HTTP 503 Service Unavailable`` responses the API may be in
 read-only mode. This means that for a short period of time we do not allow any
-write requests, this includes ``POST``, ``PATCH`` and ``DELETE`` requests.
+write requests, this includes ``POST``, ``PATCH``, ``PUT`` and ``DELETE`` requests.
 
 In case we are in read-only mode, the following behavior can be observed:
 
   * ``GET`` requests behave normally
-  * ``POST``, ``PUT`` and ``DELETE`` requests return 503 with a json response that contains a localized error message
-  * A custom ``X-AMO-Read-Only`` header is set to ``true``
-  * A ``Retry-After`` header may be set, it's not a requirement though and can be omitted
+  * ``POST``, ``PUT``, ``PATCH``, and ``DELETE`` requests return 503 with a json response that contains a localized error message
 
-In case we are not in read-only mode, the following (standard) behavior can be observed:
+The response when returning ``HTTP 503 Service Unavailable`` in case of read-only mode looks like this:
 
-  * ``GET``, ``POST``, ``PUT``, ``DELETE`` requests behave normally again
-  * ``X-AMO-Read-Only`` header is set to ``false``
+.. code-block:: json
 
-So, in case of a ``503`` HTTP response you can always check the ``X-AMO-Read-Only`` header to behave appropriately.
+    {
+        "error": "Some features are temporarily disabled while we perform websi…"
+    }
+
+In case we are not in read-only mode everything should be back working as normal.
 
 ~~~~~~~~~~
 Pagination
@@ -281,7 +282,15 @@ v4 API changelog
 * 2018-10-04: added ``is_strict_compatibility_enabled`` to discovery API ``addons.current_version`` object. This change was also backported to the `v3` API. https://github.com/mozilla/addons-server/issues/9520
 * 2018-10-04: added ``is_deleted`` to the ratings API. This change was also backported to the `v3` API. https://github.com/mozilla/addons-server/issues/9371
 * 2018-10-04: added ``exclude_ratings`` parameter to ratings API. This change was also backported to the `v3` API. https://github.com/mozilla/addons-server/issues/9424
+* 2018-10-11: removed ``locale_disambiguation`` from the Language Tools API.
 * 2018-10-11: added ``created`` to the addons API.
 * 2018-10-18: added ``_score`` to the addons search API.
 * 2018-10-25: changed ``author`` parameter on addons search API to accept user ids as well as usernames. This change was also backported to the `v3` API. https://github.com/mozilla/addons-server/issues/8901
 * 2018-10-25: added ``fxa_edit_email_url`` parameter on accounts API to return the full URL for editing the user's email on FxA. https://github.com/mozilla/addons-server/issues/8674
+* 2018-10-31: added ``id`` to discovery API ``addons.current_version`` object. This change was also backported to the `v3` API. https://github.com/mozilla/addons-server/issues/9855
+* 2018-11-15: added ``is_custom`` to the license object in version detail output in the addons API.
+* 2018-11-22: added ``flags`` to the rating object in the ratings API when ``show_flags_for`` parameter supplied.
+* 2018-11-22: added ``score`` parameter to the ratings API list endpoint.
+* 2019-01-10: added ``release_notes`` and ``license`` (except ``license.text``) to search API results ``current_version`` objects.
+* 2019-01-11: added new /reviewers/browse/ endpoint. https://github.com/mozilla/addons-server/issues/10322
+* 2019-01-16: Removed /api/{v3,v4,v4dev}/github api entirely. They have been marked as experimental. https://github.com/mozilla/addons-server/issues/10411

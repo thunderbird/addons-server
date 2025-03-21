@@ -22,7 +22,6 @@
             "view_source": 0,
             "total_downloads": 107,
             "disabled_by_user": 0,
-            "locale_disambiguation": null,
             "guid": "1ce9c2c3-01d4-4946-b19d-3b8e8e9daac4",
             "weekly_downloads": 7534,
             "average_rating": "4.49",
@@ -33,7 +32,6 @@
             "privacy_policy": null,
             "default_locale": "en-US",
             "target_locale": null,
-            "external_software": 0,
             "name": 16190,
             "created": "2006-11-16 20:58:38",
             "type": 1,
@@ -48,7 +46,7 @@
         "fields": {
             "license": null,
             "created": "2010-03-02 19:31:02",
-            "approvalnotes": "",
+            "approval_notes": "",
             "modified": "2010-03-02 21:03:35",
             "version": "4.3.0",
             "addon": 3895
@@ -60,7 +58,7 @@
         "fields": {
             "license": null,
             "created": "2009-09-18 05:57:58",
-            "approvalnotes": "",
+            "approval_notes": "",
             "modified": "2010-03-04 07:21:51",
             "version": "4.2.1",
             "addon": 3895

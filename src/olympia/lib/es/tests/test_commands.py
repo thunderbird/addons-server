@@ -1,10 +1,11 @@
-import StringIO
 import threading
 import time
 
 from django.core import management
 from django.db import connection
 from django.test.testcases import TransactionTestCase
+
+import six
 
 from olympia.amo.tests import ESTestCase, addon_factory, create_switch
 from olympia.amo.urlresolvers import reverse
@@ -23,6 +24,9 @@ class TestIndexCommand(ESTestCase):
         # We store previously existing indices in order to delete the ones
         # created during this test run.
         self.indices = self.es.indices.stats()['indices'].keys()
+
+        self.addons = []
+        self.expected = self.addons[:]
 
     # Since this test plays with transactions, but we don't have (and don't
     # really want to have) a ESTransactionTestCase class, use the fixture setup
@@ -73,28 +77,20 @@ class TestIndexCommand(ESTestCase):
     def get_indices_aliases(cls):
         """Return the test indices with an alias."""
         indices = cls.es.indices.get_alias()
-        items = [(index, aliases['aliases'].keys()[0])
+        items = [(index, list(aliases['aliases'].keys())[0])
                  for index, aliases in indices.items()
                  if len(aliases['aliases']) > 0 and index.startswith('test_')]
         items.sort()
         return items
 
-    def test_reindexation(self):
-        # Adding an addon.
-        addon = addon_factory()
-        self.refresh()
-
-        # The search should return the addon.
-        wanted = [addon]
-        self.check_results(wanted)
-
+    def _test_reindexation(self):
         # Current indices with aliases.
         old_indices = self.get_indices_aliases()
 
         # This is to start a reindexation in the background.
         class ReindexThread(threading.Thread):
             def __init__(self):
-                self.stdout = StringIO.StringIO()
+                self.stdout = six.StringIO()
                 super(ReindexThread, self).__init__()
 
             def run(self):
@@ -116,15 +112,15 @@ class TestIndexCommand(ESTestCase):
         # We should still be able to search in the foreground while the reindex
         # is being done in the background. We should also be able to index new
         # documents, and they should not be lost.
-        old_addons_count = len(wanted)
-        while t.is_alive() and len(wanted) < old_addons_count + 3:
-            wanted.append(addon_factory())
+        old_addons_count = len(self.expected)
+        while t.is_alive() and len(self.expected) < old_addons_count + 3:
+            self.expected.append(addon_factory())
             connection._commit()
             connection.clean_savepoints()
             self.refresh()
-            self.check_results(wanted)
+            self.check_results(self.expected)
 
-        if len(wanted) == old_addons_count:
+        if len(self.expected) == old_addons_count:
             raise AssertionError('Could not index objects in foreground while '
                                  'reindexing in the background.')
 
@@ -137,14 +133,24 @@ class TestIndexCommand(ESTestCase):
         connection._commit()
         connection.clean_savepoints()
         self.refresh()
-        self.check_results(wanted)
+        self.check_results(self.expected)
 
         # New indices have been created, and aliases now point to them.
         new_indices = self.get_indices_aliases()
-        assert len(old_indices) == len(new_indices)
+        assert len(new_indices)
         assert old_indices != new_indices, (stdout, old_indices, new_indices)
 
         self.check_settings(new_indices)
+
+    def test_reindexation_starting_from_zero_addons(self):
+        self._test_reindexation()
+
+    def test_reindexation_starting_from_one_addon(self):
+        self.addons.append(addon_factory())
+        self.expected = self.addons[:]
+        self.refresh()
+        self.check_results(self.expected)
+        self._test_reindexation()
 
 
 class TestIndexCommandClassicAlgorithm(TestIndexCommand):
@@ -164,7 +170,7 @@ class TestIndexCommandClassicAlgorithm(TestIndexCommand):
         # explicitly to ensure that we actually run the test for the index
         # setting instead of using an `if` and failing silently
         amo_addons_settings = self.es.indices.get_settings('test_amo_addons')
-        settings = amo_addons_settings[amo_addons_settings.keys()[0]]
+        settings = amo_addons_settings[list(amo_addons_settings.keys())[0]]
 
         assert settings['settings']['index']['similarity']['default'] == {
             'type': 'classic'

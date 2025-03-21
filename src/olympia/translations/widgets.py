@@ -1,3 +1,5 @@
+import six
+
 from django import forms
 from django.utils import translation
 from django.utils.encoding import force_text
@@ -20,16 +22,16 @@ def get_string(x):
 class TranslationTextInput(forms.widgets.TextInput):
     """A simple textfield replacement for collecting translated names."""
 
-    def _format_value(self, value):
-        if isinstance(value, long):
+    def format_value(self, value):
+        if isinstance(value, six.integer_types):
             return get_string(value)
         return value
 
 
 class TranslationTextarea(forms.widgets.Textarea):
 
-    def render(self, name, value, attrs=None):
-        if isinstance(value, long):
+    def render(self, name, value, attrs=None, renderer=None):
+        if isinstance(value, six.integer_types):
             value = get_string(value)
         return super(TranslationTextarea, self).render(name, value, attrs)
 
@@ -55,16 +57,17 @@ class TransMulti(forms.widgets.MultiWidget):
         # We do need self.widgets to be non-empty in order for is_hidden to
         # work, so we create a dummy one. It will also serve as fallback when
         # there is no value set already.
-        super(TransMulti, self).__init__(widgets=[self.widget()], attrs=attrs)
+        super(TransMulti, self).__init__(
+            widgets=[self.widget(attrs=attrs)], attrs=attrs)
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         self.name = name
         value = self.decompress(value)
         if value:
-            self.widgets = [self.widget() for _ in value]
+            self.widgets = [self.widget(attrs=self.attrs) for _ in value]
         else:
-            default_locale = getattr(self, 'default_locale',
-                                     translation.get_language())
+            default_locale = getattr(
+                self, 'default_locale', translation.get_language())
             value = [Translation(locale=default_locale)]
 
         if self.is_localized:
@@ -93,12 +96,13 @@ class TransMulti(forms.widgets.MultiWidget):
             output.append(widget.render(
                 name + '_%s' % i, widget_value, final_attrs
             ))
+
         return mark_safe(self.format_output(output))
 
     def decompress(self, value):
         if not value:
             return []
-        elif isinstance(value, (long, int)):
+        elif isinstance(value, six.integer_types):
             # We got a foreign key to the translation table.
             qs = Translation.objects.filter(id=value)
             return list(qs.filter(localized_string__isnull=False))
@@ -137,12 +141,13 @@ class TransMulti(forms.widgets.MultiWidget):
         # ...But also add a widget that'll be cloned for when we want to add
         # a new translation. Hide it by default, it's only used in devhub, not
         # the admin (which doesn't need to add new translations).
-        init = self.widget().render(self.name + '_',
-                                    Translation(locale='init'),
-                                    {'class': 'trans-init hidden'})
+        init_widget = self.widget().render(
+            self.name + '_',
+            Translation(locale='init', localized_string=''),
+            {'class': 'trans-init hidden'})
         # Wrap it all inside a div that the javascript will look for.
         return '<div id="trans-%s" class="trans" data-name="%s">%s%s</div>' % (
-            self.name, self.name, formatted, init)
+            self.name, self.name, formatted, init_widget)
 
 
 class _TransWidget(object):
@@ -151,7 +156,7 @@ class _TransWidget(object):
     input name.
     """
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         from .fields import switch
 
         if attrs is None:
@@ -166,7 +171,8 @@ class _TransWidget(object):
         # want people editing a bleached value.
         if value.__class__ != Translation:
             value = switch(value, Translation)
-        return super(_TransWidget, self).render(name, value, attrs)
+        return super(
+            _TransWidget, self).render(name, six.text_type(value), attrs)
 
 
 # TransInput and TransTextarea are MultiWidgets that know how to set up our

@@ -2,6 +2,8 @@
 from django.test.utils import override_settings
 from django.utils.translation import override
 
+import six
+
 from rest_framework.test import APIRequestFactory
 
 from olympia import amo
@@ -54,6 +56,7 @@ class AddonSerializerOutputTestMixin(object):
         assert data['license']
         assert dict(data['license']) == {
             'id': version.license.pk,
+            'is_custom': True,
             'name': {'en-US': u'My License', 'fr': u'Mä Licence'},
             # License text is not present in version serializer used from
             # AddonSerializer.
@@ -97,7 +100,6 @@ class AddonSerializerOutputTestMixin(object):
                 'versions.edit', args=[version.pk], prefix_only=True))
         assert data['reviewed'] == version.reviewed
         assert data['version'] == version.version
-        assert data['url'] == absolutify(version.get_url_path())
 
     def test_basic(self):
         cat1 = Category.from_static_category(
@@ -144,7 +146,7 @@ class AddonSerializerOutputTestMixin(object):
             text_ratings_count=555,
             version_kw={
                 'license': license,
-                'releasenotes': {
+                'release_notes': {
                     'en-US': u'Release notes in english',
                     'fr': u'Notes de version en français',
                 },
@@ -168,11 +170,11 @@ class AddonSerializerOutputTestMixin(object):
         first_preview = Preview.objects.create(addon=self.addon, position=1)
 
         av_min = AppVersion.objects.get_or_create(
-            application=amo.THUNDERBIRD.id, version='2.0.99')[0]
+            application=amo.ANDROID.id, version='2.0.99')[0]
         av_max = AppVersion.objects.get_or_create(
-            application=amo.THUNDERBIRD.id, version='3.0.99')[0]
+            application=amo.ANDROID.id, version='3.0.99')[0]
         ApplicationsVersions.objects.get_or_create(
-            application=amo.THUNDERBIRD.id, version=self.addon.current_version,
+            application=amo.ANDROID.id, version=self.addon.current_version,
             min=av_min, max=av_max)
         # Reset current_version.compatible_apps now that we've added an app.
         del self.addon.current_version._compatible_apps
@@ -182,7 +184,7 @@ class AddonSerializerOutputTestMixin(object):
         cat2.save()
         AddonCategory.objects.create(addon=self.addon, category=cat2)
         cat3 = Category.from_static_category(
-            CATEGORIES[amo.THUNDERBIRD.id][amo.ADDON_EXTENSION]['calendar'])
+            CATEGORIES[amo.ANDROID.id][amo.ADDON_EXTENSION]['sports-games'])
         cat3.save()
         AddonCategory.objects.create(addon=self.addon, category=cat3)
 
@@ -193,7 +195,7 @@ class AddonSerializerOutputTestMixin(object):
         assert result['average_daily_users'] == self.addon.average_daily_users
         assert result['categories'] == {
             'firefox': ['alerts-updates', 'bookmarks'],
-            'thunderbird': ['calendar']}
+            'android': ['sports-games']}
 
         # In this serializer latest_unlisted_version is omitted.
         assert 'latest_unlisted_version' not in result
@@ -201,10 +203,6 @@ class AddonSerializerOutputTestMixin(object):
         assert result['current_version']
         self._test_version(
             self.addon.current_version, result['current_version'])
-        assert result['current_version']['url'] == absolutify(
-            reverse('addons.versions',
-                    args=[self.addon.slug, self.addon.current_version.version])
-        )
         self._test_version_license_and_release_notes(
             self.addon.current_version, result['current_version'])
 
@@ -223,12 +221,13 @@ class AddonSerializerOutputTestMixin(object):
         assert result['has_eula'] is False
         assert result['has_privacy_policy'] is False
         assert result['homepage'] == {
-            'en-US': unicode(self.addon.homepage),
+            'en-US': six.text_type(self.addon.homepage),
         }
         assert result['icon_url'] == absolutify(self.addon.get_icon_url(64))
         assert result['icons'] == {
             '32': absolutify(self.addon.get_icon_url(32)),
-            '64': absolutify(self.addon.get_icon_url(64))
+            '64': absolutify(self.addon.get_icon_url(64)),
+            '128': absolutify(self.addon.get_icon_url(128)),
         }
         assert result['is_disabled'] == self.addon.is_disabled
         assert result['is_experimental'] == self.addon.is_experimental is False
@@ -283,7 +282,7 @@ class AddonSerializerOutputTestMixin(object):
         assert result['summary'] == {'en-US': self.addon.summary}
         assert result['support_email'] == {'en-US': self.addon.support_email}
         assert result['support_url'] == {
-            'en-US': unicode(self.addon.support_url),
+            'en-US': six.text_type(self.addon.support_url),
         }
         assert 'theme_data' not in result
         assert set(result['tags']) == {'some_tag', 'some_other_tag'}
@@ -301,12 +300,12 @@ class AddonSerializerOutputTestMixin(object):
         self.request = APIRequestFactory().get('/', {'wrap_outgoing_links': 1})
         result = self.serialize()
         assert result['contributions_url'] == (
-            get_outgoing_url(unicode(self.addon.contributions)))
+            get_outgoing_url(six.text_type(self.addon.contributions)))
         assert result['homepage'] == {
-            'en-US': get_outgoing_url(unicode(self.addon.homepage)),
+            'en-US': get_outgoing_url(six.text_type(self.addon.homepage)),
         }
         assert result['support_url'] == {
-            'en-US': get_outgoing_url(unicode(self.addon.support_url)),
+            'en-US': get_outgoing_url(six.text_type(self.addon.support_url)),
         }
 
         # Try a single translation.
@@ -314,24 +313,24 @@ class AddonSerializerOutputTestMixin(object):
             'lang': 'en-US', 'wrap_outgoing_links': 1})
         result = self.serialize()
         assert result['contributions_url'] == (
-            get_outgoing_url(unicode(self.addon.contributions)))
+            get_outgoing_url(six.text_type(self.addon.contributions)))
         assert result['homepage'] == {
-            'en-US': get_outgoing_url(unicode(self.addon.homepage)),
+            'en-US': get_outgoing_url(six.text_type(self.addon.homepage)),
         }
         assert result['support_url'] == {
-            'en-US': get_outgoing_url(unicode(self.addon.support_url)),
+            'en-US': get_outgoing_url(six.text_type(self.addon.support_url)),
         }
         # And again, but with v3 style flat strings
         gates = {None: ('l10n_flat_input_output',)}
         with override_settings(DRF_API_GATES=gates):
             result = self.serialize()
         assert result['contributions_url'] == (
-            get_outgoing_url(unicode(self.addon.contributions)))
+            get_outgoing_url(six.text_type(self.addon.contributions)))
         assert result['homepage'] == (
-            get_outgoing_url(unicode(self.addon.homepage))
+            get_outgoing_url(six.text_type(self.addon.homepage))
         )
         assert result['support_url'] == (
-            get_outgoing_url(unicode(self.addon.support_url))
+            get_outgoing_url(six.text_type(self.addon.support_url))
         )
 
         # Try with empty strings/None. Annoyingly, contribution model field
@@ -386,7 +385,8 @@ class AddonSerializerOutputTestMixin(object):
         assert result['icon_url'] == absolutify(self.addon.get_icon_url(64))
         assert result['icons'] == {
             '32': absolutify(self.addon.get_icon_url(32)),
-            '64': absolutify(self.addon.get_icon_url(64))
+            '64': absolutify(self.addon.get_icon_url(64)),
+            '128': absolutify(self.addon.get_icon_url(128)),
         }
 
     def test_no_current_version(self):
@@ -541,7 +541,8 @@ class AddonSerializerOutputTestMixin(object):
             'http://testserver/static/img/addon-icons/default-64.png')
         assert result['icons'] == {
             '32': 'http://testserver/static/img/addon-icons/default-32.png',
-            '64': 'http://testserver/static/img/addon-icons/default-64.png'
+            '64': 'http://testserver/static/img/addon-icons/default-64.png',
+            '128': 'http://testserver/static/img/addon-icons/default-128.png',
         }
 
     def test_webextension(self):
@@ -593,7 +594,7 @@ class AddonSerializerOutputTestMixin(object):
         assert result_version['compatibility'] == {
             'android': {'max': '9999', 'min': '11.0'},
             'firefox': {'max': '9999', 'min': '4.0'},
-            'seamonkey': {'max': '9999', 'min': '2.1'},
+            'seamonkey': {'max': '9999', 'min': '1.0'},
         }
         assert result_version['is_strict_compatibility_enabled'] is False
 
@@ -830,7 +831,6 @@ class TestAddonSerializerOutput(AddonSerializerOutputTestMixin, TestCase):
         self._test_version(
             self.addon.latest_unlisted_version,
             result['latest_unlisted_version'])
-        assert result['latest_unlisted_version']['url'] == absolutify('')
 
 
 class TestESAddonSerializerOutput(AddonSerializerOutputTestMixin, ESTestCase):
@@ -873,11 +873,6 @@ class TestESAddonSerializerOutput(AddonSerializerOutputTestMixin, ESTestCase):
             'url': absolutify(author.get_url_path()),
             'username': author.username,
         }
-
-    def _test_version_license_and_release_notes(self, version, data):
-        """Override because the ES serializer doesn't include those fields."""
-        assert 'license' not in data
-        assert 'release_notes' not in data
 
     def test_score(self):
         self.request.version = 'v4'
@@ -926,7 +921,7 @@ class TestVersionSerializerOutput(TestCase):
                 'license': license,
                 'min_app_version': '50.0',
                 'max_app_version': '*',
-                'releasenotes': {
+                'release_notes': {
                     'en-US': u'Release notes in english',
                     'fr': u'Notes de version en français',
                 },
@@ -988,6 +983,7 @@ class TestVersionSerializerOutput(TestCase):
         assert result['license']
         assert dict(result['license']) == {
             'id': license.pk,
+            'is_custom': True,
             'name': {'en-US': u'My License', 'fr': u'Mä Licence'},
             'text': {
                 'en-US': u'Lorem ipsum dolor sit amet, has nemore patrioqué',
@@ -996,7 +992,6 @@ class TestVersionSerializerOutput(TestCase):
         }
         assert result['reviewed'] == (
             now.replace(microsecond=0).isoformat() + 'Z')
-        assert result['url'] == absolutify(self.version.get_url_path())
 
     def test_unlisted(self):
         addon = addon_factory()
@@ -1022,13 +1017,27 @@ class TestVersionSerializerOutput(TestCase):
         assert result['id'] == self.version.pk
         assert result['license']
         assert result['license']['id'] == license.pk
+        assert result['license']['is_custom'] is True
         assert result['license']['url'] == absolutify(
             self.version.license_url())
+
+        # And make sure it's not present in v3
+        gates = {None: ('del-version-license-is-custom',)}
+        with override_settings(DRF_API_GATES=gates):
+            result = self.serialize()
+            assert 'is_custom' not in result['license']
 
         license.update(builtin=1)
         result = self.serialize()
         # Builtin licenses with no url shouldn't get the version license url.
         assert result['license']['url'] is None
+        assert result['license']['is_custom'] is False
+
+        # Again, make sure it's not present in v3
+        gates = {None: ('del-version-license-is-custom',)}
+        with override_settings(DRF_API_GATES=gates):
+            result = self.serialize()
+            assert 'is_custom' not in result['license']
 
     def test_license_serializer_no_url_no_parent(self):
         # This should not happen (LicenseSerializer should always be called
@@ -1055,10 +1064,11 @@ class TestVersionSerializerOutput(TestCase):
         result = LicenseSerializer(
             context={'request': self.request}).to_representation(license)
         assert result['id'] == license.pk
+        assert result['is_custom'] is False
         # A request with no ?lang gets you the site default l10n in a dict to
         # match how non-constant values are returned.
         assert result['name'] == {
-            'en-US': unicode(LICENSES_BY_BUILTIN[18].name)}
+            'en-US': six.text_type(LICENSES_BY_BUILTIN[18].name)}
 
         accept_request = APIRequestFactory().get('/')
         accept_request.LANG = 'de'
@@ -1066,13 +1076,13 @@ class TestVersionSerializerOutput(TestCase):
             context={'request': accept_request}).to_representation(license)
         # An Accept-Language should result in a different default though.
         assert result['name'] == {
-            'de': unicode(LICENSES_BY_BUILTIN[18].name)}
+            'de': six.text_type(LICENSES_BY_BUILTIN[18].name)}
 
         # But a requested lang returns a flat string
         lang_request = APIRequestFactory().get('/?lang=fr')
         result = LicenseSerializer(
             context={'request': lang_request}).to_representation(license)
-        assert result['name'] == unicode(LICENSES_BY_BUILTIN[18].name)
+        assert result['name'] == six.text_type(LICENSES_BY_BUILTIN[18].name)
 
     def test_file_webext_permissions(self):
         self.version = addon_factory().current_version
@@ -1139,20 +1149,26 @@ class TestLanguageToolsSerializerOutput(TestCase):
 
     def test_basic(self):
         self.addon = addon_factory(
-            type=amo.ADDON_LPAPP, target_locale='fr',
-            locale_disambiguation=u'lolé')
+            type=amo.ADDON_LPAPP, target_locale='fr')
         result = self.serialize()
         assert result['id'] == self.addon.pk
         assert result['default_locale'] == self.addon.default_locale
         assert result['guid'] == self.addon.guid
-        assert result['locale_disambiguation'] == (
-            self.addon.locale_disambiguation)
         assert result['name'] == {'en-US': self.addon.name}
         assert result['slug'] == self.addon.slug
         assert result['target_locale'] == self.addon.target_locale
         assert result['type'] == 'language'
         assert result['url'] == absolutify(self.addon.get_url_path())
         assert 'current_compatible_version' not in result
+        assert 'locale_disambiguation' not in result
+
+    @override_settings(
+        DRF_API_GATES={None: ('addons-locale_disambiguation-shim',)})
+    def test_locale_disambiguation_in_v3(self):
+        self.addon = addon_factory(
+            type=amo.ADDON_LPAPP, target_locale='fr')
+        result = self.serialize()
+        assert result['locale_disambiguation'] is None
 
     def test_basic_dict(self):
         self.addon = addon_factory(type=amo.ADDON_DICT)
@@ -1236,7 +1252,7 @@ class TestESAddonAutoCompleteSerializer(ESTestCase):
             {'id', 'name', 'icon_url', 'type', 'url'}
         )
         assert result['id'] == self.addon.pk
-        assert result['name'] == {'en-US': unicode(self.addon.name)}
+        assert result['name'] == {'en-US': six.text_type(self.addon.name)}
         assert result['icon_url'] == absolutify(self.addon.get_icon_url(64))
         assert result['type'] == 'extension'
         assert result['url'] == absolutify(self.addon.get_url_path())
@@ -1488,7 +1504,7 @@ class TestCompatOverrideSerializer(TestCase):
             compat=override, app=amo.FIREFOX.id, min_version='23.4',
             max_version='56.7.*')
         CompatOverrideRange.objects.create(
-            compat=override, app=amo.THUNDERBIRD.id, min_app_version='1.35',
+            compat=override, app=amo.ANDROID.id, min_app_version='1.35',
             max_app_version='90.*')
         result = self.serialize(override)
 
@@ -1510,18 +1526,18 @@ class TestCompatOverrideSerializer(TestCase):
             }]
         }
         assert version_range_firefox in result['version_ranges']
-        version_range_thunderbird = {
+        version_range_android = {
             'addon_min_version': '0',
             'addon_max_version': '*',
             'applications': [{
-                'name': amo.THUNDERBIRD.pretty,
-                'id': amo.THUNDERBIRD.id,
+                'name': amo.ANDROID.pretty,
+                'id': amo.ANDROID.id,
                 'min_version': '1.35',
                 'max_version': '90.*',
-                'guid': amo.THUNDERBIRD.guid
+                'guid': amo.ANDROID.guid
             }]
         }
-        assert version_range_thunderbird in result['version_ranges']
+        assert version_range_android in result['version_ranges']
 
     def test_collapsed_ranges(self):
         """Collapsed ranges are where there is a single version range of
@@ -1532,7 +1548,7 @@ class TestCompatOverrideSerializer(TestCase):
             compat=override, app=amo.FIREFOX.id,
             min_version='23.4', max_version='56.7.*')
         CompatOverrideRange.objects.create(
-            compat=override, app=amo.THUNDERBIRD.id,
+            compat=override, app=amo.ANDROID.id,
             min_version='23.4', max_version='56.7.*',
             min_app_version='1.35', max_app_version='90.*')
         result = self.serialize(override)
@@ -1555,11 +1571,11 @@ class TestCompatOverrideSerializer(TestCase):
             'guid': amo.FIREFOX.guid
         }
         assert application_firefox in applications
-        application_thunderbird = {
-            'name': amo.THUNDERBIRD.pretty,
-            'id': amo.THUNDERBIRD.id,
+        application_android = {
+            'name': amo.ANDROID.pretty,
+            'id': amo.ANDROID.id,
             'min_version': '1.35',
             'max_version': '90.*',
-            'guid': amo.THUNDERBIRD.guid
+            'guid': amo.ANDROID.guid
         }
-        assert application_thunderbird in applications
+        assert application_android in applications

@@ -9,7 +9,6 @@
 {% block content %}
   <hgroup>
     <h2 class="collection" data-collectionid="{{ collection.id }}">
-      <img src="{{ c.icon_url }}" class="icon" alt="">
       <span>{{ c.name }}</span>
       {% if not c.listed %}
         <span class="private">{{ _('private') }}</span>
@@ -43,7 +42,7 @@
         {% if c.type == amo.COLLECTION_FAVORITES and c.owned_by(user) %}
           <ul id="collection-favorites-opts">
             <li>
-              <form method="post" action="{{ url('collections.edit_privacy', c.author_username, c.slug) }}">
+              <form method="post" action="{{ url('collections.edit_privacy', c.author_id, c.slug) }}">
                 {% csrf_token %}
                 <button type="submit">
                   {% if c.listed %}
@@ -100,7 +99,7 @@
         </select>
         <button type="submit">{{ _('Go') }}</button>
       </form>
-      {{ addon_listing_items(addons.object_list, notes=notes.next(), src="collection") }}
+      {{ addon_listing_items(addons.object_list, notes=notes, src="collection") }}
     </div>
   {% endif %}
   {{ addons|paginator }}
@@ -115,20 +114,6 @@
   <a class="more-info" href="{{ url('collections.list') }}">
     {{ _('Explore Collections') }}</a>
 </div>
-
-{% if tags %}
-  <div>
-    <h3>{{ _('Common Tags') }}</h3>
-    <ul class="addon-tags">
-      {% for tag in tags %}
-        <li class="usertag">
-          <a class="tagitem" href="{{ tag.get_url_path() }}">
-            {{ tag.tag_text }}</a>
-        </li>
-      {% endfor %}
-    </ul>
-  </div>
-{% endif %}
 
 </div> {# secondary #}
 

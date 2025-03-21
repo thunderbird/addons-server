@@ -19,10 +19,10 @@ from olympia import amo
 from olympia.access.models import Group, GroupUser
 from olympia.addons.models import Addon, AddonUser
 from olympia.amo.templatetags.jinja_helpers import absolutify
-from olympia.amo.tests import addon_factory, reverse_ns, TestCase
+from olympia.amo.tests import (
+    addon_factory, reverse_ns, TestCase, developer_factory)
 from olympia.api.tests.utils import APIKeyAuthTestMixin
 from olympia.applications.models import AppVersion
-from olympia.devhub import tasks
 from olympia.files.models import File, FileUpload
 from olympia.lib.akismet.models import AkismetReport
 from olympia.signing.views import VersionView
@@ -31,10 +31,8 @@ from olympia.versions.models import Version
 
 
 class SigningAPITestMixin(APIKeyAuthTestMixin):
-    fixtures = ['base/addon_3615', 'base/user_4043307']
-
     def setUp(self):
-        self.user = UserProfile.objects.get(email='del@icio.us')
+        self.user = developer_factory(email='del@icio.us')
         self.api_key = self.create_api_key(self.user, str(self.user.pk) + ':f')
 
         # Create v60.0 for Thunderbird
@@ -46,12 +44,12 @@ class BaseUploadVersionTestMixin(SigningAPITestMixin):
     def setUp(self):
         super(BaseUploadVersionTestMixin, self).setUp()
         self.guid = '{2fa4ed95-0317-4c6a-a74c-5f3e3912c1f9}'
+        addon_factory(
+            guid=self.guid, file_kw={'is_webextension': True},
+            version_kw={'version': '2.1.072'},
+            users=[self.user])
+
         self.view = VersionView.as_view()
-        create_version_patcher = mock.patch(
-            'olympia.devhub.tasks.create_version_for_upload',
-            tasks.create_version_for_upload.non_atomic)
-        self.create_version_for_upload = create_version_patcher.start()
-        self.addCleanup(create_version_patcher.stop)
 
         auto_sign_version_patcher = mock.patch(
             'olympia.devhub.views.auto_sign_version')
@@ -83,7 +81,8 @@ class BaseUploadVersionTestMixin(SigningAPITestMixin):
             filename = self.xpi_filepath(addon, version)
         if url is None:
             url = self.url(addon, version)
-        with open(filename) as upload:
+
+        with open(filename, 'rb') as upload:
             data = {'upload': upload}
             if method == 'POST' and version:
                 data['version'] = version
@@ -234,14 +233,14 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
     @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_version_added_is_experiment(self):
         self.grant_permission(self.user, 'Experiments:submit')
-        guid = 'experiment@xpi'
+        guid = '@experiment-inside-webextension-guid'
         qs = Addon.unfiltered.filter(guid=guid)
         assert not qs.exists()
         response = self.request(
             'PUT',
-            addon=guid, version='0.1',
+            addon=guid, version='0.0.1',
             filename='src/olympia/files/fixtures/files/'
-                     'telemetry_experiment.xpi')
+                     'experiment_inside_webextension.xpi')
         assert response.status_code == 201
         assert qs.exists()
         addon = qs.get()
@@ -255,14 +254,14 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
 
     @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_version_added_is_experiment_reject_no_perm(self):
-        guid = 'experiment@xpi'
+        guid = '@experiment-inside-webextension-guid'
         qs = Addon.unfiltered.filter(guid=guid)
         assert not qs.exists()
         response = self.request(
             'PUT',
             addon=guid, version='0.1',
             filename='src/olympia/files/fixtures/files/'
-                     'telemetry_experiment.xpi')
+                     'experiment_inside_webextension.xpi')
         assert response.status_code == 400
         assert response.data['error'] == (
             'You cannot submit this type of add-on')
@@ -491,12 +490,12 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
 
         validation_response = self.get(self.url(self.guid, '3.0'))
         assert validation_response.status_code == 200
-        assert 'spam' not in validation_response.content
+        assert b'spam' not in validation_response.content
 
     @override_switch('akismet-spam-check', active=True)
-    @responses.activate
+    @override_switch('akismet-addon-action', active=False)
     @override_settings(AKISMET_API_KEY=None)
-    def test_akismet_reports_created_spam_outcome(self):
+    def test_akismet_reports_created_spam_outcome_logging_only(self):
         akismet_url = settings.AKISMET_API_URL.format(
             api_key='none', action='comment-check')
         responses.add(responses.POST, akismet_url, json=True)
@@ -514,10 +513,33 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
 
         validation_response = self.get(self.url(self.guid, '3.0'))
         assert validation_response.status_code == 200
-        assert 'spam' in validation_response.content
-        data = json.loads(validation_response.content)
+        assert b'spam' not in validation_response.content
+
+    @override_switch('akismet-spam-check', active=True)
+    @override_switch('akismet-addon-action', active=True)
+    @override_settings(AKISMET_API_KEY=None)
+    def test_akismet_reports_created_spam_outcome_action_taken(self):
+        akismet_url = settings.AKISMET_API_URL.format(
+            api_key='none', action='comment-check')
+        responses.add(responses.POST, akismet_url, json=True)
+        addon = Addon.objects.get(guid=self.guid)
+        response = self.request(
+            'PUT', self.url(self.guid, '3.0'), channel='listed')
+
+        assert addon.versions.latest().channel == amo.RELEASE_CHANNEL_LISTED
+        assert response.status_code == 202
+        assert AkismetReport.objects.count() == 1
+        report = AkismetReport.objects.get()
+        assert report.comment_type == 'product-name'
+        assert report.comment == 'Upload Version Test XPI'  # the addon's name
+        assert report.result == AkismetReport.MAYBE_SPAM
+
+        validation_response = self.get(self.url(self.guid, '3.0'))
+        assert validation_response.status_code == 200
+        assert b'spam' in validation_response.content
+        data = json.loads(validation_response.content.decode('utf-8'))
         assert data['validation_results']['messages'][0]['id'] == [
-            u'validation', u'messages', u'akismet_is_spam'
+            u'validation', u'messages', u'akismet_is_spam_name'
         ]
 
 
@@ -529,11 +551,6 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
 
         AppVersion.objects.get_or_create(application=amo.THUNDERBIRD.id, version='60.0')
         AppVersion.objects.get_or_create(application=amo.THUNDERBIRD.id, version='60.*')
-
-        validate_patcher = mock.patch('validator.validate.validate')
-        run_validator = validate_patcher.start()
-        run_validator.return_value = json.dumps(amo.VALIDATOR_SKELETON_RESULTS)
-        self.addCleanup(validate_patcher.stop)
 
     @pytest.mark.xfail(reason="ATN requires extensions to include a GUID, making this test incompatible.")
     def test_addon_does_not_exist_webextension(self):
@@ -606,14 +623,6 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
         assert response.status_code == 400
         assert response.data['error'] == u'Invalid GUID in URL'
         assert not Addon.unfiltered.filter(guid=guid).exists()
-
-    def test_optional_id_not_allowed_for_regular_addon(self):
-        response = self.request(
-            'POST',
-            url=reverse_ns('signing.version'),
-            addon='@create-version-no-id',
-            version='1.0')
-        assert response.status_code == 400
 
     def test_webextension_reuse_guid(self):
         response = self.request(
@@ -765,7 +774,8 @@ class TestCheckVersion(BaseUploadVersionTestMixin, TestCase):
     def test_addon_does_not_exist(self):
         response = self.get(self.url('foo', '12.5'))
         assert response.status_code == 404
-        assert response.data['error'] == 'Could not find add-on with id "foo".'
+        assert response.data['error'] == (
+            'Could not find add-on with guid "foo".')
 
     def test_user_does_not_own_addon(self):
         self.create_version('3.0')
@@ -824,7 +834,7 @@ class TestCheckVersion(BaseUploadVersionTestMixin, TestCase):
             read_dev_agreement=datetime.now())
         self.api_key = self.create_api_key(self.user, 'bar')
         response = self.request('PUT', addon='@create-version', version='1.0')
-        assert response.status_code == 201
+        assert response.status_code == 201, response.content.decode('utf-8')
         upload = FileUpload.objects.latest()
 
         # Check that the user that created the upload can access it properly.
@@ -856,7 +866,7 @@ class TestCheckVersion(BaseUploadVersionTestMixin, TestCase):
         file_ = qs.get()
         assert response.data['files'][0]['download_url'] == absolutify(
             reverse_ns('signing.file', kwargs={'file_id': file_.id}) +
-            '/delicious_bookmarks-3.0-fx.xpi?src=api')
+            '/{fname}?src=api'.format(fname=file_.filename))
 
     @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_file_hash(self):

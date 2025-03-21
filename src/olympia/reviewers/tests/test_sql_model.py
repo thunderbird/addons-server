@@ -4,13 +4,14 @@
 Currently these tests are coupled tighly with MySQL
 """
 from datetime import datetime
+import six
 
 from django.db import connection, models
 from django.db.models import Q
 
 import pytest
 
-from olympia.amo.tests import BaseTestCase
+from olympia.amo.tests import TestCase
 from olympia.reviewers.sql_model import RawSQLModel
 
 
@@ -61,7 +62,7 @@ class ProductDetail(RawSQLModel):
         }
 
 
-class TestSQLModel(BaseTestCase):
+class TestSQLModel(TestCase):
 
     @pytest.fixture(autouse=True)
     def setup(self, request):
@@ -204,7 +205,7 @@ class TestSQLModel(BaseTestCase):
         assert [c.category for c in qs] == ['apparel', 'safety']
 
     def test_filter_raw_non_ascii(self):
-        uni = 'フォクすけといっしょ'.decode('utf8')
+        uni = u'フォクすけといっしょ'
         qs = (Summary.objects.all().filter_raw('category =', uni)
               .filter_raw(Q('category =', uni) | Q('category !=', uni)))
         assert [c.category for c in qs] == []
@@ -267,7 +268,7 @@ class TestSQLModel(BaseTestCase):
             pass
         # NOTE: this reaches into MySQLdb's cursor :(
         executed = query._cursor.cursor._executed
-        assert "c.name = '\\'apparel\\'; drop table foo;" in executed, (
+        assert b"c.name = '\\'apparel\\'; drop table foo;" in executed, (
             'Expected query to be escaped: %s' % executed)
 
     def check_type(self, val, types):
@@ -276,8 +277,8 @@ class TestSQLModel(BaseTestCase):
 
     def test_types(self):
         row = Summary.objects.all().order_by('category')[0]
-        self.check_type(row.category, unicode)
-        self.check_type(row.total, (int, long))
+        self.check_type(row.category, six.text_type)
+        self.check_type(row.total, six.integer_types)
         self.check_type(row.latest_product_date, datetime)
 
     def test_values(self):

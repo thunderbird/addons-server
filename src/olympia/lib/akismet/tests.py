@@ -2,6 +2,7 @@
 from datetime import datetime
 
 import django.contrib.messages as django_messages
+
 from django.conf import settings
 from django.contrib import admin
 from django.test import RequestFactory
@@ -10,17 +11,19 @@ from django.test.utils import override_settings
 import mock
 import pytest
 import responses
+import six
+
 from freezegun import freeze_time
 from pyquery import PyQuery as pq
 
-from olympia.amo.tests import addon_factory, TestCase, user_factory
+from olympia.amo.tests import TestCase, addon_factory, user_factory
 from olympia.amo.urlresolvers import reverse
 from olympia.files.models import FileUpload
 from olympia.ratings.models import Rating
 
 from .admin import AkismetAdmin
 from .models import AkismetReport
-from .tasks import comment_check, submit_to_akismet
+from .tasks import akismet_comment_check, submit_to_akismet
 
 
 class BaseAkismetReportsModelTest(object):
@@ -45,7 +48,6 @@ class BaseAkismetReportsModelTest(object):
         # check still one call.
         comment_check_mock.assert_called_once()
 
-    @responses.activate
     @override_settings(AKISMET_API_KEY=None)
     def test_comment_check(self):
         report = self._create_report()
@@ -86,7 +88,6 @@ class BaseAkismetReportsModelTest(object):
             assert result == report.result == AkismetReport.UNKNOWN
             incr_mock.assert_called_with(statsd_str + '.fail')
 
-    @responses.activate
     @override_settings(AKISMET_API_KEY=None)
     def test_submit_spam(self):
         report = self._create_report()
@@ -116,7 +117,6 @@ class BaseAkismetReportsModelTest(object):
         report.update(reported=False)
         assert not report.submit_spam()
 
-    @responses.activate
     @override_settings(AKISMET_API_KEY=None)
     def test_submit_ham(self):
         report = self._create_report()
@@ -169,7 +169,7 @@ class TestAkismetReportsRating(BaseAkismetReportsModelTest, TestCase):
             'referrer': referrer,
             'permalink': addon.get_url_path(),
             'comment_type': 'user-review',
-            'comment_author': user.username,
+            'comment_author': user.name,
             'comment_author_email': user.email,
             'comment_author_url': user.homepage,
             'comment_content': rating.body,
@@ -222,10 +222,10 @@ class TestAkismetReportsAddon(BaseAkismetReportsModelTest, TestCase):
             'user_agent': ua,
             'referrer': referrer,
             'comment_type': 'product-name',
-            'comment_author': user.username,
+            'comment_author': user.name,
             'comment_author_email': user.email,
             'comment_author_url': user.homepage,
-            'comment_content': unicode(addon.name),
+            'comment_content': six.text_type(addon.name),
             'comment_date_gmt': time_now,
             'blog_charset': 'utf-8',
             'is_test': not settings.AKISMET_REAL_SUBMIT,
@@ -331,7 +331,7 @@ class TestAkismetAdmin(TestCase):
             [ham_report_not_already_submitted.pk], True)
         assert len(django_messages.get_messages(request)) == 1
         for message in django_messages.get_messages(request):
-            assert unicode(message) == (
+            assert six.text_type(message) == (
                 '1 Ham reports submitted as Spam; 5 reports ignored')
 
     @mock.patch('olympia.lib.akismet.admin.submit_to_akismet.delay')
@@ -351,7 +351,7 @@ class TestAkismetAdmin(TestCase):
             [r.id for r in spam_reports_not_already_submitted], False)
         assert len(django_messages.get_messages(request)) == 1
         for message in django_messages.get_messages(request):
-            assert unicode(message) == (
+            assert six.text_type(message) == (
                 '2 Spam reports submitted as Ham; 4 reports ignored')
 
     def test_submit_spam_button_on_ham_page(self):
@@ -459,6 +459,6 @@ def test_comment_check_task(_post_mock):
     user = user_factory()
     report = AkismetReport.create_for_addon(
         upload, None, user, 'foo', 'baa', '', '')
-    comment_check([report.id])
+    akismet_comment_check([report.id])
     _post_mock.assert_called_once()
     _post_mock.assert_called_with('comment-check')

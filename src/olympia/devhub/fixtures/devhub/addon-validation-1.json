@@ -44,7 +44,7 @@
             "locale": "en-us",
             "modified": "2010-12-17 13:05:38",
             "id": 1385334,
-            "localized_string": "searchaddon11102010"
+            "localized_string": "testaddon"
         }
     },
     {
@@ -72,7 +72,6 @@
             "total_downloads": 0,
             "developer_comments": null,
             "_current_version": 118898,
-            "locale_disambiguation": null,
             "guid": null,
             "weekly_downloads": 0,
             "support_url": null,
@@ -88,8 +87,7 @@
             "description": null,
             "default_locale": "en-US",
             "target_locale": null,
-            "slug": "searchaddon11102010",
-            "external_software": false,
+            "slug": "testaddon",
             "name": 1385334,
             "created": "2010-12-17 13:04:56",
             "type": 4,
@@ -137,8 +135,8 @@
         "fields": {
             "license": 1377,
             "created": "2010-12-17 13:04:57",
-            "releasenotes": null,
-            "approvalnotes": "",
+            "release_notes": null,
+            "approval_notes": "",
             "modified": "2010-12-17 13:04:57",
             "version": "20101217",
             "addon": 235891
@@ -153,7 +151,7 @@
             "hash": "sha256:a300e3943309aee1e1ee47f569f9be36276791b3e66596be4c9cc4ee238b01b6",
             "created": "2010-12-17 13:04:57",
             "modified": "2010-12-17 13:04:57",
-            "filename": "searchaddon11102010-20101217.xml",
+            "filename": "testaddon-20101217.xpi",
             "platform": 1,
             "version": 118898,
             "datestatuschanged": "2010-12-17 13:04:57",

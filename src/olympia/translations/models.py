@@ -1,9 +1,11 @@
-from functools import partial
+from functools import partial, total_ordering
 
 from django.db import connections, models, router
 from django.db.models.deletion import Collector
+from django.utils.encoding import python_2_unicode_compatible
 
 import bleach
+import six
 
 import olympia.core.logger
 
@@ -27,6 +29,8 @@ class TranslationManager(ManagerBase):
         qs.update(localized_string=None, localized_string_clean=None)
 
 
+@total_ordering
+@python_2_unicode_compatible
 class Translation(ModelBase):
     """
     Translation model.
@@ -47,25 +51,32 @@ class Translation(ModelBase):
         db_table = 'translations'
         unique_together = ('id', 'locale')
 
-    def __unicode__(self):
-        return self.localized_string and unicode(self.localized_string) or ''
+    def __str__(self):
+        return (
+            six.text_type(self.localized_string) if self.localized_string
+            else '')
 
-    def __nonzero__(self):
-        # __nonzero__ is called to evaluate an object in a boolean context.  We
-        # want Translations to be falsy if their string is empty.
+    def __bool__(self):
+        # __bool__ is called to evaluate an object in a boolean context.
+        # We want Translations to be falsy if their string is empty.
         return (bool(self.localized_string) and
                 bool(self.localized_string.strip()))
 
-    def __eq__(self, other):
-        # Django implements an __eq__ that only checks pks.  We need to check
-        # the strings if we're dealing with existing vs. unsaved Translations.
-        return self.__cmp__(other) == 0
+    __nonzero__ = __bool__  # Python 2 compatibility.
 
-    def __cmp__(self, other):
+    def __lt__(self, other):
         if hasattr(other, 'localized_string'):
-            return cmp(self.localized_string, other.localized_string)
+            return self.localized_string < other.localized_string
         else:
-            return cmp(self.localized_string, other)
+            return self.localized_string < other
+
+    def __eq__(self, other):
+        # Django implements an __eq__ that only checks pks. We need to check
+        # the strings if we're dealing with existing vs. unsaved Translations.
+        if hasattr(other, 'localized_string'):
+            return self.localized_string == other.localized_string
+        else:
+            return self.localized_string == other
 
     def clean(self):
         if self.localized_string:
@@ -152,6 +163,7 @@ class Translation(ModelBase):
         return trans
 
 
+@python_2_unicode_compatible
 class PurifiedTranslation(Translation):
     """Run the string through bleach to get a safe version."""
     allowed_tags = [
@@ -177,16 +189,16 @@ class PurifiedTranslation(Translation):
     class Meta:
         proxy = True
 
-    def __unicode__(self):
+    def __str__(self):
         if not self.localized_string_clean:
             self.clean()
-        return unicode(self.localized_string_clean)
+        return six.text_type(self.localized_string_clean)
 
     def __html__(self):
-        return unicode(self)
+        return six.text_type(self)
 
     def __truncate__(self, length, killwords, end):
-        return utils.truncate(unicode(self), length, killwords, end)
+        return utils.truncate(six.text_type(self), length, killwords, end)
 
     def clean(self):
         from olympia.amo.utils import clean_nl
@@ -204,7 +216,7 @@ class PurifiedTranslation(Translation):
             tags=self.allowed_tags, attributes=self.allowed_attributes,
             filters=[linkify_filter])
 
-        return cleaner.clean(unicode(self.localized_string))
+        return cleaner.clean(six.text_type(self.localized_string))
 
 
 class LinkifiedTranslation(PurifiedTranslation):

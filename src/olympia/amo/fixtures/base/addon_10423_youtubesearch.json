@@ -83,7 +83,6 @@
             "disabled_by_user": false,
             "guid": null,
             "description": 309894,
-            "locale_disambiguation": null,
             "weekly_downloads": 51417,
             "support_url": 309897,
             "average_rating": 4.8399999999999999,
@@ -98,7 +97,6 @@
             "target_locale": null,
             "total_ratings": 75,
             "slug": "youtube",
-            "external_software": false,
             "name": 309895,
             "created": "2009-01-19 15:28:14",
             "type": 4,
@@ -114,9 +112,9 @@
         "fields": {
             "license": null,
             "created": "2009-01-19 15:28:14",
-            "releasenotes": null,
+            "release_notes": null,
             "modified": "2009-01-19 15:28:14",
-            "approvalnotes": null,
+            "approval_notes": null,
             "version": "20090119",
             "addon": 10423
         }

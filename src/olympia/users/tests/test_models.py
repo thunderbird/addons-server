@@ -13,6 +13,8 @@ from django.test.client import RequestFactory
 import mock
 import pytest
 
+from six import text_type
+
 import olympia  # noqa
 
 from olympia import amo
@@ -92,10 +94,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert storage.exists(user.picture_path_original)
         assert storage.exists(user.picture_path)
@@ -149,10 +151,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         assert user.addons.count() == 1
         rating = Rating.objects.create(
@@ -247,10 +249,10 @@ class TestUserProfile(TestCase):
 
         # Create a photo so that we can test deletion.
         with storage.open(user.picture_path, 'wb') as fobj:
-            fobj.write('test data\n')
+            fobj.write(b'test data\n')
 
         with storage.open(user.picture_path_original, 'wb') as fobj:
-            fobj.write('original test data\n')
+            fobj.write(b'original test data\n')
 
         user.delete_picture()
 
@@ -274,57 +276,60 @@ class TestUserProfile(TestCase):
         assert len(user.groups_list) == 2
 
     def test_welcome_name(self):
-        u1 = UserProfile(username='sc')
-        u2 = UserProfile(username='sc', display_name="Sarah Connor")
-        u3 = UserProfile()
-        assert u1.welcome_name == 'sc'
+        u1 = UserProfile.objects.create(username='sc')
+        u2 = UserProfile.objects.create(
+            username='sc2', display_name="Sarah Connor")
+        u3 = UserProfile.objects.create()
+        assert u1.welcome_name == 'Firefox user %s' % u1.id
         assert u2.welcome_name == 'Sarah Connor'
-        assert u3.welcome_name == ''
+        assert u3.welcome_name == 'Firefox user %s' % u3.id
 
     def test_welcome_name_anonymous(self):
-        user = UserProfile(
-            username='anonymous-bb4f3cbd422e504080e32f2d9bbfcee0')
-        assert user.welcome_name == 'Firefox user bb4f3c'
+        user = UserProfile.objects.create(
+            username='anonymous-bb4f3cbd422e504080e32f2d9bbfcee0', id=1234)
+        assert user.welcome_name == 'Firefox user 1234'
 
     def test_welcome_name_anonymous_with_display(self):
-        user = UserProfile(display_name='John Connor')
+        user = UserProfile.objects.create(display_name='John Connor')
         user.anonymize_username()
         assert user.welcome_name == 'John Connor'
 
     def test_has_anonymous_username_no_names(self):
-        user = UserProfile(display_name=None)
+        user = UserProfile.objects.create(display_name=None)
         user.anonymize_username()
         assert user.has_anonymous_username
 
     def test_has_anonymous_username_username_set(self):
-        user = UserProfile(username='bob', display_name=None)
+        user = UserProfile.objects.create(username='bob', display_name=None)
         assert not user.has_anonymous_username
 
     def test_has_anonymous_username_display_name_set(self):
-        user = UserProfile(display_name='Bob Bobbertson')
+        user = UserProfile.objects.create(display_name='Bob Bobbertson')
         user.anonymize_username()
         assert user.has_anonymous_username
 
     def test_has_anonymous_username_both_names_set(self):
-        user = UserProfile(username='bob', display_name='Bob Bobbertson')
+        user = UserProfile.objects.create(
+            username='bob', display_name='Bob Bobbertson')
         assert not user.has_anonymous_username
 
     def test_has_anonymous_display_name_no_names(self):
-        user = UserProfile(display_name=None)
+        user = UserProfile.objects.create(display_name=None)
         user.anonymize_username()
         assert user.has_anonymous_display_name
 
     def test_has_anonymous_display_name_username_set(self):
-        user = UserProfile(username='bob', display_name=None)
-        assert not user.has_anonymous_display_name
+        user = UserProfile.objects.create(username='bob', display_name=None)
+        assert user.has_anonymous_display_name
 
     def test_has_anonymous_display_name_display_name_set(self):
-        user = UserProfile(display_name='Bob Bobbertson')
+        user = UserProfile.objects.create(display_name='Bob Bobbertson')
         user.anonymize_username()
         assert not user.has_anonymous_display_name
 
     def test_has_anonymous_display_name_both_names_set(self):
-        user = UserProfile(username='bob', display_name='Bob Bobbertson')
+        user = UserProfile.objects.create(
+            username='bob', display_name='Bob Bobbertson')
         assert not user.has_anonymous_display_name
 
     def test_superuser(self):
@@ -362,15 +367,18 @@ class TestUserProfile(TestCase):
         """
         Test for a preview URL if image is set, or default image otherwise.
         """
-        u = UserProfile(id=1234, picture_type='image/png',
-                        modified=date.today())
+        u = UserProfile.objects.create(
+            id=1234, picture_type='image/png', modified=date.today(),
+            username='a')
         u.picture_url.index('/userpics/0/1/1234.png?modified=')
 
-        u = UserProfile(id=1234567890, picture_type='image/png',
-                        modified=date.today())
+        u = UserProfile.objects.create(
+            id=1234567890, picture_type='image/png', modified=date.today(),
+            username='b')
         u.picture_url.index('/userpics/1234/1234567/1234567890.png?modified=')
 
-        u = UserProfile(id=1234, picture_type=None)
+        u = UserProfile.objects.create(
+            id=123456, picture_type=None, username='c')
         assert u.picture_url.endswith('/anon_user.png')
 
     def test_review_replies(self):
@@ -422,7 +430,8 @@ class TestUserProfile(TestCase):
         addon2 = Addon.objects.create(name='test-2', type=amo.ADDON_EXTENSION)
         AddonUser.objects.create(addon_id=addon2.id, user_id=2519, listed=True)
         addons = UserProfile.objects.get(id=2519).my_addons()
-        assert sorted(a.name for a in addons) == [addon1.name, addon2.name]
+        assert sorted(text_type(a.name) for a in addons) == [
+            addon1.name, addon2.name]
 
     def test_mobile_collection(self):
         u = UserProfile.objects.get(id='4043307')
@@ -441,14 +450,10 @@ class TestUserProfile(TestCase):
         assert c.slug == 'favorites'
 
     def test_get_url_path(self):
-        assert UserProfile(username='yolo').get_url_path() == (
-            '/en-US/firefox/user/yolo/')
-        assert UserProfile(username='yolo', id=1).get_url_path() == (
-            '/en-US/firefox/user/yolo/')
-        assert UserProfile(id=1).get_url_path() == (
+        assert UserProfile.objects.create(id=1).get_url_path() == (
             '/en-US/firefox/user/1/')
-        assert UserProfile(username='<yolo>', id=1).get_url_path() == (
-            '/en-US/firefox/user/1/')
+        assert UserProfile.objects.create(
+            username='yolo', id=2).get_url_path() == ('/en-US/firefox/user/2/')
 
     def test_mobile_addons(self):
         user = UserProfile.objects.get(id='4043307')
@@ -502,16 +507,20 @@ class TestUserProfile(TestCase):
         before_change = (
             datetime(2018, 1, 1) - timedelta(days=42))
 
-        assert not UserProfile().has_read_developer_agreement()
-        assert not UserProfile(
-            read_dev_agreement=None).has_read_developer_agreement()
-        assert not UserProfile(
-            read_dev_agreement=before_change).has_read_developer_agreement()
+        assert not UserProfile.objects.create(
+            username='a').has_read_developer_agreement()
+        assert not UserProfile.objects.create(
+            username='b', read_dev_agreement=None
+        ).has_read_developer_agreement()
+        assert not UserProfile.objects.create(
+            username='c', read_dev_agreement=before_change
+        ).has_read_developer_agreement()
 
         # User has read the agreement after it was modified for
         # post-review: it should return True.
-        assert UserProfile(
-            read_dev_agreement=after_change).has_read_developer_agreement()
+        assert UserProfile.objects.create(
+            username='d', read_dev_agreement=after_change
+        ).has_read_developer_agreement()
 
     def test_is_public(self):
         user = UserProfile.objects.get(id=4043307)

@@ -13,10 +13,6 @@ from django.template.defaultfilters import filesizeformat
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext
 
-# TODO (andym): change the validator variables.
-from validator.testcases.packagelayout import (
-    blacklisted_extensions, blacklisted_magic_numbers)
-
 import olympia.core.logger
 
 from olympia import amo
@@ -26,12 +22,22 @@ from olympia.lib.cache import cache_get_or_set, Message
 from olympia.files.utils import (
     atomic_lock, extract_xpi, get_all_files, get_sha256)
 
-
-# Allow files with a shebang through.
-denied_magic_numbers = [b for b in list(blacklisted_magic_numbers)
-                        if b != (0x23, 0x21)]
-denied_extensions = [b for b in list(blacklisted_extensions) if b != 'sh']
 task_log = olympia.core.logger.getLogger('z.task')
+
+# Detect denied files based on their extension.
+denied_extensions = (
+    'dll', 'exe', 'dylib', 'so', 'class', 'swf')
+
+denied_magic_numbers = (
+    (0x4d, 0x5a),  # EXE/DLL
+    (0x5a, 0x4d),  # Alternative for EXE/DLL
+    (0x7f, 0x45, 0x4c, 0x46),  # UNIX elf
+    (0xca, 0xfe, 0xba, 0xbe),  # Java + Mach-O (dylib)
+    (0xca, 0xfe, 0xd0, 0x0d),  # Java (packed)
+    (0xfe, 0xed, 0xfa, 0xce),  # Mach-O
+    (0x46, 0x57, 0x53),  # Uncompressed SWF
+    (0x43, 0x57, 0x53),  # ZLIB compressed SWF
+)
 
 LOCKED_LIFETIME = 60 * 5
 
@@ -135,8 +141,9 @@ class FileViewer(object):
 
                 if self.is_search_engine() and self.src.endswith('.xml'):
                     shutil.copyfileobj(
-                        storage.open(self.src),
-                        open(os.path.join(self.dest, self.file.filename), 'w'))
+                        storage.open(self.src, 'rb'),
+                        open(
+                            os.path.join(self.dest, self.file.filename), 'wb'))
                 else:
                     try:
                         extracted_files = extract_xpi(self.src, self.dest)
@@ -168,9 +175,9 @@ class FileViewer(object):
             return True
 
         if os.path.exists(path) and not os.path.isdir(path):
-            with storage.open(path, 'r') as rfile:
-                bytes = tuple(map(ord, rfile.read(4)))
-            if any(bytes[:len(x)] == x for x in denied_magic_numbers):
+            with storage.open(path, 'rb') as rfile:
+                data = tuple(bytearray(rfile.read(4)))
+            if any(data[:len(x)] == x for x in denied_magic_numbers):
                 return True
 
         if mimetype:
@@ -204,7 +211,7 @@ class FileViewer(object):
             self.selected['msg'] = msg
             return ''
 
-        with storage.open(self.selected['full'], 'r') as opened:
+        with storage.open(self.selected['full'], 'rb') as opened:
             cont = opened.read()
             codec = 'utf-16' if cont.startswith(codecs.BOM_UTF16) else 'utf-8'
             try:
@@ -243,7 +250,7 @@ class FileViewer(object):
         for manifest in ('install.rdf', 'manifest.json', 'package.json'):
             if manifest in files:
                 return manifest
-        return files.keys()[0] if files else None  # Eg: it's a search engine.
+        return list(files.keys())[0] if files else None
 
     def get_files(self):
         """
@@ -320,10 +327,17 @@ class FileViewer(object):
         result = OrderedDict()
 
         for path in get_all_files(self.dest):
-            filename = force_text(os.path.basename(path), errors='replace')
-            short = force_text(path[len(self.dest) + 1:], errors='replace')
+            path = force_text(path, errors='replace')
+            filename = os.path.basename(path)
+            short = path[len(self.dest) + 1:]
             mime, encoding = mimetypes.guess_type(filename)
             directory = os.path.isdir(path)
+
+            if not directory:
+                with open(path, 'rb') as fobj:
+                    sha256 = get_sha256(fobj)
+            else:
+                sha256 = ''
 
             result[short] = {
                 'id': self.file.id,
@@ -332,7 +346,7 @@ class FileViewer(object):
                 'directory': directory,
                 'filename': filename,
                 'full': path,
-                'sha256': get_sha256(path) if not directory else '',
+                'sha256': sha256,
                 'mimetype': mime or 'application/octet-stream',
                 'syntax': self.get_syntax(filename),
                 'modified': os.stat(path)[stat.ST_MTIME],

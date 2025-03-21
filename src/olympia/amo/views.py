@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 from django import http
 from django.conf import settings
@@ -7,10 +8,12 @@ from django.db.transaction import non_atomic_requests
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.cache import never_cache
 
+import six
+
 from django_statsd.clients import statsd
 from rest_framework.exceptions import NotFound
 
-from olympia import amo, legacy_api
+from olympia import amo
 from olympia.amo.utils import render
 
 from . import monitors
@@ -48,7 +51,11 @@ def robots(request):
     if _service or not settings.ENGAGE_ROBOTS:
         template = "User-agent: *\nDisallow: /"
     else:
-        template = render(request, 'amo/robots.html', {'apps': amo.APP_USAGE})
+        ctx = {
+            'apps': amo.APP_USAGE,
+            'mozilla_user_id': settings.TASK_USER_ID,
+        }
+        template = render(request, 'amo/robots.html', ctx)
 
     return HttpResponse(template, content_type="text/plain")
 
@@ -60,23 +67,16 @@ def contribute(request):
 
 
 @non_atomic_requests
-def handler403(request):
-    if request.is_legacy_api:
-        # Pass over to handler403 view in api if api was targeted.
-        return legacy_api.views.handler403(request)
-    else:
-        return render(request, 'amo/403.html', status=403)
+def handler403(request, **kwargs):
+    return render(request, 'amo/403.html', status=403)
 
 
 @non_atomic_requests
-def handler404(request):
+def handler404(request, **kwargs):
     if request.is_api:
         # It's a v3+ api request
         return JsonResponse(
-            {'detail': unicode(NotFound.default_detail)}, status=404)
-    elif request.is_legacy_api:
-        # It's a legacy api request - pass over to legacy api handler404.
-        return legacy_api.views.handler404(request)
+            {'detail': six.text_type(NotFound.default_detail)}, status=404)
     # X_IS_MOBILE_AGENTS is set by nginx as an env variable when it detects
     # a mobile User Agent or when the mamo cookie is present.
     if request.META.get('X_IS_MOBILE_AGENTS') == '1':
@@ -86,12 +86,8 @@ def handler404(request):
 
 
 @non_atomic_requests
-def handler500(request):
-    if request.is_legacy_api:
-        # Pass over to handler500 view in api if api was targeted.
-        return legacy_api.views.handler500(request)
-    else:
-        return render(request, 'amo/500.html', status=500)
+def handler500(request, **kwargs):
+    return render(request, 'amo/500.html', status=500)
 
 
 @non_atomic_requests
@@ -114,4 +110,9 @@ def loaded(request):
 @non_atomic_requests
 def version(request):
     path = os.path.join(settings.ROOT, 'version.json')
-    return HttpResponse(open(path, 'rb'), content_type='application/json')
+    py_info = sys.version_info
+    with open(path, 'r') as f:
+        contents = json.loads(f.read())
+    contents['python'] = '{major}.{minor}'.format(
+        major=py_info.major, minor=py_info.minor)
+    return HttpResponse(json.dumps(contents), content_type='application/json')

@@ -8,13 +8,15 @@ from datetime import datetime
 
 from django.apps import apps
 from django.conf import settings
-from django.urls import reverse
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.functional import cached_property
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext
 
 import jinja2
+import six
 
 import olympia.core.logger
 
@@ -40,9 +42,11 @@ MAX_TOKEN_USE_COUNT = 100
 
 class ActivityLogToken(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    version = models.ForeignKey(Version, related_name='token')
-    user = models.ForeignKey('users.UserProfile',
-                             related_name='activity_log_tokens')
+    version = models.ForeignKey(
+        Version, related_name='token', on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        'users.UserProfile', related_name='activity_log_tokens',
+        on_delete=models.CASCADE)
     uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     use_count = models.IntegerField(
         default=0,
@@ -82,8 +86,8 @@ class AddonLog(ModelBase):
     """
     This table is for indexing the activity log by addon.
     """
-    addon = models.ForeignKey(Addon)
-    activity_log = models.ForeignKey('ActivityLog')
+    addon = models.ForeignKey(Addon, on_delete=models.CASCADE)
+    activity_log = models.ForeignKey('ActivityLog', on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'log_activity_addon'
@@ -114,7 +118,7 @@ class CommentLog(ModelBase):
     """
     This table is for indexing the activity log by comment.
     """
-    activity_log = models.ForeignKey('ActivityLog')
+    activity_log = models.ForeignKey('ActivityLog', on_delete=models.CASCADE)
     comments = models.TextField()
 
     class Meta:
@@ -126,8 +130,8 @@ class VersionLog(ModelBase):
     """
     This table is for indexing the activity log by version.
     """
-    activity_log = models.ForeignKey('ActivityLog')
-    version = models.ForeignKey(Version)
+    activity_log = models.ForeignKey('ActivityLog', on_delete=models.CASCADE)
+    version = models.ForeignKey(Version, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'log_activity_version'
@@ -139,8 +143,8 @@ class UserLog(ModelBase):
     This table is for indexing the activity log by user.
     Note: This includes activity performed unto the user.
     """
-    activity_log = models.ForeignKey('ActivityLog')
-    user = models.ForeignKey(UserProfile)
+    activity_log = models.ForeignKey('ActivityLog', on_delete=models.CASCADE)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'log_activity_user'
@@ -152,8 +156,8 @@ class GroupLog(ModelBase):
     This table is for indexing the activity log by access group.
     """
     id = PositiveAutoField(primary_key=True)
-    activity_log = models.ForeignKey('ActivityLog')
-    group = models.ForeignKey(Group)
+    activity_log = models.ForeignKey('ActivityLog', on_delete=models.CASCADE)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'log_activity_group'
@@ -289,11 +293,13 @@ class SafeFormatter(string.Formatter):
         return jinja2.escape(obj), used_key
 
 
+@python_2_unicode_compatible
 class ActivityLog(ModelBase):
     TYPES = sorted(
         [(value.id, key)
          for key, value in constants.activity.LOG_BY_ID.items()])
-    user = models.ForeignKey('users.UserProfile', null=True)
+    user = models.ForeignKey(
+        'users.UserProfile', null=True, on_delete=models.CASCADE)
     action = models.SmallIntegerField(choices=TYPES, db_index=True)
     _arguments = models.TextField(blank=True, db_column='arguments')
     _details = models.TextField(blank=True, db_column='details')
@@ -407,16 +413,18 @@ class ActivityLog(ModelBase):
         serialize_me = []
 
         for arg in args:
-            if isinstance(arg, basestring):
+            if isinstance(arg, six.string_types):
                 serialize_me.append({'str': arg})
-            elif isinstance(arg, (int, long)):
+            elif isinstance(arg, six.integer_types):
                 serialize_me.append({'int': arg})
             elif isinstance(arg, tuple):
                 # Instead of passing an addon instance you can pass a tuple:
                 # (Addon, 3) for Addon with pk=3
-                serialize_me.append(dict(((unicode(arg[0]._meta), arg[1]),)))
+                serialize_me.append(
+                    dict(((six.text_type(arg[0]._meta), arg[1]),)))
             else:
-                serialize_me.append(dict(((unicode(arg._meta), arg.pk),)))
+                serialize_me.append(
+                    dict(((six.text_type(arg._meta), arg.pk),)))
 
         self._arguments = json.dumps(serialize_me)
 
@@ -527,12 +535,12 @@ class ActivityLog(ModelBase):
                 'file': file_,
                 'status': status,
             }
-            return self.f(format, *arguments, **kw)
+            return self.f(six.text_type(format), *arguments, **kw)
         except (AttributeError, KeyError, IndexError):
             log.warning('%d contains garbage data' % (self.id or 0))
             return 'Something magical happened.'
 
-    def __unicode__(self):
+    def __str__(self):
         return self.to_string()
 
     def __html__(self):

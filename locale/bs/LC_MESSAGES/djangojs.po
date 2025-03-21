@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
 "PO-Revision-Date: 2018-02-08 08:22+0000\n"
 "Last-Translator: Nihad Suljić <nihad.suljic92@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -49,8 +49,8 @@ msgstr "Učitavanje {0}"
 msgid "Error with {0}"
 msgstr "Greška sa {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "Omogućili smo novi linter kako bi procesirali vaš dodatak. Molimo da zabilježite sve probleme na GiHub-u"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr ""
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
@@ -781,9 +781,16 @@ msgstr ""
 msgid "Loading..."
 msgstr ""
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
 msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
@@ -879,9 +886,6 @@ msgid "{0} line {1} column {2}"
 msgstr ""
 
 msgid "{0} line {1}"
-msgstr ""
-
-msgid "Compatibility Tests"
 msgstr ""
 
 msgid "Add-on failed validation."

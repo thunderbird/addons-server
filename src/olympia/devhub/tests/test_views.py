@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.core import mail
 from django.core.files.storage import default_storage as storage
-from django.core.management import call_command
 from django.test import RequestFactory
 from django.test.utils import override_settings
+from django.utils.encoding import force_text
 from django.utils.translation import trim_whitespace
 
 import mock
@@ -21,11 +21,13 @@ from pyquery import PyQuery as pq
 from waffle.testutils import override_switch
 
 from olympia import amo, core
+from olympia.accounts.views import API_TOKEN_COOKIE
 from olympia.activity.models import ActivityLog
 from olympia.addons.models import (
-    Addon, AddonCategory, AddonFeatureCompatibility, AddonUser)
+    Addon, AddonCategory, AddonUser)
+from olympia.amo.storage_utils import copy_stored_file
 from olympia.amo.templatetags.jinja_helpers import (
-    format_date, url as url_reverse)
+    format_date, url as url_reverse, urlparams)
 from olympia.amo.tests import (
     TestCase, addon_factory, user_factory, version_factory)
 from olympia.amo.tests.test_helpers import get_image_path
@@ -41,6 +43,7 @@ from olympia.lib.akismet.models import AkismetReport
 from olympia.ratings.models import Rating
 from olympia.translations.models import Translation, delete_translation
 from olympia.users.models import UserProfile
+from olympia.users.tests.test_views import UserViewBase
 from olympia.versions.models import (
     ApplicationsVersions, Version, VersionPreview)
 from olympia.zadmin.models import set_config
@@ -195,33 +198,9 @@ class TestDashboard(HubTest):
 
         appver = self.addon.current_version.apps.all()[0]
         appver.delete()
-        # Addon is not set to be compatible with Firefox, e10s compatibility is
-        # not shown.
-        doc = pq(self.client.get(self.url).content)
-        item = doc('.item[data-addonid="%s"]' % self.addon.id)
-        assert not item.find('.e10s-compatibility')
-
-    def test_e10s_compatibility(self):
-        self.addon = addon_factory(name=u'My Addœn')
-        self.addon.addonuser_set.create(user=self.user_profile)
-
-        doc = pq(self.client.get(self.url).content)
-        item = doc('.item[data-addonid="%s"]' % self.addon.id)
-        e10s_flag = item.find('.e10s-compatibility.e10s-unknown b')
-        assert e10s_flag
-        assert e10s_flag.text() == 'Unknown'
-
-        AddonFeatureCompatibility.objects.create(
-            addon=self.addon, e10s=amo.E10S_COMPATIBLE)
-        doc = pq(self.client.get(self.url).content)
-        item = doc('.item[data-addonid="%s"]' % self.addon.id)
-        assert not item.find('.e10s-compatibility.e10s-unknown')
-        e10s_flag = item.find('.e10s-compatibility.e10s-compatible b')
-        assert e10s_flag
-        assert e10s_flag.text() == 'Compatible'
 
     def test_dev_news(self):
-        for i in xrange(7):
+        for i in range(7):
             bp = BlogPost(title='hi %s' % i,
                           date_posted=datetime.now() - timedelta(days=i))
             bp.save()
@@ -319,13 +298,14 @@ class TestUpdateCompatibility(TestCase):
         assert self.client.login(email='del@icio.us')
         self.url = reverse('devhub.addons')
 
-        self._versions = amo.FIREFOX.latest_version, amo.ANDROID.latest_version
-        amo.FIREFOX.latest_version = amo.ANDROID.latest_version = '3.6.15'
+        # These aren't realistic but work with existing tests and the 3615
+        # addon
+        self.create_appversion('android', '3.7a1pre')
+        self.create_appversion('android', '4.0')
 
-    def tearDown(self):
-        amo.FIREFOX.latest_version = amo.ANDROID.latest_version = (
-            self._versions)
-        super(TestUpdateCompatibility, self).tearDown()
+    def create_appversion(self, name, version):
+        return AppVersion.objects.create(
+            application=amo.APPS[name].id, version=version)
 
     def test_no_compat(self):
         self.client.logout()
@@ -439,7 +419,7 @@ class TestVersionStats(TestCase):
                                   version=addon.current_version)
 
         url = reverse('devhub.versions.stats', args=[addon.slug])
-        data = json.loads(self.client.get(url).content)
+        data = json.loads(force_text(self.client.get(url).content))
         exp = {str(version.id):
                {'reviews': 10, 'files': 1, 'version': version.version,
                 'id': version.id}}
@@ -545,7 +525,7 @@ class TestHome(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 200
         self.assertTemplateUsed(response, 'devhub/index.html')
-        assert 'Customize Firefox' in response.content
+        assert b'Customize Firefox' in response.content
 
     def test_default_lang_selected(self):
         self.client.logout()
@@ -557,7 +537,7 @@ class TestHome(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 200
         self.assertTemplateUsed(response, 'devhub/index.html')
-        assert 'My Add-ons' in response.content
+        assert b'My Add-ons' in response.content
 
     def test_my_addons_addon_versions_link(self):
         assert self.client.login(email='del@icio.us')
@@ -895,10 +875,11 @@ class TestUpload(BaseUploadTest):
         assert validation['warnings'] == 0
         assert len(validation['messages'])
         msg = validation['messages'][0]
-        assert 'uid' in msg, "Unexpected: %r" % msg
         assert msg['type'] == u'error'
-        assert msg['message'] == u'The package is not of a recognized type.'
-        assert not msg['description'], 'Found unexpected description.'
+        assert msg['message'] == (
+            u'Unsupported file type, please upload an a supported file '
+            '(.crx, .xpi, .jar, .xml, .json, .zip).')
+        assert not msg['description']
 
     def test_redirect(self):
         response = self.post()
@@ -911,7 +892,7 @@ class TestUpload(BaseUploadTest):
         response = self.client.get(url)
         assert response.status_code == 404
 
-    @mock.patch('validator.validate.validate')
+    @mock.patch('olympia.devhub.tasks.validate')
     def test_upload_unlisted_addon(self, validate_mock):
         """Unlisted addons are validated as "self hosted" addons."""
         validate_mock.return_value = json.dumps(amo.VALIDATOR_SKELETON_RESULTS)
@@ -928,8 +909,6 @@ class TestUploadDetail(BaseUploadTest):
         super(TestUploadDetail, self).setUp()
         self.create_appversion('firefox', '*')
         self.create_appversion('firefox', '51.0a1')
-
-        call_command('dump_apps')
 
         assert self.client.login(email='regular@mozilla.com')
 
@@ -968,13 +947,14 @@ class TestUploadDetail(BaseUploadTest):
         response = self.client.get(reverse('devhub.upload_detail',
                                    args=[upload.uuid.hex, 'json']))
         assert response.status_code == 200
-        data = json.loads(response.content)
-        assert data['validation']['errors'] == 2
+        data = json.loads(force_text(response.content))
+
+        assert data['validation']['errors'] == 1
         assert data['url'] == (
             reverse('devhub.upload_detail', args=[upload.uuid.hex, 'json']))
         assert data['full_report_url'] == (
             reverse('devhub.upload_detail', args=[upload.uuid.hex]))
-        assert data['processed_by_addons_linter'] is False
+
         # We must have tiers
         assert len(data['validation']['messages'])
         msg = data['validation']['messages'][0]
@@ -1024,16 +1004,6 @@ class TestUploadDetail(BaseUploadTest):
                                            args=[addon.slug, upload.uuid.hex]))
         assert response.status_code == 404
 
-    def test_detail_json_addons_linter(self):
-        self.upload_file('valid_webextension.xpi')
-
-        upload = FileUpload.objects.get()
-        response = self.client.get(
-            reverse('devhub.upload_detail', args=[upload.uuid.hex, 'json']))
-        assert response.status_code == 200
-        data = json.loads(response.content)
-        assert data['processed_by_addons_linter'] is True
-
     def test_detail_view(self):
         self.post()
         upload = FileUpload.objects.filter().order_by('-created').first()
@@ -1066,13 +1036,13 @@ class TestUploadDetail(BaseUploadTest):
         upload = FileUpload.objects.get()
         response = self.client.get(
             reverse('devhub.upload_detail', args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         message = [(m['message'], m.get('type') == 'error')
                    for m in data['validation']['messages']]
         expected = [(u'&#34;/version&#34; is a required property', True)]
         assert message == expected
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
+    @mock.patch('olympia.devhub.tasks.run_addons_linter')
     @mock.patch.object(waffle, 'flag_is_active')
     def test_unparsable_xpi(self, flag_is_active, v):
         flag_is_active.return_value = True
@@ -1081,36 +1051,40 @@ class TestUploadDetail(BaseUploadTest):
         upload = FileUpload.objects.get()
         response = self.client.get(
             reverse('devhub.upload_detail', args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         message = [(m['message'], m.get('fatal', False))
                    for m in data['validation']['messages']]
-        assert message == [(u'Could not parse the manifest file.', True)]
+        assert message == [
+            (u'Sorry, we couldn&#39;t load your WebExtension.', True)
+        ]
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
+    @mock.patch('olympia.devhub.tasks.run_addons_linter')
     def test_experiment_xpi_allowed(self, mock_validator):
         user = UserProfile.objects.get(email='regular@mozilla.com')
         self.grant_permission(user, 'Experiments:submit')
         mock_validator.return_value = json.dumps(self.validation_ok())
         self.upload_file(
-            '../../../files/fixtures/files/telemetry_experiment.xpi')
+            '../../../files/fixtures/files/experiment_inside_webextension.xpi')
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'] == []
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
-    def test_experiment_xpi_is_allowed(self, mock_validator):
+    @mock.patch('olympia.devhub.tasks.run_addons_linter')
+    def test_experiment_xpi_not_allowed(self, mock_validator):
         mock_validator.return_value = json.dumps(self.validation_ok())
         self.upload_file(
-            '../../../files/fixtures/files/telemetry_experiment.xpi')
+            '../../../files/fixtures/files/experiment_inside_webextension.xpi')
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        assert data['validation']['messages'] == []
+        data = json.loads(force_text(response.content))
+        assert data['validation']['messages'] == [
+            {u'tier': 1, u'message': u'You cannot submit this type of add-on',
+             u'fatal': True, u'type': u'error'}]
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
+    @mock.patch('olympia.devhub.tasks.run_addons_linter')
     def test_system_addon_allowed(self, mock_validator):
         user_factory(email='redpanda@mozilla.com')
         assert self.client.login(email='redpanda@mozilla.com')
@@ -1120,19 +1094,20 @@ class TestUploadDetail(BaseUploadTest):
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'] == []
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
+    @mock.patch('olympia.devhub.tasks.run_addons_linter')
     def test_system_addon_not_allowed_not_mozilla(self, mock_validator):
         user_factory(email='bluepanda@notzilla.com')
         assert self.client.login(email='bluepanda@notzilla.com')
+        mock_validator.return_value = json.dumps(self.validation_ok())
         self.upload_file(
             '../../../files/fixtures/files/mozilla_guid.xpi')
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'] == [
             {u'tier': 1,
              u'message': u'You cannot submit an add-on with a guid ending '
@@ -1140,9 +1115,9 @@ class TestUploadDetail(BaseUploadTest):
                          u'"@pioneer.mozilla.org" or "@mozilla.com"',
              u'fatal': True, u'type': u'error'}]
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
+    @mock.patch('olympia.devhub.tasks.run_addons_linter')
     @mock.patch('olympia.files.utils.get_signer_organizational_unit_name')
-    def test_mozilla_signed_allowed(self, mock_validator, mock_get_signature):
+    def test_mozilla_signed_allowed(self, mock_get_signature, mock_validator):
         user_factory(email='redpanda@mozilla.com')
         assert self.client.login(email='redpanda@mozilla.com')
         mock_validator.return_value = json.dumps(self.validation_ok())
@@ -1152,7 +1127,7 @@ class TestUploadDetail(BaseUploadTest):
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'] == []
 
     @mock.patch('olympia.files.utils.get_signer_organizational_unit_name')
@@ -1165,7 +1140,7 @@ class TestUploadDetail(BaseUploadTest):
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'] == [
             {u'tier': 1,
              u'message': u'You cannot submit a Mozilla Signed Extension',
@@ -1179,6 +1154,9 @@ class TestUploadDetail(BaseUploadTest):
 
         See https://github.com/mozilla/addons-server/issues/6424 for more
         information.
+
+        We also don't call amo-validator on them but we issue a warning
+        about being legacy add-ons.
         """
         user_factory(email='verypinkpanda@mozilla.com')
         assert self.client.login(email='verypinkpanda@mozilla.com')
@@ -1189,11 +1167,17 @@ class TestUploadDetail(BaseUploadTest):
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
 
-        assert data['validation']['messages'] == []
+        msg = data['validation']['messages'][0]
 
-    @mock.patch('olympia.devhub.tasks.run_validator')
+        assert msg['id'] == [
+            'validation', 'messages', 'legacy_addons_unsupported']
+        assert msg['type'] == 'warning'
+        assert msg['message'] == (
+            u'Legacy extensions are no longer supported in Firefox.')
+
+    @mock.patch('olympia.devhub.tasks.run_addons_linter')
     def test_system_addon_update_allowed(self, mock_validator):
         """Updates to system addons are allowed from anyone."""
         user = user_factory(email='pinkpanda@notzilla.com')
@@ -1206,31 +1190,18 @@ class TestUploadDetail(BaseUploadTest):
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail_for_version',
                                            args=[addon.slug, upload.uuid.hex]))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'] == []
 
-    def test_legacy_langpacks_allowed_by_default(self):
-        self.upload_file(
-            '../../../files/fixtures/files/langpack.xpi')
-        upload = FileUpload.objects.get()
-        response = self.client.get(reverse('devhub.upload_detail',
-                                           args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
-        msgid = [u'validation', u'messages', u'legacy_langpacks_disallowed']
-        assert not any(
-            message['id'] == msgid
-            for message in data['validation']['messages'])
-
-    @override_switch('disallow-legacy-langpacks', active=True)
     def test_legacy_langpacks_disallowed(self):
         self.upload_file(
             '../../../files/fixtures/files/langpack.xpi')
         upload = FileUpload.objects.get()
         response = self.client.get(reverse('devhub.upload_detail',
                                            args=[upload.uuid.hex, 'json']))
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'][0]['id'] == [
-            u'validation', u'messages', u'legacy_langpacks_disallowed'
+            u'validation', u'messages', u'legacy_addons_unsupported'
         ]
 
     def test_no_redirect_for_metadata(self):
@@ -1270,12 +1241,12 @@ class TestUploadDetail(BaseUploadTest):
         report = AkismetReport.objects.get(upload_instance=upload)
         assert report.comment_type == 'product-name'
         assert report.comment == 'Beastify'  # the addon's name
-        assert 'spam' not in response.content
+        assert b'spam' not in response.content
 
     @override_switch('akismet-spam-check', active=True)
-    @responses.activate
+    @override_switch('akismet-addon-action', active=False)
     @override_settings(AKISMET_API_KEY=None)
-    def test_akismet_reports_created_spam_outcome(self):
+    def test_akismet_reports_created_spam_outcome_logging_only(self):
         akismet_url = settings.AKISMET_API_URL.format(
             api_key='none', action='comment-check')
         responses.add(responses.POST, akismet_url, json=True)
@@ -1289,11 +1260,31 @@ class TestUploadDetail(BaseUploadTest):
         report = AkismetReport.objects.get(upload_instance=upload)
         assert report.comment_type == 'product-name'
         assert report.comment == 'Beastify'  # the addon's name
-        assert 'spam' in response.content
         assert report.result == AkismetReport.MAYBE_SPAM
-        data = json.loads(response.content)
+        assert b'spam' not in response.content
+
+    @override_switch('akismet-spam-check', active=True)
+    @override_switch('akismet-addon-action', active=True)
+    @override_settings(AKISMET_API_KEY=None)
+    def test_akismet_reports_created_spam_outcome_action_taken(self):
+        akismet_url = settings.AKISMET_API_URL.format(
+            api_key='none', action='comment-check')
+        responses.add(responses.POST, akismet_url, json=True)
+        self.upload_file('valid_webextension.xpi')
+
+        upload = FileUpload.objects.get()
+        response = self.client.get(
+            reverse('devhub.upload_detail', args=[upload.uuid.hex, 'json']))
+        assert response.status_code == 200
+        assert AkismetReport.objects.count() == 1
+        report = AkismetReport.objects.get(upload_instance=upload)
+        assert report.comment_type == 'product-name'
+        assert report.comment == 'Beastify'  # the addon's name
+        assert b'spam' in response.content
+        assert report.result == AkismetReport.MAYBE_SPAM
+        data = json.loads(force_text(response.content))
         assert data['validation']['messages'][0]['id'] == [
-            u'validation', u'messages', u'akismet_is_spam'
+            u'validation', u'messages', u'akismet_is_spam_name'
         ]
 
     @override_switch('akismet-spam-check', active=True)
@@ -1321,7 +1312,7 @@ class TestUploadDetail(BaseUploadTest):
             u'Varsling ved trykk på lenke i18n',  # nb_NO
         ]
         assert report.comment in names
-        assert 'spam' not in response.content
+        assert b'spam' not in response.content
 
     @override_switch('akismet-spam-check', active=True)
     def test_akismet_reports_not_created_for_unlisted(self):
@@ -1450,8 +1441,8 @@ class TestVersionXSS(TestCase):
             version='<script>alert("Happy XSS-Xmas");<script>')
         response = self.client.get(reverse('devhub.addons'))
         assert response.status_code == 200
-        assert '<script>alert' not in response.content
-        assert '&lt;script&gt;alert' in response.content
+        assert b'<script>alert' not in response.content
+        assert b'&lt;script&gt;alert' in response.content
 
 
 class TestDeleteAddon(TestCase):
@@ -1662,7 +1653,7 @@ class TestRemoveLocale(TestCase):
 
     def test_remove_version_locale(self):
         version = self.addon.versions.all()[0]
-        version.releasenotes = {'fr': 'oui'}
+        version.release_notes = {'fr': 'oui'}
         version.save()
 
         self.client.post(self.url, {'locale': 'fr'})
@@ -1710,3 +1701,87 @@ def test_get_next_version_number():
     version_factory(addon=addon, version='36.0').delete()
     assert addon.current_version.version == '34.45.0a1pre'
     assert get_next_version_number(addon) == '37.0'
+
+
+class TestThemeBackgroundImage(TestCase):
+
+    def setUp(self):
+        user = user_factory(email='regular@mozilla.com')
+        assert self.client.login(email='regular@mozilla.com')
+        self.addon = addon_factory(users=[user])
+        self.url = reverse(
+            'devhub.submit.version.previous_background',
+            args=[self.addon.slug, 'listed'])
+
+    def test_wrong_user(self):
+        user_factory(email='irregular@mozilla.com')
+        assert self.client.login(email='irregular@mozilla.com')
+        response = self.client.post(self.url, follow=True)
+        assert response.status_code == 403
+
+    def test_no_header_image(self):
+        response = self.client.post(self.url, follow=True)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data == {}
+
+    def test_header_image(self):
+        destination = self.addon.current_version.all_files[0].current_file_path
+        zip_file = os.path.join(
+            settings.ROOT, 'src/olympia/devhub/tests/addons/static_theme.zip')
+        copy_stored_file(zip_file, destination)
+        response = self.client.post(self.url, follow=True)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data
+        assert len(data.items()) == 1
+        assert 'weta.png' in data
+        assert len(data['weta.png']) == 168596  # base64-encoded size
+
+
+class TestLogout(UserViewBase):
+
+    def test_success(self):
+        user = UserProfile.objects.get(email='jbalogh@mozilla.com')
+        self.client.login(email=user.email)
+        response = self.client.get('/', follow=True)
+        assert (
+            pq(response.content.decode('utf-8'))('.account .user').text() ==
+            user.display_name)
+        assert (
+            pq(response.content)('.account .user').attr('title') == user.email)
+
+        response = self.client.get('/developers/logout', follow=True)
+        assert not pq(response.content)('.account .user')
+
+    def test_redirect(self):
+        self.client.login(email='jbalogh@mozilla.com')
+        self.client.get('/', follow=True)
+        url = '/en-US/about'
+        response = self.client.get(urlparams(reverse('devhub.logout'), to=url),
+                                   follow=True)
+        self.assert3xx(response, url, status_code=302)
+
+        url = urlparams(reverse('devhub.logout'), to='/addon/new',
+                        domain='builder')
+        response = self.client.get(url, follow=False)
+        self.assert3xx(
+            response, 'https://builder.addons.mozilla.org/addon/new',
+            status_code=302)
+
+        # Test an invalid domain
+        url = urlparams(reverse('devhub.logout'), to='/en-US/about',
+                        domain='http://evil.com')
+        response = self.client.get(url, follow=False)
+        self.assert3xx(response, '/en-US/about', status_code=302)
+
+    def test_session_cookie_deleted_on_logout(self):
+        self.client.login(email='jbalogh@mozilla.com')
+        self.client.cookies[API_TOKEN_COOKIE] = 'some.token.value'
+        response = self.client.get(reverse('devhub.logout'))
+        cookie = response.cookies[settings.SESSION_COOKIE_NAME]
+        assert cookie.value == ''
+        assert cookie['expires'] == u'Thu, 01-Jan-1970 00:00:00 GMT'
+        jwt_cookie = response.cookies[API_TOKEN_COOKIE]
+        assert jwt_cookie.value == ''
+        assert jwt_cookie['expires'] == u'Thu, 01-Jan-1970 00:00:00 GMT'

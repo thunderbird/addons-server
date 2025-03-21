@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
-import csv
 import json
 import os
 
-from cStringIO import StringIO
 
 from django.conf import settings
-from django.core import mail
-from django.core.cache import cache
 
 import mock
 
@@ -18,20 +14,16 @@ import olympia
 from olympia import amo
 from olympia.access.models import Group, GroupUser
 from olympia.activity.models import ActivityLog
-from olympia.addons.models import Addon, CompatOverride, CompatOverrideRange
+from olympia.addons.models import Addon
 from olympia.amo.tests import (
     TestCase, formset, initial, user_factory, version_factory)
 from olympia.amo.tests.test_helpers import get_image_path
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import urlparams
 from olympia.bandwagon.models import FeaturedCollection, MonthlyPick
-from olympia.compat import FIREFOX_COMPAT
-from olympia.compat.tests import TestCompatibilityReportCronMixin
 from olympia.files.models import File, FileUpload
 from olympia.users.models import UserProfile
 from olympia.versions.models import Version
-from olympia.zadmin.forms import DevMailerForm
-from olympia.zadmin.models import EmailPreviewTopic
 
 
 SHORT_LIVED_CACHE_PARAMS = settings.CACHES.copy()
@@ -105,74 +97,6 @@ class TestHomeAndIndex(TestCase):
         url = reverse('admin:logout')
         response = self.client.get(url, follow=True)
         assert response.status_code == 200
-
-
-class TestSiteEvents(TestCase):
-    fixtures = ['base/users', 'zadmin/tests/siteevents']
-
-    def setUp(self):
-        super(TestSiteEvents, self).setUp()
-        self.client.login(email='admin@mozilla.com')
-
-    def test_get(self):
-        url = reverse('zadmin.site_events')
-        response = self.client.get(url)
-        assert response.status_code == 200
-        events = response.context['events']
-        assert len(events) == 1
-
-    def test_add(self):
-        url = reverse('zadmin.site_events')
-        new_event = {
-            'event_type': 2,
-            'start': '2012-01-01',
-            'description': 'foo',
-        }
-        response = self.client.post(url, new_event, follow=True)
-        assert response.status_code == 200
-        events = response.context['events']
-        assert len(events) == 2
-
-    def test_edit(self):
-        url = reverse('zadmin.site_events', args=[1])
-        modified_event = {
-            'event_type': 2,
-            'start': '2012-01-01',
-            'description': 'bar',
-        }
-        response = self.client.post(url, modified_event, follow=True)
-        assert response.status_code == 200
-        events = response.context['events']
-        assert events[0].description == 'bar'
-
-    def test_delete(self):
-        url = reverse('zadmin.site_events.delete', args=[1])
-        response = self.client.get(url, follow=True)
-        assert response.status_code == 200
-        events = response.context['events']
-        assert len(events) == 0
-
-
-class TestEmailPreview(TestCase):
-    fixtures = ['base/addon_3615', 'base/users']
-
-    def setUp(self):
-        super(TestEmailPreview, self).setUp()
-        assert self.client.login(email='admin@mozilla.com')
-        addon = Addon.objects.get(pk=3615)
-        self.topic = EmailPreviewTopic(addon)
-
-    def test_csv(self):
-        self.topic.send_mail('the subject', u'Hello Ivan Krsti\u0107',
-                             from_email='admin@mozilla.org',
-                             recipient_list=['funnyguy@mozilla.org'])
-        r = self.client.get(reverse('zadmin.email_preview_csv',
-                            args=[self.topic.topic]))
-        assert r.status_code == 200
-        rdr = csv.reader(StringIO(r.content))
-        assert next(rdr) == ['from_email', 'recipient_list', 'subject', 'body']
-        assert next(rdr) == ['admin@mozilla.org', 'funnyguy@mozilla.org',
-                             'the subject', 'Hello Ivan Krsti\xc4\x87']
 
 
 class TestMonthlyPick(TestCase):
@@ -304,7 +228,7 @@ class TestFeatures(TestCase):
 
     def test_bad_collection_for_app(self):
         data = initial(self.f)
-        data['application'] = amo.THUNDERBIRD.id
+        data['application'] = amo.ANDROID.id
         response = self.client.post(self.url, formset(data, initial_count=1))
         assert response.context['form'].errors[0]['collection'] == (
             ['Invalid collection for this application.'])
@@ -352,6 +276,45 @@ class TestFeatures(TestCase):
         data['DELETE'] = True
         self.client.post(self.url, formset(data, initial_count=1))
         assert FeaturedCollection.objects.count() == 0
+
+    def test_collection_json(self):
+        self.url = reverse('zadmin.collections_json')
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+        response = self.client.get(self.url, {'q': 80})
+        assert response.status_code == 200
+        data = response.json()
+        assert data == [{
+            u'url': u'/en-US/firefox/collections/10482/lolwut/',
+            u'id': 80,
+            u'slug': u'lolwut',
+            u'name': u'WebDev',
+            u'all_personas': False
+        }]
+
+        response = self.client.get(self.url, {'q': 'something'})
+        assert response.status_code == 200
+        data = response.json()
+        assert data == []
+
+        response = self.client.get(self.url, {'q': 'lol'})
+        assert response.status_code == 200
+        data = response.json()
+        assert data == [{
+            u'url': u'/en-US/firefox/collections/10482/lolwut/',
+            u'id': 80,
+            u'slug': u'lolwut',
+            u'name': u'WebDev',
+            u'all_personas': False
+        }]
+
+    def test_collection_json_not_admin(self):
+        self.url = reverse('zadmin.collections_json')
+        self.client.login(email='regular@mozilla.com')
+        assert self.client.get(self.url).status_code == 403
 
 
 class TestLookup(TestCase):
@@ -538,187 +501,6 @@ class TestAddonManagement(TestCase):
         assert r.status_code == 405  # GET out of here
 
 
-class TestCompat(TestCompatibilityReportCronMixin, amo.tests.ESTestCase):
-    fixtures = ['base/users']
-
-    def setUp(self):
-        super(TestCompat, self).setUp()
-        self.url = reverse('zadmin.compat')
-        self.client.login(email='admin@mozilla.com')
-        self.app_version = FIREFOX_COMPAT[0]['main']
-
-    def get_pq(self, **kw):
-        response = self.client.get(self.url, kw)
-        assert response.status_code == 200
-        return pq(response.content)('#compat-results')
-
-    def test_defaults(self):
-        addon = self.populate()
-        self.generate_reports(addon, good=0, bad=0, app=amo.FIREFOX,
-                              app_version=self.app_version)
-        self.run_compatibility_report()
-
-        r = self.client.get(self.url)
-        assert r.status_code == 200
-        table = pq(r.content)('#compat-results')
-        assert table.length == 1
-        assert table.find('.no-results').length == 1
-
-    def check_row(self, tr, addon, good, bad, percentage, app_version):
-        assert tr.length == 1
-        version = addon.current_version.version
-
-        name = tr.find('.name')
-        assert name.find('.version').text() == 'v' + version
-        assert name.remove('.version').text() == unicode(addon.name)
-        assert name.find('a').attr('href') == addon.get_url_path()
-
-        assert tr.find('.maxver').text() == (
-            addon.compatible_apps[amo.FIREFOX].max.version)
-
-        incompat = tr.find('.incompat')
-        assert incompat.find('.bad').text() == str(bad)
-        assert incompat.find('.total').text() == str(good + bad)
-        percentage += '%'
-        assert percentage in incompat.text(), (
-            'Expected incompatibility to be %r' % percentage)
-
-        assert tr.find('.version a').attr('href') == (
-            reverse('devhub.versions.edit',
-                    args=[addon.slug, addon.current_version.id]))
-        assert tr.find('.reports a').attr('href') == (
-            reverse('compat.reporter_detail', args=[addon.guid]))
-
-        form = tr.find('.overrides form')
-        assert form.attr('action') == reverse(
-            'admin:addons_compatoverride_add')
-        self.check_field(form, '_compat_ranges-TOTAL_FORMS', '1')
-        self.check_field(form, '_compat_ranges-INITIAL_FORMS', '0')
-        self.check_field(form, '_continue', '1')
-        self.check_field(form, '_confirm', '1')
-        self.check_field(form, 'addon', str(addon.id))
-        self.check_field(form, 'guid', addon.guid)
-
-        compat_field = '_compat_ranges-0-%s'
-        self.check_field(form, compat_field % 'min_version', '0')
-        self.check_field(form, compat_field % 'max_version', version)
-        self.check_field(form, compat_field % 'min_app_version',
-                         app_version + 'a1')
-        self.check_field(form, compat_field % 'max_app_version',
-                         app_version + '*')
-
-    def check_field(self, form, name, val):
-        assert form.find('input[name="%s"]' % name).val() == val
-
-    def test_firefox_hosted(self):
-        addon = self.populate()
-        self.generate_reports(addon, good=0, bad=11, app=amo.FIREFOX,
-                              app_version=self.app_version)
-        self.run_compatibility_report()
-
-        tr = self.get_pq().find('tr[data-guid="%s"]' % addon.guid)
-        self.check_row(tr, addon, good=0, bad=11, percentage='100.0',
-                       app_version=self.app_version)
-
-        # Add an override for this current app version.
-        compat = CompatOverride.objects.create(addon=addon, guid=addon.guid)
-        CompatOverrideRange.objects.create(
-            compat=compat,
-            app=amo.FIREFOX.id, min_app_version=self.app_version + 'a1',
-            max_app_version=self.app_version + '*')
-
-        # Check that there is an override for this current app version.
-        tr = self.get_pq().find('tr[data-guid="%s"]' % addon.guid)
-        assert tr.find('.overrides a').attr('href') == (
-            reverse('admin:addons_compatoverride_change', args=[compat.id]))
-
-    def test_non_default_version(self):
-        app_version = FIREFOX_COMPAT[2]['main']
-        addon = self.populate()
-        self.generate_reports(addon, good=0, bad=11, app=amo.FIREFOX,
-                              app_version=app_version)
-        self.run_compatibility_report()
-
-        pq = self.get_pq()
-        assert pq.find('tr[data-guid="%s"]' % addon.guid).length == 0
-
-        appver = app_version
-        tr = self.get_pq(appver=appver)('tr[data-guid="%s"]' % addon.guid)
-        self.check_row(tr, addon, good=0, bad=11, percentage='100.0',
-                       app_version=app_version)
-
-    def test_minor_versions(self):
-        addon = self.populate()
-        self.generate_reports(addon, good=0, bad=1, app=amo.FIREFOX,
-                              app_version=self.app_version)
-        self.generate_reports(addon, good=1, bad=2, app=amo.FIREFOX,
-                              app_version=self.app_version + 'a2')
-        self.run_compatibility_report()
-
-        tr = self.get_pq(ratio=0.0, minimum=0).find('tr[data-guid="%s"]' %
-                                                    addon.guid)
-        self.check_row(tr, addon, good=1, bad=3, percentage='75.0',
-                       app_version=self.app_version)
-
-    def test_ratio(self):
-        addon = self.populate()
-        self.generate_reports(addon, good=11, bad=11, app=amo.FIREFOX,
-                              app_version=self.app_version)
-        self.run_compatibility_report()
-
-        # Should not show up for > 80%.
-        pq = self.get_pq()
-        assert pq.find('tr[data-guid="%s"]' % addon.guid).length == 0
-
-        # Should not show up for > 50%.
-        tr = self.get_pq(ratio=.5).find('tr[data-guid="%s"]' % addon.guid)
-        assert tr.length == 0
-
-        # Should show up for > 40%.
-        tr = self.get_pq(ratio=.4).find('tr[data-guid="%s"]' % addon.guid)
-        assert tr.length == 1
-
-    def test_min_incompatible(self):
-        addon = self.populate()
-        self.generate_reports(addon, good=0, bad=11, app=amo.FIREFOX,
-                              app_version=self.app_version)
-        self.run_compatibility_report()
-
-        # Should show up for >= 10.
-        pq = self.get_pq()
-        assert pq.find('tr[data-guid="%s"]' % addon.guid).length == 1
-
-        # Should show up for >= 0.
-        tr = self.get_pq(minimum=0).find('tr[data-guid="%s"]' % addon.guid)
-        assert tr.length == 1
-
-        # Should not show up for >= 20.
-        tr = self.get_pq(minimum=20).find('tr[data-guid="%s"]' % addon.guid)
-        assert tr.length == 0
-
-
-class TestMemcache(TestCase):
-    fixtures = ['base/addon_3615', 'base/users']
-
-    def setUp(self):
-        super(TestMemcache, self).setUp()
-        self.url = reverse('zadmin.memcache')
-        cache.set('foo', 'bar')
-        self.client.login(email='admin@mozilla.com')
-
-    def test_login(self):
-        self.client.logout()
-        assert self.client.get(self.url).status_code == 302
-
-    def test_can_clear(self):
-        self.client.post(self.url, {'yes': 'True'})
-        assert cache.get('foo') is None
-
-    def test_cant_clear(self):
-        self.client.post(self.url, {'yes': 'False'})
-        assert cache.get('foo') == 'bar'
-
-
 class TestElastic(amo.tests.ESTestCase):
     fixtures = ['base/addon_3615', 'base/users']
 
@@ -731,108 +513,6 @@ class TestElastic(amo.tests.ESTestCase):
         self.client.logout()
         self.assertLoginRedirects(
             self.client.get(self.url), to='/en-US/admin/elastic')
-
-
-class TestEmailDevs(TestCase):
-    fixtures = ['base/addon_3615', 'base/users']
-
-    def setUp(self):
-        super(TestEmailDevs, self).setUp()
-        self.login('admin')
-        self.addon = Addon.objects.get(pk=3615)
-
-    def post(self, recipients='eula', subject='subject', message='msg',
-             preview_only=False):
-        return self.client.post(reverse('zadmin.email_devs'),
-                                dict(recipients=recipients, subject=subject,
-                                     message=message,
-                                     preview_only=preview_only))
-
-    def test_preview(self):
-        res = self.post(preview_only=True)
-        self.assertNoFormErrors(res)
-        preview = EmailPreviewTopic(topic='email-devs')
-        assert [e.recipient_list for e in preview.filter()] == ['del@icio.us']
-        assert len(mail.outbox) == 0
-
-    def test_actual(self):
-        subject = 'about eulas'
-        message = 'message about eulas'
-        res = self.post(subject=subject, message=message)
-        self.assertNoFormErrors(res)
-        self.assert3xx(res, reverse('zadmin.email_devs'))
-        assert len(mail.outbox) == 1
-        assert mail.outbox[0].subject == subject
-        assert mail.outbox[0].body == message
-        assert mail.outbox[0].to == ['del@icio.us']
-        assert mail.outbox[0].from_email == settings.DEFAULT_FROM_EMAIL
-
-    def test_only_eulas(self):
-        self.addon.update(eula=None)
-        res = self.post()
-        self.assertNoFormErrors(res)
-        assert len(mail.outbox) == 0
-
-    def test_sdk_devs(self):
-        (File.objects.filter(version__addon=self.addon)
-                     .update(jetpack_version='1.5'))
-        res = self.post(recipients='sdk')
-        self.assertNoFormErrors(res)
-        assert len(mail.outbox) == 1
-        assert mail.outbox[0].to == ['del@icio.us']
-
-    def test_only_sdk_devs(self):
-        res = self.post(recipients='sdk')
-        self.assertNoFormErrors(res)
-        assert len(mail.outbox) == 0
-
-    def test_only_extensions(self):
-        self.addon.update(type=amo.ADDON_EXTENSION)
-        res = self.post(recipients='all_extensions')
-        self.assertNoFormErrors(res)
-        assert len(mail.outbox) == 1
-
-    def test_ignore_deleted_always(self):
-        self.addon.update(status=amo.STATUS_DELETED)
-        for name, label in DevMailerForm._choices:
-            res = self.post(recipients=name)
-            self.assertNoFormErrors(res)
-            assert len(mail.outbox) == 0
-
-    def test_exclude_pending_for_addons(self):
-        self.addon.update(status=amo.STATUS_PENDING)
-        for name, label in DevMailerForm._choices:
-            res = self.post(recipients=name)
-            self.assertNoFormErrors(res)
-            assert len(mail.outbox) == 0
-
-    def test_depreliminary_addon_devs(self):
-        # We just need a user for the log(), it would normally be task user.
-        ActivityLog.create(
-            amo.LOG.PRELIMINARY_ADDON_MIGRATED, self.addon,
-            details={'email': True}, user=self.addon.authors.get())
-        res = self.post(recipients='depreliminary')
-        self.assertNoFormErrors(res)
-        self.assert3xx(res, reverse('zadmin.email_devs'))
-        assert len(mail.outbox) == 1
-        assert mail.outbox[0].to == ['del@icio.us']
-        assert mail.outbox[0].from_email == settings.DEFAULT_FROM_EMAIL
-
-    def test_only_depreliminary_addon_devs(self):
-        res = self.post(recipients='depreliminary')
-        self.assertNoFormErrors(res)
-        self.assert3xx(res, reverse('zadmin.email_devs'))
-        assert len(mail.outbox) == 0
-
-    def test_we_only_email_devs_that_need_emailing(self):
-        # Doesn't matter the reason, but this addon doesn't get an email.
-        ActivityLog.create(
-            amo.LOG.PRELIMINARY_ADDON_MIGRATED, self.addon,
-            details={'email': False}, user=self.addon.authors.get())
-        res = self.post(recipients='depreliminary')
-        self.assertNoFormErrors(res)
-        self.assert3xx(res, reverse('zadmin.email_devs'))
-        assert len(mail.outbox) == 0
 
 
 class TestFileDownload(TestCase):

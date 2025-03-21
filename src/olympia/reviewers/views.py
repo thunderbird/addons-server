@@ -14,30 +14,31 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils.translation import ugettext
 from django.views.decorators.cache import never_cache
 
+import six
+
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
+from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
 
 import olympia.core.logger
 
 from olympia import amo
 from olympia.abuse.models import AbuseReport
 from olympia.access import acl
-from olympia.activity.models import ActivityLog, AddonLog, CommentLog
 from olympia.accounts.views import API_TOKEN_COOKIE
-
-from olympia.activity.models import (
-    ActivityLog, CommentLog)
-from olympia.addons.decorators import (
-    addon_view, addon_view_factory)
+from olympia.activity.models import ActivityLog, AddonLog, CommentLog
+from olympia.addons.decorators import addon_view, addon_view_factory
 from olympia.addons.models import (
-    Addon, AddonApprovalsCounter, AddonReviewerFlags, Persona)
+    Addon, AddonApprovalsCounter, AddonReviewerFlags)
 from olympia.amo.decorators import (
     json_view, login_required, permission_required, post_required)
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import paginate, render
-from olympia.api.permissions import AllowAnyKindOfReviewer, GroupPermission
+from olympia.api.permissions import (
+    AllowAnyKindOfReviewer, GroupPermission,
+    AllowAddonAuthor, AllowReviewer, AllowReviewerUnlisted, AnyOf)
 from olympia.constants.reviewers import REVIEWS_PER_PAGE, REVIEWS_PER_PAGE_MAX
 from olympia.devhub import tasks as devhub_tasks
 from olympia.ratings.models import Rating, RatingFlag
@@ -46,12 +47,13 @@ from olympia.reviewers.forms import (
     RatingFlagFormSet, RatingModerationLogForm, ReviewForm, ReviewLogForm,
     WhiteboardForm)
 from olympia.reviewers.models import (
-    AutoApprovalSummary, PerformanceGraph,
-    RereviewQueueTheme, ReviewerScore, ReviewerSubscription,
-    ViewFullReviewQueue, ViewPendingQueue, Whiteboard,
+    AutoApprovalSummary, PerformanceGraph, ReviewerScore,
+    ReviewerSubscription, ViewFullReviewQueue, ViewPendingQueue, Whiteboard,
     clear_reviewing_cache, get_flags, get_reviewing_cache,
     get_reviewing_cache_key, set_reviewing_cache)
-from olympia.reviewers.serializers import AddonReviewerFlagsSerializer
+from olympia.reviewers.serializers import (
+    AddonReviewerFlagsSerializer, AddonBrowseVersionSerializer,
+    DiffableVersionSerializer)
 from olympia.reviewers.utils import (
     AutoApprovedTable, ContentReviewTable, ExpiredInfoRequestsTable,
     ReviewHelper, ViewFullReviewQueueTable, ViewPendingQueueTable,
@@ -219,32 +221,6 @@ def dashboard(request):
         ), (
             ugettext('Performance'),
             reverse('reviewers.performance')
-        )]
-    if view_all or acl.action_allowed(
-            request, amo.permissions.THEMES_REVIEW):
-        sections[ugettext('Lightweight Themes')] = [(
-            ugettext('New Themes ({0})').format(
-                Persona.objects.filter(
-                    addon__status=amo.STATUS_PENDING).count()),
-            reverse('reviewers.themes.list')
-        ), (
-            ugettext('Themes Updates ({0})').format(
-                RereviewQueueTheme.objects.count()),
-            reverse('reviewers.themes.list_rereview')
-        ), (
-            ugettext('Flagged Themes ({0})').format(
-                Persona.objects.filter(
-                    addon__status=amo.STATUS_REVIEW_PENDING).count()),
-            reverse('reviewers.themes.list_flagged')
-        ), (
-            ugettext('Lightweight Themes Review Log'),
-            reverse('reviewers.themes.logs')
-        ), (
-            ugettext('Deleted Themes Log'),
-            reverse('reviewers.themes.deleted')
-        ), (
-            ugettext('Review Guide'),
-            'https://wiki.mozilla.org/Add-ons/Reviewers/Themes/Guidelines'
         )]
     if view_all or acl.action_allowed(
             request, amo.permissions.RATINGS_MODERATE):
@@ -565,7 +541,7 @@ def queue_counts(admin_reviewer, extension_reviews, theme_reviews):
                 admin_reviewer=admin_reviewer).count),
         'expired_info_requests': expired.count,
     }
-    return {queue: count() for (queue, count) in counts.iteritems()}
+    return {queue: count() for (queue, count) in six.iteritems(counts)}
 
 
 @legacy_addons_or_themes_reviewer_required
@@ -679,9 +655,9 @@ def _get_comments_for_hard_deleted_versions(addon):
             self.all_activity = []
 
         all_files = ()
-        approvalnotes = None
+        approval_notes = None
         compatible_apps_ordered = ()
-        releasenotes = None
+        release_notes = None
         status = 'Deleted'
         deleted = True
         channel = amo.RELEASE_CHANNEL_LISTED
@@ -707,7 +683,7 @@ def _get_comments_for_hard_deleted_versions(addon):
     for c in comments:
         c.version = c.activity_log.details.get('version', c.created)
         comment_versions[c.version].all_activity.append(c)
-    return comment_versions.values()
+    return list(comment_versions.values())
 
 
 def perform_review_permission_checks(
@@ -942,8 +918,6 @@ def review(request, addon, channel=None):
     wb_form_cls = PublicWhiteboardForm if is_static_theme else WhiteboardForm
     whiteboard_form = wb_form_cls(instance=whiteboard, prefix='whiteboard')
 
-    backgrounds = version.get_background_image_urls() if version else []
-
     user_changes_actions = [
         amo.LOG.ADD_USER_WITH_ROLE.id,
         amo.LOG.CHANGE_USER_WITH_ROLE.id,
@@ -955,7 +929,7 @@ def review(request, addon, channel=None):
         actions_full=actions_full, addon=addon,
         api_token=request.COOKIES.get(API_TOKEN_COOKIE, None),
         approvals_info=approvals_info, auto_approval_info=auto_approval_info,
-        backgrounds=backgrounds, content_review_only=content_review_only,
+        content_review_only=content_review_only,
         count=count, eula_url=eula_url, flags=flags, form=form,
         is_admin=is_admin, num_pages=num_pages, pager=pager, reports=reports,
         privacy_url=privacy_url, show_diff=show_diff,
@@ -981,7 +955,7 @@ def review_viewing(request):
     current_name = ''
     is_user = 0
     key = get_reviewing_cache_key(addon_id)
-    user_key = '%s:review_viewing_user:%s' % (settings.CACHE_PREFIX, user_id)
+    user_key = 'review_viewing_user:{user_id}'.format(user_id=user_id)
     interval = amo.REVIEWER_VIEWING_INTERVAL
 
     # Check who is viewing.
@@ -1028,9 +1002,8 @@ def queue_viewing(request):
         key = get_reviewing_cache_key(addon_id)
         currently_viewing = cache.get(key)
         if currently_viewing and currently_viewing != user_id:
-            viewing[addon_id] = (UserProfile.objects
-                                            .get(id=currently_viewing)
-                                            .display_name)
+            viewing[addon_id] = UserProfile.objects.get(
+                id=currently_viewing).name
 
     return viewing
 
@@ -1040,8 +1013,8 @@ def queue_viewing(request):
 def queue_version_notes(request, addon_id):
     addon = get_object_or_404(Addon.objects, pk=addon_id)
     version = addon.latest_version
-    return {'releasenotes': unicode(version.releasenotes),
-            'approvalnotes': version.approvalnotes}
+    return {'release_notes': six.text_type(version.release_notes),
+            'approval_notes': version.approval_notes}
 
 
 @json_view
@@ -1181,6 +1154,14 @@ def privacy(request, addon):
                          long_title=ugettext('Privacy Policy'))
 
 
+@any_reviewer_required
+@json_view
+def theme_background_images(request, version_id):
+    """similar to devhub.views.theme_background_image but returns all images"""
+    version = get_object_or_404(Version, id=int(version_id))
+    return version.get_background_images_encoded(header_only=False)
+
+
 class AddonReviewerViewSet(GenericViewSet):
     log = olympia.core.logger.getLogger('z.reviewers')
 
@@ -1234,4 +1215,89 @@ class AddonReviewerViewSet(GenericViewSet):
         if 'pending_info_request' in serializer.initial_data:
             ActivityLog.create(amo.LOG.ADMIN_ALTER_INFO_REQUEST, addon)
         serializer.save()
+        return Response(serializer.data)
+
+
+class ReviewAddonVersionViewSet(ListModelMixin, RetrieveModelMixin,
+                                GenericViewSet):
+    permission_classes = [AnyOf(
+        AllowReviewer, AllowReviewerUnlisted, AllowAddonAuthor,
+    )]
+    lookup_url_kwarg = 'version_pk'
+
+    def get_queryset(self):
+        # Permission classes disallow access to non-public/unlisted add-ons
+        # unless logged in as a reviewer/addon owner/admin, so we don't have to
+        # filter the base queryset here.
+        return (
+            Version.unfiltered
+            .get_queryset()
+            .only_translations()
+            .filter(addon=self.get_addon_object())
+            .order_by('-created'))
+
+    def get_addon_object(self):
+        return get_object_or_404(
+            Addon.objects.get_queryset().only_translations(),
+            pk=self.kwargs.get('addon_pk'))
+
+    def get_object(self):
+        qset = self.filter_queryset(self.get_queryset())
+
+        filter_kwargs = {self.lookup_field: self.kwargs[self.lookup_url_kwarg]}
+
+        obj = get_object_or_404(qset, **filter_kwargs)
+
+        # If the instance is marked as deleted and the client is not allowed to
+        # see deleted instances, we want to return a 404, behaving as if it
+        # does not exist.
+        if obj.deleted and not (
+                GroupPermission(amo.permissions.ADDONS_VIEW_DELETED).
+                has_object_permission(self.request, self, obj.addon)):
+            raise http.Http404
+
+        # Now we can checking permissions
+        self.check_object_permissions(self.request, obj)
+
+        return obj
+
+    def check_permissions(self, request):
+        if self.action == u'list':
+            # When listing DRF doesn't explicitly check for object permissions
+            # but here we need to do that against the parent add-on.
+            # So we're calling check_object_permission() ourselves,
+            # which will pass down the addon object directly.
+            return (
+                super(ReviewAddonVersionViewSet, self)
+                .check_object_permissions(request, self.get_addon_object()))
+
+        super(ReviewAddonVersionViewSet, self).check_permissions(request)
+
+    def check_object_permissions(self, request, obj):
+        """Check permissions against the parent add-on object."""
+        return super(ReviewAddonVersionViewSet, self).check_object_permissions(
+            request, obj.addon)
+
+    def list(self, request, *args, **kwargs):
+        """Return all (re)viewable versions for this add-on.
+
+        Full list, no pagination."""
+        qset = self.filter_queryset(self.get_queryset())
+
+        if not acl.check_unlisted_addons_reviewer(self.request):
+            qset = qset.filter(channel=amo.RELEASE_CHANNEL_LISTED)
+
+        # Smaller performance optimization, only list fields we actually
+        # need.
+        qset = qset.no_transforms().only(
+            *DiffableVersionSerializer.Meta.fields)
+
+        serializer = DiffableVersionSerializer(qset, many=True)
+
+        return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        serializer = AddonBrowseVersionSerializer(
+            instance=self.get_object(),
+            context={'file': self.request.GET.get('file', None)})
         return Response(serializer.data)

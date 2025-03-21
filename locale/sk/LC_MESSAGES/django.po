@@ -5,8 +5,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: REMORA 0.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-10-06 21:01+0000\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-01-04 22:24+0000\n"
 "Last-Translator: Juraj Cigáň <kusavica@gmail.com>\n"
 "Language-Team: Mozilla.sk <l10n@mozilla.sk>\n"
 "Language: sk\n"
@@ -23,17 +23,8 @@ msgstr "Odkazy nie sú povolené."
 msgid "This display name cannot be used."
 msgstr "Toto zobrazené meno nemôže byť použité."
 
-msgid "Usernames cannot contain only digits."
-msgstr "Meno používateľa nesmie obsahovať iba čísla."
-
-msgid "Enter a valid username consisting of letters, numbers, underscores or hyphens."
-msgstr "Zadajte platné používateľské meno, ktoré obsahuje znaky abecedy, čísla, podčiarky alebo pomlčky."
-
-msgid "This username cannot be used."
-msgstr "Toto používateľské meno nemôže byť použité."
-
-msgid "This username is already in use."
-msgstr "Toto používateľské meno sa už používa."
+msgid "The homepage field can only be used to link to external websites."
+msgstr ""
 
 msgid "Images must be either PNG or JPG."
 msgstr "Obrázky musia byť vo formáte PNG alebo JPG."
@@ -51,8 +42,8 @@ msgstr "Už ste prihlásení."
 msgid "Your login attempt could not be parsed. Please try again."
 msgstr "Váš pokus o prihlásenie sa nepodarilo spracovať. Skúste to prosím znovu."
 
-msgid "Your account could not be found. Please try again."
-msgstr "Váš účet Account nebol nájdený. Skúste to prosím znovu."
+msgid "Your Firefox Account could not be found. Please try again."
+msgstr "Váš účet Firefox Account nebol nájdený. Skúste to prosím znovu."
 
 msgid "You could not be logged in. Please try again."
 msgstr "Prihlásenie sa nepodarilo. Skúste to prosím znovu."
@@ -74,6 +65,9 @@ msgstr "Poznámka ku kontrole"
 
 msgid "Only latest versions of addons can have notes added."
 msgstr "Poznámky môžu byť pridané len k najnovším verziám doplnkov."
+
+msgid "Ratings"
+msgstr "Hodnotenia"
 
 msgid "Status"
 msgstr "Stav"
@@ -139,11 +133,7 @@ msgstr[1] "Každá značka musí mať aspoň {0} znaky."
 msgstr[2] "Každá značka musí mať aspoň {0} znakov."
 
 msgid "The text entered has been flagged as spam."
-msgstr ""
-
-#, python-format
-msgid "URL domain must be one of [%s], or a subdomain."
-msgstr "Doména v URL adrese musí byť jedna z týchto [%s], alebo ich subdoména."
+msgstr "Zadaný text bol označený ako spam."
 
 msgid "Categories cannot be changed while your add-on is featured for this application."
 msgstr "Pokiaľ je doplnok v zozname odporúčaných, nie je možné zmeniť jeho kategórie."
@@ -159,20 +149,15 @@ msgid "The miscellaneous category cannot be combined with additional categories.
 msgstr "Kategória Rôzne nemôže byť kombinovaná s inými kategóriami."
 
 #, python-format
+msgid "URL domain must be one of [%s], or a subdomain."
+msgstr "Doména v URL adrese musí byť jedna z týchto [%s], alebo ich subdoména."
+
+#, python-format
 msgid "Before changing your default locale you must have a name, summary, and description in that locale. You are missing %s."
 msgstr "Pred zmenou predvoleného jazyka musíte mať vyplnený názov, súhrn a popis v tomto jazyku. Zatiaľ nemáte vyplnené: %s."
 
 msgid "A license must be selected."
 msgstr "Musí byť zvolená licencia."
-
-msgid "Give Your Theme a Name."
-msgstr "Pomenujte svoju tému."
-
-msgid "Describe your Theme."
-msgstr "Popíšte svoju tému."
-
-msgid "Enter a new author's email address"
-msgstr "Zadajte novú e-mailovú adresu autora"
 
 # Column name in a table.
 msgid "Listed"
@@ -210,7 +195,6 @@ msgid "This add-on has been marked as experimental by its developers."
 msgstr "Tento doplnok bol jeho vývojármi označený ako experimentálny."
 
 #. {0} is the name of the add-on.
-#. {0} is the name of the add-on
 msgid "End-User License Agreement for {0}"
 msgstr "Licenčná zmluva s koncovým používateľom pre {0}"
 
@@ -481,9 +465,6 @@ msgstr "Povolenia"
 msgid "This add-on has been marked as experimental by its developers"
 msgstr "Tento doplnok bol jeho vývojármi označený ako experimentálny"
 
-msgid "This add-on requires the following add-ons to work properly:"
-msgstr "Aby tento doplnok pracoval správne, je nutné nainštalovať nasledovné doplnky:"
-
 msgid "Average"
 msgstr "Priemerne"
 
@@ -516,11 +497,9 @@ msgstr "Zobraziť štatistiky"
 msgid "Manage"
 msgstr "Spravovať"
 
-#, fuzzy
 msgid "Add-on Review"
-msgstr "Nová kontrola doplnku"
+msgstr "Hodnotenie doplnku"
 
-#, fuzzy
 msgid "Admin Manage"
 msgstr "Stránka administrácie"
 
@@ -583,18 +562,18 @@ msgid "Some add-ons ask for permission to perform certain functions (example: a 
 msgstr "Niektoré doplnky žiadajú o povolenia, aby mohli vykonávať určité funkcie (napríklad doplnok na správu kariet požiada o povolenie na prístup k systému kariet prehliadača)."
 
 msgid ""
-"Since you’re in control of your Thunderbird, the choice to grant or deny these requests is yours. Accepting permissions does not inherently compromise your browser’s performance or security, but in "
+"Since you’re in control of your Firefox, the choice to grant or deny these requests is yours. Accepting permissions does not inherently compromise your browser’s performance or security, but in "
 "some rare cases risk may be involved."
 msgstr ""
-"Keďže kontrola nad vašim Thunderbirdom patrí vám, je len na vás či doplnkom tieto povolenia udelíte alebo nie. Udelenie týchto povolení nemusí nevyhnutne ovplyvniť výkon alebo bezpečnosť vášho "
+"Keďže kontrola nad vašim Firefoxom patrí vám, je len na vás či doplnkom tieto povolenia udelíte alebo nie. Udelenie týchto povolení nemusí nevyhnutne ovplyvniť výkon alebo bezpečnosť vášho "
 "prehliadača, aj keď toto nemožno vylúčiť."
 
 #. This is a header of a list of things the add-on can do.
 msgid "This add-on can:"
 msgstr "Tento doplnok môže:"
 
-msgid "Some add-ons ask for permission to perform certain functions. Since you’re in control of your Thunderbird, the choice to grant or deny these requests is yours."
-msgstr "Niektoré doplnky žiadajú o povolenia, aby mohli vykonávať určité funkcie. Keďže kontrolu nad svojim Thunderbirdom máte vy, je len na vás či tieto povolenia doplnku udelíte alebo nie."
+msgid "Some add-ons ask for permission to perform certain functions. Since you’re in control of your Firefox, the choice to grant or deny these requests is yours."
+msgstr "Niektoré doplnky žiadajú o povolenia, aby mohli vykonávať určité funkcie. Keďže kontrolu nad svojim Firefoxom máte vy, je len na vás či tieto povolenia doplnku udelíte alebo nie."
 
 msgid "Please note this add-on uses legacy technology, which gives it access to all browser functions and data without requesting your permission."
 msgstr "Vezmite, prosím, na vedomie, že tento doplnok využíva zastaranú technológiu, ktorá mu dáva prístup ku všetkým funkciám a údajom prehliadača bez nutnosti žiadať vás o povolenie."
@@ -723,6 +702,10 @@ msgstr "Nástroje správcu"
 msgid "Positive integer"
 msgstr ""
 
+#, python-format
+msgid "This field can only be used to link to external websites. URLs on %(domain)s are not allowed."
+msgstr ""
+
 msgid "Incorrect, please try again."
 msgstr "Nesprávne, skúste to znova."
 
@@ -735,16 +718,20 @@ msgstr "Toto musí byť platný hex kód farby, ako #000000."
 msgid "Some features are temporarily disabled while we perform website maintenance. We'll be back to full capacity shortly."
 msgstr "Niektoré funkcie sú dočasne vypnuté kvôli údržbe stránok. Stránka bude plne dostupná onedlho."
 
+msgid "Must contain at least one printable character."
+msgstr ""
+
+msgid "Ensure this field contains at least one letter or number character."
+msgstr ""
+
 msgid "Not allowed"
 msgstr "Nepovolené"
 
-#, fuzzy
 msgid "Oops! Not allowed."
-msgstr "Nepovolené"
+msgstr ""
 
-#, fuzzy
 msgid "You tried to do something that you weren't allowed to."
-msgstr "<h1>Ups! Nepovolená operácia.</h1> <p>Pokúsili ste sa urobiť niečo, na čo nemáte oprávnenie.</p>"
+msgstr ""
 
 msgid ""
 "You are seeing this message because this HTTPS site requires a 'Referer header' to be sent by your Web browser, but none was sent. This header is required for security reasons, to ensure that your "
@@ -781,26 +768,20 @@ msgid "Add-ons Home Page"
 msgstr "Domovská stránka doplnkov"
 
 #, python-format
-msgid "If you followed a link from somewhere, please %(open_bug_link)sfile an issue%(close_bug_link)s. Tell us where you came from and what you were looking for, and we'll do our best to fix it."
+msgid "If you followed a link from somewhere, please %(open_bug_link)sfile an issue %(close_bug_link)s. Tell us where you came from and what you were looking for, and we'll do our best to fix it."
 msgstr ""
 
 msgid "Not Found"
 msgstr "Nebolo nájdené"
 
-#, fuzzy, python-format
+#, python-format
 msgid ""
 "<h1>We're sorry, but we can't find what you're looking for.</h1> <p> The page or file you requested wasn't found on our site. It's possible that you clicked a link that's out of date, or typed in "
-"the address incorrectly. </p> <ul> <li>If you typed in the address, please double check the spelling.</li> <li> If you followed a link from somewhere, please <a href=\"https://github.com/mozilla/"
-"addons-server/issues/new/\">file an issue</a>. Tell us where you came from and what you were looking for, and we'll do our best to fix it. </li> </ul> <p>Or you can just jump over to some of the "
-"popular pages on our website.</p> <ul> <li>Are you interested in a <a href=\"%(rec)s\">list of featured add-ons</a>?</li> <li> Do you want to <a href=\"%(search)s\">search for add-ons</a>? You may "
-"go to the <a href=\"%(search)s\">search page</a> or just use the search field above. </li> <li> If you prefer to start over, just go to the <a href=\"%(home)s\">add-ons front page</a>. </li> </ul>"
+"the address incorrectly. </p> <ul> <li>If you typed in the address, please double check the spelling.</li> <li> If you followed a link from somewhere, please %(open_bug_link)sfile an issue"
+"%(close_bug_link)s. Tell us where you came from and what you were looking for, and we'll do our best to fix it. </li> </ul> <p>Or you can just jump over to some of the popular pages on our website."
+"</p> <ul> <li>Are you interested in a <a href=\"%(rec)s\">list of featured add-ons</a>?</li> <li> Do you want to <a href=\"%(search)s\">search for add-ons</a>? You may go to the <a href=\"%(search)s"
+"\">search page</a> or just use the search field above. </li> <li> If you prefer to start over, just go to the <a href=\"%(home)s\">add-ons front page</a>. </li> </ul>"
 msgstr ""
-"<h1>Ospravedlňujeme sa, ale nie je možné nájsť, čo ste hľadali.</h1> <p>Stránka alebo súbor, ktorý požadujete, sa na&nbsp;našej stránke nenašli. Je možné, že ste klikli na&nbsp;neplatný odkaz, "
-"alebo ste nesprávne zadali adresu.</p><ul><li>Ak ste adresu zadávali, skontrolujte dvakrát správnosť.</li><li>Ak ste niekde klikli na&nbsp;odkaz, dajte nám vedieť na&nbsp;adresu <a href=\"mailto:"
-"webmaster@mozilla.com\">webmaster@mozilla.com</a>. Oznámte nám, odkiaľ ste prišli a&nbsp;čo ste hľadali. Urobíme všetko pre&nbsp;nápravu.</li></ul><p>Prípadne prejdite na&nbsp;niektorú z&nbsp;"
-"obľúbených stránok na&nbsp;našom webe.</p><ul><li>Zaujíma vás <a href=\"%(rec)s\">zoznam odporúčaných doplnkov</a>?</li><li>Chcete<a href=\"%(search)s\">hľadať doplnok</a>? Môžete prejsť na&nbsp;<a "
-"href=\"%(search)s\">stránku vyhľadávania</a>, alebo jednoducho použite hore uvedené vyhľadávacie pole.</li><li>Ak chcete ísť na&nbsp;začiatok, prejdite na&nbsp;<a href=\"%(home)s\">úvodnú stránku "
-"doplnkov</a>.</li></ul>"
 
 msgid "Oops"
 msgstr "Ups"
@@ -874,9 +855,6 @@ msgstr "Kolekcie"
 
 msgid "Collections I've Made"
 msgstr "Kolekcie, ktoré som vytvoril"
-
-msgid "My Favorite Add-ons"
-msgstr "Moje obľúbené doplnky"
 
 msgid "More&hellip;"
 msgstr "Ďalšie&hellip;"
@@ -1008,9 +986,6 @@ msgstr "Popíšte vašu kolekciu (odkazy nie sú povolené)."
 msgid "Privacy:"
 msgstr "Súkromie:"
 
-msgid "Icon"
-msgstr "Ikona"
-
 msgid "Please don't fill out this field, it's used to catch bots"
 msgstr "Nevyplňujte prosím toto pole, slúži len k odchytávaniu robotov"
 
@@ -1019,12 +994,6 @@ msgstr "Tento názov nemôže byť použitý."
 
 msgid "This url is already in use by another collection"
 msgstr "Táto adresa URL je už používaná inou kolekciou."
-
-msgid "Icons must be either PNG or JPG."
-msgstr "Ikony musia byť vo formáte .png alebo .jpg."
-
-msgid "Icons cannot be animated."
-msgstr "Ikony nesmú byť animované."
 
 msgid "This custom URL is already in use by another one of your collections."
 msgstr "Táto adresa URL je už používaná inou vašou kolekciou."
@@ -1063,9 +1032,6 @@ msgstr "Kolekcia bola aktualizovaná!"
 #, python-format
 msgid "<a href=\"%(url)s\">View your collection</a> to see the changes."
 msgstr "Ak chcete vidieť zmeny, <a href=\"%(url)s\">zobrazte si svoju kolekciu</a>."
-
-msgid "Icon Deleted"
-msgstr "Ikona bola odstránená"
 
 msgid "Create a New Collection"
 msgstr "Vytvorenie novej kolekcie"
@@ -1148,9 +1114,6 @@ msgstr "Kolekcie sú skupiny podobných doplnkov vytvárané a zdieľané použ�
 msgid "Explore Collections"
 msgstr "Preskúmať kolekcie"
 
-msgid "Common Tags"
-msgstr "Bežné značky"
-
 msgid ""
 "Add-ons that you mark as favorites using the <b>Add to Favorites</b> feature appear below. This collection is currently <b>public</b>, which means everyone can see it. If you would like to hide it "
 "from public view, click the button below to make it private."
@@ -1210,7 +1173,7 @@ msgstr "Odstrániť z obľúbených"
 msgid "Add to favorites"
 msgstr "Pridať medzi obľúbené"
 
-#. {0} is a username.
+#. {0} is a the user's name.
 msgid "Collections by {0}"
 msgstr "Kolekcie od {0}"
 
@@ -1225,20 +1188,14 @@ msgstr "Kolekcie sú skupiny podobných doplnkov, ktoré môže vytvárať a zdi
 msgid "by %(author_link)s"
 msgstr "autor: %(author_link)s"
 
+msgid "My Favorite Add-ons"
+msgstr "Moje obľúbené doplnky"
+
 msgid "Create a Collection"
 msgstr "Vytvoriť kolekciu"
 
 msgid "Collections make it easy to keep track of favorite add-ons and share your perfectly customized browser with others."
 msgstr "Pomocou kolekcií môžete jednoducho sledovať obľúbené doplnky a zdieľať svoj perfektne upravený prehliadač s ostatnými."
-
-msgid "Collection Icon"
-msgstr "Ikona kolekcie"
-
-msgid "Reset"
-msgstr "Obnoviť"
-
-msgid "PNG and JPG supported.  Image will be resized to 32x32."
-msgstr "Podporované formáty: PNG a JPG.  Obrázky budú upravené na veľkosť 32x32."
 
 msgid "There are errors in this form.  Please correct them below."
 msgstr "Vo formulári sa vyskytujú chyby.  Prosím, opravte ich."
@@ -1350,12 +1307,6 @@ msgstr "Nainštalovať slovník"
 
 msgid "Install Language Pack"
 msgstr "Nainštalovať jazykový balík"
-
-msgid "Download Dictionary"
-msgstr "Prevziať slovník"
-
-msgid "Download Language Pack"
-msgstr "Prevziať jazykový balík"
 
 #, python-format
 msgid ""
@@ -1527,80 +1478,6 @@ msgstr "Zobraziť všetky zaujímavé doplnky"
 msgid "No themes found"
 msgstr "Neboli nájdené žiadne témy"
 
-msgid "All"
-msgstr "Všetko"
-
-msgid "Add-on Compatibility Reports"
-msgstr "Správy o kompatibilite doplnku"
-
-#, python-format
-msgid ""
-"<p> Reports submitted to us through the <a href=\"%(url_)s\">Add-on Compatibility Reporter</a> are collected here for developers to view. These reports help us determine which add-ons will need "
-"help supporting an upcoming Firefox version. </p>"
-msgstr ""
-"<p> Hlásenia, ktoré nám boli odoslané cez doplnok <a href=\"%(url_)s\">Add-on Compatibility Reporter</a>, sú tu dostupné pre vývojárov. Tieto hlásenia nám pomôžu rozpoznať, ktoré doplnky potrebujú "
-"pomoc s podporou pre nadchádzajúcu verziu Firefoxu. </p>"
-
-msgid "Reports for your Add-ons"
-msgstr "Správy pre vaše doplnky"
-
-msgid "Enter the GUID of an add-on below to view any reports we've received."
-msgstr "Zadaním identifikátora GUID zobrazíte správy, ktoré sme k danému doplnku obdržali."
-
-msgid "{addon} Compatibility Reports"
-msgstr "Správy o kompatibilite doplnku {addon}"
-
-msgid "{0} success report"
-msgid_plural "{0} success reports"
-msgstr[0] "{0} správa o bezproblémovom chode"
-msgstr[1] "{0} správy o bezproblémovom chode"
-msgstr[2] "{0} správ o bezproblémovom chode"
-
-msgid "{0} problem report"
-msgid_plural "{0} problem reports"
-msgstr[0] "{0} správa o problémoch"
-msgstr[1] "{0} správy o problémoch"
-msgstr[2] "{0} správ o problémoch"
-
-msgid "View all"
-msgstr "Zobraziť všetko"
-
-msgid "Filter by Application"
-msgstr "Filter podľa aplikácie"
-
-msgid "Report Type"
-msgstr "Typ správy"
-
-msgid "Version"
-msgstr "Verzia"
-
-msgid "Application Version"
-msgstr "Verzia aplikácie"
-
-msgid "Application Build"
-msgstr "Zostavenie aplikácie"
-
-msgid "Platform"
-msgstr "Platforma"
-
-msgid "e10s Enabled"
-msgstr "e10s povolené"
-
-msgid "e10s Compatible"
-msgstr "Kompatibilita s e10s"
-
-msgid "Submitted"
-msgstr "Odoslané"
-
-msgid "Success"
-msgstr "Úspech"
-
-msgid "Problem"
-msgstr "Problém"
-
-msgid "No reports found."
-msgstr "Neboli nájdené žiadne správy."
-
 msgid "{addon} was created."
 msgstr "Doplnok {addon} bol vytvorený."
 
@@ -1694,9 +1571,8 @@ msgstr ""
 msgid "Comment on {addon} {version}."
 msgstr "Doplnok {addon} {version} bol okomentovaný."
 
-#, fuzzy
 msgid "Commented"
-msgstr "s komentárom"
+msgstr ""
 
 msgid "{tag} added to {addon}."
 msgstr "Doplnku {addon} pridaná značka {tag}."
@@ -1710,9 +1586,8 @@ msgstr "Doplnok {addon} pridaný do kolekcie {collection}."
 msgid "{addon} removed from {collection}."
 msgstr "Doplnok {addon} odstránený z kolekcie {collection}."
 
-#, fuzzy
 msgid "{rating} for {addon} written."
-msgstr "Napísaná recenzia {review} pre doplnok {addon}."
+msgstr ""
 
 #. L10n: {0} is a category name.
 msgid "{addon} featured in {0}."
@@ -1745,21 +1620,17 @@ msgstr "Zmenené zásady ochrany súkromia pre doplnok {addon}."
 msgid "{addon} icon changed."
 msgstr "Zmenená ikona doplnku {addon}."
 
-#, fuzzy
 msgid "{rating} for {addon} approved."
-msgstr "Schválená recenzia {review} doplnku {addon}."
+msgstr ""
 
-#, fuzzy
 msgid "{user} approved {rating} for {addon}."
-msgstr "Používateľ {user} schválil recenziu {review} doplnku {addon}."
+msgstr ""
 
-#, fuzzy
 msgid "Review {rating} for {addon} deleted."
-msgstr "Recenzia {review} pre {addon} bola odstránená."
+msgstr ""
 
-#, fuzzy
 msgid "{user} deleted {rating} for {addon}."
-msgstr "{user} odstránil {review} pre {addon}."
+msgstr ""
 
 msgid "Application max version for {version} updated."
 msgstr "Maximálna verzia aplikácie pre {version} bola aktualizovaná."
@@ -1803,20 +1674,17 @@ msgstr "Používateľ {user} bol obmedzený."
 msgid "Admin {0} viewed activity log for {user}."
 msgstr "Administrátor {0} si zobrazil záznam aktivity používateľa {user}."
 
-#, fuzzy
 msgid "{rating} for {addon} updated."
-msgstr "Recenzia {review} pre doplnok {addon} bola aktualizovaná."
+msgstr "Hodnotenie {rating} pre {addon} bolo aktualizované."
 
 msgid "{addon} reviewed."
 msgstr "Doplnok {addon} skontrolovaný."
 
-#, fuzzy
 msgid "User {user} banned."
-msgstr "Používateľ {user} bol anonymizovaný."
+msgstr "Používateľ {user} bol zablokovaný."
 
-#, fuzzy
 msgid "User {user} picture deleted."
-msgstr "Používateľ {user} bol obmedzený."
+msgstr "Obrázok používateľa {user} bol odstránený."
 
 msgid "User {0.name} added to {group}."
 msgstr "Používateľ {0.name} bol pridaný do skupiny {group}."
@@ -1834,9 +1702,8 @@ msgstr "{file} bol podpísaný."
 msgid "Addon id {0} with GUID {1} has been deleted"
 msgstr "Doplnok id {0} s GUID {1} bol odstránený"
 
-#, fuzzy
 msgid "{addon} migrated from preliminary."
-msgstr "Doplnok {addon} {version} bol predbežne skontrolovaný."
+msgstr ""
 
 msgid "Reply by developer on {addon} {version}."
 msgstr "Odpoveď od vývojára doplnku {addon} {version}."
@@ -1844,17 +1711,14 @@ msgstr "Odpoveď od vývojára doplnku {addon} {version}."
 msgid "Developer Reply"
 msgstr "Odpoveď vývojára"
 
-#, fuzzy
 msgid "Reply by reviewer on {addon} {version}."
-msgstr "Doplnok {addon} {version} bol okomentovaný."
+msgstr ""
 
-#, fuzzy
 msgid "Reviewer Reply"
-msgstr "Novinky od vývojárov"
+msgstr ""
 
-#, fuzzy
 msgid "Approval notes changed for {addon} {version}."
-msgstr "Doplnok {addon} {version} bol okomentovaný."
+msgstr ""
 
 msgid "Approval notes changed"
 msgstr "Poznámky na schválenie boli zmenené"
@@ -1871,72 +1735,57 @@ msgstr "Automatické schválenie doplnku {addon} {version} potvrdené."
 msgid "Auto-Approval confirmed"
 msgstr "Automatické schválenie potvrdené"
 
-#, fuzzy
 msgid "{addon} {version} re-enabled."
-msgstr "Doplnok {addon} {version} zamietnutý."
+msgstr ""
 
-#, fuzzy
 msgid "{addon} {version} disabled."
-msgstr "Pre doplnok {addon} {version} eskalovaná recenzia."
+msgstr ""
 
-#, fuzzy
 msgid "{addon} {version} content approved."
-msgstr "Doplnok {addon} {version} schválený."
+msgstr ""
 
 msgid "Content approved"
 msgstr "Obsah bol schválený"
 
-#, fuzzy
 msgid "{addon} {version} content rejected."
-msgstr "Doplnok {addon} {version} zamietnutý."
+msgstr ""
 
 # 87%
 msgid "Content rejected"
 msgstr "Obsah bol zamietnutý"
 
-#, fuzzy
 msgid "{addon} information request altered or removed by admin."
-msgstr "Požadované dodatočné informácie"
+msgstr ""
 
-#, fuzzy
 msgid "Information request altered"
-msgstr "Požadované dodatočné informácie"
+msgstr ""
 
-#, fuzzy
 msgid "Information request cleared by developer on {addon} {version}."
-msgstr "Odpoveď od vývojára doplnku {addon} {version}."
+msgstr ""
 
-#, fuzzy
 msgid "Information request removed"
-msgstr "Požadované dodatočné informácie"
+msgstr ""
 
-#, fuzzy
 msgid "{addon} {version} admin add-on-review requested."
-msgstr "Pre doplnok {addon} {version} bola vyžiadaná kontrola."
+msgstr ""
 
-#, fuzzy
 msgid "Admin add-on-review requested"
-msgstr "Vyžiadaná super-kontrola"
+msgstr ""
 
-#, fuzzy
 msgid "{addon} {version} admin content-review requested."
-msgstr "Pre doplnok {addon} {version} bola vyžiadaná kontrola."
+msgstr ""
 
-#, fuzzy
 msgid "Admin content-review requested"
-msgstr "Vyžiadaná super-kontrola"
+msgstr ""
 
-#, fuzzy
 msgid "{addon} {version} admin theme-review requested."
-msgstr "Pre doplnok {addon} {version} bola vyžiadaná kontrola."
+msgstr ""
 
-#, fuzzy
 msgid "Admin theme-review requested"
-msgstr "Vyžiadaná kontrola"
+msgstr ""
 
-#, fuzzy
 msgid "{addon} was migrated from a lightweight theme."
-msgstr "Doplnok {addon} {version} bol predbežne skontrolovaný."
+msgstr ""
 
 msgid "Firefox"
 msgstr "Firefox"
@@ -2031,63 +1880,141 @@ msgstr "Zásuvné moduly"
 msgid "Themes (Static)"
 msgstr "Témy vzhľadu (statické)"
 
-#. Review points sources other than add-ons and themes.
-msgid "Other"
-msgstr "Iné"
-
-msgid "Exception"
-msgstr "Výnimka"
-
-msgid "Release"
-msgstr "Vydanie"
-
-msgid "Change"
-msgstr "Zmeniť"
-
-msgid "Compatible"
-msgstr "Kompatibilný"
-
-msgid "Incompatible"
-msgstr "Nekompatibilný"
-
 msgid "Alerts & Updates"
 msgstr "Upozornenia a aktualizácie"
+
+msgid "Download Firefox extensions that help you stay up-to-date, track tasks, improve efficiency. Find extensions that reload tabs, manage productivity, and more."
+msgstr ""
 
 msgid "Appearance"
 msgstr "Vzhľad"
 
+msgid "Download extensions that modify the appearance of websites and the browser Firefox. This category includes extensions for dark themes, tab management, and more."
+msgstr ""
+
 msgid "Bookmarks"
 msgstr "Záložky"
+
+msgid "Download extensions that enhance bookmarks by password-protecting them, searching for duplicates, finding broken bookmarks, and more."
+msgstr ""
 
 msgid "Download Management"
 msgstr "Správa preberania súborov"
 
+msgid "Download Firefox extensions that can help download web, music and video content. You can also find extensions to manage downloads, share files, and more."
+msgstr ""
+
 msgid "Feeds, News & Blogging"
 msgstr "Kanály, správy a blogovanie"
+
+msgid "Download Firefox extensions that remove clutter so you can stay up-to-date on social media, catch up on blogs, RSS feeds, reduce eye strain, and more."
+msgstr ""
 
 msgid "Games & Entertainment"
 msgstr "Hry a zábava"
 
+msgid "Download Firefox extensions to boost your entertainment experience. This category includes extensions that can enhance gaming, control video playback, and more."
+msgstr ""
+
 msgid "Language Support"
 msgstr "Podpora jazykov"
+
+msgid "Download Firefox extensions that offer language support like grammar check, look-up words, translate text, provide text-to-speech, and more."
+msgstr ""
 
 msgid "Photos, Music & Videos"
 msgstr "Fotografie, hudba a videá"
 
+msgid "Download Firefox extensions that enhance photo, music and video experiences. Extensions in this category modify audio and video, reverse image search, and more."
+msgstr ""
+
 msgid "Privacy & Security"
 msgstr "Súkromie a bezpečnosť"
+
+msgid "Download Firefox extensions to browse privately and securely. This category includes extensions to block annoying ads, prevent tracking, manage redirects, and more."
+msgstr ""
+
+msgid "Download Firefox extensions for search and look-up. This category includes extensions that highlight and search text, lookup IP addresses/domains, and more."
+msgstr ""
 
 msgid "Shopping"
 msgstr "Nakupovanie"
 
+msgid "Download Firefox extensions that can enhance your online shopping experience with coupon finders, deal finders, review analyzers, more."
+msgstr ""
+
 msgid "Social & Communication"
 msgstr "Sociálne siete a komunikácia"
+
+msgid "Download Firefox extensions to enhance social media and instant messaging. This category includes improved tab notifications, video downloaders, and more."
+msgstr ""
 
 msgid "Tabs"
 msgstr "Karty"
 
+msgid "Download Firefox extension to customize tabs and the new tab page. Discover extensions that can control tabs, change the way you interact with them, and more."
+msgstr ""
+
 msgid "Web Development"
 msgstr "Tvorba webu"
+
+msgid "Download Firefox extensions that feature web development tools. This category includes extensions for GitHub, user agent switching, cookie management, and more."
+msgstr ""
+
+#. Review points sources other than add-ons and themes.
+msgid "Other"
+msgstr "Iné"
+
+msgid "Download Firefox extensions that can be unpredictable and creative, yet useful for those odd tasks."
+msgstr ""
+
+msgid "Device Features & Location"
+msgstr "Funkcie zariadenia a lokality"
+
+msgid "Download extensions to enhance Firefox for Android. Perform quick searches, free up system resources, take notes, and more."
+msgstr ""
+
+msgid "Experimental"
+msgstr "Experimentálne"
+
+msgid "Download Firefox extensions that are regularly updated and ready for public testing. Your feedback informs developers on changes to make in upcoming versions."
+msgstr ""
+
+msgid "Performance"
+msgstr "Výkon"
+
+msgid "Download extensions that give Firefox a performance boost. Find extensions that help you be more productive and efficient by blocking annoying ads and more."
+msgstr ""
+
+msgid "Photos & Media"
+msgstr "Fotografie a médiá"
+
+msgid "Download Firefox extensions to enhance photos and media. This category includes extensions to reverse search images, capture full page screenshots, and more."
+msgstr ""
+
+msgid "Security & Privacy"
+msgstr "Súkromie a bezpečnosť"
+
+msgid "Download Firefox extensions to surf safely and privately. Discover extensions that can stop sneaky ad trackers in their tracks, easily clear browsing history, and more."
+msgstr ""
+
+msgid "Social Networking"
+msgstr "Sociálne siete"
+
+msgid "Download Firefox extensions to enhance your experience on popular social networking websites such as YouTube, GitHub, Reddit, and more."
+msgstr ""
+
+msgid "Sports & Games"
+msgstr "Šport a hry"
+
+msgid "Download Firefox extensions to give your entertainment experience a boost with live stream enhancers, sports updates, and more."
+msgstr ""
+
+msgid "User Interface"
+msgstr "Používateľské rozhranie"
+
+msgid "Download user interface Firefox extensions to alter web pages for easier reading, searching, browsing, and more."
+msgstr ""
 
 msgid "Animals"
 msgstr "Zvieratá"
@@ -2119,35 +2046,80 @@ msgstr "Šport"
 msgid "Abstract"
 msgstr "Abstraktné"
 
+msgid "Download Firefox artistic and conceptual themes. This category includes colorful palettes and shapes, fantasy landscapes, playful cats, psychedelic flowers."
+msgstr ""
+
 msgid "Causes"
 msgstr "Príležitosti"
+
+msgid "Download Firefox themes for niche interests and topics. This category includes sports themes, holidays, philanthropic causes, nationalities, and much more."
+msgstr ""
 
 msgid "Fashion"
 msgstr "Móda"
 
+msgid "Download Firefox themes that celebrate style of all forms—patterns, florals, textures, models, and more."
+msgstr ""
+
 msgid "Film and TV"
 msgstr "Film a televízia"
+
+msgid "Download Firefox themes with movies and television. This category includes anime like Uchiha Madara, movies like The Matrix, shows (Game of Thrones), and more."
+msgstr ""
+
+msgid "Download Firefox themes with the Firefox browser theme. This category includes colorful, diverse depictions of the Firefox logo, including more general fox themes."
+msgstr ""
 
 msgid "Foxkeh"
 msgstr "Foxkeh"
 
+msgid "Download Firefox themes with the Japanese Firefox. This category includes themes that depict the cute Foxkeh mascot in various poses on diverse landscapes."
+msgstr ""
+
 msgid "Holiday"
 msgstr "Prázdniny a dovolenky"
+
+msgid "Download Firefox themes with holidays. This category includes Christmas, Halloween, Thanksgiving, St. Patrick’s Day, Easter, Fourth of July, and more."
+msgstr ""
 
 msgid "Music"
 msgstr "Hudba"
 
+msgid "Download Firefox themes for musical interests and artists. This category includes popular bands like Nirvana and BTS, instruments, music videos, and much more."
+msgstr ""
+
+msgid "Download Firefox themes with animals and natural landscapes. This category includes flowers, sunsets, foxes, seasons, planets, kittens, birds, and more."
+msgstr ""
+
+msgid "Download Firefox themes that are interesting, creative, and unique."
+msgstr ""
+
 msgid "Scenery"
 msgstr "Scenérie"
+
+msgid "Download Firefox themes that feature the environment and the natural world. This category includes sunsets, beaches, illustrations, city skylines, and more."
+msgstr ""
 
 msgid "Seasonal"
 msgstr "Sezónne"
 
+msgid "Download Firefox themes for all four seasons—fall, winter, spring, and summer. Autumn leaves, snowy mountain peaks, sunny summer days, and spring flowers."
+msgstr ""
+
 msgid "Solid"
 msgstr "Jednoduché"
 
+msgid "Download Firefox themes with solid and gradient colors to personalize your browser. This category includes bold reds, pastels, soft greys, and much more."
+msgstr ""
+
+msgid "Download Firefox themes that feature a variety of sports. This category includes country flags, sports teams, soccer, hockey, and more."
+msgstr ""
+
 msgid "Websites"
 msgstr "Webové stránky"
+
+msgid "Download Firefox themes that capture the essence of the web—captivating, unusual, and distinctive."
+msgstr ""
 
 msgid "General"
 msgstr "Všeobecné"
@@ -2181,81 +2153,6 @@ msgstr "Cestovanie"
 
 msgid "Video"
 msgstr "Video"
-
-msgid "Device Features & Location"
-msgstr "Funkcie zariadenia a lokality"
-
-msgid "Experimental"
-msgstr "Experimentálne"
-
-msgid "Feeds, News, & Blogging"
-msgstr "Kanály RSS, novinky a blogy"
-
-msgid "Performance"
-msgstr "Výkon"
-
-msgid "Photos & Media"
-msgstr "Fotografie a médiá"
-
-msgid "Security & Privacy"
-msgstr "Súkromie a bezpečnosť"
-
-msgid "Social Networking"
-msgstr "Sociálne siete"
-
-msgid "Sports & Games"
-msgstr "Šport a hry"
-
-msgid "User Interface"
-msgstr "Používateľské rozhranie"
-
-msgid "Appearance and Customization"
-msgstr "Vzhľad a prispôsobenie"
-
-msgid "Calendar and Date/Time"
-msgstr "Kalendár a dátum/čas"
-
-msgid "Chat and IM"
-msgstr "Konverzácie a IM"
-
-msgid "Message Composition"
-msgstr "Písanie správ"
-
-msgid "Contacts"
-msgstr "Kontakty"
-
-msgid "Folders and Filters"
-msgstr "Priečinky a filtre"
-
-msgid "Import/Export"
-msgstr "Import/Export"
-
-msgid "Message and News Reading"
-msgstr "Čítanie správ"
-
-msgid "Privacy and Security"
-msgstr "Súkromie a bezpečnosť"
-
-msgid "Downloading and File Management"
-msgstr "Preberanie a správa súborov"
-
-msgid "Interface Customizations"
-msgstr "Prispôsobenie vzhľadu"
-
-msgid "Language Support and Translation"
-msgstr "Jazyková podpora a preklady"
-
-msgid "Photos and Media"
-msgstr "Fotografie a médiá"
-
-msgid "RSS, News and Blogging"
-msgstr "Kanály RSS, novinky a blogovanie"
-
-msgid "Site-specific"
-msgstr "Pre špecifickú stránku"
-
-msgid "Web and Developer Tools"
-msgstr "Webové a vývojárske nástroje"
 
 msgid "All Rights Reserved"
 msgstr "Všetky práva vyhradené"
@@ -2308,9 +2205,8 @@ msgstr "Statická téma vzhľadu"
 msgid "Persona"
 msgstr "Téma Persona"
 
-#, fuzzy
 msgid "No Reputation"
-msgstr "Reputácia"
+msgstr "Žiadna reputácia"
 
 msgid "Good (1)"
 msgstr ""
@@ -2324,16 +2220,14 @@ msgstr ""
 msgid "Manual Reviewer Points"
 msgstr "Ručné body kontroly redaktora"
 
-#, fuzzy
 msgid "New Legacy Add-on Review"
-msgstr "Nová kontrola doplnku"
+msgstr ""
 
 msgid "Preliminary Add-on Review"
 msgstr "Predbežná kontrola doplnku"
 
-#, fuzzy
 msgid "Updated Legacy Add-on Review"
-msgstr "Kontrola aktualizácie doplnku"
+msgstr ""
 
 msgid "New Dictionary Review"
 msgstr "Nová kontrola slovníka"
@@ -2356,9 +2250,8 @@ msgstr "Kontrola aktualizovaného jazykového balíka"
 msgid "Theme Review"
 msgstr "Kontrola témy"
 
-#, fuzzy
 msgid "Theme (Static) Review"
-msgstr "Téma vzhľadu (statická)"
+msgstr ""
 
 msgid "New Search Provider Review"
 msgstr "Nová kontrola vyhľadávacieho modulu"
@@ -2378,33 +2271,26 @@ msgstr "Predbežná kontrola plných tém"
 msgid "Updated Complete Theme Review"
 msgstr "Kontrola aktualizácie plných tém"
 
-#, fuzzy
 msgid "Moderated Add-on Review"
-msgstr "Moderovaná kontrola doplnkov"
+msgstr ""
 
-#, fuzzy
 msgid "Add-on Review Moderation Reverted"
-msgstr "Úprava recenzie doplnkov bola zrušená"
+msgstr ""
 
-#, fuzzy
 msgid "Add-on Content Review"
-msgstr "Odoslať kontrolu"
+msgstr ""
 
-#, fuzzy
 msgid "Add-on Review (Highest Risk)"
-msgstr "Nová kontrola doplnku"
+msgstr ""
 
-#, fuzzy
 msgid "Add-on Review (High Risk)"
-msgstr "Záznam kontroly doplnku"
+msgstr ""
 
-#, fuzzy
 msgid "Add-on Review (Medium Risk)"
-msgstr "Nová kontrola doplnku"
+msgstr ""
 
-#, fuzzy
 msgid "Add-on Review (Low Risk)"
-msgstr "Záznam kontroly doplnku"
+msgstr ""
 
 msgid "Level 1"
 msgstr "Úroveň 1"
@@ -2485,6 +2371,18 @@ msgstr "Nedávne zmeny pre %s"
 msgid "Recent Changes for My Add-ons"
 msgstr "Nedávne zmeny pre moje doplmky"
 
+msgid "Legacy extensions are no longer supported in Firefox."
+msgstr "Zastarané rozšírenia už nie sú vo Firefoxe podporované."
+
+msgid "Add-ons for Thunderbird and SeaMonkey are now listed and maintained on addons.thunderbird.net. You can use the same account to update your add-ons on the new site."
+msgstr "Doplnky pre Thunderbird a SeaMonkey sú odteraz na samostatnej stránke addons.thunderbird.net. Pre aktualizáciu svojho doplnku môžete použiť svoj terajší účet."
+
+msgid "We allow and encourage an upgrade but you cannot reverse this process. Once your users have the WebExtension installed, they will not be able to install a legacy add-on."
+msgstr ""
+
+msgid "[{field}] The text in the \"{field}\" field has been flagged as spam."
+msgstr ""
+
 msgid "Must have at least one owner."
 msgstr "Musí mať aspoň jedného vlastníka."
 
@@ -2524,6 +2422,9 @@ msgstr "Zadajte Zásady ochrany súkromia pre váš doplnok:"
 msgid "Unsupported file type, please upload an archive file {extensions}."
 msgstr "Nepodporovaný typ súboru. Nahrajte prosím súbor s archívom pre {extensions}."
 
+msgid "Invalid or broken archive."
+msgstr "Neplatný alebo poškodený archív."
+
 msgid "View current"
 msgstr "Zobraziť aktuálne"
 
@@ -2539,9 +2440,8 @@ msgstr "Pri odosielaní sa vyskytla chyba. Skúste to znova."
 msgid "Override failed validation"
 msgstr "Prepísať neúspešnú kontrolu"
 
-#, fuzzy
 msgid "Need to select at least one application."
-msgstr "Vyžaduje aspoň jednu kompatibilnú aplikáciu."
+msgstr ""
 
 msgid "Version {version} was uploaded before and deleted."
 msgstr "Verzia {version} už bola v minulosti nahraná a odstránená."
@@ -2552,21 +2452,14 @@ msgstr "Verzia {version} už existuje."
 msgid "Continue with existing upload instead?"
 msgstr "Pokračovať namiesto toho so súčasným nahrávaním?"
 
-#, fuzzy
 msgid "You have not uploaded a source file."
-msgstr "Odoslaný súbor nebolo možné spracovať."
+msgstr ""
 
 msgid "Source file uploaded but you indicated no source was needed."
 msgstr ""
 
-msgid "Application"
-msgstr "Aplikácia"
-
-msgid "Select an application first"
-msgstr "Najskôr zvoľte aplikáciu"
-
-msgid "There cannot be more than 3 required add-ons."
-msgstr "Nemôžete mať viac ako 3 vyžadované doplnky."
+msgid "Ensure name and summary combined are at most {limit_value} characters (they have {show_value})."
+msgstr ""
 
 msgid ""
 "On this site. <span class=\"helptext\">Your submission will be listed on this site and the Firefox Add-ons Manager for millions of users, after it passes code review. Automatic updates are handled "
@@ -2577,48 +2470,14 @@ msgid ""
 "On your own. <span class=\"helptext\">Your submission will be immediately signed for self-distribution. Updates should be handled by you via an updateURL or external application updates.</span>"
 msgstr ""
 
-#, fuzzy
 msgid "Categories cannot be changed while your add-on is featured."
 msgstr "Pokiaľ je doplnok v zozname odporúčaných, nie je možné zmeniť jeho kategórie."
-
-msgid "Add-ons for Thunderbird and SeaMonkey are now listed and maintained on addons.thunderbird.net. You can use the same account to update your add-ons on the new site."
-msgstr ""
-
-msgid "Legacy extensions are no longer supported in Firefox."
-msgstr ""
-
-msgid "Starting with Firefox 53, new add-ons on this site can only be WebExtensions."
-msgstr "Od Firefoxu 53 môžu byť nové doplnky na tejto stránke len typu WebExtensions."
-
-msgid "Legacy add-ons are not compatible with Firefox 57 or higher. Use a maxVersion of 56.* or lower."
-msgstr "Zastarané doplnky nie sú kompatibilné s Firefoxom 57 a novším. Nastavte atribút maxVersion na 56.* alebo nižší."
-
-msgid "Legacy language packs for Firefox are no longer supported. A WebExtensions install manifest is required. See {mdn_link} for more details."
-msgstr ""
-
-msgid "We allow and encourage an upgrade but you cannot reverse this process. Once your users have the WebExtension installed, they will not be able to install a legacy add-on."
-msgstr ""
-
-msgid "You cannot update a WebExtensions add-on with a legacy add-on. Your users would not be able to use your new version because Firefox does not support this type of update."
-msgstr ""
 
 msgid "Your developer API key was found in the submitted file. To protect your account, the key will be revoked."
 msgstr ""
 
 msgid "The developer API key of a coauthor was found in the submitted file. To protect your add-on, the key will be revoked."
 msgstr ""
-
-#, python-format
-msgid "%s responded with %s (%s)."
-msgstr "%s odpovedal: %s (%s)."
-
-#, python-format
-msgid "Connection to \"%s\" timed out."
-msgstr "Čas pripojenia k \"%s\" vypršal."
-
-#, python-format
-msgid "Could not contact host at \"%s\"."
-msgstr "Nebolo možné kontaktovať server \"%s\"."
 
 msgid "Mozilla Security Notice: Your AMO API credentials have been revoked"
 msgstr ""
@@ -2645,12 +2504,6 @@ msgstr "Kolekcie používateľa"
 msgid "User Reviews"
 msgstr "Recenzie používateľa"
 
-msgid "Changes successfully saved."
-msgstr "Zmeny boli úspešne uložené."
-
-msgid "Please check the form for errors."
-msgstr "Skontrolujte prosím chyby vo formulári."
-
 msgid "Add-on cannot be deleted. Disable this add-on instead."
 msgstr "Doplněk nemôže byť odstránený. Namiesto toho ho zakážte."
 
@@ -2675,11 +2528,17 @@ msgstr "Pri vašom doplnku autor zmenil rolu"
 msgid "An author has been removed from your add-on"
 msgstr "Autor bol pri vašom doplnku odobraný"
 
+msgid "Changes successfully saved."
+msgstr "Zmeny boli úspešne uložené."
+
 msgid "Validate Add-on"
 msgstr "Overiť doplnok"
 
-msgid "Check Add-on Compatibility"
-msgstr "Kontrola kompatibility doplnku"
+msgid "Icons must be either PNG or JPG."
+msgstr "Ikony musia byť vo formáte .png alebo .jpg."
+
+msgid "Icons cannot be animated."
+msgstr "Ikony nesmú byť animované."
 
 #, python-format
 msgid "Images cannot be larger than %dKB."
@@ -2688,6 +2547,18 @@ msgstr "Obrázky nemôžu byť väčšie ako %d kb."
 #. L10n: {0} is an image width (in pixels), {1} is a height.
 msgid "Image must be exactly {0} pixels wide and {1} pixels tall."
 msgstr "Obrázok musí mať rozmery {0}x{1} bodov."
+
+msgid "Image must be at least {0} pixels wide and {1} pixels tall."
+msgstr ""
+
+msgid "Image dimensions must be in the ratio 4:3."
+msgstr ""
+
+msgid "Icon must be at least {0} pixels wide and tall."
+msgstr ""
+
+msgid "Icon must be square (same width and height)."
+msgstr ""
 
 msgid "There was an error uploading your preview."
 msgstr "Pri odosielaní ukážky sa vyskytla chyba."
@@ -2707,9 +2578,47 @@ msgstr "Verzia %s bola opätovne povolená."
 msgid "This upload has failed validation, and may lack complete validation results. Please take due care when reviewing it."
 msgstr "Pri nahrávaní kontrola zlyhala a preto jej výsledky nemusia byť kompletné. Venujte tomu preto pri kontrole zvláštnu pozornosť."
 
-#, fuzzy
+msgid "Header area background"
+msgstr ""
+
+msgid "The color of the header area background, displayed in the part of the header not covered or visible through the header image. Manifest field:  accentcolor."
+msgstr ""
+
+msgid "Header area text and icons"
+msgstr ""
+
+msgid "The color of the text and icons in the header area, except the active tab. Manifest field:  textcolor."
+msgstr ""
+
+msgid "Toolbar area background"
+msgstr ""
+
+msgid "The background color for the navigation bar, the bookmarks bar, and the selected tab.  Manifest field:  toolbar."
+msgstr ""
+
+msgid "Toolbar area text and icons"
+msgstr ""
+
+msgid "The color of the text and icons in the toolbar and the active tab. Manifest field:  toolbar_text."
+msgstr ""
+
+msgid "Toolbar field area background"
+msgstr ""
+
+msgid "The background color for fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field."
+msgstr ""
+
+msgid "Toolbar field area text"
+msgstr ""
+
+msgid "The color of text in fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field_text."
+msgstr ""
+
+msgid "Please check the form for errors."
+msgstr "Skontrolujte prosím chyby vo formulári."
+
 msgid "Review requested."
-msgstr "Vyžiadaná kontrola"
+msgstr "Vyžaduje sa kontrola."
 
 msgid "You must provide further details to proceed."
 msgstr "Pre pokračovanie musíte poskytnúť ďalšie detaily."
@@ -2723,9 +2632,8 @@ msgstr ""
 msgid "New API key created"
 msgstr "Nový kľúč API bol vytvorený."
 
-#, fuzzy
 msgid "API key revoked"
-msgstr "Nový kľúč API bol vytvorený."
+msgstr "Kľúč API bol zneplatnený"
 
 msgid ""
 "Before starting, please read and accept our Firefox Add-on Distribution Agreement as well as our Review Policies and Rules. The Firefox Add-on Distribution Agreement also links to our Privacy "
@@ -2735,9 +2643,8 @@ msgstr ""
 msgid "Firefox Add-on Distribution Agreement"
 msgstr "Dohoda o distribúcií doplnkov pre Firefox"
 
-#, fuzzy
 msgid "Review Policies and Rules"
-msgstr "Poznámka ku kontrole"
+msgstr "Zásady a pravidlá kontroly doplnkov"
 
 msgid "I have read and accept this Agreement and the Rules and Policies"
 msgstr "Prečítal som si a súhlasím s podmienkami, pravidlami a zásadami"
@@ -2774,15 +2681,11 @@ msgstr "Vývoj doplnkov"
 msgid "Lightweight Themes"
 msgstr "Ľahké témy vzhľadu"
 
-msgid "Add-on Policies"
-msgstr "Zásady tvorby a správy doplnkov"
+msgid "Developer Policies"
+msgstr "Pravidlá pre vývojárov"
 
 msgid "Add-on Validator"
 msgstr "Overenie doplnku"
-
-# 89%
-msgid "Add-on Compatibility Checker"
-msgstr "Kontrola kompatibility doplnku"
 
 msgid "Development Add-ons"
 msgstr "Nástroje pre vývojárov"
@@ -2808,13 +2711,6 @@ msgstr "Hľadať"
 msgid "Use the field below to upload your add-on package."
 msgstr "Pre načítanie vášho doplnku použite pole nižšie."
 
-#, python-format
-msgid "Note that this tool only works with legacy add-ons. WebExtension APIs are thoroughly <a href=\"%(webext_doc_url)s\">documented here</a>."
-msgstr "Vezmite na vedomie, že tento nástroj funguje len so zastaranými doplnkami. API WebExtension sú detailne <a href=\"%(webext_doc_url)s\">zdokumentované tu</a>."
-
-msgid "After upload, a series of automated validation tests will run to check compatibility with the following application version:"
-msgstr "Po načítaní bude spustená sada automatizovaných testov, ktoré skontrolujú kompatibilitu s nasledujúcou verziou aplikácie:"
-
 msgid "After upload, a series of automated validation tests will be run on your file."
 msgstr "Po načítaní bude na vašom súbore spustená sada automatizovaných testov."
 
@@ -2830,9 +2726,6 @@ msgstr "Výsledky overenia"
 
 msgid "Validated at:"
 msgstr "Overené dňa:"
-
-msgid "Tested for compatibility against:"
-msgstr "Kompatibilita otestovaná proti:"
 
 msgid "Recent Activity for My Add-ons"
 msgstr "Posledná aktivita pre moje doplnky"
@@ -2872,8 +2765,8 @@ msgstr ""
 "<a href=\"#\" class=\"button compat-update\" data-updateurl=\"%(update_url)s\">Aktualizovať kompatibilitu</a> <a href=\"%(version_url)s\" class=\"button\">Odoslať novú verziu</a> alebo <a href=\"#"
 "\" class=\"close\">Ignorovať</a>"
 
-msgid "View and update application compatibility ranges."
-msgstr "Zobraziť a aktualizovať rozsahy kompatibility aplikácií."
+msgid "View and update application compatibility ranges"
+msgstr ""
 
 msgid "Compatibility"
 msgstr "Kompatibilita"
@@ -2883,6 +2776,9 @@ msgstr "Aktualizovať kompatibilitu"
 
 msgid "Adjusting application information here will allow users to install your add-on even if the install manifest in the package indicates that the add-on is incompatible."
 msgstr "Tu zadané informácie o aplikácií umožňujú používateľom nainštalovať doplnok aj vtedy, keď inštalačný manifest v balíku uvádza, že doplnok nie je kompatibilný."
+
+msgid "Application"
+msgstr "Aplikácia"
 
 msgid "Supported Versions"
 msgstr "Podporované verzie"
@@ -2910,8 +2806,8 @@ msgstr[0] "<b>{0}</b> téma vzhľadu"
 msgstr[1] "<b>{0}</b> témy vzhľadu"
 msgstr[2] "<b>{0}</b> tém vzhľadu"
 
-msgid "Edit Information"
-msgstr "Upraviť informácie"
+msgid "Edit Product Page"
+msgstr ""
 
 msgid "None"
 msgstr "Žiadne"
@@ -2919,9 +2815,8 @@ msgstr "Žiadne"
 msgid "Preview"
 msgstr "Ukážka"
 
-#, fuzzy
 msgid "Preview of listed version"
-msgstr "Zobraziť ďalšie verzie"
+msgstr ""
 
 msgid "Preview still being generated - come back later or refresh the page."
 msgstr ""
@@ -2935,21 +2830,72 @@ msgstr "Autori"
 msgid "About author roles"
 msgstr "O roliach autorov"
 
-#, fuzzy
 msgid ""
 "<p>Add-ons can have any number of authors with 2 possible roles:</p> <ul> <li><b>Owner:</b> Can manage all aspects of the add-on's listing, including adding and removing other authors</li> "
 "<li><b>Developer:</b> Can manage all aspects of the add-on's listing, except for adding and removing other authors</li> </ul>"
 msgstr ""
-"<p>Doplnky môžu mať viac autorov a to v 3 definovaných roliach: </p><ul> <li><b>Vlastník:</b> Môže spravovať všetko, čo sa týka stránky doplnku, a pridávať či odoberať iných autorov.</li> "
-"<li><b>Vývojár</b> Môže spravovať všetko, čo sa týka stránky doplnku, s výnimkou pridávania/odoberania autorov a správy platieb.</li> <li><b>Pozorovateľ:</b> Môže zobraziť nastavenia doplnku a jeho "
-"štatistiky, ale nesmie robiť žiadne zmeny.</li> </ul>"
 
-msgid "Basic Information"
-msgstr "Základné informácie"
+msgid "Additional Details"
+msgstr "Podrobnosti"
+
+msgid "Additional Details for {0}"
+msgstr "Podrobnosti o doplnku {0}"
+
+msgid "Tags help users find your add-on and should be short descriptors such as tabs, toolbar, or twitter. You may have a maximum of {0} tags."
+msgstr ""
+
+msgid "Comma-separated, minimum of {0} character."
+msgid_plural "Comma-separated, minimum of {0} characters."
+msgstr[0] "Oddelené čiarkou, minimálne {0} znak."
+msgstr[1] "Oddelené čiarkou, minimálne {0} znaky."
+msgstr[2] "Oddelené čiarkou, minimálne {0} znakov."
+
+msgid "Example: dark, cinema, noir. Limit 20."
+msgstr "Príklad: dark, cinema, noir. Maximálne 20."
+
+msgid "Reserved tag:"
+msgid_plural "Reserved tags:"
+msgstr[0] "Rezervovaná značka:"
+msgstr[1] "Rezervované značky:"
+msgstr[2] "Rezervované značky:"
+
+msgid "Contributions URL"
+msgstr ""
+
+msgid "If you would like to request monetary contributions from your users, set this to a page where they can do so."
+msgstr ""
+
+msgid "Default Locale"
+msgstr "Predvolený jazyk"
+
+msgid "Information about your add-on is displayed in this locale unless you override it with a locale-specific translation. It is only relevant for listed add-ons."
+msgstr ""
+
+msgid "Homepage"
+msgstr "Domovská stránka"
+
+msgid ""
+"If your add-on has another homepage, enter its address here. If your website is localized into other languages multiple translations of this field can be added. It is only relevant for listed add-"
+"ons."
+msgstr ""
+
+msgid "Describe Add-on"
+msgstr "Popíšte doplnok"
 
 #. {0} is the addon name
-msgid "Basic Information for {0}"
-msgstr "Základné informácie pre {0}"
+msgid "Describe {0}"
+msgstr "Popíšte {0}"
+
+msgid "Name and Summary"
+msgstr "Názov a súhrn"
+
+msgid ""
+"The summary should explain what your add-on does, clearly and concisely. Both the name and summary will appear on your product page and search results. They have a combined maximum length of 70 "
+"characters and a minimum length of 2 characters for each."
+msgstr ""
+
+msgid "Summary"
+msgstr "Súhrn"
 
 msgid "Add-on URL"
 msgstr "URL adresa doplnku"
@@ -2960,8 +2906,8 @@ msgstr "Zvoľte krátku, unikátnu adresu URL pre svoj doplnok."
 msgid "View Listing"
 msgstr "Zobraziť doplnok"
 
-msgid "Summary"
-msgstr "Súhrn"
+msgid "View Product Page"
+msgstr ""
 
 msgid "This summary should clearly explain what your add-on does. It will be shown in listings and searches, and it will be used by reviewers to test your add-on."
 msgstr ""
@@ -2982,7 +2928,7 @@ msgid "Requires Payment?"
 msgstr "Je vyžadovaná platba?"
 
 msgid "Check this box if this add-on's core features require some form of payment upfront or after a trial period in order to work."
-msgstr ""
+msgstr "Toto pole zaškrtnite, ak kľúčové funkcie tohoto doplnku vyžadujú pre svoje fungovanie nejakú formu platby vopred či po ubehnutí skúšobnej doby."
 
 msgid "This add-on requires payment, non-free services or software, or additional hardware."
 msgstr "Tento doplnok vyžaduje platbu, spoplatnené služby alebo softvér či dodatočný hardvér."
@@ -3000,69 +2946,11 @@ msgstr ""
 "Ak je doplnok pre túto aplikáciu vedený ako odporúčaný, nemôžete meniť jeho umiestnenie v kategóriách. Ak máte dôvod, prečo chcete kategórie upraviť, napíšte nám na e-mail <a href=\"mailto:%(email)s"
 "\">%(email)s</a>."
 
-#, fuzzy, python-format
+#, python-format
 msgid "Categories cannot be changed while your add-on is featured. Please email <a href=\"mailto:%(email)s\">%(email)s</a> if there is a reason you need to modify your categories."
 msgstr ""
 "Ak je doplnok pre túto aplikáciu vedený ako odporúčaný, nemôžete meniť jeho umiestnenie v kategóriách. Ak máte dôvod, prečo chcete kategórie upraviť, napíšte nám na e-mail <a href=\"mailto:%(email)s"
 "\">%(email)s</a>."
-
-msgid "Tags help users find your add-on and should be short descriptors such as tabs, toolbar, or twitter. You may have a maximum of {0} tags."
-msgstr ""
-
-msgid "Comma-separated, minimum of {0} character."
-msgid_plural "Comma-separated, minimum of {0} characters."
-msgstr[0] "Oddelené čiarkou, minimálne {0} znak."
-msgstr[1] "Oddelené čiarkou, minimálne {0} znaky."
-msgstr[2] "Oddelené čiarkou, minimálne {0} znakov."
-
-msgid "Example: dark, cinema, noir. Limit 20."
-msgstr "Príklad: dark, cinema, noir. Maximálne 20."
-
-msgid "Reserved tag:"
-msgid_plural "Reserved tags:"
-msgstr[0] "Rezervovaná značka:"
-msgstr[1] "Rezervované značky:"
-msgstr[2] "Rezervované značky:"
-
-#, fuzzy
-msgid "Contributions URL"
-msgstr "Príspevky"
-
-msgid "If you would like to request monetary contributions from your users, set this to a page where they can do so."
-msgstr ""
-
-msgid "Add-on Details"
-msgstr "Podrobnosti o doplnku"
-
-msgid "Add-on Details for {0}"
-msgstr "Podrobnosti o doplnku {0}"
-
-msgid "A longer explanation of features, functionality, and other relevant information. This field is only displayed on the add-on's details page. It is only relevant for listed add-ons."
-msgstr ""
-
-msgid "Default Locale"
-msgstr "Predvolený jazyk"
-
-msgid "Information about your add-on is displayed in this locale unless you override it with a locale-specific translation. It is only relevant for listed add-ons."
-msgstr ""
-
-msgid "Homepage"
-msgstr "Domovská stránka"
-
-msgid ""
-"If your add-on has another homepage, enter its address here. If your website is localized into other languages multiple translations of this field can be added. It is only relevant for listed add-"
-"ons."
-msgstr ""
-
-msgid "Images"
-msgstr "Obrázky"
-
-msgid "Support Information"
-msgstr "Informácie o podpore"
-
-#. {0} is an addon name
-msgid "Support Information for {0}"
-msgstr "Informácie o podpore pre doplnok {0}"
 
 msgid "Email"
 msgstr "E-mailová adresa"
@@ -3079,8 +2967,11 @@ msgid ""
 "If your add-on has a support website or forum, enter its address here. If your website is localized into other languages, multiple translations of this field can be added. It is only relevant for "
 "listed add-ons."
 msgstr ""
-"Ak má váš doplnok stránku podpory alebo fórum, uveďte ich adresu tu. Ak je vaša webová stránka preložená do viacerých jazykov, môžete pridať viacero prekladov tohto poľa. Toto pole je relevantne "
+"Ak má váš doplnok stránku podpory alebo fórum, uveďte ich adresu tu. Ak je vaša webová stránka preložená do viacerých jazykov, môžete pridať viacero prekladov tohto poľa. Toto pole je relevantné "
 "len pre uverejnené doplnky."
+
+msgid "Images"
+msgstr "Obrázky"
 
 msgid "Technical Details"
 msgstr "Technické podrobnosti"
@@ -3096,21 +2987,6 @@ msgid ""
 "Any information end users may want to know that isn't necessarily applicable to the add-on summary or description. Common uses include listing known major bugs, information on how to report bugs, "
 "anticipated release date of a new version, etc. It is only relevant for listed add-ons."
 msgstr ""
-
-msgid "Required Add-ons"
-msgstr "Požadované doplnky"
-
-msgid "Limit 3"
-msgstr "Maximálne 3"
-
-msgid "Add-on Flags"
-msgstr "Označenia doplnku"
-
-msgid "These flags are used to classify add-ons. It is only relevant for listed add-ons."
-msgstr ""
-
-msgid "This add-on requires external software."
-msgstr "Tento doplnok vyžaduje externý softvér"
 
 msgid "View Source?"
 msgstr "Zobraziť zdrojový kód?"
@@ -3138,18 +3014,6 @@ msgstr "Štatistiky tohto doplnku sú verejne dostupné."
 msgid "No, this add-on's stats are not publicly viewable."
 msgstr "Štatistiky tohto doplnku nie sú verejne dostupné."
 
-msgid "Upgrade SDK?"
-msgstr "Aktualizovať SDK?"
-
-msgid "If selected, we will try to automatically upgrade your add-on when a new version of the SDK is released. It is only relevant for listed add-ons."
-msgstr ""
-
-msgid "This add-on will be automatically upgraded to new versions of the Add-on SDK."
-msgstr "Tento doplnok bude automaticky aktualizovaný na najnovšie verzie Add-on SDK."
-
-msgid "No, this add-on will be upgraded manually."
-msgstr "Nie, tento doplnok bude aktualizovaný ručne."
-
 msgid "Universally unique identifier"
 msgstr "Univerzálny unikátny identifikátor"
 
@@ -3162,19 +3026,10 @@ msgstr "Identifikátor UUID vášho doplnku je zadaný v jeho inštalačnom mani
 msgid "Whiteboard"
 msgstr "Poznámka pre redaktora"
 
-#, fuzzy
 msgid ""
 "The whiteboard is the place to provide information relevant to your addon, whatever the version, to the reviewers. Use it to provide ways to test the addon, and any additional information that may "
 "help. This whiteboard is also editable by reviewers."
 msgstr ""
-"Poznámka pre redaktora je miesto, kde môžete poskytnúť relevantné informácie o vašom doplnku redaktorovi. Používajte ho pre informácie typu, ako doplnok testovať a iné informácie, ktoré by mohli "
-"byť nápomocné. Túto poznámku môže redaktor upravovať."
-
-msgid "Remove this dependent add-on"
-msgstr "Odobrať tento závislý doplnok"
-
-msgid "Enter the name of an add-on"
-msgstr "Zadajte názov doplnku"
 
 msgid "Add-on Media for {0}"
 msgstr "Média doplnku pre {0}"
@@ -3204,11 +3059,24 @@ msgstr "64x64 bodov"
 msgid "Used in add-on detail pages."
 msgstr "Použitá na stránke podrobností o doplnku."
 
+#. The size of the icon
+msgid "128x128px"
+msgstr ""
+
+msgid "Will be the standard in future add-on detail pages."
+msgstr ""
+
 msgid "Upload a Custom Icon..."
 msgstr "Odoslať vlastnú ikonu..."
 
-msgid "PNG and JPG supported. Icons resized to 64x64 pixels if larger."
-msgstr "Podporované formáty: PNG a JPG. Ikony budú zmenšené na 64x64 bodov v prípade, že sú väčšie."
+msgid "PNG and JPG supported."
+msgstr ""
+
+msgid "Icons must be square and a minimum size of 128x128 pixels."
+msgstr ""
+
+msgid "Icons will be resized to 128x128 pixels if larger."
+msgstr ""
 
 msgid "Screenshots"
 msgstr "Ukážky"
@@ -3222,26 +3090,27 @@ msgstr "Zadajte názov pre túto ukážku:"
 msgid "Add a Screenshot..."
 msgstr "Pridať ukážku..."
 
-msgid ""
-"PNG and JPG supported. The maximum and recommended size for screenshots is 1280x800 pixels. 640x400 pixels is a good alternative if you only have smaller images. Having screenshots in your listing "
-"page greatly increases its chances of being installed and being featured in the homepage."
+msgid "PNG and JPG supported, PNG recommended. The maximum and recommended size for screenshots is 2400x1800 pixels."
+msgstr ""
+
+msgid "Minimum size is 1000x750, and a ratio of 4:3 is required."
+msgstr ""
+
+msgid "Having screenshots in your product page greatly increases its chances of being installed and being featured in the homepage."
 msgstr ""
 
 msgid "Continue"
 msgstr "Pokračovať"
 
 # 88%
-#, fuzzy
 msgid "Can others share your Add-on, as long as you're given credit?"
-msgstr "Môžu ďalší zdieľať vašu tému, ak vás uvedú ako autora?"
+msgstr ""
 
-#, fuzzy
 msgid "Can others make commercial use of your Add-on?"
-msgstr "Môžu ďalší komerčne využívať vašu tému?"
+msgstr ""
 
-#, fuzzy
 msgid "Can others create derivative works from your Add-on?"
-msgstr "Môžu ďalší vytvárať odvodené diela z vašej témy?"
+msgstr ""
 
 msgid "Yes, as long as they share alike"
 msgstr "Áno, ak je rešpektovaná pôvodná licencia"
@@ -3249,19 +3118,14 @@ msgstr "Áno, ak je rešpektovaná pôvodná licencia"
 msgid "The licensor permits others to distribute derivativeworks only under the same license or one compatible with the one that governs the licensor's work."
 msgstr "Licencia umožňuje ostatným distribuovať odvodenú prácu len pod rovnakou licenciou, prípadne inou, ktorá je však zlúčiteľná s licenciou pôvodného diela."
 
-#, fuzzy
 msgid "Your Add-on will be released under the following license:"
-msgstr "Vaša téma vzhľadu bude k dispozícii pod nasledujúcou licenciou:"
+msgstr ""
 
 msgid "Select a different license."
 msgstr "Zvoľte inú licenciu."
 
-#, fuzzy
 msgid "More information on Creative Commons licenses"
-msgstr "Požadované dodatočné informácie"
-
-msgid "Tests"
-msgstr "Testy"
+msgstr ""
 
 msgid "General Tests"
 msgstr "Všeobecné testy"
@@ -3313,8 +3177,8 @@ msgstr "Povedzte nám, prečo odstraňujete váš doplnok:"
 msgid "Actions"
 msgstr "Akcie"
 
-msgid "Resume the submission process for this add-on."
-msgstr "Pokračovať v procese odosielania pre tento doplnok."
+msgid "Resume the submission process for this add-on"
+msgstr ""
 
 msgid "Resume"
 msgstr "Pokračovať"
@@ -3325,16 +3189,16 @@ msgstr "Odstrániť tento doplnok"
 msgid "Delete"
 msgstr "Odstrániť"
 
-msgid "Edit information about this add-on."
-msgstr "Upraviť informácie o tomto doplnku."
+msgid "Edit details on this add-on's product page"
+msgstr ""
 
-msgid "Upload a new version of this add-on."
-msgstr "Odoslať novú verziu tohto doplnku"
+msgid "Upload a new version of this add-on"
+msgstr "Nahrať novú verziu tohto doplnku"
 
 msgid "New Version"
 msgstr "Nová verzia"
 
-msgid "Daily statistics on downloads and users."
+msgid "Daily statistics on downloads and users"
 msgstr "Denné štatistiky prevzatí a počtov používateľov"
 
 msgid "Statistics"
@@ -3343,32 +3207,26 @@ msgstr "Štatistika"
 msgid "Manage Status & Versions"
 msgstr "Správa stavu a verzií"
 
-msgid "View Add-on Listing"
-msgstr "Zobraziť stránku doplnku"
-
 msgid "View Recent Changes"
 msgstr "Zobraziť posledné zmeny"
 
-msgid "Edit details about this theme's listing."
-msgstr "Úprava detailov o stránke tejto témy vzhľadu."
+msgid "Edit details on this theme's product page"
+msgstr ""
 
-msgid "Edit Listing"
-msgstr "Upraviť údaje"
-
-msgid "View the popularity of this theme over time."
-msgstr "Zobraziť popularitu tejto témy vzhľadu v čase."
+msgid "View the popularity of this theme over time"
+msgstr "Zobraziť popularitu tejto témy vzhľadu v čase"
 
 msgid "View Statistics"
 msgstr "Zobraziť štatistiky"
 
-msgid "Change the owner of this theme."
-msgstr "Zmena vlastníka tejto témy vzhľadu."
+msgid "Change the owner of this theme"
+msgstr "Zmeniť vlastníka tejto témy vzhľadu"
 
 msgid "Transfer Ownership"
 msgstr "Presun vlastníctva"
 
-msgid "Delete this theme."
-msgstr "Odstrániť túto tému vzhľadu."
+msgid "Delete this theme"
+msgstr "Odstrániť túto tému vzhľadu"
 
 msgid "This add-on is missing some required information before it can be submitted for publication."
 msgstr ""
@@ -3396,10 +3254,16 @@ msgstr[2] "<strong>{0}</strong> aktívnych používateľov"
 msgid "Submit a New Version"
 msgstr "Odoslať novú verziu"
 
-msgid "Describe Add-on"
-msgstr "Popíšte doplnok"
+msgid "Name and Summary:"
+msgstr "Názov a súhrn:"
 
-msgid "Name on listing on this site. May be different to the name inside the add-on, which is shown inside Firefox"
+msgid "required"
+msgstr "vyžadované"
+
+#, python-format
+msgid ""
+"Warning: you have name/summary values in other locales that will be automatically cropped to fit under the limit of %(max_length)s characters.  To edit these go to Edit Product Page after the "
+"submission process is complete."
 msgstr ""
 
 msgid "Add-on URL:"
@@ -3408,11 +3272,14 @@ msgstr "URL adresa doplnku:"
 msgid "Please use only letters, numbers, underscores, and dashes in your URL."
 msgstr "V URL adresách používajte len znaky, čísla, podčiarky a pomlčky."
 
+msgid "Name on listing on this site. May be different to the name inside the add-on, which is shown inside Firefox"
+msgstr ""
+
 msgid "Summary:"
 msgstr "Súhrn:"
 
-msgid "required"
-msgstr "vyžadované"
+msgid "Description:"
+msgstr ""
 
 msgid "This add-on is experimental"
 msgstr "Tento doplnok je experimentálny"
@@ -3420,9 +3287,8 @@ msgstr "Tento doplnok je experimentálny"
 msgid "Check this option if your add-on is experimental or otherwise not ready for general use.  The add-on will be listed but will have reduced visibility.  You can change this setting later."
 msgstr ""
 
-#, fuzzy
 msgid "Select a category for this add-on:"
-msgstr "Zvoľte <b>{0}</b> kategóriu aplikácie {1} pre tento doplnok:"
+msgstr ""
 
 msgid "Support email:"
 msgstr "E-mail podpory:"
@@ -3433,16 +3299,14 @@ msgstr "Stránka podpory:"
 msgid "License:"
 msgstr "Licencia:"
 
-#, fuzzy
 msgid "Please choose a license appropriate for the rights you grant."
-msgstr "Vyberte prosím vhodnú licenciu vzhľadom k právam, ktoré chcete poskytnúť k svojmu zdrojovému kódu."
+msgstr ""
 
 msgid "If your add-on transmits any data from the user's computer, a privacy policy is required that explains what data is sent and how it is used."
 msgstr ""
 
-#, fuzzy
 msgid "Notes to Reviewer:"
-msgstr "Poznámky ku kontrole"
+msgstr ""
 
 msgid "Is there anything our reviewers should bear in mind when reviewing this add-on?"
 msgstr ""
@@ -3456,17 +3320,14 @@ msgid ""
 "%(policy_requirements_open)spolicy requirements%(policy_requirements_close)s."
 msgstr ""
 
-#, fuzzy
 msgid "These notes will only be visible to you and our reviewers."
-msgstr "Táto URL adresa bude viditeľná, len ak ste vývojár."
+msgstr ""
 
-#, fuzzy
-msgid "Cancel and Disable Version"
-msgstr "Verzia pre tlač"
-
-#, fuzzy
 msgid "Submit Version"
-msgstr "Odoslať novú verziu"
+msgstr ""
+
+msgid "Cancel and Disable Version"
+msgstr ""
 
 msgid "Describe Version"
 msgstr "Popíšte verziu"
@@ -3489,20 +3350,17 @@ msgstr "Ďalšie informácie o distribúcii a podpisovaní doplnkov"
 msgid "Submission Complete"
 msgstr "Odoslanie dokončené"
 
-#, fuzzy
 msgid "Version Submitted for Review"
-msgstr "Poznámky k verzii / Poznámky pre redaktora"
+msgstr ""
 
-#, fuzzy
 msgid "Preview of the version submitted"
-msgstr "Poznámky k verzii"
+msgstr ""
 
 msgid "You’re done! This version will be available after it passes review. You will be notified when it is reviewed."
 msgstr ""
 
-#, fuzzy
 msgid "Version Submitted"
-msgstr "Poznámky k verzii"
+msgstr ""
 
 msgid "You’re done! This version will be available on our site shortly."
 msgstr ""
@@ -3516,9 +3374,8 @@ msgstr ""
 msgid "Your listing will be more successful by adding a detailed description and screenshots. Get your listing ready for publication:"
 msgstr ""
 
-#, fuzzy
 msgid "Manage Listing"
-msgstr "Zobraziť doplnok"
+msgstr ""
 
 msgid "You can also edit this version to add version notes, or source code if your submission includes minified, obfuscated or compiled code."
 msgstr ""
@@ -3535,13 +3392,11 @@ msgstr ""
 msgid "Download {0}"
 msgstr "Prevziať {0}"
 
-#, fuzzy
 msgid "Go to My Submissions"
-msgstr "Moje aplikácie"
+msgstr ""
 
-#, fuzzy
 msgid "Source Code Upload"
-msgstr "Zdrojový kód bol nahratý"
+msgstr ""
 
 msgid "Do You Need to Submit Source Code?"
 msgstr ""
@@ -3595,9 +3450,8 @@ msgstr ""
 msgid "<span class=\"instruction-emphasis\">Note:</span> Source files (aside from open-source third party libraries) cannot be transpiled, obfuscated, minified or otherwise machine-generated."
 msgstr ""
 
-#, fuzzy
 msgid "How to Submit:"
-msgstr "Odoslať"
+msgstr ""
 
 msgid "Include instructions in a README file in the source code,"
 msgstr ""
@@ -3605,9 +3459,8 @@ msgstr ""
 msgid "or in reviewer notes on the next page (if applicable)."
 msgstr ""
 
-#, fuzzy
 msgid "Upload source code:"
-msgstr "Zdrojový kód"
+msgstr ""
 
 msgid "Add-on Distribution Agreement"
 msgstr "Dohoda o distribúcií doplnkov"
@@ -3615,54 +3468,50 @@ msgstr "Dohoda o distribúcií doplnkov"
 msgid "Upload Add-on"
 msgstr "Nahrať doplnok"
 
-#, fuzzy
 msgid "Where to Host Version"
-msgstr "Cieľová verzia"
+msgstr ""
+
+msgid "Change"
+msgstr "Zmeniť"
 
 msgid "Upload Version"
 msgstr "Nahrať verziu"
 
-#, fuzzy
 msgid "Use the fields below to upload your add-on package. After upload, a series of automated validation tests will be run on your file."
-msgstr "Pre načítanie balíčka so svojim doplnkom a výber cieľových platforiem použite pole nižšie. Po načítaní bude spustená sada automatizovaných testov, ktoré váš balíček skontrolujú."
+msgstr ""
 
-#, fuzzy
 msgid "Which applications is this version compatible with?"
-msgstr "S ktorými platformami je tento súbor kompatibilný?"
+msgstr ""
 
 msgid "Administrative overrides"
 msgstr "Zmeny pri administrácií"
 
-#, fuzzy
 msgid "Create a Theme Version"
-msgstr "Vytvorenie novej témy"
+msgstr ""
 
-#, fuzzy
 msgid "Create a Theme"
-msgstr "Vytvorenie novej témy"
+msgstr ""
 
 msgid "Sign Add-on"
 msgstr "Podpísať doplnok"
 
-#, fuzzy
 msgid "Theme generate"
-msgstr "Téma odstránená."
+msgstr ""
 
-#, fuzzy
 msgid "Theme generator"
-msgstr "Licencia témy"
+msgstr ""
 
-#, fuzzy
+msgid "Warning: the following manifest properties that your most recent version upload used in it's manifest are unsupported in this wizard and will be ignored:"
+msgstr ""
+
 msgid "Theme name"
-msgstr "názov témy"
+msgstr ""
 
-#, fuzzy
 msgid "Select a header image for your theme"
-msgstr "Vyberte obrázok hlavičky pre vašu tému."
+msgstr ""
 
-#, fuzzy
 msgid "Recommended height: 200 pixels"
-msgstr "Výška obrázku by mala byť 200 pixelov"
+msgstr ""
 
 msgid "6.9MB max"
 msgstr ""
@@ -3676,65 +3525,23 @@ msgstr "Zarovnané k ľavému hornému okraju"
 msgid "Select a different header image"
 msgstr "Zvoľte iný obrázok hlavičky"
 
-#, fuzzy
 msgid "Select colors for your theme"
-msgstr "Zvoľte farby vašej témy."
-
-msgid "Header area background"
 msgstr ""
 
-msgid "The color of the header area background, displayed in the part of the header not covered or visible through the header image. Manifest field:  accentcolor."
-msgstr ""
-
-msgid "Header area text and icons"
-msgstr ""
-
-msgid "The color of the text and icons in the header area, except the active tab. Manifest field:  textcolor."
-msgstr ""
-
-msgid "Toolbar area background"
-msgstr ""
-
-msgid "The background color for the navigation bar, the bookmarks bar, and the selected tab.  Manifest field:  toolbar."
-msgstr ""
-
-msgid "Toolbar area text and icons"
-msgstr ""
-
-#, fuzzy
-msgid "The color of the text and icons in the toolbar and the active tab. Manifest field:  toolbar_text."
-msgstr "Jedná sa o farbu textov na kartách."
-
-msgid "Toolbar field area background"
-msgstr ""
-
-msgid "The background color for fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field."
-msgstr ""
-
-msgid "Toolbar field area text"
-msgstr ""
-
-msgid "The color of text in fields in the toolbar, such as the URL bar. Manifest field:  toolbar_field_text."
-msgstr ""
-
-#, fuzzy
 msgid "optional"
-msgstr "(voliteľné)"
+msgstr ""
 
-#, fuzzy
 msgid "Browser preview"
-msgstr "Presunutím myši nad tému zobrazíte ukážku"
+msgstr ""
+
+msgid "Uploading Theme"
+msgstr ""
+
+msgid "Finish Theme"
+msgstr ""
 
 msgid "Back"
 msgstr "Naspäť"
-
-#, fuzzy
-msgid "Uploading Theme"
-msgstr "Zaujímavé témy"
-
-#, fuzzy
-msgid "Finish Theme"
-msgstr "Témy v kategórii %s"
 
 msgid "API Credentials"
 msgstr "Prihlasovacie údaje k API"
@@ -3758,9 +3565,8 @@ msgid ""
 "\">API documentation</a>."
 msgstr ""
 
-#, fuzzy
 msgid "You don't have any API credentials."
-msgstr "Nemám účet."
+msgstr ""
 
 msgid "Revoke"
 msgstr "Odvolať"
@@ -3777,9 +3583,8 @@ msgstr "Neviditeľný"
 msgid "Please complete your add-on by adding a version or missing metadata."
 msgstr ""
 
-#, fuzzy
 msgid "You will receive an email when the review is complete. Until then, your add-on is not listed in our gallery but can be accessed directly from its details page. "
-msgstr "Až bude kontrola dokončena, bude vám zaslán e-mail. Do té doby není váš doplněk umístěn v seznamech doplňků, ale je dostupný přímo na stránce s informacemi o doplňku."
+msgstr ""
 
 msgid "Your add-on is displayed in our gallery and users are receiving automatic updates."
 msgstr "Váš doplnok je zobrazený v našej galérii a používatelia automaticky prijímajú aktualizácie."
@@ -3795,28 +3600,20 @@ msgid "Created:"
 msgstr "Vytvorené:"
 
 #. {0} is a date. dennis-ignore: E201,E202,W202
-msgid "Add-on Multi Process Status:"
-msgstr "Stav kompatibility doplnku s multiprocesorovou architektúrou:"
-
-msgid "Your add-on compatibility with Multi Process Firefox (e10s)."
-msgstr "Kompatibilita vášho doplnku s multiprocesorovým Firefoxom (e10s)."
-
-msgid "Listed on this site after passing code review. Automatic updates are handled by this site."
+msgid "Listed on this site after passing code review. Automatic updates are handled by this site"
 msgstr ""
 
-#, fuzzy
 msgid "Listed Version:"
-msgstr "Posledná verzia:"
-
-msgid "This is the version of your add-on that will be installed if someone clicks the Install button on addons.mozilla.org."
 msgstr ""
 
-#, fuzzy
-msgid "Next Listed Version:"
-msgstr "Ďalšia verzia:"
+msgid "This is the version of your add-on that will be installed if someone clicks the Install button on addons.mozilla.org"
+msgstr ""
 
-msgid "This is the newest uploaded version, however it isn’t live on the site yet."
-msgstr "Toto je najnovšia nahraná verzia, no napriek tomu ešte nebola na stránkach zverejnená."
+msgid "Next Listed Version:"
+msgstr ""
+
+msgid "This is the newest uploaded version, however it isn’t live on the site yet"
+msgstr "Toto je najnovšia nahraná verzia, no napriek tomu ešte nebola na stránkach zverejnená"
 
 msgid "Queues are not reviewed strictly in order"
 msgstr "Fronty nie sú striktne prechádzané podľa poradia"
@@ -3834,9 +3631,8 @@ msgstr ""
 msgid "Latest Version:"
 msgstr "Posledná verzia:"
 
-#, fuzzy
-msgid "This is the newest uploaded unlisted version."
-msgstr "Toto je najnovšia nahraná verzia, no napriek tomu ešte nebola na stránkach zverejnená."
+msgid "This is the newest uploaded unlisted version"
+msgstr ""
 
 msgid "Upload New Version"
 msgstr "Odoslať novú verziu"
@@ -3844,26 +3640,14 @@ msgstr "Odoslať novú verziu"
 msgid "View All"
 msgstr "Zobraziť všetko"
 
-#, fuzzy
 msgid "Listed Review Page"
-msgstr "Posledná recenzia"
+msgstr ""
 
-#, fuzzy
 msgid "Unlisted Review Page"
-msgstr "Recenzie používateľa"
+msgstr ""
 
 msgid "View Statistics Dashboard"
 msgstr "Zobraziť štatistiku"
-
-msgid "Compatibility Reports"
-msgstr "Hlásenia o kompatibilite"
-
-msgid "{0} failure reports"
-msgstr "{0} chybových hlásení"
-
-# 94%
-msgid "{0} success reports"
-msgstr "{0} úspešných hlásení"
 
 msgid "Developer News"
 msgstr "Novinky od vývojárov"
@@ -3871,13 +3655,11 @@ msgstr "Novinky od vývojárov"
 msgid "View the blog &#9658;"
 msgstr "Zobraziť blog &#9658;"
 
-#, fuzzy
 msgid "Pending information request:"
-msgstr "Požadované dodatočné informácie"
+msgstr ""
 
-#, fuzzy
 msgid "This request for information has been resolved"
-msgstr "Táto verzia nebola skontrolovaná."
+msgstr ""
 
 msgid "Please choose a license appropriate for the rights you grant on your source code. It is only relevant for listed add-ons."
 msgstr ""
@@ -3949,9 +3731,6 @@ msgstr "Kontaktujte nás"
 msgid "Support"
 msgstr "Podpora"
 
-msgid "Policies"
-msgstr "Zásady"
-
 msgid "Report Bug"
 msgstr "Nahlásiť chybu"
 
@@ -3961,17 +3740,12 @@ msgstr "Stav stránky"
 msgid "Web-Ext: build & test extensions"
 msgstr ""
 
-# 89%
-msgid "Compatibility Checker"
-msgstr "Kontrola kompatibility doplnku"
-
 msgid "Promote"
 msgstr "Propagácia"
 
 # 82%
-#, fuzzy
 msgid "Get Your Add-on Featured"
-msgstr "Správa vášho doplnku"
+msgstr ""
 
 msgid "\"Get The Add-on\" button"
 msgstr ""
@@ -3985,9 +3759,8 @@ msgstr "Nahlásiť zneužitie ochrannej známky"
 msgid "Legal Notices"
 msgstr "Právne informácie"
 
-#, fuzzy
 msgid "Review Add-ons"
-msgstr "Skontrolovať tento doplnok"
+msgstr ""
 
 msgid "Volunteer reviewers help keep add-ons safe and reliable to use. They enjoy great perks too!"
 msgstr ""
@@ -4004,9 +3777,8 @@ msgstr ""
 msgid "Get started"
 msgstr "Začíname"
 
-#, fuzzy
 msgid "More Ways to Participate"
-msgstr "Množstvo spôsobov prispôsobenia"
+msgstr ""
 
 msgid "You don't need coding skills to help keep Firefox the most customizable browser available!"
 msgstr ""
@@ -4015,35 +3787,25 @@ msgid "See how"
 msgstr ""
 
 # 82%
-#, fuzzy
 msgid "Manage Your Add-on"
-msgstr "Správa vášho doplnku"
+msgstr ""
 
 msgid "Sign In to Edit and Update Your Add-on"
 msgstr ""
 
-msgid "Resources for a successful launch"
+msgid "Write one code base for many browsers"
 msgstr ""
 
-#, python-format
 msgid ""
-"You've built your extension and are ready to publish it. What comes next? Check out our tips for creating an appealing listing page, getting your extension featured on %(amo_link_open)saddons."
-"mozilla.org%(amo_link_close)s, finding answers to development questions, and staying up-to-date with news and events relevant to extension developers."
+"With the WebExtensions API, it’s easy to create extensions that will run on Firefox, Chrome, Opera, and Edge with only a few small changes. Learn more about the differences in extension development "
+"between the four major browsers and how you can make your extension cross-browser compatible."
 msgstr ""
 
-#, fuzzy
-msgid "View Resources for Publishers"
-msgstr "Zobraziť štatistiky používateľa"
+msgid "View Best Practices for Cross-Browser Development"
+msgstr ""
 
-#, fuzzy
 msgid "Welcome Back"
-msgstr "Vitajte, {0}"
-
-msgid "Help users discover your extension by creating an appealing listing."
 msgstr ""
-
-msgid "Learn How"
-msgstr "Ďalšie informácie"
 
 #, python-format
 msgid "Want your extension to be featured on %(amo_link_open)saddons.mozilla.org%(amo_link_close)s? Our featured extensions policies will tell you what you need to know."
@@ -4052,22 +3814,28 @@ msgstr ""
 msgid "Learn More"
 msgstr "Ďalšie informácie"
 
+msgid "You can help users gain confidence and trust in your extension by following our best practices for onboarding users."
+msgstr ""
+
+msgid "See Best Practices"
+msgstr ""
+
+msgid "Listed on this site after passing code review. Automatic updates are handled by this site."
+msgstr ""
+
 #. {0} is a date. dennis-ignore: E201,E202,W202
-#, fuzzy
 msgid "View All Submissions"
-msgstr "Zobraziť všetky verzie"
+msgstr ""
 
 msgid "This is where you view and manage your add-ons and themes. To publish your first add-on, click \"Submit Your First Add-on\" or \"Submit Your First Theme\"."
 msgstr ""
 
 # 82%
-#, fuzzy
 msgid "Submit Your First Add-on"
-msgstr "Pridať doplnok"
+msgstr ""
 
-#, fuzzy
 msgid "Submit Your First Theme"
-msgstr "Pridať tému"
+msgstr ""
 
 # The title for a user if they are a developer
 msgid "Add-on Developer Hub"
@@ -4098,21 +3866,21 @@ msgid ""
 "%(link_close)s, you already have all the necessary skills to make a great add-on."
 msgstr ""
 
-#, fuzzy
 msgid "Learn How to Make an Add-on"
-msgstr "Naučte sa vytvárať doplnky"
+msgstr ""
 
-#, fuzzy
 msgid "Port a Chrome Extension"
-msgstr "Populárne doplnky"
+msgstr ""
 
 msgid ""
 "Firefox supports WebExtension APIs, which in most cases are compatible with the extension APIs supported by Chrome, Opera and Edge, so your extensions will run in Firefox with just a few changes."
 msgstr ""
 
-#, fuzzy
+msgid "Learn How"
+msgstr "Ďalšie informácie"
+
 msgid "Publish Your Add-on"
-msgstr "Publikujte svoj doplnok!"
+msgstr ""
 
 msgid "Have an add-on ready? Submit your extension or theme to be listed on addons.mozilla.org or sign and distribute your extension on your own."
 msgstr ""
@@ -4135,18 +3903,27 @@ msgstr "Testy kompatibility"
 msgid "Check to see if your extension is compatible with Firefox."
 msgstr "Overte si, či je vaše rozšírenie kompatibilné s Firefoxom."
 
-#, fuzzy
 msgid "Live Testing"
-msgstr "Zobraziť doplnok"
+msgstr ""
 
 msgid "Temporarily install your extension in Firefox for live testing and debugging."
 msgstr ""
 
-msgid "Transfer ownership"
-msgstr "Presun vlastníctva"
+msgid "Lightweight Theme editing has been disabled."
+msgstr ""
+
+msgid "Create a New Theme"
+msgstr "Vytvorenie novej témy"
+
+#, python-format
+msgid "Background themes let you easily personalize the look of your Firefox. Submit your own design below, or <a href=\"%(submit_url)s\">learn how to create one</a>!"
+msgstr "Témy vám dávajú možnosť jednoducho si prispôsobiť vzhľad vášho Firefoxu. Pridajte svoj vlastný motív nižšie alebo <a href=\"%(submit_url)s\">si prečítajte, ako vytvoriť nový</a>!"
 
 msgid "Theme Details"
 msgstr "Detaily o téme"
+
+msgid "Give your Theme a name."
+msgstr "Pomenujte vašu tému."
 
 msgid "Supply a pretty URL for your detail page."
 msgstr "Nastavte si peknú URL adresu pre stránku detailu."
@@ -4158,36 +3935,14 @@ msgstr "Zvoľte kategóriu, ktorá najlepšie popisuje vašu tému."
 msgid "Add some tags to describe your Theme."
 msgstr "Pridajte značky, ktoré popisujú vašu tému."
 
-msgid "A short explanation of your theme's basic functionality that is displayed in search and browse listings, as well as at the top of your theme's details page."
-msgstr "Krátky popis vašej témy, ktorý je zobrazený vo vyhľadávaní, prehľade kategórií, alebo priamo na stránke s detailom témy."
+msgid "Describe your Theme."
+msgstr "Popíšte svoju tému."
+
+msgid "A short explanation of your theme's basic functionality that is displayed in search and browse listings, as well as at the top of your theme's details page"
+msgstr "Krátky popis vašej témy, ktorý je zobrazený vo vyhľadávaní, prehľade kategórií, alebo priamo na stránke s podrobnosťami témy"
 
 msgid "Theme License"
 msgstr "Licencia témy"
-
-# 88%
-msgid "Can others share your Theme, as long as you're given credit?"
-msgstr "Môžu ďalší zdieľať vašu tému, ak vás uvedú ako autora?"
-
-msgid "The licensor permits others to copy, distribute, display, and perform the work, including for commercial purposes."
-msgstr "Autor dáva ďalším právo kopírovať, distribuovať, zobrazovať a upravovať. Tieto povolenia platia aj pre komerčné využívanie."
-
-msgid "The licensor permits others to copy, distribute, display, and perform the work for non-commercial purposes only."
-msgstr "Autor dáva ďalším právo kopírovať, distribuovať, zobrazovať a upravovať. Tieto povolenia neplatia pre komerčné využívanie."
-
-msgid "Can others make commercial use of your Theme?"
-msgstr "Môžu ďalší komerčne využívať vašu tému?"
-
-msgid "Can others create derivative works from your Theme?"
-msgstr "Môžu ďalší vytvárať odvodené diela z vašej témy?"
-
-msgid "The licensor permits others to copy, distribute, display and perform the work, as well as make derivative works based on it."
-msgstr "Autor dáva ostatným právo kopírovať, distribuovať, zobrazovať a upravovať. Dáva tiež dovolenie na vytváranie odvodených diel."
-
-msgid "The licensor permits others to copy, distribute and transmit only unaltered copies of the work — not derivative works based on it."
-msgstr ""
-
-msgid "Your Theme will be released under the following license:"
-msgstr "Vaša téma vzhľadu bude k dispozícii pod nasledujúcou licenciou:"
 
 msgid "Select a license for your Theme."
 msgstr "Zvoľte licenciu vašej témy."
@@ -4195,55 +3950,27 @@ msgstr "Zvoľte licenciu vašej témy."
 msgid "Theme Design"
 msgstr "Vzhľad témy"
 
-msgid "Upload New Design"
-msgstr "Načítať nový návrh"
-
-msgid "Upon upload and form submission, the AMO Team will review your updated design. Your current design will still be public in the meantime."
-msgstr "Po načítaní a odoslaní vykoná tím AMO kontrolu vami aktualizovanej témy. Vaša aktuálna téma bude medzi tým stále k dispozícií na webe."
-
-msgid "Your previously resubmitted design, which is under pending review."
-msgstr "Vami skôr odoslaná téma, ktorá čaká na kontrolu."
-
-msgid "Pending Header"
-msgstr "Čakajúca hlavička"
-
-msgid "You may update your theme design here once it has been approved."
-msgstr "Svoj návrh témy budete môcť aktualizovať, až keď bude schválený."
-
-msgid "Header"
-msgstr "Hlavička"
-
 msgid "Select colors for your Theme."
 msgstr "Zvoľte farby vašej témy."
 
 msgid "Foreground Text"
 msgstr "Text popredia"
 
-msgid "This is the color of the tab text."
-msgstr "Jedná sa o farbu textov na kartách."
+msgid "This is the color of the tab text"
+msgstr "Toto je farba textu na kartách"
 
 msgid "Background"
 msgstr "Pozadie"
 
-msgid "This is the color of the tabs."
-msgstr "Toto je farba kariet."
+msgid "This is the color of the tabs"
+msgstr "Toto je farba kariet"
 
 msgid "Your Theme's Name"
 msgstr "Názov vašej témy"
 
 #, python-format
-msgid "by <a href=\"%(profile_url)s\">%(user)s</a>"
-msgstr "od <a href=\"%(profile_url)s\">%(user)s</a>"
-
-msgid "Create a New Theme"
-msgstr "Vytvorenie novej témy"
-
-#, python-format
-msgid "Background themes let you easily personalize the look of your Firefox. Submit your own design below, or <a href=\"%(submit_url)s\">learn how to create one</a>!"
-msgstr "Témy vám dávajú možnosť jednoducho si prispôsobiť vzhľad vášho Firefoxu. Pridajte svoj vlastný motív nižšie alebo <a href=\"%(submit_url)s\">si prečítajte, ako vytvoriť nový</a>!"
-
-msgid "Give your Theme a name."
-msgstr "Pomenujte vašu tému."
+msgid "by <a href=\"%(profile_url)s\">%(user_name)s</a>"
+msgstr "autor: <a href=\"%(profile_url)s\">%(user_name)s</a>"
 
 #, python-format
 msgid ""
@@ -4314,9 +4041,8 @@ msgstr "Stav schválenia"
 msgid "Notes for Reviewers"
 msgstr "Poznámky ku kontrole"
 
-#, fuzzy
 msgid "Optionally, enter any information that may be useful to the Reviewer of this add-on, such as test account information."
-msgstr "Voliteľné, môžete zadať informácie, ktoré by mohli byť užitočné pre editora pri kontrole tohto doplnku, ako napríklad informácie o testovacom účte."
+msgstr ""
 
 msgid "Source code"
 msgstr "Zdrojový kód"
@@ -4347,9 +4073,8 @@ msgstr "0 súborov"
 msgid "Re-enable Version"
 msgstr "Opätovne povoliť verziu"
 
-#, fuzzy
 msgid "Close Review History"
-msgstr "História kontrol"
+msgstr ""
 
 msgid "Not validated."
 msgstr "Nie je overená."
@@ -4363,9 +4088,8 @@ msgstr "Požiadať o kontrolu"
 msgid "Cancel Review Request"
 msgstr "Zrušiť požiadavku o kontrolu"
 
-#, fuzzy
 msgid "Loading Review History..."
-msgstr "Vaša história kontrol"
+msgstr ""
 
 msgid "We had a problem retrieving review notes"
 msgstr ""
@@ -4379,21 +4103,18 @@ msgstr "Zanechať odpoveď"
 msgid "Reply"
 msgstr "Odpovedať"
 
-#, fuzzy
 msgid "Listing visibility"
-msgstr "Viditeľnosť doplnku"
-
-#, fuzzy
-msgid "{label_open}Visible:{label_close} Visible to everyone on {site_url} and included in search results and listing pages."
-msgstr "Viditeľný pre každého na {0} a zobrazovaný vo výsledkoch vyhľadávania a v zoznamoch na stránkach"
-
-msgid ""
-"{label_open}Invisible:{label_close} Won't be included in search results, and its listing page will indicate you disabled it. New version submissions for listing won't be accepted in this state."
 msgstr ""
 
-#, fuzzy
+msgid "{label_open}Visible:{label_close} Visible to everyone on {site_url} and included in search results and product pages."
+msgstr ""
+
+msgid ""
+"{label_open}Invisible:{label_close} Won't be included in search results, and its product page will indicate you disabled it. New version submissions for product won't be accepted in this state."
+msgstr ""
+
 msgid "Listed versions"
-msgstr "Zobraziť ďalšie verzie"
+msgstr ""
 
 msgid "Currently on AMO"
 msgstr "Aktuálne na AMO"
@@ -4416,6 +4137,9 @@ msgstr "Všetky verzie"
 
 msgid "Upload a New Version"
 msgstr "Odoslať novú verziu"
+
+msgid "Version"
+msgstr "Verzia"
 
 msgid "Delete Version {version}"
 msgstr "Odstránenie verzie {version}"
@@ -4452,9 +4176,8 @@ msgstr ""
 msgid "Are you sure you wish to hide your add-on?"
 msgstr "Naozaj chcete skryť svoj doplnok?"
 
-#, fuzzy
 msgid "Canceling your review request will mark your add-on incomplete, and any versions awaiting review will be disabled."
-msgstr "Zrušením vaší žádosti o kontrolu označíte svůj doplněk jako nekompletní. Pokud svůj doplněk během několika dní nedokončíte opětovnou žádostí o kontrolu, bude smazán."
+msgstr ""
 
 msgid "Are you sure you wish to cancel your review request?"
 msgstr "Naozaj chcete zrušiť vašu žiadosť o kontrolu?"
@@ -4479,81 +4202,72 @@ msgstr[1] "{0} upozornenia"
 msgstr[2] "{0} upozornení"
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Stop sneaky trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Block invisible trackers and spying ads that follow you around the web."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Customize new tab pages {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enjoy a beautiful new page with customizable backgrounds, local weather info, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Translate easily {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Highlight any text, right-click, and translate instantly."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Search Images {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Perform reverse image searches from an array of engines."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Ad blocking & privacy protection {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "A simple set-up lets you take control of the ads you see and how you’re tracked on the internet."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Re-imagine tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Do you have a ton of open tabs? Organize them in a tidy sidebar."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Stop Facebook tracking {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Isolate your Facebook identity into a separate “container” that makes it harder for Facebook to track your movements around the web."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Simplify search {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Just highlight text on any web page to search the phrase from an array of engines."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Instant weather updates {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get instant global weather information right in Firefox."
@@ -4568,9 +4282,8 @@ msgid "Choose the page you see every time you open a new tab."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Reverse image search {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "See an interesting picture on the web and want to learn more about it? Try this image search tool."
@@ -4585,164 +4298,144 @@ msgid "Works with YouTube, Facebook, Vimeo, Twitch, Dailymotion, Periscope, and 
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Enhance your emoji game {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Dozens of amazing emojis for every occasion—always just a click away."
-msgstr "Tucty úžasných smajlíkov na každú príležitosť - vždy poruke."
+msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Manage passwords {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Simplify and sync all your various website logins across devices with one password to rule them all."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Block ads {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "A lightweight and effective ad blocker. uBlock Origin enforces thousands of content filters without chewing up a bunch of memory."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Improve videos {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enjoy a suite of new YouTube features, like cinema mode, ad blocking, auto-play control, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Easily find images {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Highlight any text and right-click to quickly perform an image search."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Enjoy visual bookmarks {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Access your favorite sites from a tile layout."
-msgstr "Uložte si svoje obľúbené položky z pohodlia vášho prehliadača."
+msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Access knowledge {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Automatically add Britannica facts to your search results."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Remove YouTube Ads {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Block annoying ads and annotations from appearing on YouTube."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Read anywhere {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Send news articles, stories, blog posts, and more to your Kindle."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Color code your tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Organize your tabs by color grouping them based on URL patterns."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Prevent cryptocurrency mining {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Stop malicious websites from using your computer power to mine for cryptocurrency."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Automatic grammar checks {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get grammar help anywhere you write on the web—social media, email, docs, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Check global times {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Display current worldwide times in Firefox's status bar."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Easy translations {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Highlight text on any webpage—or select the entire page— to translate instantly."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Tap academic wisdom {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enjoy free access to 10+ million research papers."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Customize mouse gestures {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Discover a new way to navigate with 50+ helpful mouse gestures."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Optimize videos {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Darken the page around video players for a focused viewing experience."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Search in good conscience {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 #, python-format
@@ -4750,212 +4443,180 @@ msgid "Ecosia uses 80% of its search profits to fund tree-planting programs arou
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Find missing web content  {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Is the page you're looking for unavailable? Search for an archived/cached version."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Find missing web content {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Enlarge images {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Simply hover over an image to magnify it."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Make cookies disappear {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Automatically erase cookies after you close a tab."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Adjust page size view {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "A simple way to adjust the size of any page's text—or even enlarge the page itself."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Block invisible trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Stop trackers in their tracks and learn more about them."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Leave a clean digital trail {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Vylepšite svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Make Firefox forget website data like cookies and local storage, but only for domains you choose."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Save text for later {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Stop writing the same thing over and over again! If you frequently re-use the same phrases in your work or other communications, save them in Clippings and easily paste them when needed."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Block email ads {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get more screen space by removing ads from your web-based inbox."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Find your tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Manage your open tabs in a tidy sidebar."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Avoid sneaky trackers and restrictions {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Disguise your navigation by cloaking the identity of your browser and operating system."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Refresh tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Automatically reload tabs based on time intervals you set."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Separate your online lives {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Privately distinguish your various online identities—work, personal, etc.—through color-coded tabs that split your digital cookie trail."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Stop trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Gain an additional layer of tracking protection as you browse the web."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Read ePub files {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enjoy ePub files right in Firefox—increase font size, page dimensions, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Elevate your YouTube experience {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Play videos by default in the highest quality, turn off annotations, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Track the trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get a glimpse into who's tracking you with just a click."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Change your proxy server {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Surf the web through self-defined proxy settings."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Control video playback {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enhance your viewing experience by adjusting video speed and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Browse securely {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Add encrypted security to any site that supports HTTPS."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Shop & save {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get the best coupons automatically applied to your shopping cart at checkout."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Swift translations {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Translate highlighted text or the entire webpage"
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Improve Reddit {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Change the way you surf Reddit by using tags and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Capture the web {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Screenshot webpages, make edits, and share."
@@ -4966,18 +4627,16 @@ msgid "A superior Windows-only downloader tool."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Know your trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Find out who's tracking you and where they may be sharing your information."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Surf anonymously {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Browse the web with disguised identity—even appear as if you're browsing from another country."
@@ -4988,441 +4647,352 @@ msgid "Access your favorite sites, recently closed tabs, and more—all from a g
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Set your homepage {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Designate a custom home page for your new tabs."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "List your tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Convert all your open tabs into a list to easily manage them and speed up Firefox."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Robust download management {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Check the state of your downloads through a status bar, download history page, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Capture web content {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Save information from the internet to OneNote so you can edit, annotate, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Search tracking protection {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Stop trackers when you click Google and Yandex search returns."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Dynamic navigation {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Use mouse gestures to close tabs, go back one page, reload, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Add images to search returns {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enjoy thumbnail images alongside your search returns."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Ease eye strain {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Make the web easier on the eyes by darkening its display."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Stop pop-ups {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Block all pop-ups by default, then decide which ones you'd like to open."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Customize your favorite websites {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Change the look of any website! Shift colors, page backgrounds, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Customize your new tab {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Edit the new tab page to display your preferred number of tiles, background image, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Get quick translations {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Highlight text on any website, right-click, and translate instantly."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Manage your passwords {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Store passwords securely and access them across multiple devices."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Know where you go on the web {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get the country location for websites you visit. Be an informed internet traveler."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Enhance your reading experience {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Make the text you're reading more appealing by removing the clutter around it."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Open multiple links {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Right-click and drag over links you want open in new tabs."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Retrieve tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Access recently closed tabs by right-clicking the icon in your toolbar."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Inspire productivity {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Modify your new tab page to display a beautiful background, set your daily focus, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "View images {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Brings back the \"View image\" button while searching on Google Images."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Increase productivity {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Block time-wasting sites so you can focus on the task at hand."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Refresh Tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Automatically reload tabs based on time intervals."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Fix your favorites {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Find and resolve broken bookmarks, duplicates, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Stress less {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get things done with a helpful to-do list that syncs across devices."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Shop Smarter {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Track historical pricing, find competing products, know the seller's ratings, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Make it your YouTube {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Play videos in a pop-out window, only see ads within subscribed channels, take video screenshots, and so much more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Explore website traffic {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get in-depth engagement and traffic information for any website."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Style Wikipedia {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Applies a fresh and modern appearance to Wikipedia."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Work faster {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Use mouse gestures to get to things done—quicker."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Disguise the page {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Hide portions of the website you're viewing."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Download pictures {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Grab images from any website and download them."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Mask your location {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Disguise your location to throw off trackers and protect your privacy."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Self-censor {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Restrict access to inappropriate or undesired content with a filter."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Improve new tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Open a new tab to the right of your current tab, not at the end of the row."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Conquer spam {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Use clever temporary email addresses to remain anonymous and avoid spam."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Alter your privacy {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Easily customize the built-in privacy settings in Firefox."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Enhance your experience on VK {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Remove ads and download audio from VK."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Get instant translations {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Access immediate translation by highlighting text and clicking the button that pops up."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Customize new tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Get creative and customize your new tab page by displaying your favorite sites and selecting a theme."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "No more redirects {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Go straight to the website you want to access without being redirected in between."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "WhatsApp on the web {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Access WhatsApp from within Firefox's toolbar panel to get badge notification of unread threads."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Translate to/from German {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Get expert German translations between English, French, Spanish, and other languages."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Create a website block list {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Restrict Firefox from accessing websites you define."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Work smarter {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Manage your productivity by working in set time intervals."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Easy reading {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Check your favorite RSS feeds all in a single page."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Reduce eye strain {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enable night mode for a better viewing experience."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Search images {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Reverse image search by leveraging the power of multiple search providers."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Save it for later {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Store web pages to access across devices."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Easily select bookmark locations {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "A better way to save bookmarks if you use multiple bookmark folders."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Zero formatting {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Strip away unnecessary formatting and copy just the plain text."
@@ -5433,297 +5003,232 @@ msgid "Convert an entire webpage to your preferred language—with the click of 
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Extract links {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Instantly display all links from a webpage in new tabs."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "View documents {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Access PDFs using your preferred PDF application."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Skip redirects & trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Strip away redirect pages and URL tracking parameters."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Stop search trackers {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Prevent search engines from knowing what search results you click on."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Download YouTube videos {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Download video and/or audio."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Gather reading material {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Vylepšite svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "An advanced reader for aggregating all of your RSS/Atom/RDF sources."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Jot it down {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Create general and website-specific notes to review later."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Phone-like scrolling {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Features \"grab-n-drag\" mouse scrolling for desktop webpages."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Delete data {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Clear your browser cache with a click or keystroke."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Never forget again {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Create and manage a to-do list in your browser."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Highlight text {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Enjoy a highly customizable text highlighter with different colors and save options."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Enjoy music from around the world {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Access 30,000+ radio stations from all over the globe."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Listen to videos {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Save bandwidth by just streaming the audio from YouTube clips."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Transform text into images {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Turn words into beautiful headlines and image overlay text."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Surf safely {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Navigate to the secure version of a website if it's available."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Delete your navigation history {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Specify a custom number of days to retain browser history before it's automatically cleared."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Remove search ads {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Stop ads from appearing within your search results."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Manage passwords safely {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Store passwords securely and sign in to known websites automatically."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Block ads & tracking {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Protect your privacy by blocking ads and trackers (plus, you'll speed up page loads)."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Fill forms automatically {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Save entered data once and it will autofill next time."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Browse privately {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Jump into private browsing mode with a click."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Stop tab hijacking {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Don't let clicked links take control of your current tab and load content you didn't ask for."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Easily access Wikipedia {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Perform a Wikipedia search by simply highlighting text from any webpage and right-clicking."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Discover site-specific content {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Find what you're looking for within a specific domain."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Find videos {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Highlight text from any website and right-click to search YouTube for related media."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Gain an Amazon edge {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "When looking at product pages on other online shops, if it's also available on Amazon you can simply click a button to check its Amazon listing."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Tweet it out {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Easily broadcast web content to your Twitter following."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Ultimate tab control {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "So many tab control options—close duplicate tabs, merge windows, copy the tab title, and more."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Enjoy a strange education {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Load a random Wikipedia article each time you open a new tab."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Change up your new tab {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Configure new tab pages to display custom background colors and images."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Cat lovers rejoice {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Rozšírte svoju paletu smajlíkov {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Meet an adorable kitty with every new tab. Give it a scratch behind the ear and see what happens."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Decrease productivity {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "For those moments when you need to fire lasers out of a cat."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Search Firefox {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Easily access your open tabs, bookmarks, and history."
@@ -5734,54 +5239,40 @@ msgid "Lots of open tabs? Skip the scrolling and search via keyboard shortcuts."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
-msgid "Explore what's beneath {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
-
-#. editorial content for the discovery pane.
-msgid "Uncover the software that supports whatever website you're visiting."
-msgstr ""
-
-#. editorial content for the discovery pane.
-#, fuzzy
 msgid "Prevent redirects & tracking {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Vylepšite svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Stop redirects so you can access the site you want—faster."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Reveal typed passwords {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Adds show/hide ability to all password fields."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Reduce distractions {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Focus on what you're watching by dimming everything but the video player."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Manage bookmarks {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Modify your bookmarks through an easily accessible panel."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Keep passwords safe {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Store passwords securely and sign in automatically to known websites."
@@ -5792,27 +5283,24 @@ msgid "A simple ad blocker focused on displaying just the content you want."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Track Amazon Pricing History {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Make informed decisions by tracking the price of a product listed on Amazon."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Shop with confidence {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "An extra check to ensure you're shopping on a site that's been vetted for reliability."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Track productivity {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Measure the amount of time you spend on the computer, or on specific work apps like Trello, JIRA, Basecamp, GitHub, and many more."
@@ -5823,72 +5311,64 @@ msgid "Clip web content like articles, videos, images, and more to save and use 
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Surf securely {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Only allow web content to run from sites you trust."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Manage cookies {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Take full control of the cookies you've accumulated while browsing."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Forget history {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Automatically delete browser history for websites you select."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Safeguard Bookmarks {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Password-protect your personal bookmarks."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Prevent IP address leaks {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Do you use a VPN? Your IP address may leak. Put a stop to that by disabling WebRTC."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Close annoying overlays {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Simply click a button to close annoying pop-up overlays."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Investigate any image {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Find an interesting image on the web? Use TinEye to explore its origins."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Streamline things {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Just drag text, images, or links to perform actions like copy, open, search, and more."
@@ -5899,66 +5379,94 @@ msgid "Harness the ability to download video and/or audio in multiple formats."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Location awareness {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Learn where any website's server is geographically located. Be an informed web traveler."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Fix annoying audio {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Is the volume on a website too quiet? Too loud? SoundFixer can help."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Edit before printing {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Make extraordinary visual changes—remove ads or unsavory content—to any webpage you want to print."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Track Amazon pricing history {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Tvorte snímky obrazovky {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Make knowledgeable decisions by tracking and receiving alerts for the price of a product listed on Amazon."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Master audio {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Adjust browser audio settings with extreme clarity."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Privacy protection {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Defend yourself against the sneakiest trackers."
 msgstr ""
 
 #. editorial content for the discovery pane.
-#, fuzzy
 msgid "Cover your tracks {start_sub_heading}with {addon_name}{end_sub_heading}"
-msgstr "Preberajte videá {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+msgstr ""
 
 #. editorial content for the discovery pane.
 msgid "Search with more security with tracker blocking, smarter encryption, private search, and other essentials."
+msgstr ""
+
+#. editorial content for the discovery pane.
+msgid "Simplify tabs {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr ""
+
+#. editorial content for the discovery pane.
+msgid "Organize your many open tabs in a vertical sidebar."
+msgstr ""
+
+#. editorial content for the discovery pane.
+#, fuzzy
+msgid "Advanced cookie management {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+
+#. editorial content for the discovery pane.
+msgid "Automatically delete unwanted cookies. Offers white and blacklist support."
+msgstr ""
+
+#. editorial content for the discovery pane.
+#, fuzzy
+msgid "See the big picture {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+
+#. editorial content for the discovery pane.
+msgid "With a mouse click you can watch videos in full screen glory."
+msgstr ""
+
+#. editorial content for the discovery pane.
+#, fuzzy
+msgid "Save memory with {start_sub_heading}with {addon_name}{end_sub_heading}"
+msgstr "Prispôsobte si svoje karty {start_sub_heading}s doplnkom {addon_name}{end_sub_heading}"
+
+#. editorial content for the discovery pane.
+msgid "Stop wasting valuable memory space with inactive tabs."
 msgstr ""
 
 #, python-format
@@ -5988,32 +5496,27 @@ msgstr "Tento súbor je priečinok."
 msgid "Cannot diff a version against itself"
 msgstr ""
 
-#, fuzzy
-msgid "Access your data for {name}"
-msgstr "Prístup k údajom pre všetky webové stránky"
-
-#, fuzzy
-msgid "Access your data on the following websites:"
-msgstr "Prístup k údajom pre všetky webové stránky"
-
-msgid "Access your data for all websites"
-msgstr "Prístup k údajom pre všetky webové stránky"
-
 msgid "GUID is required for Firefox 47 and below."
 msgstr "Pre Firefox 47 a nižší je vyžadované GUID."
 
 msgid "Lowest supported \"strict_min_version\" is 42.0."
 msgstr "Najnižšia možná hodnota \"strict_min_version\" je 42.0."
 
-msgid "Cannot find min/max version. Maybe \"strict_min_version\" or \"strict_max_version\" contains an unsupported version?"
+#, python-format
+msgid "Could not parse uploaded file, missing or empty <%s> element"
 msgstr ""
 
-#, fuzzy, python-format
-msgid "Could not parse uploaded file, missing or empty <%s> element"
-msgstr "Odoslaný súbor nebolo možné spracovať."
+msgid "OpenSearch: XML Security error."
+msgstr ""
+
+msgid "OpenSearch: XML Parse Error."
+msgstr ""
 
 msgid "Could not parse uploaded file."
 msgstr "Odoslaný súbor nebolo možné spracovať."
+
+msgid "Unsupported archive type."
+msgstr ""
 
 #. L10n: {0} is the name of the invalid file.
 msgid "Invalid file name in archive. Please make sure all filenames are utf-8 or latin1 encoded."
@@ -6054,18 +5557,22 @@ msgstr ""
 msgid "You cannot submit this type of add-on"
 msgstr "Pridávanie takéhoto typu doplnku nie je povolené"
 
-#, fuzzy, python-format
+#, python-format
 msgid "You cannot submit an add-on with a guid ending %s"
-msgstr "Nemôžete nahrať doplnok s GUID končiacim na \"@mozilla.org\""
+msgstr ""
 
 msgid "You cannot submit a Mozilla Signed Extension"
 msgstr "Nemôžete nahrať rozšírenie podpísané Mozillou"
+
+#, fuzzy
+msgid "Unsupported file type, please upload an a supported file {extensions}."
+msgstr "Nepodporovaný typ súboru. Nahrajte prosím súbor s archívom pre {extensions}."
 
 msgid "Unexpected error."
 msgstr ""
 
 #, python-format
-msgid "<em:type> in your install.rdf (%s) does not match the type of your add-on on AMO (%s)"
+msgid "The type (%s) does not match the type of your add-on on AMO (%s)"
 msgstr ""
 
 msgid "Back to review"
@@ -6078,13 +5585,11 @@ msgstr "Späť na doplnok"
 msgid "Version: %(version)s &bull; Size: %(size)s &bull; SHA256 hash: %(sha256)s &bull; Mimetype: %(mimetype)s"
 msgstr "Verzia: %(version)s &bull; Veľkosť: %(size)s &bull; SHA256 hash: %(sha256)s &bull; Typ mime: %(mimetype)s"
 
-#, fuzzy
 msgid "File Compare :: Reviewer tools"
-msgstr "Porovnanie súborov :: Nástroje editora"
+msgstr ""
 
-#, fuzzy
 msgid "File Viewer :: Reviewer tools"
-msgstr "Zobrazovač súborov :: Nástroje editora"
+msgstr ""
 
 msgid "Validation failed:"
 msgstr "Kontrola zlyhala:"
@@ -6099,9 +5604,8 @@ msgstr ""
 msgid "Add-on file being processed, please wait."
 msgstr "Doplnok sa spracováva, prosím, čakajte..."
 
-#, fuzzy
 msgid "Fetching validation results..."
-msgstr "Probíhá získávání výsledků kontroly..."
+msgstr ""
 
 msgid "Files:"
 msgstr "Súbory:"
@@ -6150,12 +5654,6 @@ msgstr "V odoslanom archíve sa nenachádzajú žiadne súbory."
 
 msgid "Fetching file."
 msgstr "Získava sa súbor..."
-
-msgid "The API version, {0:.1f}, you are using is not valid. Please upgrade to the current version {1:.1f} API."
-msgstr "Verzia API {0:.1f}, ktorú používate, nie je platná. Prosím, aktualizujte na súčasnú verziu API {1:.1f}."
-
-msgid "Not implemented yet."
-msgstr "Zatiaľ nie je implementované."
 
 msgid "Shopping Made Easy"
 msgstr "Nakupovanie ľahko a jednoducho"
@@ -6241,62 +5739,6 @@ msgstr ""
 msgid "Take better screenshots, improve your online video experience, finally learn how to make a GIF, and other great media tools."
 msgstr ""
 
-msgid "Discover Add-ons"
-msgstr "Objavte doplnky"
-
-msgid "What are Add-ons?"
-msgstr "Čo sú to doplnky?"
-
-#, python-format
-msgid "Add-ons are applications that let you personalize %(app)s with extra functionality or style. Try a time-saving sidebar, a weather notifier, or a themed look to make %(app)s your own."
-msgstr ""
-"Doplnky sú aplikácie, ktoré umožňujú prispôsobiť si %(app)s pridaním nových funkcií alebo zmenou vzhľadu. Vyskúšajte čas šetriaci bočný panel, upozorňovanie na predpoveď počasia alebo nový "
-"tematický vzhľad a pretvorte si %(app)s podľa seba."
-
-msgid "Learn More About Add-ons"
-msgstr "Ďalšie informácie o doplnkoch"
-
-msgid "See all"
-msgstr "Zobraziť všetky"
-
-msgid "More ways to customize"
-msgstr "Množstvo spôsobov prispôsobenia"
-
-msgid "Browse all add-ons"
-msgstr "Prehľadávať všetky doplnky"
-
-msgid "See all complete themes"
-msgstr "Zobraziť všetky plné témy"
-
-msgid "Close Video"
-msgstr "Zavrieť video"
-
-msgid "While the video plays, the add-ons being mentioned will appear here."
-msgstr "Počas prehrávania videa sa tu zobrazia všetky spomenuté doplnky."
-
-#. {0} is the user's login name.
-msgid "Hi, {0}"
-msgstr "Vitajte, {0}"
-
-#, python-format
-msgid "Thanks for using %(app)s and supporting <a href=\"%(url)s\">Mozilla's mission</a>!"
-msgstr "Ďakujeme, že používate %(app)s a podporujete <a href=\"%(url)s\">misiu Mozilly</a>!"
-
-msgid "Add-ons downloaded:"
-msgstr "Prevzaté doplnky:"
-
-msgid "View Privacy Policy"
-msgstr "Zobraziť zásady ochrany súkromia"
-
-msgid "Active Users"
-msgstr "Aktívnych používateľov"
-
-msgid "Last Updated"
-msgstr "Aktualizované"
-
-msgid "Cancel Installation"
-msgstr "Zrušiť inštaláciu"
-
 msgid "Mozilla&rsquo;s Pick of the Month!"
 msgstr "Výber mesiaca od Mozilly"
 
@@ -6309,39 +5751,31 @@ msgstr "Objavte experimentálne funkcie prehliadača medzi prvými."
 msgid "Get Started"
 msgstr "Začíname"
 
-#, fuzzy
 msgid "Reported Status"
-msgstr "Stav stránky"
+msgstr ""
 
-#, fuzzy
 msgid "Reported Spam"
-msgstr "Typ správy"
+msgstr ""
 
 #. L10n: 'Ham' is the opposite of 'Spam' - i.e. not spam.
-#, fuzzy
 msgid "Reported Ham"
-msgstr "Nahlásiť chybu"
+msgstr ""
 
-#, fuzzy
 msgid "Not Reported"
-msgstr "Nehodnotené"
+msgstr ""
 
-#, fuzzy
 msgid "Content Submitted"
-msgstr "Poznámky k verzii"
+msgstr ""
 
-#, fuzzy
 msgid "View Rating on site"
-msgstr "Navštívte novú stránku"
+msgstr ""
 
 #. L10n: 'Ham' is the opposite of 'Spam' - i.e. not spam.
-#, fuzzy
 msgid "Submit Ham to Akismet"
-msgstr "Odoslať nový súbor"
+msgstr ""
 
-#, fuzzy
 msgid "Submit Spam to Akismet"
-msgstr "Odoslať nový súbor"
+msgstr ""
 
 #. L10n: 'Ham' is the opposite of 'Spam' - i.e. not spam.
 #, python-format
@@ -6427,9 +5861,9 @@ msgstr ""
 msgid "I have a question"
 msgstr "Mám otázku"
 
-#, fuzzy, python-format
+#, python-format
 msgid "A good place to start is <a href=\"%(sumo_url)s\">Support</a> Mozilla. If you don't find an answer there, you can <a href=\"%(forum_url)s\"> ask on our forums</a>."
-msgstr "Pro obecnou podporu Firefoxu navšivte naše <a href=\"%(sumo_url)s\">stránky podpory</a>. Pro obecné otázky týkající se doplňků a tohoto webu navšivte <a href=\"%(forum_url)s\">naše fórum</a>."
+msgstr ""
 
 #, python-format
 msgid "If you really need to contact someone from the Mozilla team, please see our <a href=\"%(url)s\"> contact information</a> page."
@@ -6445,9 +5879,8 @@ msgstr ""
 msgid "Sections"
 msgstr "Sekcie"
 
-#, fuzzy
 msgid "Some tips for writing a great review"
-msgstr "Několik tipů pro psaní skvělých recenzí"
+msgstr ""
 
 msgid "Frequently Asked Questions about Reviews"
 msgstr "Často kladené otázky ohľadom recenzií"
@@ -6498,147 +5931,57 @@ msgid ""
 "section."
 msgstr ""
 
-#, fuzzy
 msgid "Write reviews for add-ons which you have not personally used."
-msgstr "Psát recenze k doplňkům, které osobně nepoužíváte."
+msgstr ""
 
-#, fuzzy
 msgid "Use profanity, sexual language or language that can be construed as hateful."
-msgstr "Používat hrubý, sexuálně orientovaný či jinak nevhodný jazyk."
+msgstr ""
 
 msgid "Include HTML, links, source code or code snippets. Reviews are meant to be text only."
 msgstr ""
 
-#, fuzzy
 msgid "Make false statements, disparage add-on authors or personally insult them."
-msgstr "Psát nepravdivé informace, zlehčovat autory doplňků či je osobně urážet."
+msgstr ""
 
 msgid "Include your own or anyone else’s email, phone number, or other personal details."
 msgstr ""
 
-#, fuzzy
 msgid "Post reviews for an add-on you or your organization wrote or represent."
-msgstr "Přidávat recenze ke svému doplňku či organizaci, kterou reprezentujete."
+msgstr ""
 
 msgid ""
 "Criticize an add-on for something it’s intended to do. For example, leaving a negative review of an add-on for displaying ads or requiring data gathering, when that is the intended purpose of the "
 "add-on, or the add-on requires gathering data to function."
 msgstr ""
 
-#, fuzzy
 msgid "How can I report a problematic review?"
-msgstr "Jak mohu nahlásit problematickou recenzi?"
+msgstr ""
 
 msgid ""
 "Please report or flag any questionable reviews by clicking the \"Report this review\" and it will be submitted to the site for moderation. Our moderation team will use the Review Guidelines to "
 "evaluate whether or not to delete the review or restore it back to the site."
 msgstr ""
 
-#, fuzzy
 msgid "I’m an add-on author, can I respond to reviews?"
-msgstr "Jsem autor doplňku, mohu odpovídat na recenze?"
+msgstr ""
 
 #, python-format
 msgid "Yes, add-on authors can provide a single response to a review. You can set up a discussion topic in our <a href=\"%(forum_url)s\">forum</a> to engage in additional discussion or follow-up."
 msgstr ""
 
-#, fuzzy
 msgid "I’m an add-on author, can I delete unfavorable reviews or ratings?"
-msgstr "Jsem autor doplňku, mohu smazat nepravdivé recenze či hodnocení?"
+msgstr ""
 
 msgid ""
 "In general, no. But if the review did not meet the review guidelines outlined above, you can click \"Report this review\" and have it moderated. If a review included a complaint that is no longer "
 "valid due to a new release of your add-on, we may consider deleting the review."
 msgstr ""
 
-msgid "Start Now"
-msgstr ""
+msgid "User"
+msgstr "Používateľ"
 
-msgid "Mozilla wants to figure out the best way to keep our users safe if they choose to use third-party software such as plugins. Participating in this study will help us find out!"
-msgstr ""
-
-msgid "What will happen next"
-msgstr ""
-
-#, fuzzy
-msgid "<strong>If you agree</strong> to participate:"
-msgstr "<strong>Priemer</strong> (%(total)s)"
-
-msgid "We may add security and plugin control features to Firefox to help with online security and performance."
-msgstr ""
-
-msgid "Continue using Firefox as you normally would. Depending on how you use the Web, you may not notice any changes."
-msgstr ""
-
-msgid "After a few weeks, the study will end on its own. Your Firefox will go back to normal."
-msgstr ""
-
-msgid "We will ask you to fill out a quick optional survey to tell us about your experience. The survey should take less than 5 minutes to complete."
-msgstr ""
-
-msgid "Leaving the study"
-msgstr ""
-
-msgid "The study will expire on its own in a few weeks. You may leave the study early. To do so, follow these steps:"
-msgstr ""
-
-msgid "Type about:addons into the location bar, and press enter."
-msgstr ""
-
-msgid "Find Plugin Safety in the addons list."
-msgstr ""
-
-msgid "Click the remove button."
-msgstr ""
-
-msgid "If you opt out of the study early we will ask you to fill out a survey. We’re interested in hearing about your experience, even if you didn’t participate in the entire study."
-msgstr ""
-
-msgid "Opting out of a study does not prevent you from participating in future studies."
-msgstr ""
-
-msgid "Your privacy"
-msgstr "Vaše súkromie"
-
-msgid "All Shield Studies"
-msgstr ""
-
-msgid "Every Shield Study collects data about important study events, such as install, uninstall, daily usage, and end of study. Studies also include an optional survey."
-msgstr ""
-
-#, python-format
-msgid "This data is associated with <a href=\"%(url)s\">Firefox Telemetry collection</a>."
-msgstr ""
-
-msgid "This particular Study"
-msgstr ""
-
-msgid "In addition to the data collected by all Shield Studies, Mozilla will collect information about:"
-msgstr ""
-
-msgid "Websites you visit that try to use plugins, and what content on the site requires the plugin;"
-msgstr ""
-
-msgid "How you interact with plugin content on those sites, including whether and how you choose to allow the plugin to run."
-msgstr ""
-
-msgid "Mozilla will keep this information private; any data will only be shared in aggregate or anonymized form."
-msgstr ""
-
-#, python-format
-msgid "You can learn more about the data collection for this study <a href=\"%(url)s\">here</a>."
-msgstr ""
-
-msgid "You Help Make Firefox Better"
-msgstr ""
-
-msgid ""
-"At Mozilla, we pride ourselves on building products for you, the user! That’s why we need your help. By participating in this study, you will help us to make better decisions on your behalf and "
-"directly shape the future of Firefox!"
-msgstr ""
-
-msgid "Brought to you by:"
-msgstr ""
+msgid "IP Address"
+msgstr "Adresa IP"
 
 #, python-format
 msgid "Reviews for %s"
@@ -6670,9 +6013,8 @@ msgstr "Iný (popíšte)"
 msgid "This field is required."
 msgstr "Toto pole je povinné."
 
-#, fuzzy
 msgid "You can't change the add-on of a review once it has been created."
-msgstr "Svoj návrh témy budete môcť aktualizovať, až keď bude schválený."
+msgstr ""
 
 msgid "You can't reply to a review that is already a reply."
 msgstr ""
@@ -6683,9 +6025,8 @@ msgstr ""
 msgid "This version of the add-on doesn't exist or isn't public."
 msgstr ""
 
-#, fuzzy
 msgid "You can't leave a review on your own add-on."
-msgstr "niekto napíše recenziu na môj doplnok"
+msgstr ""
 
 msgid "You can't leave more than one review for the same version of an add-on."
 msgstr "Pre rovnakú verziu doplnku nemôžete zanechať viac ako jednu recenziu."
@@ -6693,9 +6034,8 @@ msgstr "Pre rovnakú verziu doplnku nemôžete zanechať viac ako jednu recenziu
 msgid "This rating can't be flagged because it has no review text."
 msgstr ""
 
-#, fuzzy
 msgid "Thanks; this review has been flagged for reviewer approval."
-msgstr "Ďakujeme; táto recenzia bola označená na schválenie editorom."
+msgstr ""
 
 msgid "Add a review for {0}"
 msgstr "Pridanie recenzie doplnku {0}"
@@ -6844,16 +6184,14 @@ msgid "end"
 msgstr "koniec"
 
 #. L10n: Description of what can be searched for
-#, fuzzy
 msgid "add-on, reviewer or comment"
-msgstr "doplnok, editor alebo komentár"
+msgstr ""
 
 msgid "Search by add-on name / author email"
 msgstr "Hľadať podľa názvu doplnku alebo e-mailu autora"
 
-#, fuzzy
 msgid "Needs Admin Code Review"
-msgstr "Recenzia administrátora"
+msgstr ""
 
 msgid "yes"
 msgstr "áno"
@@ -6870,6 +6208,9 @@ msgstr "Hľadať podľa názvu doplnku/e-mailu autora/guid"
 msgid "Max. Version"
 msgstr "Max. verzia"
 
+msgid "Select an application first"
+msgstr "Najskôr zvoľte aplikáciu"
+
 msgid "Comments:"
 msgstr "Komentáre:"
 
@@ -6882,9 +6223,8 @@ msgstr "Aplikácie:"
 msgid "Require developer to respond in less than…"
 msgstr ""
 
-#, fuzzy
 msgid "days"
-msgstr "7 dní"
+msgstr ""
 
 msgid "Choose a canned response..."
 msgstr "Zvoľte pripravenú odpoveď..."
@@ -6900,9 +6240,8 @@ msgstr "Niekto iný aktuálne kontroluje túto tému."
 msgid "theme, reviewer, or comment"
 msgstr "téma, recenzia alebo komentár"
 
-#, fuzzy
 msgid "Private Whiteboard"
-msgstr "Poznámka pre redaktora"
+msgstr ""
 
 msgid "Keep review; remove flags"
 msgstr "Ponechať recenziu, odstrániť označenia"
@@ -6910,13 +6249,11 @@ msgstr "Ponechať recenziu, odstrániť označenia"
 msgid "Skip for now"
 msgstr "Teraz preskočiť"
 
-#, fuzzy
 msgid "Needs Admin Content Review"
-msgstr "Odoslať kontrolu"
+msgstr ""
 
-#, fuzzy
 msgid "Needs Admin Static Theme Review"
-msgstr "Recenzia administrátora"
+msgstr ""
 
 msgid "Jetpack Add-on"
 msgstr "Doplnok typu Jetpack"
@@ -6926,9 +6263,8 @@ msgid "More Information Requested"
 msgstr "Požadované doplňujúce informácie"
 
 # 92%
-#, fuzzy
 msgid "Expired Information Request"
-msgstr "Požadované doplňujúce informácie"
+msgstr ""
 
 msgid "Sources provided"
 msgstr "Poskytnuté zdrojové kódy"
@@ -6936,9 +6272,8 @@ msgstr "Poskytnuté zdrojové kódy"
 msgid "WebExtension"
 msgstr "WebExtension"
 
-#, fuzzy
 msgid "Is locked by a reviewer."
-msgstr "môj doplnok bol skontrolovaný editorom"
+msgstr ""
 
 msgid "Has auto-approval disabled flag set."
 msgstr ""
@@ -6955,9 +6290,8 @@ msgstr "Pri pridávaní vašej témy nastal problém"
 msgid "Theme submission flagged for review"
 msgstr "Odoslanie témy označené na kontrolu"
 
-#, fuzzy
 msgid "A question about your Theme submission"
-msgstr "Při přidávání vašeho motivu nastal problém"
+msgstr ""
 
 msgid "Type"
 msgstr "Typ"
@@ -7005,52 +6339,41 @@ msgid "Weight"
 msgstr ""
 
 # 92%
-#, fuzzy
 msgid "Information Request Deadline"
-msgstr "Požadované doplňujúce informácie"
+msgstr ""
 
-#, fuzzy
 msgid "Last Content Review"
-msgstr "Posledná recenzia"
+msgstr ""
 
 msgid "This will approve, sign, and publish this version. The comments will be sent to the developer."
 msgstr ""
 
-#, fuzzy
 msgid "This will reject this version and remove it from the queue. The comments will be sent to the developer."
-msgstr "Zamietne doplnok a odstráni ho zo zoznamu na kontrolu."
+msgstr ""
 
-#, fuzzy
 msgid "Confirm Approval"
-msgstr "Čakajúci na schválenie"
+msgstr ""
 
 msgid "The latest public version of this add-on was automatically approved. This records your confirmation of the approval of that version, without notifying the developer."
 msgstr ""
 
-#, fuzzy
 msgid "Reject Multiple Versions"
-msgstr "Verzia pre tlač"
+msgstr ""
 
-#, fuzzy
 msgid "This will reject the selected public versions. The comments will be sent to the developer."
-msgstr "Zamietne doplnok a odstráni ho zo zoznamu na kontrolu."
+msgstr ""
 
-#, fuzzy
 msgid "Reviewer reply"
-msgstr "Novinky od vývojárov"
+msgstr ""
 
-#, fuzzy
 msgid "This will send a message to the developer. You will be notified when they reply."
-msgstr "Použite tento formulár na vyžiadanie dodatočných informácií od autora doplnku, ktorý obdrží e-mailovú správu a bude môcť tu odpovedať. Pri jeho odpovedi budete upozornený e-mailovou správou."
+msgstr ""
 
 msgid "Request super-review"
 msgstr "Požadovať super-recenziu"
 
-#, fuzzy
 msgid "If you have concerns about this add-on that an admin reviewer should look into, enter your comments in the area below. They will not be sent to the developer."
 msgstr ""
-"Ak máte pochybnosti o bezpečnosti tohto doplnku, problémoch s autorskými právami alebo iné, na ktoré by sa mal pozrieť správca, zadajte do dole uvedenej časti svoje komentáre. Budú odoslané "
-"správcom, nie autorovi."
 
 msgid "Make a comment on this version. The developer won't be able to see this."
 msgstr "Pridajte komentár k tejto verzii. Vývojár ho neuvidí."
@@ -7061,55 +6384,44 @@ msgstr "Schváliť obsah"
 msgid "This records your approbation of the content of the latest public version, without notifying the developer."
 msgstr ""
 
-#, fuzzy
 msgid "Static Themes and Legacy Add-ons"
-msgstr "Zastarané doplnky"
+msgstr ""
 
-#, fuzzy
 msgid "Static Themes"
-msgstr "Odporúčané témy"
+msgstr ""
 
 msgid "Legacy Add-ons"
 msgstr "Zastarané doplnky"
 
-#, fuzzy
 msgid "New ({0})"
-msgstr "Nový doplnok ({0})"
+msgstr ""
 
-#, fuzzy
 msgid "Updates ({0})"
-msgstr "Aktualizácia ( {0} )"
+msgstr ""
 
-#, fuzzy
 msgid "Review Log"
-msgstr "Poznámka ku kontrole"
+msgstr ""
 
-#, fuzzy
 msgid "Add-on Review Guide"
-msgstr "Nová kontrola doplnku"
+msgstr ""
 
-#, fuzzy
 msgid "Theme Review Guide"
-msgstr "Kompletní kontroly motivů"
+msgstr ""
 
-#, fuzzy
 msgid "Auto-Approved Add-ons"
-msgstr "Automaticky schválené doplnky"
+msgstr ""
 
-#, fuzzy
 msgid "Auto Approved Add-ons ({0})"
-msgstr "Nový doplnok ({0})"
+msgstr ""
 
 msgid "Add-on Review Log"
 msgstr "Záznam kontroly doplnku"
 
-#, fuzzy
 msgid "Review Guide"
-msgstr "Sprievodca systémom kontroly"
+msgstr ""
 
-#, fuzzy
 msgid "Content Review"
-msgstr "Odoslať kontrolu"
+msgstr ""
 
 #, fuzzy
 msgid "Content Review ({0})"
@@ -7118,25 +6430,20 @@ msgstr[0] "Moderovaná recenzia ({0})"
 msgstr[1] "Moderované recenzie ({0})"
 msgstr[2] ""
 
-#, fuzzy
 msgid "New Themes ({0})"
-msgstr "Nový doplnok ({0})"
+msgstr ""
 
-#, fuzzy
 msgid "Themes Updates ({0})"
-msgstr "Aktualizácia ( {0} )"
+msgstr ""
 
-#, fuzzy
 msgid "Flagged Themes ({0})"
-msgstr "Označené témy"
+msgstr ""
 
-#, fuzzy
 msgid "Lightweight Themes Review Log"
-msgstr "Ľahké témy vzhľadu"
+msgstr ""
 
-#, fuzzy
 msgid "Deleted Themes Log"
-msgstr "Odstrániť tému"
+msgstr ""
 
 msgid "User Ratings Moderation"
 msgstr ""
@@ -7145,21 +6452,17 @@ msgid "Ratings Awaiting Moderation ({0})"
 msgstr ""
 
 # 80%
-#, fuzzy
 msgid "Moderated Review Log"
-msgstr "Seznam moderovaných recenzí"
+msgstr ""
 
-#, fuzzy
 msgid "Moderation Guide"
-msgstr "Kroky moderátora:"
+msgstr ""
 
-#, fuzzy
 msgid "Unlisted Add-ons"
-msgstr "Zrušiť zverejnenie doplnku"
+msgstr ""
 
-#, fuzzy
 msgid "All Unlisted Add-ons"
-msgstr "Zrušiť zverejnenie doplnku"
+msgstr ""
 
 msgid "Announcement"
 msgstr "Oznámenie"
@@ -7168,9 +6471,8 @@ msgid "Update message of the day"
 msgstr "Aktualizovať správu dňa"
 
 # 92%
-#, fuzzy
 msgid "Expired Information Requests ({0})"
-msgstr "Požadované doplňujúce informácie"
+msgstr ""
 
 msgid "An unknown error occurred"
 msgstr "Nastala neznáma chyba"
@@ -7199,13 +6501,17 @@ msgstr[2] ""
 msgid "Your theme locks have successfully been released. Other reviewers may now review those released themes. You may have to refresh the page to see the changes reflected in the table below."
 msgstr ""
 
-#, fuzzy
 msgid "{addon} :: Abuse Reports"
-msgstr "{addon} :: Nahlášená zneužití"
+msgstr ""
 
-#, fuzzy
 msgid "Abuse Reports for {addon} and its developers ({num})"
-msgstr "Nahlášená zneužití pro doplněk {addon} ({num})"
+msgstr ""
+
+msgid "Add-on ID"
+msgstr "Identifikátor doplnku"
+
+msgid "Internal AMO ID"
+msgstr ""
 
 #. This refers to this version's compatible applications, such as Firefox 8.0
 msgid "Works with"
@@ -7223,6 +6529,9 @@ msgstr "Priemerný počet denných používateľov"
 msgid "Abuse Reports"
 msgstr "Hlásené zneužitia"
 
+msgid "View Privacy Policy"
+msgstr "Zobraziť zásady ochrany súkromia"
+
 msgid "Requires Payment"
 msgstr "Vyžaduje platbu"
 
@@ -7232,23 +6541,16 @@ msgstr "EULA"
 msgid "Last Approval Date"
 msgstr "Dátum posledného schválenia"
 
-#, fuzzy
 msgid "Abuse Reports ({num})"
-msgstr "Nahlášená zneužití pro doplněk {addon} ({num})"
+msgstr ""
 
-#, fuzzy
 msgid "Bad User Ratings ({num})"
-msgstr "Moderovaná recenzia ({num})"
+msgstr ""
 
-#, fuzzy
 msgid "Theme Images"
-msgstr "názov témy"
+msgstr ""
 
-#, fuzzy
 msgid "Rendered Preview"
-msgstr "Odstránené recenzie"
-
-msgid "Background file {0} of {1} - {2}"
 msgstr ""
 
 msgid "More about this add-on"
@@ -7260,9 +6562,8 @@ msgstr "Galéria obrázkov"
 msgid "Nothing to see here!  The developer did not include any details."
 msgstr "Tu nie je nič zaujímavé!  Vývojár neposkytol žiadne detaily."
 
-#, fuzzy
 msgid "Return to the Reviewer Tools dashboard"
-msgstr "Zpět na domovskou stránků Nástroje redaktora"
+msgstr ""
 
 msgid "Reviewer Leaderboard"
 msgstr ""
@@ -7296,9 +6597,8 @@ msgstr "Pre tento časový úsek neboli nájdené žiadne udalosti."
 msgid "Log details"
 msgstr "Podrobnosti o zázname"
 
-#, fuzzy
 msgid "Review Author"
-msgstr "História kontrol"
+msgstr ""
 
 #, python-format
 msgid "<dd>%(review_author)s</dd>"
@@ -7319,9 +6619,8 @@ msgstr ""
 msgid "Save"
 msgstr "Uložiť"
 
-#, fuzzy
 msgid "Add-on Reviewer Performance"
-msgstr "Proces schvaľovania doplnku"
+msgstr ""
 
 msgid "View statistics for user"
 msgstr "Zobraziť štatistiky používateľa"
@@ -7397,14 +6696,12 @@ msgstr "Užitočné odkazy:"
 msgid "Add-on Policy"
 msgstr "Zásady ochrany súkromia doplnku"
 
-#, fuzzy
 msgid "Reviewer's Guide"
-msgstr "Sprievodca systémom kontroly"
+msgstr ""
 
 #. "Content Review [add-on name]"
-#, fuzzy
 msgid "Content Review {0}"
-msgstr "Recenzia {0}"
+msgstr ""
 
 #. "Review [add-on name]"
 msgid "Review {0}"
@@ -7438,9 +6735,8 @@ msgstr "Vývojár poskytol zdrojový kód."
 msgid "Weight:"
 msgstr ""
 
-#, fuzzy
 msgid "Not Auto Approved Because"
-msgstr "Doplnky pre Android"
+msgstr ""
 
 msgid "Auto-Approval script has not run yet on this version."
 msgstr ""
@@ -7463,22 +6759,17 @@ msgstr "Testované na:"
 msgid "<strong>Warning!</strong> Another user was viewing this page before you."
 msgstr "<strong>Upozornenie!</strong> Iný používateľ pred vami túto stránku prezeral."
 
-#, fuzzy
 msgid "The whiteboard is the place to exchange information relevant to this addon (whatever the version), between the developer and the reviewer. This is visible and editable by both."
 msgstr ""
-"Poznámka pre redaktora je miesto, kde môžete poskytnúť relevantné informácie o vašom doplnku redaktorovi. Používajte ho pre informácie typu, ako doplnok testovať a iné informácie, ktoré by mohli "
-"byť nápomocné. Túto poznámku môže redaktor upravovať."
 
 msgid "The private whiteboard is used for exchanging information between reviewers that is independent of the version. Please keep the language objective. It is visible only to reviewers."
 msgstr ""
 
-#, fuzzy
 msgid "Update whiteboards"
-msgstr "Aktualizovať poznámku pre redaktora"
+msgstr ""
 
-#, fuzzy
 msgid "More Actions"
-msgstr "Ďalšie akcie:"
+msgstr ""
 
 msgid "Notify me about new listed versions"
 msgstr ""
@@ -7486,32 +6777,26 @@ msgstr ""
 msgid "Force-disable add-on"
 msgstr ""
 
-#, fuzzy
 msgid "Force-enable add-on"
-msgstr "Opätovne povoliť verziu"
+msgstr ""
 
 msgid "Disable Auto-Approval"
 msgstr ""
 
-#, fuzzy
 msgid "Enable Auto-Approval"
-msgstr "Automatické schválenie potvrdené"
+msgstr ""
 
-#, fuzzy
 msgid "Clear information request"
-msgstr "Požadované dodatočné informácie"
+msgstr ""
 
-#, fuzzy
 msgid "Clear Admin Code Review Flag"
-msgstr "Vymazať príznak kontroly administrátorom"
+msgstr ""
 
-#, fuzzy
 msgid "Clear Admin Content Review Flag"
-msgstr "Vymazať príznak kontroly administrátorom"
+msgstr ""
 
-#, fuzzy
 msgid "Clear Admin Static Theme Review Flag"
-msgstr "Vymazať príznak kontroly administrátorom"
+msgstr ""
 
 msgid "(admin)"
 msgstr "(admin)"
@@ -7544,7 +6829,7 @@ msgid "No reviews found for this period."
 msgstr "Za toto obdobie neboli nájdené žiadne recenzie."
 
 #, python-format
-msgid "%(user)s [%(ip_address)s] reported %(object)s on %(date)s"
+msgid "%(user)s [%(country_code)s] reported %(object)s on %(date)s"
 msgstr ""
 
 msgid "Dismiss this announcement"
@@ -7619,9 +6904,8 @@ msgstr "Aktuálne nie sú dostupné žiadne kontroly."
 msgid "Flagged Themes"
 msgstr "Označené témy"
 
-#, fuzzy
 msgid "Theme Review Queue"
-msgstr "Kompletní kontroly motivů"
+msgstr ""
 
 msgid "Queues"
 msgstr "Fronty"
@@ -7674,8 +6958,14 @@ msgstr ""
 msgid "Theme Review for {0}"
 msgstr ""
 
+msgid "Edit Listing"
+msgstr "Upraviť údaje"
+
 msgid "(Probable Duplicate Submission)"
 msgstr ""
+
+msgid "Submitted"
+msgstr "Odoslané"
 
 msgid "Past Review Notes"
 msgstr ""
@@ -7705,9 +6995,8 @@ msgstr "Popíšte dôvod zamietnutia"
 msgid "Ask a question to the artist"
 msgstr ""
 
-#, fuzzy
 msgid "Describe your reason for flagging"
-msgstr "Popište důvod odmítnutí"
+msgstr ""
 
 msgid "Rejected or Unreviewed"
 msgstr "Zamietnuté a neskontrolované"
@@ -7729,20 +7018,18 @@ msgstr[0] "Moderovaná recenzia ({0})"
 msgstr[1] "Moderované recenzie ({0})"
 msgstr[2] ""
 
-#, fuzzy
 msgid "Auto Approved ({0})"
 msgid_plural "Auto Approved ({0})"
-msgstr[0] "Nový doplnok ({0})"
-msgstr[1] "Nové doplnky ({0})"
-msgstr[2] "Nové doplnky ({0})"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 # 92%
-#, fuzzy
 msgid "Expired Info Request ({0})"
 msgid_plural "Expired Info Requests ({0})"
-msgstr[0] "Požadované doplňujúce informácie"
-msgstr[1] "Požadované doplňujúce informácie"
-msgstr[2] "Požadované doplňujúce informácie"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 msgid "Flagged"
 msgstr "Označené"
@@ -7750,6 +7037,27 @@ msgstr "Označené"
 # 85%
 msgid "Updates"
 msgstr "Aktualizácie"
+
+#, fuzzy, python-format
+msgid "Invalid \"%s\" parameter."
+msgstr "Neplatný rozsah verzií."
+
+#, python-format
+msgid "Invalid combination of \"%s\" and \"%s\" parameters."
+msgstr ""
+
+msgid "Return To AMO is currently disabled"
+msgstr ""
+
+msgid "Invalid Return To AMO guid (not in base64url format?)"
+msgstr ""
+
+msgid "Invalid Return To AMO guid (not a curated add-on)"
+msgstr ""
+
+#, python-format
+msgid "Invalid combination of \"%s\", \"%s\" and \"%s\" parameters."
+msgstr ""
 
 msgid "Maximum query length exceeded."
 msgstr ""
@@ -7846,8 +7154,8 @@ msgstr "Zobrazuje sa {0} - {1} z {2} výsledkov hľadania výrazu <strong>{3}</s
 msgid "Showing {0} - {1} of {2} results"
 msgstr "Zobrazuje sa {0} - {1} z {2} výsledkov"
 
-msgid "Could not find add-on with id \"{}\"."
-msgstr "Doplnok s id \"{}\" nebol nájdený."
+msgid "Could not find add-on with guid \"{}\"."
+msgstr ""
 
 msgid "You do not own this addon."
 msgstr "Nie ste vlastník tohto doplnku.."
@@ -7862,8 +7170,9 @@ msgstr ""
 msgid "Version does not match the manifest file."
 msgstr ""
 
-msgid "Version already exists."
-msgstr "Táto verzia už existuje."
+#, python-format
+msgid "Version already exists. Latest version is: %s."
+msgstr "Táto verzia už existuje. Posledná verzia je: %s."
 
 msgid "Only WebExtensions are allowed to omit the GUID"
 msgstr ""
@@ -8198,7 +7507,7 @@ msgid "Desktop Browser"
 msgstr "Prehliadač pre počítače"
 
 msgid "Beta, Nightly, Developer Edition"
-msgstr ""
+msgstr "Beta, Nightly, Developer Edition"
 
 msgid "Other languages"
 msgstr "Ďalšie jazyky"
@@ -8209,12 +7518,6 @@ msgstr "Návrat na úvodnú stránku {0} Add-ons"
 
 msgid "<img alt=\"Firefox\" src=\"{0}\"> Add-ons"
 msgstr "<img alt=\"Firefox\" src=\"{0}\"> Doplnky"
-
-msgid "<img alt=\"Thunderbird\" src=\"{0}\"> Add-ons"
-msgstr "<img alt=\"Thunderbird\" src=\"{0}\"> Doplnky"
-
-msgid "<img alt=\"SeaMonkey\" src=\"{0}\"> Add-ons"
-msgstr "<img alt=\"SeaMonkey\" src=\"{0}\"> Doplnky"
 
 msgid "<img alt=\"\" src=\"{0}\"> Add-ons"
 msgstr "<img alt=\"\" src=\"{0}\"> Doplnky"
@@ -8298,20 +7601,16 @@ msgid "The users \"%(users)s\" have been banned."
 msgstr ""
 
 msgid "Ban selected users"
-msgstr ""
+msgstr "Zablokovať vybraných používateľov"
 
 msgid "Profile Photo"
 msgstr "Fotografia profilu"
 
 msgid "Addons"
-msgstr ""
+msgstr "Doplnky"
 
-msgid "Ratings"
-msgstr "Hodnotenia"
-
-#, fuzzy
 msgid "Activity Logs"
-msgstr "Aktivita"
+msgstr "Záznam aktivity"
 
 msgid "Email must be {email}."
 msgstr "E-mail musí byť vo formáte {email}."
@@ -8325,23 +7624,20 @@ msgstr "Umiestnenie"
 msgid "Occupation"
 msgstr "Povolenie"
 
-msgid "See this help article for information on how to change your email address."
-msgstr ""
+msgid "You can change your email address on Firefox Accounts."
+msgstr "Svoju e-mailovú adresu môžete zmeniť v nastaveniach účtu Firefox."
 
 msgid "This URL has an invalid format. Valid URLs look like http://example.com/my_page."
 msgstr "Táto adresa URL má neplatný formát. Platná adresa vyzerá takto: http://example.com/my_page."
 
 msgid "To anonymize, enter a reason for the change but do not change any other field."
-msgstr ""
+msgstr "Pre anonymizáciu zadajte dôvod pre zmenu, no nemeňte žiadne iné pole."
 
 msgid "No user with that email."
 msgstr "Používateľ s touto e-mailovou adresou neexistuje."
 
-#. L10n: {id} will be something like "13ad6a", just a random number
-#. to differentiate this user from other anonymous users.
-#, fuzzy
 msgid "Firefox user {id}"
-msgstr "Firefox pre Android"
+msgstr "Používateľ Firefoxu - {id}"
 
 msgid "My Mobile Add-ons"
 msgstr "Moje mobilné doplnky"
@@ -8355,9 +7651,6 @@ msgstr "sú dostupné nové doplnky alebo funkcie Firefoxu"
 msgid "my add-on's compatibility is upgraded successfully"
 msgstr "kompatibilita môjho doplnku je úspešne upravená"
 
-msgid "my sdk-based add-on is upgraded successfully"
-msgstr "môj doplnok vytvorený pomocou SDK bol úspešne aktualizovaný"
-
 msgid "someone writes a review of my add-on"
 msgstr "niekto napíše recenziu na môj doplnok"
 
@@ -8367,12 +7660,8 @@ msgstr ""
 msgid "my add-on's compatibility cannot be upgraded"
 msgstr "nie je možné zmeniť kompatibilitu môjho doplnku"
 
-msgid "my sdk-based add-on cannot be upgraded"
-msgstr "môj doplnok vytvorený pomocou SDK nie je možné aktualizovať"
-
-#, fuzzy
 msgid "my add-on is reviewed by a reviewer"
-msgstr "môj doplnok bol skontrolovaný editorom"
+msgstr "môj doplnok bol skontrolovaný"
 
 msgid "Mozilla needs to contact me about my individual add-on"
 msgstr "Mozilla ma potrebuje kontaktovať ohľadne môjho doplnku"
@@ -8407,13 +7696,11 @@ msgstr "Používateľ nahlásený."
 msgid "new"
 msgstr "nové"
 
-#, fuzzy
 msgid "Ban"
-msgstr "a"
+msgstr "Zablokovať"
 
-#, fuzzy
 msgid "Delete picture"
-msgstr "Odstrániť môj obrázok používateľa"
+msgstr "Odstrániť obrázok"
 
 msgid "Delete User Account"
 msgstr "Odstrániť používateľský účet"
@@ -8431,7 +7718,7 @@ msgstr "Po kliknutí na \"odstrániť\" bude váš účet <strong>natrvalo odstr
 
 #, python-format
 msgid "Logging in with this email address into %(site)s again will create a new account that is in no way associated with this account."
-msgstr ""
+msgstr "Opätovné prihlásenie sa s touto e-mailovou adresou na stránku %(site)s vytvorí nový účet, ktorý s týmto účtom nebude mať nič spoločné."
 
 msgid "Your reviews and ratings will not be deleted, but they will no longer be associated with you."
 msgstr "Vaše recenzie a hodnotenia nebudú odstránené, ale už s vami nebudú spájané."
@@ -8452,23 +7739,19 @@ msgid "Delete my user picture now"
 msgstr "Odstrániť môj obrázok používateľa"
 
 msgid "Please set your display name"
-msgstr ""
+msgstr "Nastavte, prosím, svoje zobrazované meno"
 
 msgid "Please set your display name or username to complete the registration process."
-msgstr ""
+msgstr "Pre dokončenie registrácie, prosím, zadajte svoje zobrazované meno alebo používateľské meno."
 
-#, fuzzy
-msgid "Manage basic account information."
-msgstr "Správa základných informácií o účte, ako napr. používateľské meno a e-mailová adresa."
-
-msgid "Username"
-msgstr "Používateľské meno"
+msgid "Manage basic account information, such as your username and Firefox Accounts settings."
+msgstr "Správa základných informácií o účte, ako napr. používateľské meno a nastavenia účtov Firefox."
 
 msgid "Email Address"
 msgstr "E-mailová adresa"
 
-msgid "Manage other account details..."
-msgstr "Spravovať účet Account..."
+msgid "Manage Firefox Account..."
+msgstr "Spravovať účet Firefox Account..."
 
 msgid "Profile"
 msgstr "Profil"
@@ -8488,9 +7771,9 @@ msgstr "Odstrániť aktuálnu fotografiu"
 msgid "Introduce yourself to the community, if you like! This text will appear publicly on your user info page."
 msgstr "Predstavte sa komunite, ak chcete! Tento text bude verejne dostupný na informačnej stránke o používateľovi."
 
-#, fuzzy, python-format
+#, python-format
 msgid "Allowed HTML: %(html)s. Links are forbidden."
-msgstr "Povolené HTML: {0}. Odkazy nie sú povolené."
+msgstr "Povolené HTML: %(html)s. Odkazy nie sú povolené."
 
 msgid "Decide what collections should be shown in your profile."
 msgstr "Rozhodnite sa, ktoré kolekcie budú zobrazené vo vašom profile."
@@ -8522,11 +7805,8 @@ msgstr "žiadne"
 msgid "all"
 msgstr "všetky"
 
-msgid "User Login"
-msgstr "Prihlásenie používateľa"
-
-msgid "Log in"
-msgstr "Prihlásiť sa účtom account"
+msgid "Mozilla Add-ons has transitioned to Firefox Accounts for login. Continue to complete the simple login process."
+msgstr "Stránka s doplnkami odteraz používa pre prihlásenie účty Firefox. Pokračujte pre dokončenie jednoduchého prihlasovacieho procesu."
 
 msgid "Password Reset"
 msgstr "Vynulovanie hesla"
@@ -8558,6 +7838,9 @@ msgstr "Trošku podrobnejšie..."
 
 msgid "Add-ons I've created"
 msgstr "Doplnky, ktoré som vytvoril"
+
+msgid "View all"
+msgstr "Zobraziť všetko"
 
 msgid "My Most Popular Themes"
 msgstr "Moje najviac populárne témy"
@@ -8608,9 +7891,9 @@ msgstr "upraviť profil"
 msgid "We could not unsubscribe you"
 msgstr "Nebolo možné vás odhlásiť"
 
-#, fuzzy, python-format
+#, python-format
 msgid "Unfortunately, we weren't able to unsubscribe you. The link you clicked is invalid. However, you can still unsubscribe on your <a href=\"%(edit_url)s\">edit profile page</a>."
-msgstr "Bohužiaľ sa nepodarilo vás odhlásiť z odberu. Odkaz, na ktorý ste klikli, nie je platný. Stále sa môžete na <a href=\"%(edit_url)s\">stránke úpravy vášho profilu</a>."
+msgstr "Nepodarilo sa nám vás odhlásiť z odberu. Odkaz, na ktorý ste klikli, nie je platný. Odhlásiť z odberu sa však môžete stále na <a href=\"%(edit_url)s\">stránke pre úpravu svojho profilu</a>."
 
 msgid "Developer Information"
 msgstr "Informácie o vývojárovi"
@@ -8693,9 +7976,3 @@ msgstr "Tieto verzie sú zobrazené na ukážku a testovacie účely. Vždy by s
 
 msgid "Deleted versions can`t be changed."
 msgstr "Odstránené verzie nemožno meniť."
-
-msgid "Binary"
-msgstr "Binárny"
-
-msgid "Non-binary"
-msgstr "Nebinárny"

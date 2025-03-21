@@ -50,17 +50,17 @@ def global_settings(request):
                               'href': reverse('users.edit')})
         account_links.append({
             'text': ugettext('My Collections'),
-            'href': reverse('collections.user', args=[request.user.username])})
+            'href': reverse('collections.list')})
 
         if request.user.favorite_addons:
             account_links.append(
                 {'text': ugettext('My Favorites'),
                  'href': reverse('collections.detail',
-                                 args=[request.user.username, 'favorites'])})
+                                 args=[request.user.id, 'favorites'])})
 
         account_links.append({
             'text': ugettext('Log out'),
-            'href': reverse('users.logout') + '?to=' + urlquote(request.path),
+            'href': reverse('devhub.logout') + '?to=' + urlquote(request.path),
         })
 
         if request.user.is_developer:

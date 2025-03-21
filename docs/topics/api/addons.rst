@@ -45,11 +45,12 @@ This endpoint allows you to search through public add-ons.
     :query string appversion: Filter by application version compatibility. Pass the full version as a string, e.g. ``46.0``. Only valid when the ``app`` parameter is also present.
     :query string author: Filter by exact (listed) author username or user id. Multiple author usernames or ids can be specified, separated by comma(s), in which case add-ons with at least one matching author are returned.
     :query string category: Filter by :ref:`category slug <category-list>`. ``app`` and ``type`` parameters need to be set, otherwise this parameter is ignored.
+    :query string color: (Experimental) Filter by color in RGB hex format, trying to find themes that approximately match the specified color. Only works for static themes.
     :query string exclude_addons: Exclude add-ons by ``slug`` or ``id``. Multiple add-ons can be specified, separated by comma(s).
     :query boolean featured: Filter to only featured add-ons.  Only ``featured=true`` is supported.
         If ``app`` is provided as a parameter then only featured collections targeted to that application are taken into account.
         If ``lang`` is provided then only featured collections targeted to that language, (and collections for all languages), are taken into account. Both ``app`` and ``lang`` can be provided to filter to addons that are featured in collections that application and for that language, (and for all languages).
-    :query string guid: Filter by exact add-on guid. Multiple guids can be specified, separated by comma(s), in which case any add-ons matching any of the guids will be returned.  As guids are unique there should be at most one add-on result per guid specified.
+    :query string guid: Filter by exact add-on guid. Multiple guids can be specified, separated by comma(s), in which case any add-ons matching any of the guids will be returned.  As guids are unique there should be at most one add-on result per guid specified. For usage with Firefox, instead of separating multiple guids by comma(s), a single guid can be passed in base64url format, prefixed by the ``rta:`` string.
     :query string lang: Activate translations in the specific language for that query. (See :ref:`translated fields <api-overview-translations>`)
     :query int page: 1-based page number. Defaults to 1.
     :query int page_size: Maximum number of results to return for the requested page. Defaults to 25.
@@ -158,9 +159,9 @@ This endpoint allows you to fetch a specific add-on by id, slug or guid.
     :>json int average_daily_users: The average number of users for the add-on (updated daily).
     :>json object categories: Object holding the categories the add-on belongs to.
     :>json array categories[app_name]: Array holding the :ref:`category slugs <category-list>` the add-on belongs to for a given :ref:`add-on application <addon-detail-application>`. (Combine with the add-on ``type`` to determine the name of the category).
-    :>json string|null contributions_url: URL to the (external) webpage where the addon's authors collect monetary contributions, if set.
+    :>json string contributions_url: URL to the (external) webpage where the addon's authors collect monetary contributions, if set. Can be an empty value.
     :>json string created: The date the add-on was created.
-    :>json object current_version: Object holding the current :ref:`version <version-detail-object>` of the add-on. For performance reasons the ``license`` field omits the ``text`` property from the detail endpoint. In addition, ``license`` and ``release_notes`` are omitted entirely from the search endpoint.
+    :>json object current_version: Object holding the current :ref:`version <version-detail-object>` of the add-on. For performance reasons the ``license`` field omits the ``text`` property from both the search and detail endpoints.
     :>json string default_locale: The add-on default locale for translations.
     :>json string|object|null description: The add-on description (See :ref:`translated fields <api-overview-translations>`).
     :>json string|object|null developer comments: Additional information about the add-on provided by the developer. (See :ref:`translated fields <api-overview-translations>`).
@@ -170,7 +171,7 @@ This endpoint allows you to fetch a specific add-on by id, slug or guid.
     :>json boolean has_privacy_policy: The add-on has a Privacy Policy (See :ref:`add-on EULA and privacy policy <addon-eula-policy>`).
     :>json string|object|null homepage: The add-on homepage (See :ref:`translated fields <api-overview-translations>`).
     :>json string icon_url: The URL to icon for the add-on (including a cachebusting query string).
-    :>json object icons: An object holding the URLs to an add-ons icon including a cachebusting query string as values and their size as properties. Currently exposes 32 and 64 pixels wide icons.
+    :>json object icons: An object holding the URLs to an add-ons icon including a cachebusting query string as values and their size as properties. Currently exposes 32, 64, 128 pixels wide icons.
     :>json boolean is_disabled: Whether the add-on is disabled or not.
     :>json boolean is_experimental: Whether the add-on has been marked by the developer as experimental or not.
     :>json boolean is_featured: The add-on appears in a featured collection.
@@ -238,8 +239,6 @@ This endpoint allows you to fetch a specific add-on by id, slug or guid.
     ==============  ==========================================================
            android  Firefox for Android
            firefox  Firefox
-         seamonkey  SeaMonkey
-       thunderbird  Thunderbird
     ==============  ==========================================================
 
     .. note::
@@ -386,43 +385,16 @@ This endpoint allows you to fetch a single version belonging to a specific add-o
     :>json int files[].size: The size for a file, in bytes.
     :>json int files[].status: The :ref:`status <addon-detail-status>` for a file.
     :>json string files[].url: The (absolute) URL to download a file. Clients using this API can append an optional ``src`` query parameter to the url which would indicate the source of the request (See :ref:`download sources <download-sources>`).
-    :>json object license: Object holding information about the license for the version. For performance reasons this field is omitted from add-on search endpoint.
+    :>json object license: Object holding information about the license for the version.
+    :>json boolean license.is_custom: Whether the license text has been provided by the developer, or not.  (When ``false`` the license is one of the common, predefined, licenses).
     :>json string|object|null license.name: The name of the license (See :ref:`translated fields <api-overview-translations>`).
     :>json string|object|null license.text: The text of the license (See :ref:`translated fields <api-overview-translations>`). For performance reasons this field is omitted from add-on detail endpoint.
     :>json string|null license.url: The URL of the full text of license.
-    :>json string|object|null release_notes: The release notes for this version (See :ref:`translated fields <api-overview-translations>`). For performance reasons this field is omitted from add-on search endpoint.
+    :>json string|object|null release_notes: The release notes for this version (See :ref:`translated fields <api-overview-translations>`).
     :>json string reviewed: The date the version was reviewed at.
     :>json boolean is_strict_compatibility_enabled: Whether or not this version has `strictCompatibility <https://developer.mozilla.org/en-US/Add-ons/Install_Manifests#strictCompatibility>`_. set.
     :>json string version: The version number string for the version.
 
-
-----------------------------
-Add-on Feature Compatibility
-----------------------------
-
-.. _addon-feature-compatibility:
-
-This endpoint allows you to fetch feature compatibility information for a
-a specific add-on by id, slug or guid.
-
-.. http:get:: /api/v4/addons/addon/(int:id|string:slug|string:guid)/feature_compatibility/
-
-    .. note::
-        Non-public add-ons and add-ons with only unlisted versions require both:
-
-            * authentication
-            * reviewer permissions or an account listed as a developer of the add-on
-
-    :>json int e10s: The add-on e10s compatibility. Can be one of the following:
-
-    =======================  ==========================================================
-                      Value  Description
-    =======================  ==========================================================
-                 compatible  multiprocessCompatible marked as true in the install.rdf.
-    compatible-webextension  A WebExtension, so compatible.
-               incompatible  multiprocessCompatible marked as false in the install.rdf.
-                    unknown  multiprocessCompatible has not been set.
-    =======================  ==========================================================
 
 ------------------------------
 Add-on EULA and Privacy Policy
@@ -477,7 +449,6 @@ on AMO.
     :>json string results[].default_locale: The add-on default locale for translations.
     :>json string|object|null results[].name: The add-on name (See :ref:`translated fields <api-overview-translations>`).
     :>json string results[].guid: The add-on `extension identifier <https://developer.mozilla.org/en-US/Add-ons/Install_Manifests#id>`_.
-    :>json string results[].locale_disambiguation: Free text field allowing clients to distinguish between multiple dictionaries in the same locale but different spellings. Only present when using the Language Tools endpoint.
     :>json string results[].slug: The add-on slug.
     :>json string results[].target_locale: For dictionaries and language packs, the locale the add-on is meant for. Only present when using the Language Tools endpoint.
     :>json string results[].type: The :ref:`add-on type <addon-detail-type>`.

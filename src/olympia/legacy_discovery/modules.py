@@ -1,19 +1,102 @@
 # -*- coding: utf-8 -*-
+import itertools
+import random
+
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import get_language
 
 import jinja2
+import six
 
+from olympia import amo
 from olympia.addons.models import Addon
 from olympia.bandwagon.models import (
     Collection, MonthlyPick as MonthlyPickModel)
-from olympia.legacy_api.views import addon_filter
 from olympia.versions.compare import version_int
 from olympia.lib.cache import cache_get_or_set, make_key
 
 
 # The global registry for promo modules.  Managed through PromoModuleMeta.
 registry = {}
+
+
+# Temporarily here as part of the legacy-api removal
+# Simplified a bit by stuff that isn't used
+def addon_filter(addons, addon_type, limit, app, platform, version,
+                 compat_mode='strict'):
+    """
+    Filter addons by type, application, app version, and platform.
+    Add-ons that support the current locale will be sorted to front of list.
+    Shuffling will be applied to the add-ons supporting the locale and the
+    others separately.
+    Doing this in the database takes too long, so we do it in code and wrap
+    it in generous caching.
+    """
+    APP = app
+
+    def partition(seq, key):
+        """Group a sequence based into buckets by key(x)."""
+        groups = itertools.groupby(sorted(seq, key=key), key=key)
+        return ((k, list(v)) for k, v in groups)
+
+    # Take out personas since they don't have versions.
+    groups = dict(partition(addons,
+                            lambda x: x.type == amo.ADDON_PERSONA))
+    personas, addons = groups.get(True, []), groups.get(False, [])
+
+    platform = platform.lower()
+    if platform != 'all' and platform in amo.PLATFORM_DICT:
+        def f(ps):
+            return pid in ps or amo.PLATFORM_ALL in ps
+
+        pid = amo.PLATFORM_DICT[platform]
+        addons = [a for a in addons
+                  if f(a.current_version.supported_platforms)]
+
+    if version is not None:
+        vint = version_int(version)
+
+        def f_strict(app):
+            return app.min.version_int <= vint <= app.max.version_int
+
+        def f_ignore(app):
+            return app.min.version_int <= vint
+
+        xs = [(a, a.compatible_apps) for a in addons]
+
+        # Iterate over addons, checking compatibility depending on compat_mode.
+        addons = []
+        for addon, apps in xs:
+            app = apps.get(APP)
+            if compat_mode == 'ignore':
+                if app and f_ignore(app):
+                    addons.append(addon)
+
+    # Put personas back in.
+    addons.extend(personas)
+
+    # We prefer add-ons that support the current locale.
+    lang = get_language()
+
+    def partitioner(x):
+        return x.description is not None and (x.description.locale == lang)
+
+    groups = dict(partition(addons, partitioner))
+    good, others = groups.get(True, []), groups.get(False, [])
+
+    random.shuffle(good)
+    random.shuffle(others)
+
+    # If limit=0, we return all addons with `good` coming before `others`.
+    # Otherwise pad `good` if less than the limit and return the limit.
+    if limit > 0:
+        if len(good) < limit:
+            good.extend(others[:limit - len(good)])
+        return good[:limit]
+    else:
+        good.extend(others)
+    return good
 
 
 class PromoModuleMeta(type):
@@ -26,14 +109,13 @@ class PromoModuleMeta(type):
         return cls
 
 
-class PromoModule(object):
+class PromoModule(six.with_metaclass(PromoModuleMeta, object)):
     """
     Base class for promo modules in the discovery pane.
 
     Subclasses should assign a slug and define render().  The slug is only used
     internally, so it doesn't have to really be a slug.
     """
-    __metaclass__ = PromoModuleMeta
     abstract = True
     slug = None
 
@@ -41,9 +123,7 @@ class PromoModule(object):
         self.request = request
         self.platform = platform
         self.version = version
-        self.compat_mode = 'strict'
-        if version_int(self.version) >= version_int('10.0'):
-            self.compat_mode = 'ignore'
+        self.compat_mode = 'ignore'
 
     def render(self):
         raise NotImplementedError
@@ -83,7 +163,7 @@ class MonthlyPick(TemplatePromo):
                 monthly_pick = self.get_pick('')
             except IndexError:
                 monthly_pick = None
-        return {'pick': monthly_pick, 'module_context': 'discovery'}
+        return {'pick': monthly_pick}
 
 
 class CollectionPromo(PromoModule):
@@ -129,13 +209,11 @@ class CollectionPromo(PromoModule):
             normalize=True)
         return cache_get_or_set(cache_key, fetch_and_filter_addons)
 
-    def render(self, module_context='discovery'):
-        if module_context == 'home':
-            self.platform = 'ALL'
-            self.version = None
+    def render(self):
+        self.platform = 'ALL'
+        self.version = None
         context = {
             'promo': self,
-            'module_context': module_context,
             'descriptions': self.get_descriptions()
         }
         if self.collection:
@@ -164,9 +242,6 @@ class TestPilot(TemplatePromo):
     slug = 'Test Pilot'
     cls = 'promo promo-test-pilot'
     template = 'legacy_discovery/modules/testpilot.html'
-
-    def context(self, **kwargs):
-        return {'module_context': 'discovery'}
 
 
 class StarterPack(CollectionPromo):

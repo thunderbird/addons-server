@@ -7,16 +7,15 @@ import time
 import zipfile
 
 from datetime import timedelta
-from operator import attrgetter
 
 from django import forms
 from django.conf import settings
-from django.core.files.storage import default_storage
 
 import flufl.lock
 import lxml
 import mock
 import pytest
+import six
 
 from defusedxml.common import EntitiesForbidden, NotSupportedError
 from waffle.testutils import override_switch
@@ -117,29 +116,16 @@ class TestRDFExtractor(TestCase):
                                       version='43.0'),
         ]
         self.thunderbird_versions = [
-            AppVersion.objects.create(application=amo.APPS['thunderbird'].id,
+            AppVersion.objects.create(application=amo.APPS['android'].id,
                                       version='42.0'),
-            AppVersion.objects.create(application=amo.APPS['thunderbird'].id,
+            AppVersion.objects.create(application=amo.APPS['android'].id,
                                       version='45.0'),
         ]
 
-    def test_apps(self):
-        zip_file = utils.SafeZip(get_addon_file(
-            'valid_firefox_and_thunderbird_addon.xpi'))
-        extracted = utils.RDFExtractor(zip_file).parse()
-        apps = sorted(extracted['apps'], key=attrgetter('id'))
-        assert len(apps) == 2
-        assert apps[0].appdata == amo.FIREFOX
-        assert apps[0].min.version == '38.0a1'
-        assert apps[0].max.version == '43.0'
-        assert apps[1].appdata == amo.THUNDERBIRD
-        assert apps[1].min.version == '42.0'
-        assert apps[1].max.version == '45.0'
 
     @pytest.mark.xfail(reason=("This waffle switch was for the split of AMO (addons.mozilla.org) "
                                "& ATN (addons.thunderbird.net). And so as the Thunderbird repo, this should pass."))
-    @override_switch('disallow-thunderbird-and-seamonkey', active=True)
-    def test_apps_disallow_thunderbird_and_seamonkey_waffle(self):
+    def test_apps_disallow_thunderbird_and_seamonkey(self):
         zip_file = utils.SafeZip(get_addon_file(
             'valid_firefox_and_thunderbird_addon.xpi'))
         extracted = utils.RDFExtractor(zip_file).parse()
@@ -182,6 +168,13 @@ class TestManifestJSONExtractor(TestCase):
         """Use applications>gecko>id for the guid."""
         assert self.parse(
             {'applications': {
+                'gecko': {
+                    'id': 'some-id'}}})['guid'] == 'some-id'
+
+    def test_guid_from_browser_specific_settings(self):
+        """Use applications>gecko>id for the guid."""
+        assert self.parse(
+            {'browser_specific_settings': {
                 'gecko': {
                     'id': 'some-id'}}})['guid'] == 'some-id'
 
@@ -307,6 +300,7 @@ class TestManifestJSONExtractor(TestCase):
             amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD)
         assert app.max.version == amo.DEFAULT_WEBEXT_MAX_VERSION
 
+
     def test_is_webextension(self):
         assert self.parse(self.addon_guid_dict)['is_webextension']
 
@@ -319,10 +313,6 @@ class TestManifestJSONExtractor(TestCase):
         utils.check_xpi_info(manifest)
 
         assert self.parse(data)['type'] == amo.ADDON_STATICTHEME
-
-    def test_is_e10s_compatible(self):
-        data = self.parse(self.addon_guid_dict)
-        assert data['e10s_compatibility'] == amo.E10S_COMPATIBLE_WEBEXTENSION
 
     def test_langpack(self):
         self.create_webext_default_versions()
@@ -432,6 +422,7 @@ class TestManifestJSONExtractor(TestCase):
                 )
 
     @mock.patch('olympia.addons.models.resolve_i18n_message')
+    @override_switch('content-optimization', active=False)
     def test_mozilla_trademark_for_prefix_allowed(self, resolve_message):
         resolve_message.return_value = 'Notify for Mozilla'
 
@@ -476,7 +467,7 @@ class TestManifestJSONExtractor(TestCase):
         assert apps[1].max.version == amo.DEFAULT_WEBEXT_MAX_VERSION
 
     def test_handle_utf_bom(self):
-        manifest = '\xef\xbb\xbf{"manifest_version": 2, "name": "...", ' + self.addon_guid_string + '}'
+        manifest = b'\xef\xbb\xbf{"manifest_version": 2, "name": "...", "browser_specific_settings": { "gecko": { "id": "test@example.org" }}}'
         parsed = utils.ManifestJSONExtractor(None, manifest).parse()
         assert parsed['name'] == '...'
 
@@ -527,7 +518,7 @@ class TestManifestJSONExtractor(TestCase):
         assert manifest['is_webextension'] is True
         assert manifest.get('name') == 'My Extension'
 
-    def test_apps_contains_wrong_versions(self):
+    def test_invalid_app_versions_are_ignored(self):
         """Use the min and max versions if provided."""
         self.create_webext_default_versions()
         data = {
@@ -539,10 +530,30 @@ class TestManifestJSONExtractor(TestCase):
             }
         }
 
-        with pytest.raises(forms.ValidationError) as exc:
-            self.parse(data)['apps']
+        self.parse(data)['apps']
 
-        assert exc.value.message.startswith('Cannot find min/max version.')
+    def test_dont_skip_apps_because_of_strict_version_incompatibility(self):
+        # We shouldn't skip adding specific apps to the WebExtension
+        # no matter any potential incompatibility, e.g
+        # browser_specific_settings is only supported from Firefox 48.0
+        # onwards, now if the user specifies strict_min_compat as 42.0
+        # we shouldn't skip the app because of that.
+        # NOTE: Thunderbird min is 60
+        self.create_webext_default_versions()
+        data = {
+            'browser_specific_settings': {
+                'gecko': {
+                    'strict_min_version': '60.0',
+                    'id': '@random'
+                }
+            }
+        }
+
+        apps = self.parse(data)['apps']
+        assert len(apps) == 1
+
+        assert apps[0].appdata == amo.THUNDERBIRD
+        assert apps[0].min.version == amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD
 
     def test_manifest_version_3_requires_128_passes(self):
         self.create_webext_default_versions()
@@ -659,11 +670,16 @@ class TestManifestJSONExtractorStaticTheme(TestManifestJSONExtractor):
 
         data = {}
         apps = self.parse(data)['apps']
-        assert len(apps) == 1  # Only Firefox for now.
-        app = apps[0]
-        assert app.appdata == amo.FIREFOX
-        assert app.min.version == amo.DEFAULT_STATIC_THEME_MIN_VERSION_FIREFOX
-        assert app.max.version == amo.DEFAULT_WEBEXT_MAX_VERSION
+        assert len(apps) == 2
+        assert apps[0].appdata == amo.FIREFOX
+        assert apps[0].min.version == (
+            amo.DEFAULT_STATIC_THEME_MIN_VERSION_FIREFOX)
+        assert apps[0].max.version == amo.DEFAULT_WEBEXT_MAX_VERSION
+
+        assert apps[1].appdata == amo.ANDROID
+        assert apps[1].min.version == (
+            amo.DEFAULT_STATIC_THEME_MIN_VERSION_ANDROID)
+        assert apps[1].max.version == amo.DEFAULT_WEBEXT_MAX_VERSION
 
     def test_apps_use_provided_versions(self):
         """Use the min and max versions if provided."""
@@ -699,10 +715,7 @@ class TestManifestJSONExtractorStaticTheme(TestManifestJSONExtractor):
             }
         }
 
-        with pytest.raises(forms.ValidationError) as exc:
-            self.parse(data)['apps']
-
-        assert exc.value.message.startswith('Cannot find min/max version.')
+        self.parse(data)['apps']
 
     def test_theme_json_extracted(self):
         # Check theme data is extracted from the manifest and returned.
@@ -720,46 +733,64 @@ class TestManifestJSONExtractorStaticTheme(TestManifestJSONExtractor):
         pass  # Irrelevant for static themes.
 
 
-def test_zip_folder_content():
-    extension_file = 'src/olympia/files/fixtures/files/extension.xpi'
-    temp_filename, temp_folder = None, None
-    try:
-        temp_folder = utils.extract_zip(extension_file)
-        assert sorted(os.listdir(temp_folder)) == [
-            'chrome', 'chrome.manifest', 'install.rdf']
-        temp_filename = amo.tests.get_temp_filename()
-        utils.zip_folder_content(temp_folder, temp_filename)
-        # Make sure the zipped files contain the same files.
-        with zipfile.ZipFile(temp_filename, mode='r') as new:
-            with zipfile.ZipFile(extension_file, mode='r') as orig:
-                assert sorted(new.namelist()) == sorted(orig.namelist())
-    finally:
-        if temp_folder is not None and os.path.exists(temp_folder):
-            amo.utils.rm_local_tmp_dir(temp_folder)
-        if temp_filename is not None and os.path.exists(temp_filename):
-            os.unlink(temp_filename)
+@pytest.mark.parametrize('filename, expected_files', [
+    ('webextension_no_id.xpi', [
+        'README.md', 'beasts', 'button', 'content_scripts', 'manifest.json',
+        'popup'
+    ]),
+    ('webextension_no_id.zip', [
+        'README.md', 'beasts', 'button', 'content_scripts', 'manifest.json',
+        'popup'
+    ]),
+    ('webextension_no_id.tar.gz', [
+        'README.md', 'beasts', 'button', 'content_scripts', 'manifest.json',
+        'popup'
+    ]),
+    ('webextension_no_id.tar.bz2', [
+        'README.md', 'beasts', 'button', 'content_scripts', 'manifest.json',
+        'popup'
+    ]),
+    ('search.xml', [
+        'search.xml',
+    ])
+])
+def test_extract_extension_to_dest(filename, expected_files):
+    extension_file = 'src/olympia/files/fixtures/files/{fname}'.format(
+        fname=filename)
+
+    with mock.patch('olympia.files.utils.os.fsync') as fsync_mock:
+        temp_folder = utils.extract_extension_to_dest(extension_file)
+
+    assert sorted(os.listdir(temp_folder)) == expected_files
+
+    # fsync isn't called by default
+    assert not fsync_mock.called
 
 
-def test_repack():
-    # Warning: context managers all the way down. Because they're awesome.
-    extension_file = 'src/olympia/files/fixtures/files/extension.xpi'
-    # We don't want to overwrite our fixture, so use a copy.
-    with amo.tests.copy_file_to_temp(extension_file) as temp_filename:
-        # This is where we're really testing the repack helper.
-        with utils.repack(temp_filename) as folder_path:
-            # Temporary folder contains the unzipped XPI.
-            assert sorted(os.listdir(folder_path)) == [
-                'chrome', 'chrome.manifest', 'install.rdf']
-            # Add a file, which should end up in the repacked file.
-            with open(os.path.join(folder_path, 'foo.bar'), 'w') as file_:
-                file_.write('foobar')
-        # Once we're done with the repack, the temporary folder is removed.
-        assert not os.path.exists(folder_path)
-        # And the repacked file has the added file.
-        assert os.path.exists(temp_filename)
-        with zipfile.ZipFile(temp_filename, mode='r') as zf:
-            assert 'foo.bar' in zf.namelist()
-            assert zf.read('foo.bar') == 'foobar'
+@pytest.mark.parametrize('filename', [
+    'webextension_no_id.xpi', 'webextension_no_id.zip',
+    'webextension_no_id.tar.bz2', 'webextension_no_id.tar.gz', 'search.xml',
+])
+def test_extract_extension_to_dest_call_fsync(filename):
+    extension_file = 'src/olympia/files/fixtures/files/{fname}'.format(
+        fname=filename)
+
+    with mock.patch('olympia.files.utils.os.fsync') as fsync_mock:
+        utils.extract_extension_to_dest(extension_file, force_fsync=True)
+
+    # fsync isn't called by default
+    assert fsync_mock.called
+
+
+def test_extract_extension_to_dest_invalid_archive():
+    extension_file = 'src/olympia/files/fixtures/files/doesntexist.zip'
+
+    with mock.patch('olympia.files.utils.shutil.rmtree') as mock_rmtree:
+        with pytest.raises(forms.ValidationError):
+            utils.extract_extension_to_dest(extension_file)
+
+    # Make sure we are cleaning up our temprary directory if possible
+    assert mock_rmtree.called
 
 
 @pytest.fixture
@@ -965,7 +996,7 @@ def test_parse_search_empty_shortname():
         utils.parse_search(fname)
 
     assert (
-        excinfo.value[0] ==
+        six.text_type(excinfo.value.message) ==
         'Could not parse uploaded file, missing or empty <ShortName> element')
 
 
@@ -1053,8 +1084,10 @@ class TestXMLVulnerabilities(TestCase):
             os.path.dirname(__file__), '..', 'fixtures', 'files',
             'quadratic.xml')
 
-        with pytest.raises(EntitiesForbidden):
+        with pytest.raises(forms.ValidationError) as exc:
             utils.extract_search(quadratic_xml)
+
+        assert exc.value.message == u'OpenSearch: XML Security error.'
 
     def test_general_entity_expansion_is_disabled(self):
         zip_file = utils.SafeZip(os.path.join(
@@ -1083,52 +1116,69 @@ class TestXMLVulnerabilities(TestCase):
         lxml.etree.XMLParser(resolve_entities=False)
 
 
-def test_extract_header_img():
+class TestGetBackgroundImages(TestCase):
     file_obj = os.path.join(
         settings.ROOT, 'src/olympia/devhub/tests/addons/static_theme.zip')
-    data = {'images': {'headerURL': 'weta.png'}}
-    dest_path = tempfile.mkdtemp()
-    header_file = dest_path + '/weta.png'
-    assert not default_storage.exists(header_file)
 
-    utils.extract_header_img(file_obj, data, dest_path)
-    assert default_storage.exists(header_file)
-    assert default_storage.size(header_file) == 126447
+    def test_get_background_images(self):
+        data = {'images': {'headerURL': 'weta.png'}}
+
+        images = utils.get_background_images(self.file_obj, data)
+        assert 'weta.png' in images
+        assert len(images.items()) == 1
+        assert len(images['weta.png']) == 126447
+
+    def test_get_background_images_no_theme_data_provided(self):
+        images = utils.get_background_images(self.file_obj, theme_data=None)
+        assert 'weta.png' in images
+        assert len(images.items()) == 1
+        assert len(images['weta.png']) == 126447
+
+    def test_get_background_images_missing(self):
+        data = {'images': {'headerURL': 'missing_file.png'}}
+
+        images = utils.get_background_images(self.file_obj, data)
+        assert not images
+
+    def test_get_background_images_not_image(self):
+        self.file_obj = os.path.join(
+            settings.ROOT,
+            'src/olympia/devhub/tests/addons/static_theme_non_image.zip')
+        data = {'images': {'headerURL': 'not_an_image.js'}}
+
+        images = utils.get_background_images(self.file_obj, data)
+        assert not images
+
+    def test_get_background_images_with_additional_imgs(self):
+        self.file_obj = os.path.join(
+            settings.ROOT,
+            'src/olympia/devhub/tests/addons/static_theme_tiled.zip')
+        data = {'images': {
+            'headerURL': 'empty.png',
+            'additional_backgrounds': [
+                'transparent.gif', 'missing_&_ignored.png',
+                'weta_for_tiling.png']
+        }}
+
+        images = utils.get_background_images(self.file_obj, data)
+        assert len(images.items()) == 3
+        assert len(images['empty.png']) == 332
+        assert len(images['transparent.gif']) == 42
+        assert len(images['weta_for_tiling.png']) == 93371
+
+        # And again but only with the header image
+        images = utils.get_background_images(
+            self.file_obj, data, header_only=True)
+        assert len(images.items()) == 1
+        assert len(images['empty.png']) == 332
 
 
-def test_extract_header_img_missing():
-    file_obj = os.path.join(
-        settings.ROOT, 'src/olympia/devhub/tests/addons/static_theme.zip')
-    data = {'images': {'headerURL': 'missing_file.png'}}
-    dest_path = tempfile.mkdtemp()
-    header_file = dest_path + '/missing_file.png'
-    assert not default_storage.exists(header_file)
-
-    utils.extract_header_img(file_obj, data, dest_path)
-    assert not default_storage.exists(header_file)
-
-
-def test_extract_header_with_additional_imgs():
-    file_obj = os.path.join(
-        settings.ROOT,
-        'src/olympia/devhub/tests/addons/static_theme_tiled.zip')
-    data = {'images': {
-        'headerURL': 'empty.png',
-        'additional_backgrounds': [
-            'transparent.gif', 'missing_&_ignored.png', 'weta_for_tiling.png']
-    }}
-    dest_path = tempfile.mkdtemp()
-    header_file = dest_path + '/empty.png'
-    additional_file_1 = dest_path + '/transparent.gif'
-    additional_file_2 = dest_path + '/weta_for_tiling.png'
-    assert not default_storage.exists(header_file)
-    assert not default_storage.exists(additional_file_1)
-    assert not default_storage.exists(additional_file_2)
-
-    utils.extract_header_img(file_obj, data, dest_path)
-    assert default_storage.exists(header_file)
-    assert default_storage.size(header_file) == 332
-    assert default_storage.exists(additional_file_1)
-    assert default_storage.size(additional_file_1) == 42
-    assert default_storage.exists(additional_file_2)
-    assert default_storage.size(additional_file_2) == 93371
+@pytest.mark.parametrize('value, expected', [
+    (1, '1/1/1'),
+    (1, '1/1/1'),
+    (12, '2/12/12'),
+    (123, '3/23/123'),
+    (123456789, '9/89/123456789'),
+])
+def test_id_to_path(value, expected):
+    assert utils.id_to_path(value) == expected

@@ -33,7 +33,8 @@ class DiscoveryEditorialContentSerializer(serializers.ModelSerializer):
 
 class DiscoveryVersionSerializer(VersionSerializer):
     class Meta:
-        fields = ('compatibility', 'is_strict_compatibility_enabled', 'files',)
+        fields = ('id', 'compatibility', 'is_strict_compatibility_enabled',
+                  'files',)
         model = Version
 
     def to_representation(self, obj):
@@ -47,23 +48,19 @@ class DiscoveryAddonSerializer(AddonSerializer):
     current_version = DiscoveryVersionSerializer()
 
     class Meta:
-        fields = ('id', 'authors', 'average_daily_users', 'current_version',
-                  'guid', 'icon_url', 'name', 'previews', 'ratings', 'slug',
-                  'theme_data', 'type', 'url',)
+        fields = ('id', 'current_version', 'guid', 'icon_url', 'name',
+                  'previews', 'slug', 'theme_data', 'type', 'url',)
         model = Addon
 
 
 class DiscoverySerializer(serializers.ModelSerializer):
     heading = serializers.CharField()
     description = serializers.CharField()
-    heading_text = serializers.CharField()
-    description_text = serializers.CharField()
     addon = DiscoveryAddonSerializer()
     is_recommendation = serializers.SerializerMethodField()
 
     class Meta:
-        fields = ('heading', 'description', 'heading_text', 'description_text',
-                  'addon', 'is_recommendation')
+        fields = ('heading', 'description', 'addon', 'is_recommendation')
         model = DiscoveryItem
 
     def get_is_recommendation(self, obj):

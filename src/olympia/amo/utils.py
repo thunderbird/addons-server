@@ -1,4 +1,3 @@
-import calendar
 import collections
 import contextlib
 import datetime
@@ -10,14 +9,15 @@ import operator
 import os
 import random
 import re
+import scandir
 import shutil
-import time
-import unicodedata
-import urllib
-import urlparse
+import six
 import string
 import subprocess
-import scandir
+import time
+import unicodedata
+
+from six.moves.urllib_parse import parse_qsl, ParseResult, unquote_to_bytes
 
 import django.core.mail
 
@@ -36,6 +36,7 @@ from django.utils.encoding import force_bytes, force_text
 from django.utils.http import _urlparse as django_urlparse, quote_etag
 
 import bleach
+import colorgram
 import html5lib
 import jinja2
 import pytz
@@ -44,19 +45,23 @@ import basket
 from babel import Locale
 from django_statsd.clients import statsd
 from easy_thumbnails import processors
-from html5lib.serializer.htmlserializer import HTMLSerializer
+from html5lib.serializer import HTMLSerializer
 from PIL import Image
 from rest_framework.utils.encoders import JSONEncoder
-from validator import unicodehelper
 
+from django.db.transaction import non_atomic_requests
+
+from olympia.core.logger import getLogger
 from olympia.amo import ADDON_ICON_SIZES, search
 from olympia.amo.pagination import ESPaginator
 from olympia.amo.urlresolvers import linkify_with_outgoing, reverse
 from olympia.translations.models import Translation
 from olympia.users.models import UserNotification
 from olympia.users.utils import UnsubscribeCode
+from olympia.lib import unicodehelper
 
-from . import logger_log as log
+
+log = getLogger('z.amo')
 
 
 def render(request, template, ctx=None, status=None, content_type=None):
@@ -66,6 +71,36 @@ def render(request, template, ctx=None, status=None, content_type=None):
 
 def from_string(string):
     return engines['jinja2'].from_string(string)
+
+
+def render_xml_to_string(request, template, context=None):
+    from olympia.amo.templatetags.jinja_helpers import strip_controls
+
+    if context is None:
+        context = {}
+
+    xml_env = engines['jinja2'].env.overlay()
+    old_finalize = xml_env.finalize
+    xml_env.finalize = lambda x: strip_controls(old_finalize(x))
+
+    for processor in engines['jinja2'].context_processors:
+        context.update(processor(request))
+
+    template = xml_env.get_template(template)
+    return template.render(context)
+
+
+@non_atomic_requests
+def render_xml(request, template, context=None, **kwargs):
+    """Safely renders xml, stripping out nasty control characters."""
+    if context is None:
+        context = {}
+    rendered = render_xml_to_string(request, template, context)
+
+    if 'content_type' not in kwargs:
+        kwargs['content_type'] = 'text/xml'
+
+    return HttpResponse(rendered, **kwargs)
 
 
 def days_ago(n):
@@ -85,14 +120,14 @@ def urlparams(url_, hash=None, **query):
 
     # Use dict(parse_qsl) so we don't get lists of values.
     q = url.query
-    query_dict = dict(urlparse.parse_qsl(force_bytes(q))) if q else {}
+    query_dict = dict(parse_qsl(force_text(q))) if q else {}
     query_dict.update(
         (k, force_bytes(v) if v is not None else v) for k, v in query.items())
     query_string = urlencode(
-        [(k, urllib.unquote(v)) for k, v in query_dict.items()
-         if v is not None])
-    new = urlparse.ParseResult(url.scheme, url.netloc, url.path, url.params,
-                               query_string, fragment)
+        [(k, unquote_to_bytes(v))
+         for k, v in query_dict.items() if v is not None])
+    new = ParseResult(url.scheme, url.netloc, url.path, url.params,
+                      query_string, fragment)
     return new.geturl()
 
 
@@ -186,12 +221,12 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
     if not recipient_list:
         return True
 
-    if isinstance(recipient_list, basestring):
+    if isinstance(recipient_list, six.string_types):
         raise ValueError('recipient_list should be a list, not a string.')
 
     # Check against user notification settings
     if perm_setting:
-        if isinstance(perm_setting, str):
+        if isinstance(perm_setting, six.string_types):
             perm_setting = notifications.NOTIFICATIONS_BY_SHORT[perm_setting]
         perms = dict(UserNotification.objects
                                      .filter(user__email__in=recipient_list,
@@ -217,8 +252,8 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
         from_email = settings.DEFAULT_FROM_EMAIL
 
     if cc:
-        # If not basestring, assume it is already a list.
-        if isinstance(cc, basestring):
+        # If not six.string_types, assume it is already a list.
+        if isinstance(cc, six.string_types):
             cc = [cc]
 
     if not headers:
@@ -335,6 +370,9 @@ def sync_user_with_basket(user):
 
     This raises an exception all other errors.
     """
+    if settings.BASKET_API_KEY is None:
+        return None
+
     try:
         data = basket.lookup_user(user.email)
         user.update(basket_token=data['token'])
@@ -399,7 +437,7 @@ def chunked(seq, n):
     [6, 7]
     """
     seq = iter(seq)
-    while 1:
+    while True:
         rv = list(itertools.islice(seq, 0, n))
         if not rv:
             break
@@ -409,9 +447,10 @@ def chunked(seq, n):
 def urlencode(items):
     """A Unicode-safe URLencoder."""
     try:
-        return urllib.urlencode(items)
+        return six.moves.urllib_parse.urlencode(items)
     except UnicodeEncodeError:
-        return urllib.urlencode([(k, force_bytes(v)) for k, v in items])
+        return six.moves.urllib_parse.urlencode(
+            [(k, force_bytes(v)) for k, v in items])
 
 
 def randslice(qs, limit, exclude=None):
@@ -452,11 +491,11 @@ def slugify(s, ok=SLUG_OK, lower=True, spaces=False, delimiter='-'):
             rv.append(' ')
     new = ''.join(rv).strip()
     if not spaces:
-        new = re.sub('[-\s]+', delimiter, new)
+        new = re.sub(r'[-\s]+', delimiter, new)
     return new.lower() if lower else new
 
 
-def normalize_string(value, strip_puncutation=False):
+def normalize_string(value, strip_punctuation=False):
     """Normalizes a unicode string.
 
      * decomposes unicode characters
@@ -466,9 +505,9 @@ def normalize_string(value, strip_puncutation=False):
     value = unicodedata.normalize('NFD', force_text(value))
     value = value.encode('utf-8', 'ignore')
 
-    if strip_puncutation:
-        value = value.translate(None, string.punctuation)
-    return force_text(' '.join(value.split()))
+    if strip_punctuation:
+        value = value.translate(None, force_bytes(string.punctuation))
+    return force_text(b' '.join(value.split()))
 
 
 def slug_validator(s, ok=SLUG_OK, lower=True, spaces=False, delimiter='-',
@@ -537,7 +576,7 @@ def clean_nl(string):
     # Serialize the parsed tree back to html.
     walker = html5lib.treewalkers.getTreeWalker('etree')
     stream = walker(parse)
-    serializer = HTMLSerializer(quote_attr_values=True,
+    serializer = HTMLSerializer(quote_attr_values='always',
                                 omit_optional_tags=False)
     return serializer.render(stream)
 
@@ -624,16 +663,24 @@ class ImageCheck(object):
         self._img = image
 
     def is_image(self):
-        try:
-            self._img.seek(0)
-            self.img = Image.open(self._img)
-            # PIL doesn't tell us what errors it will raise at this point,
-            # just "suitable ones", so let's catch them all.
-            self.img.verify()
-            return True
-        except Exception:
-            log.error('Error decoding image', exc_info=True)
-            return False
+        if not hasattr(self, '_is_image'):
+            try:
+                self._img.seek(0)
+                self.img = Image.open(self._img)
+                # PIL doesn't tell us what errors it will raise at this point,
+                # just "suitable ones", so let's catch them all.
+                self.img.verify()
+                self._is_image = True
+            except Exception:
+                log.error('Error decoding image', exc_info=True)
+                self._is_image = False
+        return self._is_image
+
+    @property
+    def size(self):
+        if not self.is_image():
+            return None
+        return self.img.size if hasattr(self, 'img') else None
 
     def is_animated(self, size=100000):
         if not self.is_image():
@@ -641,13 +688,13 @@ class ImageCheck(object):
 
         if self.img.format == 'PNG':
             self._img.seek(0)
-            data = ''
+            data = b''
             while True:
                 chunk = self._img.read(size)
                 if not chunk:
                     break
                 data += chunk
-                acTL, IDAT = data.find('acTL'), data.find('IDAT')
+                acTL, IDAT = data.find(b'acTL'), data.find(b'IDAT')
                 if acTL > -1 and acTL < IDAT:
                     return True
             return False
@@ -692,7 +739,7 @@ def get_locale_from_lang(lang):
     # therefore not supported by Babel - trying to fake the class leads to a
     # rabbit hole of more errors because we need valid locale data on disk, to
     # get decimal formatting, plural rules etc.
-    if not lang or lang in ('cak', 'dbg', 'dbr', 'dbl'):
+    if not lang or lang in ('cak',):
         lang = 'en'
     return Locale.parse(translation.to_locale(lang))
 
@@ -706,7 +753,7 @@ class HttpResponseSendFile(HttpResponse):
         super(HttpResponseSendFile, self).__init__('', status=status,
                                                    content_type=content_type)
         header_path = self.path
-        if isinstance(header_path, unicode):
+        if isinstance(header_path, six.text_type):
             header_path = header_path.encode('utf8')
         if settings.XSENDFILE:
             self[settings.XSENDFILE_HEADER] = header_path
@@ -725,7 +772,7 @@ class HttpResponseSendFile(HttpResponse):
             self['Content-Length'] = os.path.getsize(self.path)
 
             def wrapper():
-                while 1:
+                while True:
                     data = fp.read(chunk)
                     if not data:
                         break
@@ -749,12 +796,12 @@ def cache_ns_key(namespace, increment=False):
             ns_val = cache.incr(ns_key)
         except ValueError:
             log.info('Cache increment failed for key: %s. Resetting.' % ns_key)
-            ns_val = epoch(datetime.datetime.now())
+            ns_val = utc_millesecs_from_epoch(datetime.datetime.now())
             cache.set(ns_key, ns_val, None)
     else:
         ns_val = cache.get(ns_key)
         if ns_val is None:
-            ns_val = epoch(datetime.datetime.now())
+            ns_val = utc_millesecs_from_epoch(datetime.datetime.now())
             cache.set(ns_key, ns_val, None)
     return '%s:%s' % (ns_val, ns_key)
 
@@ -777,7 +824,7 @@ def escape_all(value):
     Only linkify full urls, including a scheme, if "linkify_only_full" is True.
 
     """
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         value = jinja2.escape(force_text(value))
         value = linkify_with_outgoing(value)
         return value
@@ -785,7 +832,7 @@ def escape_all(value):
         for i, lv in enumerate(value):
             value[i] = escape_all(lv)
     elif isinstance(value, dict):
-        for k, lv in value.iteritems():
+        for k, lv in six.iteritems(value):
             value[k] = escape_all(lv)
     elif isinstance(value, Translation):
         value = jinja2.escape(force_text(value))
@@ -834,23 +881,8 @@ class LocalFileStorage(FileSystemStorage):
 
     def path(self, name):
         """Actual file system path to name without any safety checks."""
-        return os.path.normpath(os.path.join(self.location, force_bytes(name)))
-
-
-def translations_for_field(field):
-    """Return all the translations for a given field.
-
-    This returns a dict of locale:localized_string, not Translation objects.
-
-    """
-    if field is None:
-        return {}
-
-    translation_id = getattr(field, 'id')
-    qs = Translation.objects.filter(id=translation_id,
-                                    localized_string__isnull=False)
-    translations = dict(qs.values_list('locale', 'localized_string'))
-    return translations
+        return os.path.normpath(
+            os.path.join(force_bytes(self.location), force_bytes(name)))
 
 
 def attach_trans_dict(model, objs):
@@ -863,8 +895,10 @@ def attach_trans_dict(model, objs):
     # Get translations in a dict, ids will be the keys. It's important to
     # consume the result of sorted_groupby, which is an iterator.
     qs = Translation.objects.filter(id__in=ids, localized_string__isnull=False)
-    all_translations = dict((k, list(v)) for k, v in
-                            sorted_groupby(qs, lambda trans: trans.id))
+    all_translations = {
+        field_id: sorted(list(translations), key=lambda t: t.locale)
+        for field_id, translations in sorted_groupby(qs, lambda t: t.id)
+    }
 
     def get_locale_and_string(translation, new_class):
         """Convert the translation to new_class (making PurifiedTranslations
@@ -872,7 +906,7 @@ def attach_trans_dict(model, objs):
         converted_translation = new_class()
         converted_translation.__dict__ = translation.__dict__
         return (converted_translation.locale.lower(),
-                unicode(converted_translation))
+                six.text_type(converted_translation))
 
     # Build and attach translations for each field on each object.
     for obj in objs:
@@ -895,8 +929,9 @@ def rm_local_tmp_dir(path):
     certain that your executing code is operating on a local temp dir, not a
     directory managed by the Django Storage API.
     """
-    assert path.startswith(settings.TMP_PATH)
-
+    path = force_text(path)
+    tmp_path = force_text(settings.TMP_PATH)
+    assert path.startswith(tmp_path)
     return shutil.rmtree(path)
 
 
@@ -986,7 +1021,27 @@ def utc_millesecs_from_epoch(for_datetime=None):
     """
     if not for_datetime:
         for_datetime = datetime.datetime.now()
-    return calendar.timegm(for_datetime.utctimetuple()) * 1000
+    # Number of seconds.
+    seconds = time.mktime(for_datetime.utctimetuple())
+    # timetuple() doesn't care about more precision than seconds, but we do.
+    # Add microseconds as a fraction of a second to keep the precision.
+    seconds += for_datetime.microsecond / 1000000.0
+    # Now convert to milliseconds.
+    return int(seconds * 1000)
+
+
+def extract_colors_from_image(path):
+    try:
+        image_colors = colorgram.extract(path, 6)
+        colors = [{
+            'h': color.hsl.h,
+            's': color.hsl.s,
+            'l': color.hsl.l,
+            'ratio': color.proportion
+        } for color in image_colors]
+    except IOError:
+        colors = None
+    return colors
 
 
 class AMOJSONEncoder(JSONEncoder):
@@ -994,3 +1049,24 @@ class AMOJSONEncoder(JSONEncoder):
         if isinstance(obj, Translation):
             return force_text(obj)
         return super(AMOJSONEncoder, self).default(obj)
+
+
+class StopWatch():
+    def __init__(self, label_prefix=''):
+        self.prefix = label_prefix
+
+    def start(self):
+        self._timestamp = datetime.datetime.utcnow()
+
+    def log_interval(self, label):
+        now = datetime.datetime.utcnow()
+        statsd.timing(self.prefix + label, now - self._timestamp)
+        log.debug(
+            "%s: %s", self.prefix + label, now - self._timestamp)
+        self._timestamp = now
+
+
+def dev_bypass_auth():
+    """Determines if we should bypass fxa for development purposes
+    Requires DEBUG = True and DEV_BYPASS_AUTH = True."""
+    return settings.DEBUG and settings.DEV_BYPASS_AUTH

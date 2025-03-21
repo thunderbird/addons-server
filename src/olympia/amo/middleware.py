@@ -1,7 +1,6 @@
 import contextlib
 import re
 import socket
-import urllib
 import uuid
 
 from django.conf import settings
@@ -16,8 +15,11 @@ from django.http import (
 from django.middleware import common
 from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.deprecation import MiddlewareMixin
-from django.utils.encoding import force_bytes, iri_to_uri
+from django.utils.encoding import force_text, iri_to_uri
 from django.utils.translation import activate, ugettext_lazy as _
+
+from rest_framework import permissions
+from six.moves.urllib.parse import quote
 
 import MySQLdb as mysql
 from corsheaders.middleware import CorsMiddleware as _CorsMiddleware
@@ -44,10 +46,11 @@ class LocaleAndAppURLMiddleware(MiddlewareMixin):
     def process_request(self, request):
         # Find locale, app
         prefixer = urlresolvers.Prefixer(request)
-        if settings.DEBUG:
-            redirect_type = HttpResponseRedirect
-        else:
-            redirect_type = HttpResponsePermanentRedirect
+
+        # Always use a 302 redirect to avoid users being stuck in case of
+        # accidental misconfiguration.
+        redirect_type = HttpResponseRedirect
+
         urlresolvers.set_url_prefix(prefixer)
         full_path = prefixer.fix(prefixer.shortened_path)
 
@@ -62,16 +65,16 @@ class LocaleAndAppURLMiddleware(MiddlewareMixin):
             # from query params so we don't have an infinite loop.
             prefixer.locale = ''
             new_path = prefixer.fix(prefixer.shortened_path)
-            query = dict((force_bytes(k), request.GET[k]) for k in request.GET)
+            query = request.GET.dict()
             query.pop('lang')
             return redirect_type(urlparams(new_path, **query))
 
         if full_path != request.path:
             query_string = request.META.get('QUERY_STRING', '')
-            full_path = urllib.quote(full_path.encode('utf-8'))
+            full_path = quote(full_path.encode('utf-8'))
 
             if query_string:
-                query_string = query_string.decode('utf-8', 'ignore')
+                query_string = force_text(query_string, errors='ignore')
                 full_path = u'%s?%s' % (full_path, query_string)
 
             response = redirect_type(full_path)
@@ -96,11 +99,6 @@ class LocaleAndAppURLMiddleware(MiddlewareMixin):
         activate(request.LANG)
         request.APP = amo.APPS.get(prefixer.app, amo.FIREFOX)
 
-        # Match legacy api requests too - IdentifyAPIRequestMiddleware is v3+
-        # TODO - remove this when legacy_api goes away
-        # https://github.com/mozilla/addons-server/issues/9274
-        request.is_legacy_api = request.path_info.startswith('/api/')
-
 
 class AuthenticationMiddlewareWithoutAPI(AuthenticationMiddleware):
     """
@@ -108,8 +106,7 @@ class AuthenticationMiddlewareWithoutAPI(AuthenticationMiddleware):
     own authentication mechanism.
     """
     def process_request(self, request):
-        legacy_or_drf_api = request.is_api or request.is_legacy_api
-        if legacy_or_drf_api and not auth_path.match(request.path):
+        if request.is_api and not auth_path.match(request.path):
             request.user = AnonymousUser()
         else:
             return super(
@@ -227,35 +224,16 @@ class ReadOnlyMiddleware(MiddlewareMixin):
         u'perform website maintenance. We\'ll be back to '
         u'full capacity shortly.')
 
-    READ_ONLY_HEADER = 'X-AMO-Read-Only'
-
-    def _render_api_error(self):
-        response = JsonResponse({'error': self.ERROR_MSG}, status=503)
-        response[self.READ_ONLY_HEADER] = 'true'
-        if settings.READ_ONLY_RETRY_AFTER is not None:
-            response['Retry-After'] = settings.READ_ONLY_RETRY_AFTER.seconds
-        return response
-
     def process_request(self, request):
         if not settings.READ_ONLY:
             return
 
         if request.is_api:
-            writable_method = request.method in ('POST', 'PUT', 'DELETE')
+            writable_method = request.method not in permissions.SAFE_METHODS
             if writable_method:
-                return self._render_api_error()
+                return JsonResponse({'error': self.ERROR_MSG}, status=503)
         elif request.method == 'POST':
             return render(request, 'amo/read-only.html', status=503)
-
-    def process_response(self, request, response):
-        # We haven't set the header yet so it's not an error response
-        # set by this middleware so we should default to setting it to
-        # `false`
-        header_name = self.READ_ONLY_HEADER
-
-        if header_name not in response:
-            response[self.READ_ONLY_HEADER] = 'false'
-        return response
 
     def process_exception(self, request, exception):
         if not settings.READ_ONLY:
@@ -345,14 +323,6 @@ class RequestIdMiddleware(MiddlewareMixin):
             response['X-AMO-Request-ID'] = request.request_id
 
         return response
-
-
-class CorsMiddleware(_CorsMiddleware, MiddlewareMixin):
-    """Wrapper to allow old style Middleware to work with django 1.10+.
-    Will be unneeded once
-    https://github.com/mstriemer/django-cors-headers/pull/3 is merged and a
-    new release of django-cors-headers-multi is available."""
-    pass
 
 
 class ImageUploadRestrictionMiddleware(object):

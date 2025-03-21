@@ -1,13 +1,13 @@
 {% macro heading(addon, amo, collection) %}
   <h3>
     {% if collection %}
-      {% set collection_path = "?src=collection&collection_id=" + collection.uuid %}
+      {% set collection_path = "?src=collection&collection_id=" + collection.uuid.hex %}
     {% else %}
       {% set collection_path = "" %}
     {% endif %}
 
     <a href="{{ addon.get_url_path() + collection_path }}">
-      <img class="icon" width="32" height="32" src="{{ addon.icon_url }}" alt="">
+      <img class="icon" width="32" height="32" src="{{ addon.get_icon_url(32) }}" alt="">
       {{ addon.name }}</a>
     <span>
       {{ addon_users_list(addon) }}

@@ -6,24 +6,26 @@ import os
 import posixpath
 import re
 import time
-import urlparse
 import uuid
 
 from datetime import datetime
-from operator import attrgetter
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, models, transaction
 from django.db.models import F, Max, Q, signals as dbsignals
 from django.dispatch import receiver
-from django.utils.functional import cached_property
 from django.utils import translation
+from django.utils.encoding import force_text, python_2_unicode_compatible
+from django.utils.functional import cached_property
 from django.utils.translation import trans_real, ugettext_lazy as _
+
+import six
 
 from django_extensions.db.fields.json import JSONField
 from django_statsd.clients import statsd
 from jinja2.filters import do_dictsort
+from six.moves.urllib_parse import urlsplit
 
 import olympia.core.logger
 
@@ -39,8 +41,8 @@ from olympia.amo.models import (
 from olympia.amo.templatetags import jinja_helpers
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import (
-    AMOJSONEncoder, attach_trans_dict, cache_ns_key, chunked, find_language,
-    send_mail, slugify, sorted_groupby, timer, to_language)
+    AMOJSONEncoder, StopWatch, attach_trans_dict, cache_ns_key, chunked,
+    find_language, send_mail, slugify, sorted_groupby, timer, to_language)
 from olympia.constants.applications import THUNDERBIRD
 from olympia.constants.categories import CATEGORIES, CATEGORIES_BY_ID
 from olympia.constants.reviewers import REPUTATION_CHOICES
@@ -53,7 +55,7 @@ from olympia.translations.fields import (
 from olympia.translations.models import Translation
 from olympia.users.models import UserForeignKey, UserProfile
 from olympia.versions.compare import version_int
-from olympia.versions.models import inherit_nomination, Version, VersionPreview
+from olympia.versions.models import Version, VersionPreview, inherit_nomination
 
 from product_details import product_details
 
@@ -155,7 +157,7 @@ def clean_slug(instance, slug_field='slug'):
 class AddonQuerySet(BaseQuerySet):
     def id_or_slug(self, val):
         """Get add-ons by id or slug."""
-        if isinstance(val, basestring) and not val.isdigit():
+        if isinstance(val, six.string_types) and not val.isdigit():
             return self.filter(slug=val)
         return self.filter(id=val)
 
@@ -272,6 +274,7 @@ class AddonManager(ManagerBase):
         return self.get_queryset().listed(app, *status)
 
 
+@python_2_unicode_compatible
 class Addon(OnChangeMixin, ModelBase):
     id = PositiveAutoField(primary_key=True)
     STATUS_CHOICES = amo.STATUS_CHOICES_ADDON
@@ -325,32 +328,18 @@ class Addon(OnChangeMixin, ModelBase):
                                            db_column='inactive')
     view_source = models.BooleanField(default=True, db_column='viewsource')
     public_stats = models.BooleanField(default=False, db_column='publicstats')
-    external_software = models.BooleanField(default=False,
-                                            db_column='externalsoftware')
-    auto_repackage = models.BooleanField(
-        default=True, help_text='Automatically upgrade jetpack add-on to a '
-                                'new sdk version?')
 
     target_locale = models.CharField(
         max_length=255, db_index=True, blank=True, null=True,
         help_text='For dictionaries and language packs. Identifies the '
                   'language and, optionally, region that this add-on is '
                   'written for. Examples: en-US, fr, and de-AT')
-    locale_disambiguation = models.CharField(
-        max_length=255, blank=True, null=True,
-        help_text='For dictionaries and language packs. A short identifier to '
-                  'differentiate this add-on from other similar add-ons (for '
-                  'example, different dialects). This field is not required. '
-                  'Please limit the length of the field to a few short words.')
 
     contributions = models.URLField(max_length=255, blank=True)
 
     authors = models.ManyToManyField('users.UserProfile', through='AddonUser',
                                      related_name='addons')
     categories = models.ManyToManyField('Category', through='AddonCategory')
-    dependencies = models.ManyToManyField('self', symmetrical=False,
-                                          through='AddonDependency',
-                                          related_name='addons')
 
     _current_version = models.ForeignKey(Version, db_column='current_version',
                                          related_name='+', null=True,
@@ -399,7 +388,7 @@ class Addon(OnChangeMixin, ModelBase):
             ['type', 'status', 'disabled_by_user'],
         ]
 
-    def __unicode__(self):
+    def __str__(self):
         return u'%s: %s' % (self.id, self.name)
 
     def __init__(self, *args, **kw):
@@ -454,14 +443,54 @@ class Addon(OnChangeMixin, ModelBase):
     def is_soft_deleteable(self):
         return self.status or Version.unfiltered.filter(addon=self).exists()
 
+    def _prepare_deletion_email(self, msg, reason):
+        user = core.get_user()
+        # Don't localize email to admins, use 'en-US' always.
+        with translation.override(settings.LANGUAGE_CODE):
+            # The types are lazy translated in apps/constants/base.py.
+            atype = amo.ADDON_TYPE.get(self.type, 'unknown').upper()
+        context = {
+            'atype': atype,
+            'authors': [u.email for u in self.authors.all()],
+            'adu': self.average_daily_users,
+            'guid': self.guid,
+            'id': self.id,
+            'msg': msg,
+            'reason': reason,
+            'name': self.name,
+            'slug': self.slug,
+            'total_downloads': self.total_downloads,
+            'url': jinja_helpers.absolutify(self.get_url_path()),
+            'user_str': (
+                "%s, %s (%s)" % (user.name, user.email, user.id) if user
+                else "Unknown"),
+        }
+
+        email_msg = u"""
+        The following %(atype)s was deleted.
+        %(atype)s: %(name)s
+        URL: %(url)s
+        DELETED BY: %(user_str)s
+        ID: %(id)s
+        GUID: %(guid)s
+        AUTHORS: %(authors)s
+        TOTAL DOWNLOADS: %(total_downloads)s
+        AVERAGE DAILY USERS: %(adu)s
+        NOTES: %(msg)s
+        REASON GIVEN BY USER FOR DELETION: %(reason)s
+        """ % context
+        log.debug('Sending delete email for %(atype)s %(id)s' % context)
+        subject = 'Deleting %(atype)s %(slug)s (%(id)d)' % context
+        return subject, email_msg
+
     @transaction.atomic
-    def delete(self, msg='', reason='', hard=False):
+    def delete(self, msg='', reason='', send_delete_email=True, hard=False):
         # To avoid a circular import
         from . import tasks
         from olympia.versions import tasks as version_tasks
         # Check for soft deletion path. Happens only if the addon status isn't
         # 0 (STATUS_INCOMPLETE) with no versions.
-        soft_deletion = not hard and self.is_soft_deleteable()
+        soft_deletion = self.is_soft_deleteable() and not hard
         if soft_deletion and self.status == amo.STATUS_DELETED:
             # We're already done.
             return
@@ -484,46 +513,9 @@ class Addon(OnChangeMixin, ModelBase):
 
             log.debug('Deleting add-on: %s' % self.id)
 
-            to = [settings.FLIGTAR]
-            user = core.get_user()
-
-            # Don't localize email to admins, use 'en-US' always.
-            with translation.override(settings.LANGUAGE_CODE):
-                # The types are lazy translated in apps/constants/base.py.
-                atype = amo.ADDON_TYPE.get(self.type, 'unknown').upper()
-            context = {
-                'atype': atype,
-                'authors': [u.email for u in self.authors.all()],
-                'adu': self.average_daily_users,
-                'guid': self.guid,
-                'id': self.id,
-                'msg': msg,
-                'reason': reason,
-                'name': self.name,
-                'slug': self.slug,
-                'total_downloads': self.total_downloads,
-                'url': jinja_helpers.absolutify(self.get_url_path()),
-                'user_str': ("%s, %s (%s)" % (user.display_name or
-                                              user.username, user.email,
-                                              user.id) if user else "Unknown"),
-            }
-
-            email_msg = u"""
-            The following %(atype)s was deleted.
-            %(atype)s: %(name)s
-            URL: %(url)s
-            DELETED BY: %(user_str)s
-            ID: %(id)s
-            GUID: %(guid)s
-            AUTHORS: %(authors)s
-            TOTAL DOWNLOADS: %(total_downloads)s
-            AVERAGE DAILY USERS: %(adu)s
-            NOTES: %(msg)s
-            REASON GIVEN BY USER FOR DELETION: %(reason)s
-            """ % context
-            log.debug('Sending delete email for %(atype)s %(id)s' % context)
-            subject = 'Deleting %(atype)s %(slug)s (%(id)d)' % context
-
+            if send_delete_email:
+                email_to = [settings.FLIGTAR]
+                subject, email_msg = self._prepare_deletion_email(msg, reason)
             # If the add-on was disabled by Mozilla, add the guid to
             #  DeniedGuids to prevent resubmission after deletion.
             if self.status == amo.STATUS_DISABLED:
@@ -539,12 +531,13 @@ class Addon(OnChangeMixin, ModelBase):
             self._ratings.all().delete()
             # The last parameter is needed to automagically create an AddonLog.
             activity.log_create(amo.LOG.DELETE_ADDON, self.pk,
-                                unicode(self.guid), self)
+                                six.text_type(self.guid), self)
             self.update(status=amo.STATUS_DELETED, slug=None,
                         _current_version=None, modified=datetime.now())
             models.signals.post_delete.send(sender=Addon, instance=self)
 
-            send_mail(subject, email_msg, recipient_list=to)
+            if send_delete_email:
+                send_mail(subject, email_msg, recipient_list=email_to)
         else:
             # Real deletion path.
             super(Addon, self).delete()
@@ -558,6 +551,8 @@ class Addon(OnChangeMixin, ModelBase):
 
     @classmethod
     def initialize_addon_from_upload(cls, data, upload, channel, user):
+        timer = StopWatch('addons.models.initialize_addon_from_upload.')
+        timer.start()
         fields = [field.name for field in cls._meta.get_fields()]
         guid = data.get('guid')
         old_guid_addon = None
@@ -576,13 +571,17 @@ class Addon(OnChangeMixin, ModelBase):
 
         if generate_guid:
             data['guid'] = guid = generate_addon_guid()
+        timer.log_interval('1.guids')
 
         data = cls.resolve_webext_translations(data, upload)
+        timer.log_interval('2.resolve_translations')
 
         if channel == amo.RELEASE_CHANNEL_UNLISTED:
             data['slug'] = get_random_slug()
+        timer.log_interval('3.get_random_slug')
 
         addon = Addon(**{k: v for k, v in data.items() if k in fields})
+        timer.log_interval('4.instance_init')
 
         addon.status = amo.STATUS_NULL
         locale_is_set = (addon.default_locale and
@@ -590,8 +589,10 @@ class Addon(OnChangeMixin, ModelBase):
                          data.get('default_locale') == addon.default_locale)
         if not locale_is_set:
             addon.default_locale = to_language(trans_real.get_language())
+        timer.log_interval('5.default_locale')
 
         addon.save()
+        timer.log_interval('6.addon_save')
 
         if old_guid_addon:
             old_guid_addon.update(guid='guid-reused-by-pk-{}'.format(addon.pk))
@@ -599,6 +600,7 @@ class Addon(OnChangeMixin, ModelBase):
 
         if user:
             AddonUser(addon=addon, user=user).save()
+        timer.log_interval('7.end')
         return addon
 
     @classmethod
@@ -731,7 +733,8 @@ class Addon(OnChangeMixin, ModelBase):
         return Rating.objects.filter(addon=self, reply_to=None)
 
     def get_category(self, app_id):
-        categories = self.app_categories.get(amo.APP_IDS.get(app_id))
+        appname = getattr(amo.APP_IDS.get(app_id), 'short', '')
+        categories = self.app_categories.get(appname)
         return categories[0] if categories else None
 
     def language_ascii(self):
@@ -836,7 +839,7 @@ class Addon(OnChangeMixin, ModelBase):
         # as File's) when deleting a version. If so, we should avoid putting
         # that version-being-deleted in any fields.
         if ignore is not None:
-            updated = {k: v for k, v in updated.iteritems() if v != ignore}
+            updated = {k: v for k, v in six.iteritems(updated) if v != ignore}
 
         if updated:
             diff = [self._current_version, new_current_version]
@@ -952,7 +955,7 @@ class Addon(OnChangeMixin, ModelBase):
 
     def get_icon_dir(self):
         return os.path.join(jinja_helpers.user_media_path('addon_icons'),
-                            '%s' % (self.id / 1000))
+                            '%s' % (self.id // 1000))
 
     def get_icon_url(self, size, use_default=True):
         """
@@ -1171,10 +1174,6 @@ class Addon(OnChangeMixin, ModelBase):
     def show_adu(self):
         return self.type != amo.ADDON_SEARCH
 
-    @property
-    def icon_url(self):
-        return self.get_icon_url(32)
-
     def authors_other_addons(self, app=None):
         """
         Return other addons by the author(s) of this addon,
@@ -1313,7 +1312,10 @@ class Addon(OnChangeMixin, ModelBase):
                                         'featuredcollection__locale'))
         out = collections.defaultdict(set)
         for app, locale in qset:
-            out[app].add(locale)
+            # Even if the locale for the FeaturedCollection is an empty string
+            # instead of None, we return it as None so that it keeps its
+            # special meaning.
+            out[app].add(locale or None)
         return out
 
     def has_full_profile(self):
@@ -1347,10 +1349,18 @@ class Addon(OnChangeMixin, ModelBase):
     def incompatible_latest_apps(self):
         """Returns a list of applications with which this add-on is
         incompatible (based on the latest version of each app).
-
         """
-        return [app for app, ver in self.compatible_apps.items() if ver and
-                version_int(ver.max.version) < version_int(app.latest_version)]
+        apps = []
+
+        for application, version in self.compatible_apps.items():
+            if not version:
+                continue
+
+            latest_version = version.get_latest_application_version()
+
+            if version_int(version.max.version) < version_int(latest_version):
+                apps.append((application, latest_version))
+        return apps
 
     def has_author(self, user):
         """True if ``user`` is an author of the add-on."""
@@ -1387,8 +1397,8 @@ class Addon(OnChangeMixin, ModelBase):
 
     @cached_property
     def all_categories(self):
-        return filter(
-            None, [cat.to_static_category() for cat in self.categories.all()])
+        return list(filter(
+            None, [cat.to_static_category() for cat in self.categories.all()]))
 
     @cached_property
     def current_previews(self):
@@ -1397,7 +1407,7 @@ class Addon(OnChangeMixin, ModelBase):
         if self.has_per_version_previews:
             if self.current_version:
                 return self.current_version.previews.all()
-            return []
+            return VersionPreview.objects.none()
         else:
             return self._all_previews
 
@@ -1414,8 +1424,8 @@ class Addon(OnChangeMixin, ModelBase):
     def app_categories(self):
         app_cats = {}
         categories = sorted_groupby(
-            sorted(self.all_categories, key=attrgetter('weight', 'name')),
-            key=lambda x: amo.APP_IDS.get(x.application))
+            sorted(self.all_categories),
+            key=lambda x: getattr(amo.APP_IDS.get(x.application), 'short', ''))
         for app, cats in categories:
             app_cats[app] = list(cats)
         return app_cats
@@ -1433,7 +1443,7 @@ class Addon(OnChangeMixin, ModelBase):
             files = (self.current_version.files
                          .filter(platform=amo.PLATFORM_ANDROID.id))
             try:
-                return unicode(files[0].get_localepicker(), 'utf-8')
+                return force_text(files[0].get_localepicker())
             except IndexError:
                 pass
         return ''
@@ -1441,11 +1451,6 @@ class Addon(OnChangeMixin, ModelBase):
     def can_review(self, user):
         """Check whether the user should be prompted to add a review or not."""
         return not user.is_authenticated or not self.has_author(user)
-
-    @property
-    def all_dependencies(self):
-        """Return all the (valid) add-ons this add-on depends on."""
-        return list(self.dependencies.valid().all()[:3])
 
     def check_ownership(self, request, require_owner, require_author,
                         ignore_disabled, admin):
@@ -1461,23 +1466,12 @@ class Addon(OnChangeMixin, ModelBase):
                                          dev=(not require_owner),
                                          ignore_disabled=ignore_disabled)
 
-    @property
-    def feature_compatibility(self):
-        try:
-            feature_compatibility = self.addonfeaturecompatibility
-        except AddonFeatureCompatibility.DoesNotExist:
-            # If it does not exist, return a blank one, no need to create. It's
-            # the caller responsibility to create when needed to avoid
-            # unexpected database writes.
-            feature_compatibility = AddonFeatureCompatibility()
-        return feature_compatibility
-
     def should_show_permissions(self, version=None):
         version = version or self.current_version
         return (self.type == amo.ADDON_EXTENSION and
                 version and version.all_files[0] and
                 (not version.all_files[0].is_webextension or
-                 version.all_files[0].webext_permissions or
+                 version.all_files[0].webext_permissions_list or
                  version.all_files[0].is_experiment))
 
     @property
@@ -1656,12 +1650,13 @@ class AddonReviewerFlags(ModelBase):
     notified_about_expiring_info_request = models.BooleanField(default=False)
     needs_sensitive_data_access_review = models.BooleanField(default=False)
 
+@python_2_unicode_compatible
 class Persona(models.Model):
     """Personas-specific additions to the add-on model."""
     STATUS_CHOICES = amo.STATUS_CHOICES_PERSONA
 
     id = PositiveAutoField(primary_key=True)
-    addon = models.OneToOneField(Addon, null=True)
+    addon = models.OneToOneField(Addon, null=True, on_delete=models.CASCADE)
     persona_id = models.PositiveIntegerField(db_index=True)
     # name: deprecated in favor of Addon model's name field
     # description: deprecated, ditto
@@ -1680,13 +1675,14 @@ class Persona(models.Model):
 
     # To spot duplicate submissions.
     checksum = models.CharField(max_length=64, blank=True, default='')
-    dupe_persona = models.ForeignKey('self', null=True)
+    dupe_persona = models.ForeignKey(
+        'self', null=True, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'personas'
 
-    def __unicode__(self):
-        return unicode(self.addon.name)
+    def __str__(self):
+        return six.text_type(self.addon.name)
 
     def is_new(self):
         return self.persona_id == 0
@@ -1795,15 +1791,15 @@ class Persona(models.Model):
 
         addon = self.addon
         return {
-            'id': unicode(self.addon.id),  # Personas dislikes ints
-            'name': unicode(addon.name),
+            'id': six.text_type(self.addon.id),  # Personas dislikes ints
+            'name': six.text_type(addon.name),
             'accentcolor': hexcolor(self.accentcolor),
             'textcolor': hexcolor(self.textcolor),
-            'category': (unicode(addon.all_categories[0].name) if
+            'category': (six.text_type(addon.all_categories[0].name) if
                          addon.all_categories else ''),
             # TODO: Change this to be `addons_users.user.display_name`.
             'author': self.display_username,
-            'description': (unicode(addon.description)
+            'description': (six.text_type(addon.description)
                             if addon.description is not None
                             else addon.description),
             'header': self.header_url,
@@ -1842,10 +1838,12 @@ class Persona(models.Model):
 
 class MigratedLWT(OnChangeMixin, ModelBase):
     lightweight_theme = models.ForeignKey(
-        Addon, unique=True, related_name='migrated_to_static_theme')
+        Addon, unique=True, related_name='migrated_to_static_theme',
+        on_delete=models.CASCADE)
     getpersonas_id = models.PositiveIntegerField(db_index=True)
     static_theme = models.ForeignKey(
-        Addon, unique=True, related_name='migrated_from_lwt')
+        Addon, unique=True, related_name='migrated_from_lwt',
+        on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'migrated_personas'
@@ -1858,7 +1856,7 @@ class MigratedLWT(OnChangeMixin, ModelBase):
 class AddonCategory(models.Model):
     id = PositiveAutoField(primary_key=True)
     addon = models.ForeignKey(Addon, on_delete=models.CASCADE)
-    category = models.ForeignKey('Category')
+    category = models.ForeignKey('Category', on_delete=models.CASCADE)
     feature = models.BooleanField(default=False)
     feature_locales = models.CharField(max_length=255, default='', null=True)
 
@@ -1897,28 +1895,7 @@ def watch_addon_user(old_attr=None, new_attr=None, instance=None, sender=None,
     update_search_index(sender=sender, instance=instance.addon, **kwargs)
 
 
-class AddonDependency(models.Model):
-    addon = models.ForeignKey(Addon, related_name='addons_dependencies')
-    dependent_addon = models.ForeignKey(Addon, related_name='dependent_on')
-
-    class Meta:
-        db_table = 'addons_dependencies'
-        unique_together = ('addon', 'dependent_addon')
-
-
-class AddonFeatureCompatibility(ModelBase):
-    addon = models.OneToOneField(
-        Addon, primary_key=True, on_delete=models.CASCADE)
-    e10s = models.PositiveSmallIntegerField(
-        choices=amo.E10S_COMPATIBILITY_CHOICES, default=amo.E10S_UNKNOWN)
-
-    def __unicode__(self):
-        return unicode(self.addon) if self.pk else u""
-
-    def get_e10s_classname(self):
-        return amo.E10S_COMPATIBILITY_CHOICES_API[self.e10s]
-
-
+@python_2_unicode_compatible
 class AddonApprovalsCounter(ModelBase):
     """Model holding a counter of the number of times a listed version
     belonging to an add-on has been approved by a human. Reset everytime a
@@ -1936,8 +1913,9 @@ class AddonApprovalsCounter(ModelBase):
     last_human_review = models.DateTimeField(null=True)
     last_content_review = models.DateTimeField(null=True)
 
-    def __unicode__(self):
-        return u'%s: %d' % (unicode(self.pk), self.counter) if self.pk else u''
+    def __str__(self):
+        return u'%s: %d' % (
+            six.text_type(self.pk), self.counter) if self.pk else u''
 
     @classmethod
     def increment_for_addon(cls, addon):
@@ -1979,6 +1957,7 @@ class AddonApprovalsCounter(ModelBase):
         return obj
 
 
+@python_2_unicode_compatible
 class DeniedGuid(ModelBase):
     id = PositiveAutoField(primary_key=True)
     guid = models.CharField(max_length=255, unique=True)
@@ -1987,18 +1966,14 @@ class DeniedGuid(ModelBase):
     class Meta:
         db_table = 'denied_guids'
 
-    def __unicode__(self):
+    def __str__(self):
         return self.guid
 
 
+@python_2_unicode_compatible
 class Category(OnChangeMixin, ModelBase):
     id = PositiveAutoField(primary_key=True)
-    # Old name translations, we now have constants translated via gettext, but
-    # this is for backwards-compatibility, for categories which have a weird
-    # type/application/slug combo that is not in the constants.
-    db_name = TranslatedField(db_column='name')
-    slug = SlugField(max_length=50,
-                     help_text='Used in Category URLs.')
+    slug = SlugField(max_length=50, help_text='Used in Category URLs.')
     type = models.PositiveIntegerField(db_column='addontype_id',
                                        choices=do_dictsort(amo.ADDON_TYPE))
     application = models.PositiveIntegerField(choices=amo.APPS_CHOICES,
@@ -2020,13 +1995,13 @@ class Category(OnChangeMixin, ModelBase):
         try:
             value = CATEGORIES[self.application][self.type][self.slug].name
         except KeyError:
-            # If we can't find the category in the constants dict, fall back
-            # to the db field.
-            value = self.db_name
-        return unicode(value)
+            # We can't find the category in the constants dict. This shouldn't
+            # happen, but just in case handle it by returning an empty string.
+            value = ''
+        return six.text_type(value)
 
-    def __unicode__(self):
-        return unicode(self.name)
+    def __str__(self):
+        return six.text_type(self.name)
 
     def get_url_path(self):
         try:
@@ -2048,27 +2023,23 @@ class Category(OnChangeMixin, ModelBase):
         """Return a Category instance created from a StaticCategory.
 
         Does not save it into the database by default. Useful in tests."""
-        # we need to drop description as it's a StaticCategory only property.
-        _dict = dict(static_category.__dict__)
-        # Convert `name` to `db_name`. `Category` uses `db_name` as it's field
-        # name but the database field is actually linked to `name`.
-        _dict['db_name'] = _dict.pop('name', None)
-        del _dict['description']
+        # We need to drop description and name - they are StaticCategory
+        # properties not present in the database.
+        data = dict(static_category.__dict__)
+        del data['name']
+        del data['description']
         if save:
             category, _ = Category.objects.get_or_create(
-                id=static_category.id, defaults=_dict)
+                id=static_category.id, defaults=data)
             return category
         else:
-            return cls(**_dict)
-
-
-dbsignals.pre_save.connect(save_signal, sender=Category,
-                           dispatch_uid='category_translations')
+            return cls(**data)
 
 
 class Preview(BasePreview, ModelBase):
     id = PositiveAutoField(primary_key=True)
-    addon = models.ForeignKey(Addon, related_name='previews')
+    addon = models.ForeignKey(
+        Addon, related_name='previews', on_delete=models.CASCADE)
     caption = TranslatedField()
     position = models.IntegerField(default=0)
     sizes = JSONField(default={})
@@ -2101,13 +2072,14 @@ class AppSupport(ModelBase):
         unique_together = ('addon', 'app')
 
 
+@python_2_unicode_compatible
 class DeniedSlug(ModelBase):
     name = models.CharField(max_length=255, unique=True, default='')
 
     class Meta:
         db_table = 'addons_denied_slug'
 
-    def __unicode__(self):
+    def __str__(self):
         return self.name
 
     @classmethod
@@ -2115,15 +2087,16 @@ class DeniedSlug(ModelBase):
         return slug.isdigit() or cls.objects.filter(name=slug).exists()
 
 
+@python_2_unicode_compatible
 class FrozenAddon(models.Model):
     """Add-ons in this table never get a hotness score."""
     id = PositiveAutoField(primary_key=True)
-    addon = models.ForeignKey(Addon)
+    addon = models.ForeignKey(Addon, on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'frozen_addons'
 
-    def __unicode__(self):
+    def __str__(self):
         return 'Frozen: %s' % self.addon_id
 
 
@@ -2134,14 +2107,15 @@ def freezer(sender, instance, **kw):
         Addon.objects.get(id=instance.addon_id).update(hotness=0)
 
 
+@python_2_unicode_compatible
 class CompatOverride(ModelBase):
     """Helps manage compat info for add-ons not hosted on AMO."""
     id = PositiveAutoField(primary_key=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     guid = models.CharField(max_length=255, unique=True)
-    addon = models.ForeignKey(Addon, blank=True, null=True,
-                              help_text='Fill this out to link an override '
-                                        'to a hosted add-on')
+    addon = models.ForeignKey(
+        Addon, blank=True, null=True, on_delete=models.CASCADE,
+        help_text='Fill this out to link an override to a hosted add-on')
 
     class Meta:
         db_table = 'compat_override'
@@ -2154,17 +2128,13 @@ class CompatOverride(ModelBase):
                 self.addon = qs[0]
         return super(CompatOverride, self).save(*args, **kw)
 
-    def __unicode__(self):
+    def __str__(self):
         if self.addon:
-            return unicode(self.addon)
+            return six.text_type(self.addon)
         elif self.name:
             return '%s (%s)' % (self.name, self.guid)
         else:
             return self.guid
-
-    def is_hosted(self):
-        """Am I talking about an add-on on AMO?"""
-        return bool(self.addon_id)
 
     @staticmethod
     def transformer(overrides):
@@ -2213,7 +2183,9 @@ OVERRIDE_TYPES = (
 class CompatOverrideRange(ModelBase):
     """App compatibility for a certain version range of a RemoteAddon."""
     id = PositiveAutoField(primary_key=True)
-    compat = models.ForeignKey(CompatOverride, related_name='_compat_ranges')
+    compat = models.ForeignKey(
+        CompatOverride, related_name='_compat_ranges',
+        on_delete=models.CASCADE)
     type = models.SmallIntegerField(choices=OVERRIDE_TYPES, default=1)
     min_version = models.CharField(
         max_length=255, default='0',
@@ -2236,6 +2208,7 @@ class CompatOverrideRange(ModelBase):
         return {0: 'compatible', 1: 'incompatible'}[self.type]
 
 
+@python_2_unicode_compatible
 class IncompatibleVersions(ModelBase):
     """
     Denormalized table to join against for fast compat override filtering.
@@ -2247,7 +2220,8 @@ class IncompatibleVersions(ModelBase):
     a particular version falls within the range of a compatibility override.
     """
     id = PositiveAutoField(primary_key=True)
-    version = models.ForeignKey(Version, related_name='+')
+    version = models.ForeignKey(
+        Version, related_name='+', on_delete=models.CASCADE)
     app = models.PositiveIntegerField(choices=amo.APPS_CHOICES,
                                       db_column='app_id')
     min_app_version = models.CharField(max_length=255, blank=True, default='0')
@@ -2260,7 +2234,7 @@ class IncompatibleVersions(ModelBase):
     class Meta:
         db_table = 'incompatible_versions'
 
-    def __unicode__(self):
+    def __str__(self):
         return u'<IncompatibleVersion V:%s A:%s %s-%s>' % (
             self.version.id, self.app.id, self.min_app_version,
             self.max_app_version)
@@ -2294,7 +2268,7 @@ class ReplacementAddon(ModelBase):
 
     @staticmethod
     def path_is_external(path):
-        return urlparse.urlsplit(path).scheme in ['http', 'https']
+        return urlsplit(path).scheme in ['http', 'https']
 
     def has_external_url(self):
         return self.path_is_external(self.path)

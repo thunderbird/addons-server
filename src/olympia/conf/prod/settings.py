@@ -1,5 +1,4 @@
 import logging
-import os
 
 from olympia.lib.settings_base import *  # noqa
 
@@ -34,33 +33,22 @@ SESSION_COOKIE_DOMAIN = ".%s" % DOMAIN
 INBOUND_EMAIL_DOMAIN = env('INBOUND_EMAIL_DOMAIN',
                            default='addons.mozilla.org')
 
-NETAPP_STORAGE_ROOT = env('NETAPP_STORAGE_ROOT')
-NETAPP_STORAGE = os.path.join(NETAPP_STORAGE_ROOT, 'shared_storage')
-GUARDED_ADDONS_PATH = os.path.join(NETAPP_STORAGE_ROOT, 'guarded-addons')
-MEDIA_ROOT = os.path.join(NETAPP_STORAGE, 'uploads')
-TMP_PATH = os.path.join(NETAPP_STORAGE, 'tmp')
-PACKAGER_PATH = os.path.join(TMP_PATH, 'packager')
-
-ADDONS_PATH = os.path.join(NETAPP_STORAGE_ROOT, 'files')
-
-REVIEWER_ATTACHMENTS_PATH = os.path.join(MEDIA_ROOT, 'reviewer_attachment')
-
 DATABASES = {
-    'default': get_db_config('DATABASES_DEFAULT_URL'),
-    'slave': get_db_config('DATABASES_SLAVE_URL', atomic_requests=False),
+    'default': get_db_config('DATABASES_DEFAULT_URL', charset='utf8mb4'),
+    'slave': get_db_config(
+        'DATABASES_SLAVE_URL', atomic_requests=False, charset='utf8mb4',
+    ),
 }
 
 SERVICES_DATABASE = get_db_config('SERVICES_DATABASE_URL')
 
 SLAVE_DATABASES = ['slave']
 
-CACHE_MIDDLEWARE_KEY_PREFIX = CACHE_PREFIX
-
 CACHES = {}
 CACHES['default'] = env.cache('CACHES_DEFAULT')
 CACHES['default']['TIMEOUT'] = 500
 CACHES['default']['BACKEND'] = 'django.core.cache.backends.memcached.MemcachedCache'  # noqa
-CACHES['default']['KEY_PREFIX'] = CACHE_PREFIX
+CACHES['default']['KEY_PREFIX'] = CACHE_KEY_PREFIX
 
 # Celery
 CELERY_BROKER_CONNECTION_TIMEOUT = 0.5
@@ -79,7 +67,6 @@ ES_TIMEOUT = 60
 ES_HOSTS = env('ES_HOSTS')
 ES_URLS = ['http://%s' % h for h in ES_HOSTS]
 ES_INDEXES = dict((k, '%s_%s' % (v, ENV)) for k, v in ES_INDEXES.items())
-
 
 CEF_PRODUCT = STATSD_PREFIX
 
@@ -126,7 +113,7 @@ ES_DEFAULT_NUM_SHARDS = 10
 
 RECOMMENDATION_ENGINE_URL = env(
     'RECOMMENDATION_ENGINE_URL',
-    default='https://taar.prod.mozaws.net/api/recommendations/')
+    default='https://taar.prod.mozaws.net/v1/api/recommendations/')
 
 TAAR_LITE_RECOMMENDATION_ENGINE_URL = env(
     'TAAR_LITE_RECOMMENDATION_ENGINE_URL',

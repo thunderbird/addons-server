@@ -17,7 +17,6 @@
             "total_downloads": 213788,
             "developer_comments": null,
             "disabled_by_user": 0,
-            "locale_disambiguation": null,
             "guid": "{fd20d4e6-5589-47ab-b2a9-f266ea3e493b}",
             "weekly_downloads": 0,
             "support_url": null,
@@ -32,7 +31,6 @@
             "description": null,
             "default_locale": "en-US",
             "target_locale": null,
-            "external_software": 0,
             "name": null,
             "created": "2006-06-15 23:14:49",
             "type": 2,
@@ -48,8 +46,8 @@
         "fields": {
             "license": 5,
             "created": "2009-12-13 23:10:16",
-            "releasenotes": null,
-            "approvalnotes": null,
+            "release_notes": null,
+            "approval_notes": null,
             "modified": "2009-12-13 23:11:17",
             "version": "0",
             "addon": 2795
@@ -61,8 +59,8 @@
         "fields": {
             "license": 5,
             "created": "2009-12-13 23:10:16",
-            "releasenotes": null,
-            "approvalnotes": null,
+            "release_notes": null,
+            "approval_notes": null,
             "modified": "2009-12-14 17:43:48",
             "version": "0",
             "addon": 2795

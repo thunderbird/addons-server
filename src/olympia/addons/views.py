@@ -53,7 +53,7 @@ from .indexers import AddonIndexer
 from .models import (
     Addon, CompatOverride, FrozenAddon, Persona, ReplacementAddon)
 from .serializers import (
-    AddonEulaPolicySerializer, AddonFeatureCompatibilitySerializer,
+    AddonEulaPolicySerializer,
     AddonSerializer, AddonSerializerWithUnlistedData, CompatOverrideSerializer,
     ESAddonAutoCompleteSerializer, ESAddonSerializer, LanguageToolsSerializer,
     ReplacementAddonSerializer, StaticCategorySerializer, VersionSerializer)
@@ -109,7 +109,7 @@ def extension_detail(request, addon):
     comp_apps = addon.compatible_apps
     if comp_apps and request.APP not in comp_apps:
         prefixer = get_url_prefix()
-        prefixer.app = comp_apps.keys()[0].short
+        prefixer.app = list(comp_apps.keys())[0].short
         return redirect('addons.detail', addon.slug, permanent=True)
 
     # Popular collections this addon is part of.
@@ -240,22 +240,6 @@ class BaseFilter(object):
 
     def filter_name(self):
         return order_by_translation(self.base_queryset.all(), 'name')
-
-
-class ESBaseFilter(BaseFilter):
-    """BaseFilter that uses elasticsearch."""
-
-    def __init__(self, request, base, key, default):
-        super(ESBaseFilter, self).__init__(request, base, key, default)
-
-    def filter(self, field):
-        sorts = {'name': 'name_sort',
-                 'created': '-created',
-                 'updated': '-last_updated',
-                 'popular': '-weekly_downloads',
-                 'users': '-average_daily_users',
-                 'rating': '-bayesian_rating'}
-        return self.base_queryset.order_by(sorts[field])
 
 
 @non_atomic_requests
@@ -478,14 +462,6 @@ class AddonViewSet(RetrieveModelMixin, GenericViewSet):
             raise exc
 
     @action(detail=True)
-    def feature_compatibility(self, request, pk=None):
-        obj = self.get_object()
-        serializer = AddonFeatureCompatibilitySerializer(
-            obj.feature_compatibility,
-            context=self.get_serializer_context())
-        return Response(serializer.data)
-
-    @action(detail=True)
     def eula_policy(self, request, pk=None):
         obj = self.get_object()
         serializer = AddonEulaPolicySerializer(
@@ -628,7 +604,8 @@ class AddonSearchView(ListAPIView):
             using=amo.search.get_es(),
             index=AddonIndexer.get_index_alias(),
             doc_type=AddonIndexer.get_doctype_name()).extra(
-                _source={'excludes': AddonIndexer.hidden_fields})
+                _source={'excludes': AddonIndexer.hidden_fields}).params(
+                    search_type='dfs_query_then_fetch')
 
         return qset
 

@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
 from django.test import override_settings
 
+import six
+
 from mock import Mock
 from rest_framework.test import APIRequestFactory
 
 from olympia.amo.templatetags.jinja_helpers import absolutify
 from olympia.amo.tests import TestCase, addon_factory, user_factory
-from olympia.ratings.models import Rating
+from olympia.ratings.models import Rating, RatingFlag
 from olympia.ratings.serializers import RatingSerializer
 
 
 class TestBaseRatingSerializer(TestCase):
     def setUp(self):
         self.request = APIRequestFactory().get('/')
-        self.view = Mock(spec=['get_addon_object'])
+        self.view = Mock(spec=['get_addon_object', 'should_include_flags'])
         self.view.get_addon_object.return_value = None
+        self.view.should_include_flags.return_value = False
         self.user = user_factory()
 
     def serialize(self, **extra_context):
@@ -42,7 +45,7 @@ class TestBaseRatingSerializer(TestCase):
             'name': {'en-US': addon.name},
             'icon_url': absolutify(addon.get_icon_url(64)),
         }
-        assert result['body'] == unicode(self.rating.body)
+        assert result['body'] == six.text_type(self.rating.body)
         assert result['created'] == (
             self.rating.created.replace(microsecond=0).isoformat() + 'Z')
         assert result['is_deleted'] is False
@@ -53,7 +56,7 @@ class TestBaseRatingSerializer(TestCase):
         assert result['reply'] is None
         assert result['user'] == {
             'id': self.user.pk,
-            'name': unicode(self.user.name),
+            'name': six.text_type(self.user.name),
             'url': None,
             'username': self.user.username,
         }
@@ -67,6 +70,8 @@ class TestBaseRatingSerializer(TestCase):
         assert result['version'] is None
         # Check the default, when DRF_API_GATES['ratings-title-shim'] isn't set
         assert 'title' not in result
+        # Check the default, when `show_flags_for=...` isn't sent.
+        assert 'flags' not in result
 
     def test_deleted_rating_but_view_allowing_it_to_be_shown(self):
         # We don't need to change self.view.should_access_deleted_ratings
@@ -88,7 +93,7 @@ class TestBaseRatingSerializer(TestCase):
             'name': {'en-US': addon.name},
             'icon_url': absolutify(addon.get_icon_url(64)),
         }
-        assert result['body'] == unicode(self.rating.body)
+        assert result['body'] == six.text_type(self.rating.body)
         assert result['created'] == (
             self.rating.created.replace(microsecond=0).isoformat() + 'Z')
         assert result['is_deleted'] is True
@@ -99,7 +104,7 @@ class TestBaseRatingSerializer(TestCase):
         assert result['reply'] is None
         assert result['user'] == {
             'id': self.user.pk,
-            'name': unicode(self.user.name),
+            'name': six.text_type(self.user.name),
             'url': None,
             'username': self.user.username,
         }
@@ -190,14 +195,14 @@ class TestBaseRatingSerializer(TestCase):
     def test_with_reply(self):
         def _test_reply(data):
             assert data['id'] == reply.pk
-            assert data['body'] == unicode(reply.body)
+            assert data['body'] == six.text_type(reply.body)
             assert data['created'] == (
                 reply.created.replace(microsecond=0).isoformat() + 'Z')
             assert data['is_deleted'] is False
             assert data['is_developer_reply'] is True
             assert data['user'] == {
                 'id': reply_user.pk,
-                'name': unicode(reply_user.name),
+                'name': six.text_type(reply_user.name),
                 # should be the profile for a developer
                 'url': absolutify(reply_user.get_url_path()),
                 'username': reply_user.username,
@@ -276,13 +281,13 @@ class TestBaseRatingSerializer(TestCase):
         assert 'rating' not in result['reply']
         assert 'reply' not in result['reply']
         assert result['reply']['id'] == reply.pk
-        assert result['reply']['body'] == unicode(reply.body)
+        assert result['reply']['body'] == six.text_type(reply.body)
         assert result['reply']['created'] == (
             reply.created.replace(microsecond=0).isoformat() + 'Z')
         assert result['reply']['is_deleted'] is True
         assert result['reply']['user'] == {
             'id': reply_user.pk,
-            'name': unicode(reply_user.name),
+            'name': six.text_type(reply_user.name),
             'url': absolutify(reply_user.get_url_path()),
             'username': reply_user.username,
         }
@@ -293,3 +298,23 @@ class TestBaseRatingSerializer(TestCase):
         assert serializer.fields['id'].read_only is True
         assert serializer.fields['reply'].read_only is True
         assert serializer.fields['user'].read_only is True
+
+    def test_include_flags(self):
+        addon = addon_factory()
+        self.request.user = user_factory()
+        self.view.get_addon_object.return_value = addon
+        self.view.should_include_flags.return_value = True
+        self.rating = Rating.objects.create(
+            addon=addon, user=self.user, rating=4,
+            version=addon.current_version, body=u'This is my rëview. Like ît?')
+
+        result = self.serialize()
+        assert 'flags' in result
+        assert result['flags'] == []
+
+        RatingFlag.objects.create(
+            rating=self.rating, user=self.request.user, flag=RatingFlag.OTHER,
+            note=u'foo')
+        result = self.serialize()
+        assert 'flags' in result
+        assert result['flags'] == [{'flag': RatingFlag.OTHER, 'note': 'foo'}]

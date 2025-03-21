@@ -22,7 +22,6 @@
             "total_downloads": 1861589,
             "disabled_by_user": false,
             "guid": "yslow@yahoo-inc.com",
-            "locale_disambiguation": null,
             "weekly_downloads": 12628,
             "average_rating": "3.48",
             "average_daily_users": 181569,
@@ -33,7 +32,6 @@
             "privacy_policy": null,
             "default_locale": "en-US",
             "target_locale": null,
-            "external_software": false,
             "name": 60895,
             "created": "2007-07-19 21:48:15",
             "type": 1,
@@ -57,7 +55,7 @@
             "license": 5,
             "created": "2010-03-02 15:02:39",
             "modified": "2010-03-02 15:04:28",
-            "approvalnotes": "",
+            "approval_notes": "",
             "version": "2.0.7",
             "addon": 5369
         }

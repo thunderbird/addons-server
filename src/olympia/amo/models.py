@@ -137,7 +137,7 @@ class _NoChangeInstance(object):
         self.__instance = instance
 
     def __repr__(self):
-        return u'<%s for %r>' % (self.__class__.__name__, self.__instance)
+        return '<%s for %r>' % (self.__class__.__name__, self.__instance)
 
     def __getattr__(self, attr):
         return getattr(self.__instance, attr)
@@ -422,12 +422,12 @@ class BasePreview(object):
             modified = int(time.mktime(self.modified.timetuple()))
         else:
             modified = 0
-        args = [self.id / 1000, self.id, modified]
+        args = [self.id // 1000, self.id, modified]
         return user_media_url(self.media_folder) + url_template % tuple(args)
 
     def _image_path(self, url_template):
         from olympia.amo.templatetags.jinja_helpers import user_media_path
-        args = [user_media_path(self.media_folder), self.id / 1000, self.id]
+        args = [user_media_path(self.media_folder), self.id // 1000, self.id]
         return url_template % tuple(args)
 
     @property

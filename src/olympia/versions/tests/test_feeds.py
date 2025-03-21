@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import mock
+import six
 
 from pyquery import PyQuery
 
@@ -38,7 +39,7 @@ class TestFeeds(TestCase):
         assert len(doc('rss channel item title')[0].text) > 0
         # link present and well formed
         item_link = doc('rss channel item link')[0]
-        assert item_link.text.endswith('/addon/a11730/versions/20090521')
+        assert item_link.text.endswith('/addon/a11730/versions/')
         # guid present
         assert len(doc('rss channel item guid')[0].text) > 0
         # proper date format for item
@@ -51,7 +52,7 @@ class TestFeeds(TestCase):
         assert relations.pop('first').endswith('format:rss')
 
         assert len(relations) == len(page_relations)
-        for rel, href in relations.iteritems():
+        for rel, href in six.iteritems(relations):
             page = page_relations[rel]
             assert href.endswith('format:rss' if page == 1 else
                                  'format:rss?page=%s' % page)

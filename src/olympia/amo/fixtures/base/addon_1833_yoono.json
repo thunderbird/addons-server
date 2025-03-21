@@ -35,7 +35,6 @@
             "total_downloads": 4396083,
             "disabled_by_user": false,
             "guid": "{d9284e50-81fc-11da-a72b-0800200c9a66}",
-            "locale_disambiguation": null,
             "weekly_downloads": 53380,
             "average_rating": "4.24",
             "average_daily_users": 131815,
@@ -45,7 +44,6 @@
             "status": 4,
             "default_locale": "en-US",
             "target_locale": null,
-            "external_software": false,
             "name": 7955,
             "created": "2006-01-10 10:07:33",
             "type": 1,
@@ -70,7 +68,7 @@
             "license": 180,
             "created": "2010-03-25 14:25:14",
             "modified": "2010-03-25 14:26:53",
-            "approvalnotes": "Uncompressed version and diff file emailed to Jorge Villalobos separately.  Email tpringle@yoono.com if needed for these files or more info.",
+            "approval_notes": "Uncompressed version and diff file emailed to Jorge Villalobos separately.  Email tpringle@yoono.com if needed for these files or more info.",
             "version": "7.1.6",
             "addon": 1833
         }

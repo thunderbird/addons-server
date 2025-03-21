@@ -13,7 +13,6 @@ from services.utils import (
 # This has to be imported after the settings (utils).
 from django_statsd.clients import statsd
 
-
 # Configure the log.
 log_configure()
 
@@ -36,8 +35,8 @@ class ThemeUpdate(object):
 class MigratedUpdate(ThemeUpdate):
 
     def get_data(self):
-        if hasattr(self, 'row'):
-            return self.row
+        if hasattr(self, 'data'):
+            return self.data
 
         primary_key = (
             'getpersonas_id' if self.from_gp else 'lightweight_theme_id')
@@ -223,7 +222,7 @@ class LWThemeUpdate(ThemeUpdate):
         return '%s/%s%s' % (domain, self.data.get('locale', 'en-US'), url)
 
 
-url_re = re.compile('(?P<locale>.+)?/themes/update-check/(?P<id>\d+)$')
+url_re = re.compile(r'(?P<locale>.+)?/themes/update-check/(?P<id>\d+)$')
 
 
 def application(environ, start_response):
@@ -248,9 +247,15 @@ def application(environ, start_response):
         try:
             query_string = environ.get('QUERY_STRING')
             update = MigratedUpdate(locale, id_, query_string)
-            if not update.is_migrated:
+            is_migrated = update.is_migrated
+            if is_migrated:
+                output = (
+                    update.get_json() if settings.MIGRATED_LWT_UPDATES_ENABLED
+                    else None)
+            else:
                 update = LWThemeUpdate(locale, id_, query_string)
-            output = update.get_json()
+                output = update.get_json()
+
             if not output:
                 start_response('404 Not Found', [])
                 return ['']

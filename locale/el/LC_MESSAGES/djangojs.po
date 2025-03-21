@@ -3,8 +3,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: AMO-JS 0.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-09-19 12:16+0000\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2018-11-15 19:47+0000\n"
 "Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: el <fiotakis@otenet.gr>, <alexandros@mioglou.me>\n"
 "Language: el\n"
@@ -47,13 +47,13 @@ msgstr "Μεταφόρτωση του {0}"
 msgid "Error with {0}"
 msgstr "Σφάλμα με το {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "Έχουμε ενεργοποιήσει ένα νέο linter για επεξεργασία των προσθέτων σας. Παρακαλούμε βεβαιωθείτε ότι έχετε αναφέρει τυχόν ζητήματα στο GitHub"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr ""
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
-msgstr[0] "Το πρόσθετο σας απέτυχε να επικυρωθεί, επιστρέφοντας {0} σφάλμα."
-msgstr[1] "Το πρόσθετο σας απέτυχε να επικυρωθεί, επιστρέφοντας {0} σφάλματα."
+msgstr[0] "Αποτυχία επαλήθευσης προσθέτου με {0} σφάλμα."
+msgstr[1] "Αποτυχία επαλήθευσης προσθέτου με {0} σφάλματα."
 
 msgid "&hellip;and {0} more"
 msgid_plural "&hellip;and {0} more"
@@ -224,7 +224,6 @@ msgid_plural "{0} users"
 msgstr[0] "{0} χρήστης"
 msgstr[1] "{0} χρήστες"
 
-#, fuzzy
 msgid "{0} add-on"
 msgid_plural "{0} add-ons"
 msgstr[0] "{0} πρόσθετο"
@@ -290,7 +289,7 @@ msgid "Add-ons Updated"
 msgstr "Ενημερωμένα πρόσθετα"
 
 msgid "Reviews Written"
-msgstr "Συνταχθείσες αξιολογήσεις"
+msgstr "Γραπτές κριτικές"
 
 msgid "User Signups"
 msgstr "Εγγραφές χρήστη"
@@ -766,11 +765,17 @@ msgstr "Δεν βρέθηκαν αποτελέσματα."
 msgid "Loading..."
 msgstr "Γίνεται φόρτωση..."
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "<b>{0}</b> χαρακτήρας"
+msgstr[1] "<b>{0}</b> χαρακτήρες"
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
-msgstr[0] "<b>{0}</b> χαρακτήρας διαθέσιμος."
-msgstr[1] "<b>{0}</b> χαρακτήρες διαθέσιμοι."
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
+msgstr[0] "Απομένει <b>{0}</b> χαρακτήρας"
+msgstr[1] "Απομένουν <b>{0}</b> χαρακτήρες"
 
 msgid "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
 msgstr "Αυτό το χαρακτηριστικό έχει απενεργοποιηθεί προς το παρόν λόγω εκτέλεσης εργασιών συντήρησης. Παρακαλούμε προσπαθήστε ξανά αργότερα."
@@ -864,9 +869,6 @@ msgstr "{0} γραμμή {1} στήλη {2}"
 
 msgid "{0} line {1}"
 msgstr "{0} γραμμή {1}"
-
-msgid "Compatibility Tests"
-msgstr "Τεστ συμβατότητας"
 
 msgid "Add-on failed validation."
 msgstr "Το πρόσθετο απέτυχε να επικυρωθεί."

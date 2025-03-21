@@ -3,6 +3,8 @@ from django.template import loader
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext
 
+import six
+
 from olympia.users import notifications as email
 
 
@@ -12,14 +14,14 @@ class NotificationsSelectMultiple(forms.CheckboxSelectMultiple):
     def __init__(self, **kwargs):
         super(self.__class__, self).__init__(**kwargs)
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         str_values = [int(v) for v in value] or []
         final_attrs = self.build_attrs(attrs, {'name': name})
         groups = {}
 
         # Mark the mandatory fields.
         mandatory = [k for k, v in
-                     email.NOTIFICATIONS_BY_ID.iteritems() if v.mandatory]
+                     six.iteritems(email.NOTIFICATIONS_BY_ID) if v.mandatory]
         str_values = set(mandatory + str_values)
 
         for idx, label in sorted(self.choices):
@@ -61,7 +63,7 @@ class RequiredInputMixin(object):
 
     required_attrs = {'required': 'required', 'aria-required': 'true'}
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         attrs = attrs or {}
         attrs.update(self.required_attrs)
         return super(RequiredInputMixin, self).render(name, value, attrs)

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import re
-import urlparse
 
 import mock
 import pytest
+import six
 
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import parse_qs, urlparse
 
 from olympia import amo
 from olympia.addons.models import Addon
@@ -21,7 +22,7 @@ pytestmark = pytest.mark.django_db
 
 def test_emaillink():
     email = 'me@example.com'
-    obfuscated = unicode(emaillink(email))
+    obfuscated = six.text_type(emaillink(email))
 
     # remove junk
     m = re.match(r'<a href="#"><span class="emaillink">(.*?)'
@@ -33,7 +34,7 @@ def test_emaillink():
     assert email == obfuscated
 
     title = 'E-mail your question'
-    obfuscated = unicode(emaillink(email, title))
+    obfuscated = six.text_type(emaillink(email, title))
     m = re.match(r'<a href="#">(.*)</a>'
                  r'<span class="emaillink js-hidden">(.*?)'
                  r'<span class="i">null</span>(.*)</span>', obfuscated)
@@ -97,15 +98,16 @@ def test_users_list_truncate_display_name():
 
 def test_user_link_unicode():
     """make sure helper won't choke on unicode input"""
-    u = UserProfile(username=u'jmüller', display_name=u'Jürgen Müller', pk=1)
+    u = UserProfile.objects.create(
+        username=u'jmüller', display_name=u'Jürgen Müller')
     assert user_link(u) == (
         u'<a href="%s" title="%s">Jürgen Müller</a>' % (
             u.get_url_path(), u.name))
 
-    u = UserProfile(username='\xe5\xaf\x92\xe6\x98\x9f', pk=1)
+    u = UserProfile.objects.create(display_name=u'\xe5\xaf\x92\xe6\x98\x9f')
     assert user_link(u) == (
         u'<a href="%s" title="%s">%s</a>' % (u.get_url_path(), u.name,
-                                             u.username))
+                                             u.display_name))
 
 
 class TestAddonUsersList(TestPersonas, TestCase):
@@ -127,11 +129,11 @@ class TestAddonUsersList(TestPersonas, TestCase):
 
 def test_manage_fxa_link():
     user = mock.MagicMock(email='me@someplace.ca', fxa_id='abcd1234')
-    link = urlparse.urlparse(manage_fxa_link({'user': user}))
+    link = urlparse(manage_fxa_link({'user': user}))
     url = '{scheme}://{netloc}{path}'.format(
         scheme=link.scheme, netloc=link.netloc, path=link.path)
     assert url == 'https://stable.dev.lcip.org/settings'
-    query = urlparse.parse_qs(link.query)
+    query = parse_qs(link.query)
     assert query == {
         'uid': ['abcd1234'],
         'email': ['me@someplace.ca'],

@@ -33,19 +33,19 @@ A developer is defined as a user who is listed as a developer or owner of one or
     :>json float average_addon_rating: The average rating for addons the developer has listed on the website.
     :>json string|null biography: More details about the user.
     :>json string created: The date when this user first logged in and created this account.
-    :>json boolean has_anonymous_display_name: The user has chosen neither a name nor a username.
+    :>json boolean has_anonymous_display_name: The user hasn't chosen a name.
     :>json boolean has_anonymous_username: The user hasn't chosen a username.
     :>json string|null homepage: The user's website.
     :>json int id: The numeric user id.
     :>json boolean is_addon_developer: The user has developed and listed add-ons on this website.
     :>json boolean is_artist: The user has developed and listed themes on this website.
     :>json string|null location: The location of the user.
-    :>json string name: The name chosen by the user, or the username if not set.
+    :>json string name: The name chosen by the user, or the "Firefox user {id}" if not set.
     :>json int num_addons_listed: The number of addons the developer has listed on the website.
     :>json string|null occupation: The occupation of the user.
     :>json string|null picture_type: the image type (only 'image/png' is supported) if a user photo has been uploaded, or null otherwise.
     :>json string|null picture_url: URL to a photo of the user, or null if no photo has been uploaded.
-    :>json string username: username chosen by the user, used in the account url. If not set will be a randomly generated string.
+    :>json string username: deprecated property still included for backwards compatability.  Previous chosen by the user, used in the account url. If not previously set will be a randomly generated string.
 
 
 
@@ -133,11 +133,10 @@ but not listed below are not editable and will be ignored in the patch request.
     .. _account-edit-request:
 
     :<json string|null biography: More details about the user.  No links are allowed.
-    :<json string|null display_name: The name chosen by the user.
+    :<json string|null display_name: The name chosen by the user.  Minimum length is 2, maximum length is 50 characters, and must contain at least 1 displayable character.
     :<json string|null homepage: The user's website.
     :<json string|null location: The location of the user.
     :<json string|null occupation: The occupation of the user.
-    :<json string|null username: username to be used in the account url.  The username can only contain letters, numbers, underscores or hyphens. All-number usernames are prohibited as they conflict with user-ids.
 
 
 -------------------

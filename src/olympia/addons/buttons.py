@@ -3,6 +3,7 @@ from django.utils.translation import (
     pgettext_lazy, ugettext, ugettext_lazy as _)
 
 import jinja2
+import six
 
 from olympia import amo
 from olympia.amo.templatetags.jinja_helpers import urlparams
@@ -16,19 +17,22 @@ def install_button(context, addon, version=None,
     """
     If version isn't given, we use the latest version.
     """
+    if not collection:
+        collection = None
     request = context['request']
     app, lang = context['APP'], context['LANG']
     src = src or context.get('src') or request.GET.get('src', '')
-    collection = ((collection.uuid if hasattr(collection, 'uuid') else None) or
-                  collection or
-                  context.get('collection') or
-                  request.GET.get('collection') or
-                  request.GET.get('collection_id') or
-                  request.GET.get('collection_uuid'))
+    collection_uuid = (
+        getattr(collection, 'uuid', None) or
+        collection or
+        context.get('collection') or
+        request.GET.get('collection') or
+        request.GET.get('collection_id') or
+        request.GET.get('collection_uuid'))
     button = install_button_factory(
         addon, app, lang, version=version,
-        show_warning=show_warning, src=src, collection=collection, size=size,
-        detailed=detailed, impala=impala,
+        show_warning=show_warning, src=src, collection=collection_uuid,
+        size=size, detailed=detailed, impala=impala,
         show_download_anyway=show_download_anyway,
         request=request)
     installed = (request.user.is_authenticated and
@@ -178,8 +182,12 @@ class PersonaInstallButton(InstallButton):
     install_class = ['persona']
 
     def links(self):
-        return [Link(ugettext(u'Add to {0}').format(unicode(self.app.pretty)),
-                     reverse('addons.detail', args=[amo.PERSONAS_ADDON_ID]))]
+        return [
+            Link(
+                ugettext(u'Add to {0}').format(six.text_type(self.app.pretty)),
+                reverse('addons.detail', args=[amo.PERSONAS_ADDON_ID])
+            )
+        ]
 
     def attrs(self):
         rv = super(PersonaInstallButton, self).attrs()

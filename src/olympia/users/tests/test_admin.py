@@ -7,6 +7,7 @@ from django.test import RequestFactory
 from django.utils.dateformat import DateFormat
 
 import mock
+import six
 
 from pyquery import PyQuery as pq
 
@@ -34,6 +35,21 @@ class TestUserAdmin(TestCase):
         self.delete_url = reverse(
             'admin:users_userprofile_delete', args=(self.user.pk, )
         )
+
+    def test_search_for_multiple_users(self):
+        user = user_factory()
+        another_user = user_factory()
+        self.grant_permission(user, 'Admin:Tools')
+        self.grant_permission(user, 'Users:Edit')
+        self.client.login(email=user.email)
+        response = self.client.get(
+            self.list_url,
+            {'q': '%s,%s' % (self.user.pk, another_user.pk)},
+            follow=True)
+        assert response.status_code == 200
+        doc = pq(response.content)
+        assert str(self.user.pk) in doc('#result_list').text()
+        assert str(another_user.pk) in doc('#result_list').text()
 
     def test_can_not_edit_without_users_edit_permission(self):
         user = user_factory()
@@ -96,7 +112,7 @@ class TestUserAdmin(TestCase):
         core.set_user(user)
         response = self.client.get(self.delete_url, follow=True)
         assert response.status_code == 200
-        assert 'Cannot delete user' not in response.content
+        assert b'Cannot delete user' not in response.content
         response = self.client.post(self.delete_url, {'post': 'yes'},
                                     follow=True)
         assert response.status_code == 200
@@ -150,7 +166,7 @@ class TestUserAdmin(TestCase):
         core.set_user(user)
         response = self.client.get(self.delete_url, follow=True)
         assert response.status_code == 200
-        assert 'Cannot delete user' not in response.content
+        assert b'Cannot delete user' not in response.content
         response = self.client.post(self.delete_url, {'post': 'yes'},
                                     follow=True)
         assert response.status_code == 200
@@ -246,7 +262,7 @@ class TestUserAdmin(TestCase):
         response = self.client.post(ban_url, follow=True)
         assert response.status_code == 200
         assert response.redirect_chain[-1][0].endswith(self.detail_url)
-        assert response.redirect_chain[-1][1] == 301
+        assert response.redirect_chain[-1][1] == 302
         self.user.reload()
         assert self.user.deleted
         assert self.user.email
@@ -278,7 +294,7 @@ class TestUserAdmin(TestCase):
         response = self.client.post(delete_picture_url, follow=True)
         assert response.status_code == 200
         assert response.redirect_chain[-1][0].endswith(self.detail_url)
-        assert response.redirect_chain[-1][1] == 301
+        assert response.redirect_chain[-1][1] == 302
 
         assert delete_picture_mock.call_count == 1
 
@@ -328,7 +344,8 @@ class TestUserAdmin(TestCase):
         addon = addon_factory()
 
         model_admin = UserAdmin(UserProfile, admin.site)
-        assert unicode(model_admin.last_known_activity_time(self.user)) == ''
+        assert six.text_type(
+            model_admin.last_known_activity_time(self.user)) == ''
 
         # Add various activities. They will be attached to whatever user is
         # set in the thread global at the time, so set that in advance.
@@ -351,8 +368,9 @@ class TestUserAdmin(TestCase):
         expected_result = DateFormat(expected_date).format(
             settings.DATETIME_FORMAT)
 
-        assert (unicode(model_admin.last_known_activity_time(self.user)) ==
-                expected_result)
+        assert (
+            six.text_type(model_admin.last_known_activity_time(self.user)) ==
+            expected_result)
 
     def _call_related_content_method(self, method):
         model_admin = UserAdmin(UserProfile, admin.site)

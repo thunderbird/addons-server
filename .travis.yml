@@ -1,34 +1,33 @@
 language: python
-sudo: false
+dist: xenial
 
 python:
   - 2.7
 
 jobs:
   fast_finish: true
-  allow_failures:
-    - python: 3.6
   include:
-    - { stage: python2, env: TOXENV=codestyle }
-    - { stage: python2, env: TOXENV=docs }
-    - { stage: python2, env: TOXENV=assets }
-    - { stage: python2, env: TOXENV=es }
-    - { stage: python2, env: TOXENV=addons }
-    - { stage: python2, env: TOXENV=devhub }
-    - { stage: python2, env: TOXENV=reviewers-and-zadmin }
-    - { stage: python2, env: TOXENV=amo-locales-and-signing }
-    - { stage: python2, env: TOXENV=users-accounts-and-ratings }
-    - { stage: python2, env: TOXENV=main }
-    - { stage: python3, python: 3.6, env: TOXENV=codestyle}
-    - { stage: python3, python: 3.6, env: TOXENV=docs }
-    - { stage: python3, python: 3.6, env: TOXENV=assets }
-    - { stage: python3, python: 3.6, env: TOXENV=es }
-    - { stage: python3, python: 3.6, env: TOXENV=addons }
-    - { stage: python3, python: 3.6, env: TOXENV=devhub }
-    - { stage: python3, python: 3.6, env: TOXENV=reviewers-and-zadmin }
-    - { stage: python3, python: 3.6, env: TOXENV=amo-locales-and-signing }
-    - { stage: python3, python: 3.6, env: TOXENV=users-accounts-and-ratings }
-    - { stage: python3, python: 3.6, env: TOXENV=main }
+    - { env: TOXENV=codestyle }
+    - { env: TOXENV=docs }
+    - { env: TOXENV=assets }
+    - { env: TOXENV=es }
+    - { env: TOXENV=addons-versions-and-files }
+    - { env: TOXENV=devhub }
+    - { env: TOXENV=reviewers-and-zadmin }
+    - { env: TOXENV=accounts-users-and-ratings }
+    - { env: TOXENV=amo-lib-locales-and-signing }
+    - { env: TOXENV=main }
+    - { python: 3.6, env: TOXENV=codestyle}
+    - { python: 3.6, env: TOXENV=docs }
+    - { python: 3.6, env: TOXENV=assets }
+    - { python: 3.6, env: TOXENV=es }
+    - { python: 3.6, env: TOXENV=addons-versions-and-files }
+    - { python: 3.6, env: TOXENV=devhub }
+    - { python: 3.6, env: TOXENV=reviewers-and-zadmin }
+    - { python: 3.6, env: TOXENV=accounts-users-and-ratings }
+    - { python: 3.6, env: TOXENV=main }
+    - { python: 3.6, env: TOXENV=amo-lib-locales-and-signing }
+    - { python: 3.6, env: TOXENV=assets  DJANGO=django22 }
 
 env:
   global:
@@ -70,9 +69,9 @@ before_install:
 install:
   - nvm current
   - nvm deactivate
-  - nvm install 10
-  - nvm use 10
-  - pip install --upgrade pip wheel setuptools tox==3.2.1 tox-travis==0.10
+  - nvm install 8
+  - nvm use 8
+  - pip install --no-deps -r requirements/travis_base.txt
   - ./scripts/travis-install-libgit2.sh
 
 before_script:
@@ -80,12 +79,13 @@ before_script:
   - node --version
   - java -version
   - curl -v http://localhost:9200/
+  - sudo touch /addons-server-docker-container
 
 script:
   - |
     if [[ $TRAVIS_EVENT_TYPE != "cron" ]]; then
-      if [[ $TOXENV == "amo-locales-and-signing" ]]; then
-         docker run --name autograph -d -p 5500:5500 -v $(pwd)/scripts/:/scripts/ mozilla/autograph:2.3.2 /go/bin/autograph -c /scripts/autograph_travis_test_config.yaml
+      if [[ $TOXENV == "amo-lib-locales-and-signing" ]]; then
+         docker run --name autograph -d -p 5500:5500 -v $(pwd)/scripts/:/scripts/ mozilla/autograph:2.7.0 /go/bin/autograph -c /scripts/autograph_travis_test_config.yaml
       fi
       RUNNING_IN_CI=True tox
     fi

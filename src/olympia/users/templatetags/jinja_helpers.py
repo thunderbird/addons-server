@@ -4,6 +4,7 @@ from django.utils.encoding import force_text
 from django.utils.translation import pgettext
 
 import jinja2
+import six
 
 from django_jinja import library
 
@@ -56,7 +57,7 @@ def users_list(users, size=None, max_text_length=None):
     if max_text_length:
         user_list = [_user_link(user, max_text_length) for user in users]
     else:
-        user_list = map(_user_link, users)
+        user_list = list(map(_user_link, users))
 
     return jinja2.Markup(', '.join(user_list + tail))
 
@@ -71,16 +72,17 @@ def addon_users_list(context, addon):
 
 
 def _user_link(user, max_text_length=None):
-    if isinstance(user, basestring):
+    if isinstance(user, six.string_types):
         return user
 
-    username = user.name
     if max_text_length and len(user.name) > max_text_length:
-        username = user.name[:max_text_length].strip() + '...'
+        name = user.name[:max_text_length].strip() + '...'
+    else:
+        name = user.name
 
     return u'<a href="%s" title="%s">%s</a>' % (
         user.get_url_path(), jinja2.escape(user.name),
-        jinja2.escape(force_text(username)))
+        jinja2.escape(force_text(name)))
 
 
 @library.filter

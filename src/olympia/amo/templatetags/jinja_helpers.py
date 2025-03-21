@@ -4,7 +4,6 @@ import os
 import random
 
 from operator import attrgetter
-from urlparse import urljoin
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -18,19 +17,22 @@ from django.utils.translation import (
     get_language, to_locale, trim_whitespace, ugettext)
 
 import jinja2
+import six
 import waffle
+
 from babel.support import Format
 from django_jinja import library
 from rest_framework.reverse import reverse as drf_reverse
 from rest_framework.settings import api_settings
+from six.moves.urllib_parse import urljoin
 
 from olympia import amo
 from olympia.amo import urlresolvers, utils
 from olympia.constants.categories import CATEGORIES
 from olympia.constants.licenses import PERSONA_LICENSES_IDS
+from olympia.lib.cache import cache_get_or_set, make_key
 from olympia.lib.jingo_minify_helpers import (
     _build_html, get_css_urls, get_js_urls)
-from olympia.lib.cache import cache_get_or_set, make_key
 
 
 # Registering some utils as filters:
@@ -42,7 +44,7 @@ library.global_function(utils.randslice)
 
 # Mark a lazy marked instance as safe but keep
 # it lazy
-mark_safe_lazy = lazy(mark_safe, unicode)
+mark_safe_lazy = lazy(mark_safe, six.text_type)
 
 
 @library.global_function
@@ -147,9 +149,8 @@ def sidebar(app):
         amo.ADDON_SEARCH: urlresolvers.reverse('browse.search-tools'),
         amo.ADDON_THEME: urlresolvers.reverse('browse.themes'),
     }
-    titles = dict(
-        amo.ADDON_TYPES,
-        **{amo.ADDON_DICT: ugettext('Dictionaries & Language Packs')})
+    titles = dict(amo.ADDON_TYPES)
+    titles[amo.ADDON_DICT] = ugettext('Dictionaries & Language Packs')
     for type_, url in shown_types.items():
         if type_ in app.types:
             types.append(Type(type_, titles[type_], url))
@@ -163,7 +164,7 @@ class PaginationRenderer(object):
         self.pager = pager
 
         self.max = 10
-        self.span = (self.max - 1) / 2
+        self.span = (self.max - 1) // 2
 
         self.page = pager.number
         self.num_pages = pager.paginator.num_pages
@@ -242,15 +243,15 @@ def strip_controls(s):
     Strips control characters from a string.
     """
     # Translation table of control characters.
-    control_trans = dict((n, None) for n in xrange(32) if n not in [10, 13])
-    rv = unicode(s).translate(control_trans)
+    control_trans = dict((n, None) for n in range(32) if n not in [10, 13])
+    rv = six.text_type(s).translate(control_trans)
     return jinja2.Markup(rv) if isinstance(s, jinja2.Markup) else rv
 
 
 @library.filter
 def external_url(url):
     """Bounce a URL off outgoing.prod.mozaws.net."""
-    return urlresolvers.get_outgoing_url(unicode(url))
+    return urlresolvers.get_outgoing_url(six.text_type(url))
 
 
 @library.filter
@@ -265,7 +266,7 @@ def license_link(license):
     """Link to a code license, including icon where applicable."""
     # If passed in an integer, try to look up the License.
     from olympia.versions.models import License
-    if isinstance(license, (long, int)):
+    if isinstance(license, six.integer_types):
         if license in PERSONA_LICENSES_IDS:
             # Grab built-in license.
             license = PERSONA_LICENSES_IDS[license]
@@ -434,11 +435,6 @@ def loc(s):
 
 
 @library.global_function
-def site_event_type(type):
-    return amo.SITE_EVENT_CHOICES[type]
-
-
-@library.global_function
 @jinja2.contextfunction
 def remora_url(context, url, lang=None, app=None, prefix=''):
     """Wrapper for urlresolvers.remora_url"""
@@ -508,23 +504,6 @@ def user_media_url(what):
     return getattr(settings, key, default)
 
 
-def id_to_path(pk):
-    """
-    Generate a path from an id, to distribute folders in the file system.
-    1 => 1/1/1
-    12 => 2/12/12
-    123456 => 6/56/123456
-    """
-    pk = unicode(pk)
-    path = [pk[-1]]
-    if len(pk) >= 2:
-        path.append(pk[-2:])
-    else:
-        path.append(pk)
-    path.append(pk)
-    return os.path.join(*path)
-
-
 @library.filter
 def hidden_field(field):
     return field.as_widget(attrs={'style': 'display:none'})
@@ -546,23 +525,15 @@ def format_html(string, *args, **kwargs):
 
 
 @library.global_function
-def js(bundle, debug=None, defer=False, async=False):
+def js(bundle, debug=None):
     """
     If we are in debug mode, just output a single script tag for each js file.
     If we are not in debug mode, return a script that points at bundle-min.js.
 
     Copied from jingo-minify until we switch to something better...
     """
-    attrs = []
     urls = get_js_urls(bundle, debug)
-
-    attrs.append('src="%s"')
-
-    if defer:
-        attrs.append('defer')
-
-    if async:
-        attrs.append('async')
+    attrs = ['src="%s"']
 
     return _build_html(urls, '<script %s></script>' % ' '.join(attrs))
 

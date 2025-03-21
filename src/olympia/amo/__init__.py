@@ -3,7 +3,6 @@ Miscellaneous helpers that make Django compatible with AMO.
 """
 from product_details import product_details
 
-import olympia.core.logger
 from olympia.constants import permissions  # noqa
 from olympia.constants.activity import (  # noqa
     LOG, LOG_BY_ID, LOG_ADMINS, LOG_REVIEWER_REVIEW_ACTION,
@@ -16,8 +15,7 @@ from olympia.constants.platforms import *  # noqa
 from olympia.constants.reviewers import *  # noqa
 from olympia.constants.search import *  # noqa
 
-
-logger_log = olympia.core.logger.getLogger('z.amo')
+# FIXME: Unsure where this moved to, so putting it back for now
 
 # For unproven performance gains put firefox and thunderbird parsing
 # here instead of constants

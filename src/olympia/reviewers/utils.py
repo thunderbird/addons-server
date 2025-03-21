@@ -11,6 +11,7 @@ from django.utils.translation import ugettext, ugettext_lazy as _, ungettext
 
 import django_tables2 as tables
 import jinja2
+import six
 
 import olympia.core.logger
 
@@ -23,7 +24,7 @@ from olympia.addons.models import (
 from olympia.amo.templatetags.jinja_helpers import absolutify
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import to_language
-from olympia.lib.crypto.packaged import sign_file
+from olympia.lib.crypto.signing import sign_file
 from olympia.reviewers.models import (
     ReviewerScore, ViewFullReviewQueue, ViewPendingQueue, ViewUnlistedAllList,
     get_flags, get_flags_for_row)
@@ -153,8 +154,7 @@ class ViewUnlistedAllListTable(tables.Table, ItemStateTable):
             safe_substitute(u'%s', uname) for (_, uname) in authors)
         author_links = ' '.join(
             safe_substitute(u'<a href="%s">%s</a>',
-                            UserProfile.create_user_url(id_, username=uname),
-                            uname)
+                            UserProfile.create_user_url(id_), uname)
             for (id_, uname) in authors[0:3])
         return u'<span title="%s">%s%s</span>' % (
             more, author_links, ' ...' if len(authors) > 3 else '')
@@ -335,8 +335,7 @@ class ReviewHelper(object):
                 )
             ))
         reviewable_because_pending = (
-            self.version and
-            len(self.version.is_unreviewed) > 0)
+            self.version and self.version.is_unreviewed)
         # Note: approval/content confirmation do not care about self.version,
         # only self.addon.current_version. This allows reviewers to approve
         # add-ons even when their latest submitted version is disabled for some
@@ -572,7 +571,7 @@ class ReviewBase(object):
             dev_ver_url = self.addon.get_dev_url('versions')
         return {'name': addon.name,
                 'number': self.version.version if self.version else '',
-                'reviewer': self.user.display_name,
+                'reviewer': self.user.name,
                 'addon_url': absolutify(addon_url),
                 'dev_versions_url': absolutify(dev_ver_url),
                 'review_url': absolutify(reverse('reviewers.review',
@@ -791,7 +790,7 @@ class ReviewBase(object):
                             timestamp=timestamp)
         self.addon.update_status()
         self.data['version_numbers'] = u', '.join(
-            unicode(v.version) for v in self.data['versions'])
+            six.text_type(v.version) for v in self.data['versions'])
 
         # Send the email to the developer. We need to pass the latest version
         # of the add-on instead of one of the versions we rejected, it will be
@@ -809,7 +808,8 @@ class ReviewBase(object):
         log.info(
             u'Making %s versions %s disabled' % (
                 self.addon,
-                u', '.join(unicode(v.pk) for v in self.data['versions'])))
+                u', '.join(
+                    six.text_type(v.pk) for v in self.data['versions'])))
         log.info(u'Sending email for %s' % (self.addon))
 
         # Assign reviewer incentive scores.

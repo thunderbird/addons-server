@@ -2,7 +2,6 @@
 import json
 import os
 import time
-import urlparse
 
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -16,11 +15,13 @@ from django.template import defaultfilters
 from django.test.utils import override_settings
 
 import mock
+import six
 
 from freezegun import freeze_time
 from lxml.html import HTMLParser, fromstring
 from mock import Mock, patch
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import parse_qs
 
 from olympia import amo, core, ratings
 from olympia.abuse.models import AbuseReport
@@ -28,10 +29,8 @@ from olympia.access.models import Group, GroupUser
 from olympia.accounts.views import API_TOKEN_COOKIE
 from olympia.activity.models import ActivityLog
 from olympia.addons.models import (
-    Addon, AddonApprovalsCounter, AddonDependency, AddonReviewerFlags,
-    AddonUser)
-from olympia.amo.templatetags.jinja_helpers import (
-    user_media_path, user_media_url)
+    Addon, AddonApprovalsCounter, AddonReviewerFlags, AddonUser)
+from olympia.amo.storage_utils import copy_stored_file
 from olympia.amo.tests import (
     APITestClient, TestCase, addon_factory, check_links, file_factory, formset,
     initial, reverse_ns, user_factory, version_factory)
@@ -39,10 +38,10 @@ from olympia.amo.urlresolvers import reverse
 from olympia.files.models import File, FileValidation, WebextPermission
 from olympia.ratings.models import Rating, RatingFlag
 from olympia.reviewers.models import (
-    AutoApprovalSummary, RereviewQueueTheme, ReviewerScore,
-    ReviewerSubscription, Whiteboard)
+    AutoApprovalSummary, ReviewerScore, ReviewerSubscription, Whiteboard)
 from olympia.users.models import UserProfile
 from olympia.versions.models import ApplicationsVersions, AppVersion
+from olympia.versions.tasks import extract_version_to_git
 from olympia.zadmin.models import get_config
 
 
@@ -114,7 +113,7 @@ class TestRatingsModerationLog(ReviewerTest):
         reviews.
         """
         review = self.make_review()
-        for i in xrange(2):
+        for i in range(2):
             ActivityLog.create(amo.LOG.APPROVE_RATING, review, review.addon)
             ActivityLog.create(amo.LOG.DELETE_RATING, review.id, review.addon)
         response = self.client.get(self.url, {'filter': 'deleted'})
@@ -124,7 +123,7 @@ class TestRatingsModerationLog(ReviewerTest):
     def test_no_results(self):
         response = self.client.get(self.url, {'end': '2004-01-01'})
         assert response.status_code == 200
-        assert '"no-results"' in response.content
+        assert b'"no-results"' in response.content
 
     def test_moderation_log_detail(self):
         review = self.make_review()
@@ -628,7 +627,7 @@ class TestDashboard(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 200
         doc = pq(response.content)
-        assert len(doc('.dashboard h3')) == 8  # All sections are present.
+        assert len(doc('.dashboard h3')) == 7  # All sections are present.
         expected_links = [
             reverse('reviewers.queue_nominated'),
             reverse('reviewers.queue_pending'),
@@ -642,12 +641,6 @@ class TestDashboard(TestCase):
             'https://wiki.mozilla.org/Add-ons/Reviewers/Guide',
             reverse('reviewers.queue_content_review'),
             reverse('reviewers.performance'),
-            reverse('reviewers.themes.list'),
-            reverse('reviewers.themes.list_rereview'),
-            reverse('reviewers.themes.list_flagged'),
-            reverse('reviewers.themes.logs'),
-            reverse('reviewers.themes.deleted'),
-            'https://wiki.mozilla.org/Add-ons/Reviewers/Themes/Guidelines',
             reverse('reviewers.queue_moderated'),
             reverse('reviewers.ratings_moderation_log'),
             'https://wiki.mozilla.org/Add-ons/Reviewers/Guide/Moderation',
@@ -662,9 +655,9 @@ class TestDashboard(TestCase):
         assert doc('.dashboard a')[1].text == 'Updates (3)'
         assert doc('.dashboard a')[6].text == 'Auto Approved Add-ons (4)'
         assert doc('.dashboard a')[10].text == 'Content Review (4)'
-        assert (doc('.dashboard a')[18].text ==
+        assert (doc('.dashboard a')[12].text ==
                 'Ratings Awaiting Moderation (1)')
-        assert (doc('.dashboard a')[24].text ==
+        assert (doc('.dashboard a')[18].text ==
                 'Expired Information Requests (2)')
 
     def test_can_see_all_through_reviewer_view_all_permission(self):
@@ -672,7 +665,7 @@ class TestDashboard(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 200
         doc = pq(response.content)
-        assert len(doc('.dashboard h3')) == 8  # All sections are present.
+        assert len(doc('.dashboard h3')) == 7  # All sections are present.
         expected_links = [
             reverse('reviewers.queue_nominated'),
             reverse('reviewers.queue_pending'),
@@ -686,12 +679,6 @@ class TestDashboard(TestCase):
             'https://wiki.mozilla.org/Add-ons/Reviewers/Guide',
             reverse('reviewers.queue_content_review'),
             reverse('reviewers.performance'),
-            reverse('reviewers.themes.list'),
-            reverse('reviewers.themes.list_rereview'),
-            reverse('reviewers.themes.list_flagged'),
-            reverse('reviewers.themes.logs'),
-            reverse('reviewers.themes.deleted'),
-            'https://wiki.mozilla.org/Add-ons/Reviewers/Themes/Guidelines',
             reverse('reviewers.queue_moderated'),
             reverse('reviewers.ratings_moderation_log'),
             'https://wiki.mozilla.org/Add-ons/Reviewers/Guide/Moderation',
@@ -824,38 +811,6 @@ class TestDashboard(TestCase):
         links = [link.attrib['href'] for link in doc('.dashboard a')]
         assert links == expected_links
         assert doc('.dashboard a')[0].text == 'Content Review (1)'
-
-    def test_themes_reviewer(self):
-        # Create some themes to test the queue counts.
-        addon_factory(type=amo.ADDON_PERSONA, status=amo.STATUS_PENDING)
-        addon_factory(type=amo.ADDON_PERSONA, status=amo.STATUS_PENDING)
-        addon = addon_factory(type=amo.ADDON_PERSONA, status=amo.STATUS_PUBLIC)
-        RereviewQueueTheme.objects.create(theme=addon.persona)
-        addon_factory(type=amo.ADDON_PERSONA, status=amo.STATUS_REVIEW_PENDING)
-        addon_factory(type=amo.ADDON_PERSONA, status=amo.STATUS_REVIEW_PENDING)
-        addon_factory(type=amo.ADDON_PERSONA, status=amo.STATUS_REVIEW_PENDING)
-
-        # Grant user the permission to see only the themes section.
-        self.grant_permission(self.user, 'Personas:Review')
-
-        # Test.
-        response = self.client.get(self.url)
-        assert response.status_code == 200
-        doc = pq(response.content)
-        assert len(doc('.dashboard h3')) == 1
-        expected_links = [
-            reverse('reviewers.themes.list'),
-            reverse('reviewers.themes.list_rereview'),
-            reverse('reviewers.themes.list_flagged'),
-            reverse('reviewers.themes.logs'),
-            reverse('reviewers.themes.deleted'),
-            'https://wiki.mozilla.org/Add-ons/Reviewers/Themes/Guidelines',
-        ]
-        links = [link.attrib['href'] for link in doc('.dashboard a')]
-        assert links == expected_links
-        assert doc('.dashboard a')[0].text == 'New Themes (2)'
-        assert doc('.dashboard a')[1].text == 'Themes Updates (1)'
-        assert doc('.dashboard a')[2].text == 'Flagged Themes (3)'
 
     def test_ratings_moderator(self):
         # Create an rating to test the queue count.
@@ -1027,6 +982,13 @@ class TestDashboard(TestCase):
         assert doc('.dashboard a')[7].attrib['target'] == '_blank'
         assert doc('.dashboard a')[7].attrib['rel'] == 'noopener noreferrer'
 
+    def test_view_mobile_site_link_hidden(self):
+        self.grant_permission(self.user, 'ReviewerTools:View')
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        doc = pq(response.content)
+        assert not doc('a.mobile-link')
+
 
 class QueueTest(ReviewerTest):
     fixtures = ['base/users']
@@ -1077,7 +1039,7 @@ class QueueTest(ReviewerTest):
         results = OrderedDict()
         channel = (amo.RELEASE_CHANNEL_LISTED if self.listed else
                    amo.RELEASE_CHANNEL_UNLISTED)
-        for name, attrs in files.iteritems():
+        for name, attrs in six.iteritems(files):
             if not subset or name in subset:
                 version_kw = attrs.get('version_kw', {})
                 version_kw.update(
@@ -1117,7 +1079,7 @@ class QueueTest(ReviewerTest):
         files = self.generate_files()
         for name in sorted(names):
             if name in files:
-                    expected_addons.append(files[name])
+                expected_addons.append(files[name])
         # Make sure all elements have been added
         assert len(expected_addons) == len(names)
         return expected_addons
@@ -1151,7 +1113,7 @@ class QueueTest(ReviewerTest):
         for idx, addon in enumerate(self.expected_addons):
             latest_version = self.get_addon_latest_version(addon)
             assert latest_version
-            name = '%s %s' % (unicode(addon.name),
+            name = '%s %s' % (six.text_type(addon.name),
                               latest_version.version)
             if self.channel_name == 'listed':
                 # We typically don't include the channel name if it's the
@@ -1232,10 +1194,10 @@ class TestQueueBasics(QueueTest):
             expected)
 
     def test_grid_headers_sort_after_search(self):
-        params = dict(searching=['True'],
-                      text_query=['abc'],
-                      addon_type_ids=['2'],
-                      sort=['addon_type_id'])
+        params = {'searching': ['True'],
+                  'text_query': ['abc'],
+                  'addon_type_ids': ['2'],
+                  'sort': ['addon_type_id']}
         response = self.client.get(self.url, params)
         assert response.status_code == 200
         tr = pq(response.content)('#addon-queue tr')
@@ -1245,13 +1207,13 @@ class TestQueueBasics(QueueTest):
             2: '-addon_type_id',    # Type.
             3: 'waiting_time_min',  # Waiting Time.
         }
-        for idx, sort in sorts.iteritems():
+        for idx, sort in six.iteritems(sorts):
             # Get column link.
             a = tr('th').eq(idx).find('a')
             # Update expected GET parameters with sort type.
             params.update(sort=[sort])
             # Parse querystring of link to make sure `sort` type is correct.
-            assert urlparse.parse_qs(a.attr('href').split('?')[1]) == params
+            assert parse_qs(a.attr('href').split('?')[1]) == params
 
     def test_no_results(self):
         response = self.client.get(self.url)
@@ -2177,8 +2139,7 @@ class TestContentReviewQueue(QueueTest):
         AddonReviewerFlags.objects.create(
             addon=extra_addon4, needs_admin_content_review=True)
 
-        # This first add-on has been content reviewed so long ago that we
-        # should do it again.
+        # This first add-on has been content reviewed long ago.
         addon1 = addon_factory(name=u'Addön 1')
         AutoApprovalSummary.objects.create(
             version=addon1.current_version,
@@ -2216,9 +2177,9 @@ class TestContentReviewQueue(QueueTest):
             verdict=amo.AUTO_APPROVED, confirmed=True)
         assert not AddonApprovalsCounter.objects.filter(addon=addon4).exists()
 
-        # Addons with no last_content_review date should be first, ordered by
+        # Addons with no last_content_review date, ordered by
         # their creation date, older first.
-        self.expected_addons = [addon3, addon4, addon2, addon1]
+        self.expected_addons = [addon3, addon4]
 
     def test_only_viewable_with_specific_permission(self):
         # Regular addon reviewer does not have access.
@@ -2241,7 +2202,7 @@ class TestContentReviewQueue(QueueTest):
         self.generate_files()
 
         self._test_queue_layout('Content Review',
-                                tab_position=2, total_addons=4, total_queues=3,
+                                tab_position=2, total_addons=2, total_queues=3,
                                 per_page=1)
 
     def test_queue_layout_admin(self):
@@ -2251,7 +2212,7 @@ class TestContentReviewQueue(QueueTest):
         self.generate_files()
 
         self._test_queue_layout('Content Review',
-                                tab_position=2, total_addons=5, total_queues=4)
+                                tab_position=2, total_addons=3, total_queues=4)
 
 
 class TestPerformance(QueueTest):
@@ -2428,7 +2389,7 @@ class BaseTestQueueSearch(SearchTest):
         results = {}
         channel = (amo.RELEASE_CHANNEL_LISTED if self.listed else
                    amo.RELEASE_CHANNEL_UNLISTED)
-        for name, attrs in files.iteritems():
+        for name, attrs in six.iteritems(files):
             if not subset or name in subset:
                 version_kw = attrs.get('version_kw', {})
                 version_kw.update(
@@ -2525,7 +2486,7 @@ class BaseTestQueueSearch(SearchTest):
     def test_search_by_addon_in_locale(self):
         name = 'Not Needing Admin Review'
         generated = self.generate_file(name)
-        uni = 'フォクすけといっしょ'.decode('utf8')
+        uni = u'フォクすけといっしょ'
         addon = Addon.objects.get(pk=generated.id)
         addon.name = {'ja': uni}
         addon.save()
@@ -2550,7 +2511,7 @@ class BaseTestQueueSearch(SearchTest):
     def test_search_by_supported_email_in_locale(self):
         name = 'Not Needing Admin Review'
         generated = self.generate_file(name)
-        uni = 'フォクすけといっしょ@site.co.jp'.decode('utf8')
+        uni = u'フォクすけといっしょ@site.co.jp'
         addon = Addon.objects.get(pk=generated.id)
         addon.support_email = {'ja': uni}
         addon.save()
@@ -2625,7 +2586,7 @@ class TestQueueSearch(BaseTestQueueSearch):
 
         response = self.search(application_id=[amo.ANDROID.id])
         assert response.status_code == 200
-        assert self.named_addons(response) == [
+        assert list(sorted(self.named_addons(response))) == [
             'Bieber For Mobile', 'Multi Application']
 
     def test_clear_search_uses_correct_queue(self):
@@ -2903,15 +2864,15 @@ class TestReview(ReviewBase):
         comments = rows.siblings('td')
         assert comments.length == 2
 
-        for idx in xrange(comments.length):
+        for idx in range(comments.length):
             td = comments.eq(idx)
             assert td.find('.history-comment').text() == 'something'
             assert td.find('th').text() == {
                 'public': 'Approved',
                 'reply': 'Reviewer Reply'}[action]
             reviewer_name = td.find('td a').text()
-            assert ((reviewer_name == self.reviewer.display_name) or
-                    (reviewer_name == self.other_reviewer.display_name))
+            assert ((reviewer_name == self.reviewer.name) or
+                    (reviewer_name == self.other_reviewer.name))
 
     def test_item_history_with_unlisted_versions_too(self):
         # Throw in an unlisted version to be ignored.
@@ -2977,7 +2938,7 @@ class TestReview(ReviewBase):
         assert '0.1' in ths.eq(0).text()
         assert '0.2' in ths.eq(1).text()
         assert '0.3' in ths.eq(2).text()
-        for idx in xrange(2):
+        for idx in range(2):
             assert 'Deleted' in ths.eq(idx).text()
 
         bodies = table.children('.listing-body')
@@ -2993,10 +2954,7 @@ class TestReview(ReviewBase):
         v = self.addon.versions.all()[0]
 
         ApplicationsVersions.objects.create(
-            version=v, application=amo.THUNDERBIRD.id, min=av, max=av)
-
-        ApplicationsVersions.objects.create(
-            version=v, application=amo.SEAMONKEY.id, min=av, max=av)
+            version=v, application=amo.ANDROID.id, min=av, max=av)
 
         assert self.addon.versions.count() == 1
         url = reverse('reviewers.review', args=[self.addon.slug])
@@ -3005,9 +2963,8 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         icons = doc('.listing-body .app-icon')
-        assert icons.eq(0).attr('title') == "Firefox"
-        assert icons.eq(1).attr('title') == "SeaMonkey"
-        assert icons.eq(2).attr('title') == "Thunderbird"
+        assert icons.eq(0).attr('title') == 'Firefox for Android'
+        assert icons.eq(1).attr('title') == 'Firefox'
 
     def test_item_history_weight(self):
         """ Make sure the weight is shown on the review page"""
@@ -3024,8 +2981,8 @@ class TestReview(ReviewBase):
 
     def test_item_history_notes(self):
         version = self.addon.versions.all()[0]
-        version.releasenotes = 'hi'
-        version.approvalnotes = 'secret hi'
+        version.release_notes = 'hi'
+        version.approval_notes = 'secret hi'
         version.save()
 
         response = self.client.get(self.url)
@@ -3081,7 +3038,7 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         expected = [
-            ('View Listing', self.addon.get_url_path()),
+            ('View Product Page', self.addon.get_url_path()),
         ]
         check_links(expected, doc('#actions-addon a'), verify=False)
 
@@ -3091,7 +3048,7 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         expected = [
-            ('View Listing', self.addon.get_url_path()),
+            ('View Product Page', self.addon.get_url_path()),
             ('Edit', self.addon.get_dev_url()),
             ('Admin Page',
                 reverse('zadmin.addon_manage', args=[self.addon.id])),
@@ -3099,7 +3056,7 @@ class TestReview(ReviewBase):
         check_links(expected, doc('#actions-addon a'), verify=False)
 
     def test_unlisted_addon_action_links_as_admin(self):
-        """No "View Listing" link for unlisted addons, "edit"/"manage" links
+        """No "View Product Page" link for unlisted addons, "edit"/"manage" links
         for the admins."""
         self.make_addon_unlisted(self.addon)
         self.login_as_admin()
@@ -3126,7 +3083,7 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         expected = [
-            ('View Listing', self.addon.get_url_path()),
+            ('View Product Page', self.addon.get_url_path()),
             ('Unlisted Review Page', reverse(
                 'reviewers.review', args=('unlisted', self.addon.slug))),
             ('Edit', self.addon.get_dev_url()),
@@ -3148,7 +3105,7 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         expected = [
-            ('View Listing', self.addon.get_url_path()),
+            ('View Product Page', self.addon.get_url_path()),
             ('Listed Review Page',
                 reverse('reviewers.review', args=(self.addon.slug,))),
             ('Edit', self.addon.get_dev_url()),
@@ -3168,7 +3125,7 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         expected = [
-            ('View Listing', self.addon.get_url_path()),
+            ('View Product Page', self.addon.get_url_path()),
         ]
         check_links(expected, doc('#actions-addon a'), verify=False)
 
@@ -3482,17 +3439,6 @@ class TestReview(ReviewBase):
             assert mock_sign.called
         return action
 
-    def test_dependencies_listed(self):
-        AddonDependency.objects.create(addon=self.addon,
-                                       dependent_addon=self.addon)
-        response = self.client.get(self.url)
-        assert response.status_code == 200
-        doc = pq(response.content)
-        deps = doc('.addon-info .addon-dependencies')
-        assert deps.length == 1
-        assert deps.find('li').length == 1
-        assert deps.find('a').attr('href') == self.addon.get_url_path()
-
     def test_eula_displayed(self):
         assert not bool(self.addon.eula)
         response = self.client.get(self.url)
@@ -3558,6 +3504,18 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         assert 'Yes' in doc('tr.requires-payment td').text()
+
+    def test_addon_id_display(self):
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        doc = pq(response.content)
+        assert self.addon.guid in doc('tr.addon-guid td').text()
+
+    def test_amo_id_display(self):
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        doc = pq(response.content)
+        assert str(self.addon.id) in doc('tr.addon-amo-id td').text()
 
     def test_viewing(self):
         url = reverse('reviewers.review_viewing')
@@ -3632,7 +3590,7 @@ class TestReview(ReviewBase):
     def test_viewing_review_unlocks(self):
         reviewing_url = reverse('reviewers.review_viewing')
         self.client.post(reviewing_url, {'addon_id': self.addon.id})
-        key = '%s:review_viewing:%s' % (settings.CACHE_PREFIX, self.addon.id)
+        key = 'review_viewing:{id}'.format(id=self.addon.id)
         assert cache.get(key) == self.reviewer.id
 
         self.client.post(self.url, {'action': 'comment',
@@ -3653,7 +3611,7 @@ class TestReview(ReviewBase):
         r = self.client.post(reverse('reviewers.queue_viewing'),
                              {'addon_ids': self.addon.id})
         data = json.loads(r.content)
-        assert data[str(self.addon.id)] == self.reviewer.display_name
+        assert data[str(self.addon.id)] == self.reviewer.name
 
     def test_display_same_files_only_once(self):
         """
@@ -3695,7 +3653,7 @@ class TestReview(ReviewBase):
         # Only the download/install link
         assert info.find('a').length == 1
         assert info.find('a')[0].text == u'Download'
-        assert 'Compatibility' not in response.content
+        assert b'Compatibility' not in response.content
 
     def test_compare_link(self):
         first_file = self.addon.current_version.files.all()[0]
@@ -3816,7 +3774,8 @@ class TestReview(ReviewBase):
     def test_download_sources_link(self):
         version = self.addon.current_version
         tdir = temp.gettempdir()
-        source_file = temp.NamedTemporaryFile(suffix='.zip', dir=tdir)
+        source_file = temp.NamedTemporaryFile(
+            suffix='.zip', dir=tdir, mode='r+')
         source_file.write('a' * (2 ** 21))
         source_file.seek(0)
         version.source = DjangoFile(source_file)
@@ -3829,14 +3788,14 @@ class TestReview(ReviewBase):
         self.client.login(email=user.email)
         response = self.client.get(url, follow=True)
         assert response.status_code == 200
-        assert 'Download files' in response.content
+        assert b'Download files' in response.content
 
         # Standard reviewer: should know that sources were provided.
         user = UserProfile.objects.get(email='reviewer@mozilla.com')
         self.client.login(email=user.email)
         response = self.client.get(url, follow=True)
         assert response.status_code == 200
-        assert 'The developer has provided source code.' in response.content
+        assert b'The developer has provided source code.' in response.content
 
     @mock.patch('olympia.reviewers.utils.sign_file')
     def test_admin_flagged_addon_actions_as_admin(self, mock_sign_file):
@@ -4245,7 +4204,7 @@ class TestReview(ReviewBase):
     def test_abuse_reports(self):
         report = AbuseReport.objects.create(
             addon=self.addon, message=u'Et mël mazim ludus.',
-            ip_address='10.1.2.3')
+            country_code='FR')
         created_at = defaultfilters.date(report.created)
         response = self.client.get(self.url)
         assert response.status_code == 200
@@ -4266,13 +4225,13 @@ class TestReview(ReviewBase):
         assert doc('.abuse_reports')
         assert (
             doc('.abuse_reports').text() ==
-            u'anonymous [10.1.2.3] reported Public on %s\nEt mël mazim ludus.'
+            u'anonymous [FR] reported Public on %s\nEt mël mazim ludus.'
             % created_at)
 
     def test_abuse_reports_developers(self):
         report = AbuseReport.objects.create(
             user=self.addon.listed_authors[0], message=u'Foo, Bâr!',
-            ip_address='10.4.5.6')
+            country_code='DE')
         created_at = defaultfilters.date(report.created)
         AutoApprovalSummary.objects.create(
             verdict=amo.AUTO_APPROVED, version=self.version)
@@ -4283,7 +4242,7 @@ class TestReview(ReviewBase):
         assert doc('.abuse_reports')
         assert (
             doc('.abuse_reports').text() ==
-            u'anonymous [10.4.5.6] reported regularuser التطب on %s\nFoo, Bâr!'
+            u'anonymous [DE] reported regularuser التطب on %s\nFoo, Bâr!'
             % created_at)
 
     def test_user_ratings(self):
@@ -4321,7 +4280,7 @@ class TestReview(ReviewBase):
             doc('.user_ratings').text() ==
             u'%s on %s [10.5.6.7]\n'
             u'Rated 3 out of 5 stars\nLôrem ipsum dolor' % (
-                user.username, created_at
+                user.name, created_at
             )
         )
 
@@ -4450,15 +4409,7 @@ class TestReview(ReviewBase):
             [action[0] for action in response.context['actions']] ==
             expected_actions)
 
-    @mock.patch('olympia.versions.models.walkfiles')
-    def test_static_theme_backgrounds(self, walkfiles_mock):
-        background_files = ['a.png', 'b.png', 'c.png']
-        walkfiles_folder = os.path.join(
-            user_media_path('addons'), str(self.addon.id),
-            unicode(self.addon.current_version.id))
-        walkfiles_mock.return_value = [
-            os.path.join(walkfiles_folder, filename)
-            for filename in background_files]
+    def test_static_theme_backgrounds(self):
         self.addon.update(type=amo.ADDON_STATICTHEME)
         self.grant_permission(self.reviewer, 'Addons:ThemeReview')
 
@@ -4466,23 +4417,10 @@ class TestReview(ReviewBase):
         assert response.status_code == 200
         doc = pq(response.content)
         backgrounds_div = doc('div.all-backgrounds')
-        assert backgrounds_div.length == 1
-        images = doc('div.all-backgrounds .background.zoombox')
-        assert images.length == len(walkfiles_mock.return_value)
-        background_file_folder = '/'.join([
-            user_media_url('addons'), str(self.addon.id),
-            unicode(self.addon.current_version.id)])
-        background_file_urls = [
-            background_file_folder + '/' + filename
-            for filename in background_files]
-        loop_ct = 0
-        for div_tag in images:
-            assert div_tag[0].attrib['src'] in background_file_urls
-            assert ''.join(div_tag.itertext()).strip() == (
-                'Background file {0} of {1} - {2}'.format(
-                    loop_ct + 1, len(background_files),
-                    background_files[loop_ct]))
-            loop_ct += 1
+        assert backgrounds_div.attr('data-backgrounds-url') == (
+            reverse('reviewers.theme_background_images',
+                    args=[self.addon.current_version.id])
+        )
 
 
 class TestReviewPending(ReviewBase):
@@ -4514,18 +4452,31 @@ class TestReviewPending(ReviewBase):
 
         assert mock_sign.called
 
+    @override_settings(ENABLE_ADDON_SIGNING=True)
+    def test_pending_to_public_search(self):
+        # sign_file() is *not* mocked here. We shouldn't need to, it should
+        # just avoid signing search plugins silently.
+        self.version.files.all().update(is_webextension=False)
+        self.addon.update(type=amo.ADDON_SEARCH)
+        response = self.client.post(self.url, self.pending_dict())
+        self.assert3xx(response, reverse('reviewers.queue_pending'))
+        assert self.get_addon().status == amo.STATUS_PUBLIC
+        statuses = (self.version.files.values_list('status', flat=True)
+                    .order_by('status'))
+        assert list(statuses) == [amo.STATUS_PUBLIC, amo.STATUS_PUBLIC]
+
     def test_display_only_unreviewed_files(self):
         """Only the currently unreviewed files are displayed."""
-        self.file.update(filename='somefilename.xpi')
+        self.file.update(filename=b'somefilename.xpi')
         reviewed = File.objects.create(version=self.version,
                                        status=amo.STATUS_PUBLIC,
-                                       filename='file_reviewed.xpi')
+                                       filename=b'file_reviewed.xpi')
         disabled = File.objects.create(version=self.version,
                                        status=amo.STATUS_DISABLED,
-                                       filename='file_disabled.xpi')
+                                       filename=b'file_disabled.xpi')
         unreviewed = File.objects.create(version=self.version,
                                          status=amo.STATUS_AWAITING_REVIEW,
-                                         filename='file_unreviewed.xpi')
+                                         filename=b'file_unreviewed.xpi')
         response = self.client.get(self.url, self.pending_dict())
         assert response.status_code == 200
         doc = pq(response.content)
@@ -4749,7 +4700,7 @@ class TestAbuseReports(TestCase):
         AbuseReport.objects.create(user=someone, message=u'hey nöw')
         # Make a user abuse report for one of the add-on developers: it should
         # show up.
-        AbuseReport.objects.create(user=addon_developer, message='bü!')
+        AbuseReport.objects.create(user=addon_developer, message=u'bü!')
 
     def test_abuse_reports_list(self):
         assert self.client.login(email='admin@mozilla.com')
@@ -4812,7 +4763,7 @@ class TestLeaderboard(ReviewerTest):
         assert get_cells() == (
             [users[2].name,
              users[1].name,
-             unicode(amo.REVIEWED_LEVELS[0]['name']),
+             six.text_type(amo.REVIEWED_LEVELS[0]['name']),
              users[0].name])
 
         self._award_points(users[0], 1)
@@ -4821,7 +4772,7 @@ class TestLeaderboard(ReviewerTest):
             [users[2].name,
              users[1].name,
              users[0].name,
-             unicode(amo.REVIEWED_LEVELS[0]['name'])])
+             six.text_type(amo.REVIEWED_LEVELS[0]['name'])])
 
         self._award_points(users[0], -1)
         self._award_points(users[2], (amo.REVIEWED_LEVELS[1]['points'] -
@@ -4829,9 +4780,9 @@ class TestLeaderboard(ReviewerTest):
 
         assert get_cells() == (
             [users[2].name,
-             unicode(amo.REVIEWED_LEVELS[1]['name']),
+             six.text_type(amo.REVIEWED_LEVELS[1]['name']),
              users[1].name,
-             unicode(amo.REVIEWED_LEVELS[0]['name']),
+             six.text_type(amo.REVIEWED_LEVELS[0]['name']),
              users[0].name])
 
 
@@ -4871,7 +4822,7 @@ class TestPolicyView(ReviewerTest):
             '{addon} :: EULA'.format(addon=self.addon.name))
         self.assertContains(response, u'End-User License Agreement')
         self.assertContains(response, u'Eulá!')
-        self.assertContains(response, unicode(self.review_url))
+        self.assertContains(response, six.text_type(self.review_url))
 
     def test_eula_with_channel(self):
         unlisted_review_url = reverse(
@@ -4887,7 +4838,7 @@ class TestPolicyView(ReviewerTest):
         response = self.client.get(self.eula_url + '?channel=unlisted')
         assert response.status_code == 200
         self.assertContains(response, u'Eulá!')
-        self.assertContains(response, unicode(unlisted_review_url))
+        self.assertContains(response, six.text_type(unlisted_review_url))
 
     def test_privacy(self):
         assert not bool(self.addon.privacy_policy)
@@ -4904,7 +4855,7 @@ class TestPolicyView(ReviewerTest):
             '{addon} :: Privacy Policy'.format(addon=self.addon.name))
         self.assertContains(response, 'Privacy Policy')
         self.assertContains(response, u'Prívacy Pólicy?')
-        self.assertContains(response, unicode(self.review_url))
+        self.assertContains(response, six.text_type(self.review_url))
 
     def test_privacy_with_channel(self):
         unlisted_review_url = reverse(
@@ -4920,7 +4871,7 @@ class TestPolicyView(ReviewerTest):
         response = self.client.get(self.privacy_url + '?channel=unlisted')
         assert response.status_code == 200
         self.assertContains(response, u'Prívacy Pólicy?')
-        self.assertContains(response, unicode(unlisted_review_url))
+        self.assertContains(response, six.text_type(unlisted_review_url))
 
 
 class TestAddonReviewerViewSet(TestCase):
@@ -5202,3 +5153,316 @@ class TestAddonReviewerViewSet(TestCase):
         activity_log = ActivityLog.objects.latest('pk')
         assert activity_log.action == amo.LOG.ADMIN_ALTER_INFO_REQUEST.id
         assert activity_log.arguments[0] == self.addon
+
+
+class TestReviewAddonVersionViewSetDetail(TestCase):
+    client_class = APITestClient
+
+    def setUp(self):
+        super(TestReviewAddonVersionViewSetDetail, self).setUp()
+
+        # TODO: Most of the initial setup could be moved to
+        # setUpTestData but unfortunately paths are setup in pytest via a
+        # regular autouse fixture that has function-scope so functions in
+        # setUpTestData don't use proper paths (cgrebs)
+        self.addon = addon_factory(
+            name=u'My Addôn', slug='my-addon',
+            file_kw={'filename': 'webextension_no_id.xpi'})
+
+        extract_version_to_git(self.addon.current_version.pk)
+
+        self.version = self.addon.current_version
+        self.version.refresh_from_db()
+
+        self._set_tested_url()
+
+    def _test_url(self):
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        result = json.loads(response.content)
+        assert result['id'] == self.version.pk
+        assert result['file']['id'] == self.version.current_file.pk
+
+        # part of manifest.json
+        assert '"name": "Beastify"' in result['file']['content']
+
+    def _set_tested_url(self):
+        self.url = reverse_ns('reviewers-versions-detail', kwargs={
+            'addon_pk': self.addon.pk,
+            'version_pk': self.version.pk})
+
+    def test_anonymous(self):
+        response = self.client.get(self.url)
+        assert response.status_code == 401
+
+    def test_requested_file(self):
+        user = UserProfile.objects.create(username='reviewer')
+        self.grant_permission(user, 'Addons:Review')
+        self.client.login_api(user)
+
+        response = self.client.get(self.url + '?file=README.md')
+        assert response.status_code == 200
+        result = json.loads(response.content)
+
+        assert result['file']['content'] == '# beastify\n'
+
+    def test_version_get_not_found(self):
+        user = UserProfile.objects.create(username='reviewer')
+        self.grant_permission(user, 'Addons:Review')
+        self.client.login_api(user)
+        self.url = reverse_ns('reviewers-versions-detail', kwargs={
+            'addon_pk': self.addon.pk,
+            'version_pk': self.version.current_file.pk + 42})
+        response = self.client.get(self.url)
+        assert response.status_code == 404
+
+    def test_disabled_version_reviewer(self):
+        user = UserProfile.objects.create(username='reviewer')
+        self.grant_permission(user, 'Addons:Review')
+        self.client.login_api(user)
+        self.version.files.update(status=amo.STATUS_DISABLED)
+        self._test_url()
+
+    def test_disabled_version_author(self):
+        user = UserProfile.objects.create(username='author')
+        AddonUser.objects.create(user=user, addon=self.addon)
+        self.client.login_api(user)
+        self.version.files.update(status=amo.STATUS_DISABLED)
+        self._test_url()
+
+    def test_disabled_version_admin(self):
+        user = UserProfile.objects.create(username='admin')
+        self.grant_permission(user, '*:*')
+        self.client.login_api(user)
+        self.version.files.update(status=amo.STATUS_DISABLED)
+        self._test_url()
+
+    def test_disabled_version_user_but_not_author(self):
+        user = UserProfile.objects.create(username='simpleuser')
+        self.client.login_api(user)
+        self.version.files.update(status=amo.STATUS_DISABLED)
+        response = self.client.get(self.url)
+        assert response.status_code == 403
+
+    def test_deleted_version_reviewer(self):
+        user = UserProfile.objects.create(username='reviewer')
+        self.grant_permission(user, 'Addons:Review')
+        self.client.login_api(user)
+        self.version.delete()
+        response = self.client.get(self.url)
+        assert response.status_code == 404
+
+    def test_deleted_version_author(self):
+        user = UserProfile.objects.create(username='author')
+        AddonUser.objects.create(user=user, addon=self.addon)
+        self.client.login_api(user)
+        self.version.delete()
+        response = self.client.get(self.url)
+        assert response.status_code == 404
+
+    def test_deleted_version_admin(self):
+        user = UserProfile.objects.create(username='admin')
+        self.grant_permission(user, '*:*')
+        self.client.login_api(user)
+        self.version.delete()
+        self._test_url()
+
+    def test_deleted_version_user_but_not_author(self):
+        user = UserProfile.objects.create(username='simpleuser')
+        self.client.login_api(user)
+        self.version.delete()
+        response = self.client.get(self.url)
+        assert response.status_code == 404
+
+    def test_unlisted_version_reviewer(self):
+        user = UserProfile.objects.create(username='reviewer')
+        self.grant_permission(user, 'Addons:Review')
+        self.client.login_api(user)
+        self.version.update(channel=amo.RELEASE_CHANNEL_UNLISTED)
+        response = self.client.get(self.url)
+        assert response.status_code == 403
+
+    def test_unlisted_version_unlisted_reviewer(self):
+        user = UserProfile.objects.create(username='reviewer')
+        self.grant_permission(user, 'Addons:ReviewUnlisted')
+        self.client.login_api(user)
+        self.version.update(channel=amo.RELEASE_CHANNEL_UNLISTED)
+        self._test_url()
+
+    def test_unlisted_version_author(self):
+        user = UserProfile.objects.create(username='author')
+        AddonUser.objects.create(user=user, addon=self.addon)
+        self.client.login_api(user)
+        self.version.update(channel=amo.RELEASE_CHANNEL_UNLISTED)
+        self._test_url()
+
+    def test_unlisted_version_admin(self):
+        user = UserProfile.objects.create(username='admin')
+        self.grant_permission(user, '*:*')
+        self.client.login_api(user)
+        self.version.update(channel=amo.RELEASE_CHANNEL_UNLISTED)
+        self._test_url()
+
+    def test_unlisted_version_user_but_not_author(self):
+        user = UserProfile.objects.create(username='simpleuser')
+        self.client.login_api(user)
+        self.version.update(channel=amo.RELEASE_CHANNEL_UNLISTED)
+        response = self.client.get(self.url)
+        assert response.status_code == 403
+
+
+class TestReviewAddonVersionViewSetList(TestCase):
+    client_class = APITestClient
+
+    def setUp(self):
+        super(TestReviewAddonVersionViewSetList, self).setUp()
+
+        self.addon = addon_factory(
+            name=u'My Addôn', slug='my-addon',
+            file_kw={'filename': 'webextension_no_id.xpi'})
+
+        extract_version_to_git(self.addon.current_version.pk)
+
+        self.version = self.addon.current_version
+        self.version.refresh_from_db()
+
+        self._set_tested_url()
+
+    def _test_url(self):
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        result = json.loads(response.content)
+        assert result == [{
+            'version': self.version.version,
+            'id': self.version.id,
+            'channel': u'listed',
+        }]
+
+    def _set_tested_url(self):
+        self.url = reverse_ns('reviewers-versions-list', kwargs={
+            'addon_pk': self.addon.pk})
+
+    def test_anonymous(self):
+        response = self.client.get(self.url)
+        assert response.status_code == 401
+
+    def test_permissions_reviewer(self):
+        user = UserProfile.objects.create(username='reviewer')
+        self.grant_permission(user, 'Addons:Review')
+        self.client.login_api(user)
+        self._test_url()
+
+    def test_permissions_disabled_version_author(self):
+        user = UserProfile.objects.create(username='author')
+        AddonUser.objects.create(user=user, addon=self.addon)
+        self.client.login_api(user)
+        self.version.files.update(status=amo.STATUS_DISABLED)
+        self._test_url()
+
+    def test_permissions_disabled_version_admin(self):
+        user = UserProfile.objects.create(username='admin')
+        self.grant_permission(user, '*:*')
+        self.client.login_api(user)
+        self.version.files.update(status=amo.STATUS_DISABLED)
+        self._test_url()
+
+    def test_permissions_disabled_version_user_but_not_author(self):
+        user = UserProfile.objects.create(username='simpleuser')
+        self.client.login_api(user)
+        self.version.files.update(status=amo.STATUS_DISABLED)
+        response = self.client.get(self.url)
+        assert response.status_code == 403
+
+    def test_show_only_listed_without_unlisted_permission(self):
+        user = UserProfile.objects.create(username='admin')
+
+        # User doesn't have ReviewUnlisted permission
+        self.grant_permission(user, 'Addons:Review')
+
+        self.client.login_api(user)
+
+        version_factory(
+            addon=self.addon, channel=amo.RELEASE_CHANNEL_UNLISTED)
+
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        result = json.loads(response.content)
+
+        assert result == [
+            {
+                'version': self.version.version,
+                'id': self.version.id,
+                'channel': u'listed'
+            },
+        ]
+
+    def test_show_listed_and_unlisted_with_permissions(self):
+        user = UserProfile.objects.create(username='admin')
+
+        # User doesn't have ReviewUnlisted permission
+        self.grant_permission(user, 'Addons:ReviewUnlisted')
+
+        self.client.login_api(user)
+
+        unlisted_version = version_factory(
+            addon=self.addon, channel=amo.RELEASE_CHANNEL_UNLISTED)
+
+        # We have a .only() and .no_transforms or .only_translations
+        # querysets which reduces the amount of queries to "only" 11
+        with self.assertNumQueries(11):
+            response = self.client.get(self.url)
+
+        assert response.status_code == 200
+        result = json.loads(response.content)
+
+        assert result == [
+            {
+                'version': unlisted_version.version,
+                'id': unlisted_version.id,
+                'channel': u'unlisted'
+            },
+            {
+                'version': self.version.version,
+                'id': self.version.id,
+                'channel': u'listed'
+            },
+        ]
+
+
+class TestThemeBackgroundImages(ReviewBase):
+
+    def setUp(self):
+        super(TestThemeBackgroundImages, self).setUp()
+        self.url = reverse(
+            'reviewers.theme_background_images',
+            args=[self.addon.current_version.id])
+
+    def test_not_reviewer(self):
+        user_factory(email='irregular@mozilla.com')
+        assert self.client.login(email='irregular@mozilla.com')
+        response = self.client.post(self.url, follow=True)
+        assert response.status_code == 403
+
+    def test_no_header_image(self):
+        response = self.client.post(self.url, follow=True)
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data == {}
+
+    def test_header_images(self):
+        destination = self.addon.current_version.all_files[0].current_file_path
+        zip_file = os.path.join(
+            settings.ROOT,
+            'src/olympia/devhub/tests/addons/static_theme_tiled.zip')
+        copy_stored_file(zip_file, destination)
+        response = self.client.post(self.url, follow=True)
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data
+        assert len(data.items()) == 3
+        assert 'empty.png' in data
+        assert len(data['empty.png']) == 444  # base64-encoded size
+        assert 'weta_for_tiling.png' in data
+        assert len(data['weta_for_tiling.png']) == 124496  # b64-encoded size
+        assert 'transparent.gif' in data
+        assert len(data['transparent.gif']) == 56  # base64-encoded size

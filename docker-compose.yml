@@ -1,5 +1,6 @@
-version: "2.3"
-
+# If you're changing the &env mapping
+# please make sure to update tests/ui/docker-compose.selenium.yml
+# accordingly.
 x-env-mapping: &env
   environment:
     - CELERY_BROKER_URL=amqp://olympia:olympia@rabbitmq/olympia
@@ -12,17 +13,21 @@ x-env-mapping: &env
     - OLYMPIA_SITE_URL=http://olympia.test
     - PYTHONDONTWRITEBYTECODE=1
     - PYTHONUNBUFFERED=1
-    - RECURSION_LIMIT=10000
     - TERM=xterm-256color
 
 services:
   worker: &worker
     <<: *env
-    image: addons/addons-server
+    #image: addons/addons-server:latest-py3
+    build:
+      context: .
+      dockerfile: Dockerfile.python3
     command: supervisord -n -c /code/docker/supervisor-celery.conf
     entrypoint: ./scripts/start-docker.sh
     volumes:
       - .:/code
+      - ./storage/files:/code/storage/shared_storage/uploads/addons
+
     extra_hosts:
      - "olympia.test:127.0.0.1"
 
@@ -30,21 +35,29 @@ services:
     <<: *worker
     command: supervisord -n -c /code/docker/supervisor.conf
 
-  nginx:
-    image: addons/addons-nginx
-    volumes:
-      - ./static:/srv/static
-      - ./site-static:/srv/site-static
-      - ./user-media/:/srv/user-media
+#  nginx:
+#    image: addons/addons-nginx
+#    volumes:
+#      - ./static:/srv/static
+#      - ./site-static:/srv/site-static
+#      - ./storage/shared_storage/uploads:/srv/user-media
+#      - ./storage/files:/srv/user-media/addons
 
   memcached:
     image: memcached:1.4
 
   mysqld:
     image: mysql:5.7
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes
       - MYSQL_DATABASE=olympia
+    volumes:
+      - mysql_db:/var/lib/mysql
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
@@ -59,13 +72,18 @@ services:
       - xpack.watcher.enabled=false
       - "discovery.type=single-node"
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
     mem_limit: 2g
 
   redis:
     image: redis:2.8
 
   rabbitmq:
-    image: rabbitmq:3.5
+    image: rabbitmq:3
     hostname: olympia
     expose:
       - "5672"
@@ -74,33 +92,23 @@ services:
       - RABBITMQ_DEFAULT_PASS=olympia
       - RABBITMQ_DEFAULT_VHOST=olympia
 
+  # ATN Doesn't sign addons, but we need it for tests
   autograph:
-    image: mozilla/autograph:2.3.0
+    image: mozilla/autograph:2.7.0
 
-  selenium-firefox:
-    <<: *env
-    image: b4handjr/selenium-firefox
-    volumes:
-      - .:/code
-    expose:
-      - "4444"
-    ports:
-      - "5900"
-    shm_size: 2g
-    links:
-      - "addons-frontend:olympia-frontend.test"
-      - "nginx:olympia.test"
+#  addons-frontend:
+#    <<: *env
+#    environment:
+#      - HOSTNAME=uitests
+#      - WEBPACK_SERVER_HOST=olympia-frontend.test
+#      - FXA_CONFIG=default
+#    image: addons/addons-frontend
+#    ports:
+#      - "3000:3000"
+#      - "3001:3001"
+#    command: yarn amo:ui-tests
+#    links:
+#      - "nginx:olympia.test"
 
-  addons-frontend:
-    <<: *env
-    environment:
-      - HOSTNAME=uitests
-      - WEBPACK_SERVER_HOST=olympia-frontend.test
-      - FXA_CONFIG=default
-    image: addons/addons-frontend
-    ports:
-      - "3000:3000"
-      - "3001:3001"
-    command: yarn amo:ui-tests
-    links:
-      - "nginx:olympia.test"
+volumes:
+  mysql_db:

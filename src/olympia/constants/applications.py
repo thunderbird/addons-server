@@ -1,5 +1,6 @@
 import re
 
+from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 
 from .base import (
@@ -52,6 +53,7 @@ class THUNDERBIRD(App):
              ADDON_PERSONA, ADDON_STATICTHEME]
     guid = '{3550f703-e582-4d05-9a08-453d09bdfdc6}'
     min_display_version = 1.0
+    latest_version = None
     user_agent_string = 'Thunderbird'
     platforms = 'desktop'  # DESKTOP_PLATFORMS (set in constants.platforms)
 
@@ -119,11 +121,11 @@ class ANDROID(App):
     user_agent_string = 'Fennec'
     # Mobile and Android have the same user agent. The only way to distinguish
     # is by the version number.
-    user_agent_re = [re.compile('Fennec/([\d.]+)'),
-                     re.compile('Android; Mobile; rv:([\d.]+)'),
-                     re.compile('Android; Tablet; rv:([\d.]+)'),
-                     re.compile('Mobile; rv:([\d.]+)'),
-                     re.compile('Tablet; rv:([\d.]+)')]
+    user_agent_re = [re.compile(r'Fennec/([\d.]+)'),
+                     re.compile(r'Android; Mobile; rv:([\d.]+)'),
+                     re.compile(r'Android; Tablet; rv:([\d.]+)'),
+                     re.compile(r'Mobile; rv:([\d.]+)'),
+                     re.compile(r'Tablet; rv:([\d.]+)')]
     platforms = 'mobile'
     latest_version = None
 
@@ -160,28 +162,19 @@ class UNKNOWN_APP(App):
 
 # UAs will attempt to match in this order.
 APP_DETECT = (THUNDERBIRD, SEAMONKEY)
-APP_USAGE = (FIREFOX, THUNDERBIRD, ANDROID, SEAMONKEY)
-# APP_USAGE_FIREFOXES_ONLY is a temporary constant while we have a waffle to
-# disable thunderbird and seamonkey support.
-# Since it's evaluated at import time, we can't change APP_USAGE through a
-# waffle, so to support the waffle disabling Thunderbird and Seamonkey support
-# we add a temporary constant that will be used by relevant code in place of
-# APP_USAGE while the waffle is still used. When the waffle is turned on
-# permanently and removed this constant can go away and APP_USAGE can be
-# changed to only (ANDROID, FIREFOX).
-APP_USAGE_FIREFOXES_ONLY = (THUNDERBIRD, SEAMONKEY)
-APP_USAGE_STATICTHEME = (THUNDERBIRD,)
+
+# Tests require Firefox, but we don't want to support that in our actual app!
+if settings.IN_TEST_SUITE:
+    APP_USAGE = (THUNDERBIRD, SEAMONKEY, FIREFOX, ANDROID)
+else:
+    APP_USAGE = (THUNDERBIRD, SEAMONKEY)
+
 APPS = {app.short: app for app in APP_USAGE}
-APPS_ALL = {app.id: app for app in APP_USAGE + (MOZILLA, SUNBIRD, MOBILE)}
+APP_OBSOLETE = (MOZILLA, SUNBIRD, MOBILE)
+APPS_ALL = {app.id: app for app in APP_USAGE + APP_OBSOLETE}
 APP_IDS = {app.id: app for app in APP_USAGE}
 APP_GUIDS = {app.guid: app for app in APP_USAGE}
 APPS_CHOICES = tuple((app.id, app.pretty) for app in APP_USAGE)
-
-# Also temporary, can be removed and replaced by `APPS_CHOICES` together with
-# `APP_USAGE_FIREFOXES_ONLY`
-APPS_FIREFOXES_ONLY_CHOICES = sorted(tuple(
-    (app.id, app.pretty) for app in APP_USAGE_FIREFOXES_ONLY
-))
 
 APP_TYPE_SUPPORT = {}
 for _app in APP_USAGE:
@@ -194,8 +187,6 @@ FAKE_MAX_VERSION = '9999'
 # The lowest maxVersion an app has to support to allow default-to-compatible.
 D2C_MIN_VERSIONS = {
     FIREFOX.id: '4.0',
-    SEAMONKEY.id: '2.1',
-    THUNDERBIRD.id: '5.0',
     ANDROID.id: '11.0',
 }
 

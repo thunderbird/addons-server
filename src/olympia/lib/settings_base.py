@@ -7,9 +7,6 @@ import os
 import socket
 import json
 
-from django.urls import reverse_lazy
-from django.utils.functional import lazy
-
 import raven
 from kombu import Queue
 
@@ -36,8 +33,8 @@ ALLOWED_HOSTS = [
 CACHEBUST_IMGS = True
 try:
     # If we have build ids available, we'll grab them here and add them to our
-    # CACHE_PREFIX.  This will let us not have to flush memcache during updates
-    # and it will let us preload data into it before a production push.
+    # CACHE_KEY_PREFIX. This will let us not have to flush memcache during
+    # updates and it will let us preload data into it before a production push.
     from build import BUILD_ID_CSS, BUILD_ID_JS
     build_id = "%s%s" % (BUILD_ID_CSS[:2], BUILD_ID_JS[:2])
 except ImportError:
@@ -68,19 +65,28 @@ SILENCED_SYSTEM_CHECKS = (
 # LESS CSS OPTIONS (Debug only).
 LESS_PREPROCESS = True  # Compile LESS with Node, rather than client-side JS?
 LESS_LIVE_REFRESH = False  # Refresh the CSS on save?
-LESS_BIN = 'lessc'
+LESS_BIN = env(
+    'LESS_BIN', default='node_modules/less/bin/lessc')
 
 # Path to cleancss (our CSS minifier).
-CLEANCSS_BIN = 'cleancss'
+CLEANCSS_BIN = env(
+    'CLEANCSS_BIN', default='node_modules/less/bin/lessc')
 
 # Path to uglifyjs (our JS minifier).
-UGLIFY_BIN = 'uglifyjs'  # Set as None to use YUI instead (at your risk).
+# Set as None to use YUI instead (at your risk).
+UGLIFY_BIN = env(
+    'UGLIFY_BIN', default='node_modules/uglify-js/bin/uglifyjs')
 
 # rsvg-convert is used to save our svg static theme previews to png
-RSVG_CONVERT_BIN = 'rsvg-convert'
+RSVG_CONVERT_BIN = env('RSVG_CONVERT_BIN', default='rsvg-convert')
 
 # Path to pngcrush (to optimize the PNGs uploaded by developers).
-PNGCRUSH_BIN = 'pngcrush'
+PNGCRUSH_BIN = env('PNGCRUSH_BIN', default='pngcrush')
+
+# Path to our addons-linter binary
+ADDONS_LINTER_BIN = env(
+    'ADDONS_LINTER_BIN',
+    default='node_modules/addons-linter/bin/addons-linter')
 
 FLIGTAR = 'amo-admins+fligtar-rip@mozilla.org'
 THEMES_EMAIL = 'theme-reviews@mozilla.org'
@@ -96,22 +102,9 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_URLS_REGEX = DRF_API_REGEX
 
 
-# Sadly the term WHITELIST is used by the library
-# https://pypi.python.org/pypi/django-cors-headers-multi/1.2.0
-def cors_endpoint_overrides(whitelist_endpoints):
-    return [
-        ('%saccounts/login/?$' % DRF_API_REGEX, {
-            'CORS_ORIGIN_ALLOW_ALL': False,
-            'CORS_ORIGIN_WHITELIST': whitelist_endpoints,
-            'CORS_ALLOW_CREDENTIALS': True,
-        }),
-    ]
+def get_db_config(environ_var, atomic_requests=True, charset='utf8'):
+    assert charset in ('utf8', 'utf8mb4')
 
-
-CORS_ENDPOINT_OVERRIDES = []
-
-
-def get_db_config(environ_var, atomic_requests=True):
     values = env.db(
         var=environ_var,
         default='mysql://root:@localhost/olympia')
@@ -125,12 +118,15 @@ def get_db_config(environ_var, atomic_requests=True):
         'CONN_MAX_AGE': 300,
         'ENGINE': 'olympia.core.db.mysql',
         'OPTIONS': {
+            'charset': charset,
             'sql_mode': 'STRICT_ALL_TABLES',
             'isolation_level': 'read committed'
         },
         'TEST': {
-            'CHARSET': 'utf8',
-            'COLLATION': 'utf8_general_ci'
+            'CHARSET': charset,
+            'COLLATION': (
+                'utf8_general_ci' if charset == 'utf8' else
+                'utf8mb4_general_ci')
         },
     })
 
@@ -163,110 +159,27 @@ TIME_ZONE = 'UTC'
 # http://www.i18nguy.com/unicode/language-identifiers.html
 LANGUAGE_CODE = 'en-US'
 
-# Accepted locales.
-AMO_LANGUAGES = (
-    'af',  # Afrikaans
-    'ar',  # Arabic
-    'ast',  # Asturian
-    'az',  # Azerbaijani
-    'bg',  # Bulgarian
-    'bn-BD',  # Bengali (Bangladesh)
-    'bs',  # Bosnian
-    'ca',  # Catalan
-    'cak',  # Kaqchikel
-    'cs',  # Czech
-    'da',  # Danish
-    'de',  # German
-    'dsb',  # Lower Sorbian
-    'el',  # Greek
-    'en-CA',  # English (Canada)
-    'en-GB',  # English (British)
-    'en-US',  # English (US)
-    'es',  # Spanish
-    'eu',  # Basque
-    'fa',  # Persian
-    'fi',  # Finnish
-    'fr',  # French
-    'fy-NL',  # Frisian
-    'ga-IE',  # Irish
-    'gu',  # Gujarati
-    'he',  # Hebrew
-    'hsb',  # Upper Sorbian
-    'hu',  # Hungarian
-    # 'ia',  # Interlingua - doesn't exist in product_details yet.
-    'id',  # Indonesian
-    'it',  # Italian
-    'ja',  # Japanese
-    'ka',  # Georgian
-    'kab',  # Kabyle
-    'ko',  # Korean
-    'mk',  # Macedonian
-    'mn',  # Mongolian
-    'ms',  # Malay
-    'nb-NO',  # Norwegian (Bokmål)
-    'nl',  # Dutch
-    'nn-NO',  # Norwegian (Nynorsk)
-    'pa-IN',  # Punjabi
-    'pl',  # Polish
-    'pt-BR',  # Portuguese (Brazilian)
-    'pt-PT',  # Portuguese (Portugal)
-    'ro',  # Romanian
-    'ru',  # Russian
-    'sk',  # Slovak
-    'sl',  # Slovenian
-    'sq',  # Albanian
-    'sv-SE',  # Swedish
-    'te',  # Telugu
-    'th',  # Thai
-    'tr',  # Turkish
-    'uk',  # Ukrainian
-    'ur',  # Urdu
-    'vi',  # Vietnamese
-    'zh-CN',  # Chinese (Simplified)
-    'zh-TW',  # Chinese (Traditional)
-)
+# Accepted locales / languages.
+from olympia.core.languages import LANGUAGE_MAPPING  # noqa
+AMO_LANGUAGES = LANGUAGE_MAPPING.keys()
 
 # Bidirectional languages.
 # Locales in here *must* be in `AMO_LANGUAGES` too.
-LANGUAGES_BIDI = ('ar', 'fa', 'he', 'dbr', 'ur')
+LANGUAGES_BIDI = ('ar', 'fa', 'he', 'ur')
 
 # Explicit conversion of a shorter language code into a more specific one.
 SHORTER_LANGUAGES = {
     'en': 'en-US', 'ga': 'ga-IE', 'pt': 'pt-PT', 'sv': 'sv-SE', 'zh': 'zh-CN'
 }
 
-
-DEBUG_LANGUAGES = ('dbr', 'dbl')
-
-
-def lazy_langs(languages):
-    from product_details import product_details
-    if not product_details.languages:
-        return {}
-
-    language_mapping = {}
-
-    for lang in languages:
-        if lang == 'dbl':
-            lang_name = product_details.languages['dbg']['native']
-        elif lang == 'dbr':
-            lang_name = product_details.languages['dbg']['native'] + ' (RTL)'
-        else:
-            lang_name = product_details.languages[lang]['native']
-
-        language_mapping[lang.lower()] = lang_name
-
-    return language_mapping
-
-
-# Where product details are stored see django-mozilla-product-details
-PROD_DETAILS_DIR = path('src', 'olympia', 'lib', 'product_json')
-PROD_DETAILS_STORAGE = 'olympia.lib.product_details_backend.NoCachePDFileStorage'  # noqa
-
 # Override Django's built-in with our native names
-LANGUAGES = lazy(lazy_langs, dict)(AMO_LANGUAGES)
+LANGUAGES = {
+    locale.lower(): value['native']
+    for locale, value in LANGUAGE_MAPPING.items()}
 
-LANGUAGE_URL_MAP = dict([(i.lower(), i) for i in AMO_LANGUAGES])
+LANGUAGE_URL_MAP = {
+    locale.lower(): locale
+    for locale in AMO_LANGUAGES}
 
 LOCALE_PATHS = (
     path('locale'),
@@ -306,17 +219,10 @@ INBOUND_EMAIL_VALIDATION_KEY = env('INBOUND_EMAIL_VALIDATION_KEY', default='')
 # Domain emails should be sent to.
 INBOUND_EMAIL_DOMAIN = env('INBOUND_EMAIL_DOMAIN', default=DOMAIN)
 
-# Absolute path to the directory that holds media.
-# Example: "/home/media/media.lawrence.com/"
-MEDIA_ROOT = path('user-media')
-
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash if there is a path component (optional in other cases).
 # Examples: "http://media.lawrence.com", "http://example.com/media/"
 MEDIA_URL = '/user-media/'
-
-# Absolute path to a temporary storage area
-TMP_PATH = path('tmp')
 
 # Tarballs in DUMPED_APPS_PATH deleted 30 days after they have been written.
 DUMPED_APPS_DAYS_DELETE = 3600 * 24 * 30
@@ -338,7 +244,7 @@ SUPPORTED_NONAPPS = (
     'google231a41e803e464e9.html', 'reviewers', 'robots.txt', 'statistics',
     'services', 'static', 'user-media', '__version__',
 )
-DEFAULT_APP = 'firefox'
+DEFAULT_APP = 'thunderbird'
 
 # paths that don't require a locale prefix
 # This needs to be kept in sync with addons-frontend's validLocaleUrlExceptions
@@ -493,7 +399,7 @@ MIDDLEWARE = (
     # CSP and CORS need to come before CommonMiddleware because they might
     # need to add headers to 304 responses returned by CommonMiddleware.
     'csp.middleware.CSPMiddleware',
-    'olympia.amo.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 
     # Enable conditional processing, e.g ETags.
     'django.middleware.http.ConditionalGetMiddleware',
@@ -550,12 +456,9 @@ INSTALLED_APPS = (
     'olympia.applications',
     'olympia.bandwagon',
     'olympia.browse',
-    'olympia.compat',
     'olympia.devhub',
     'olympia.discovery',
     'olympia.files',
-    'olympia.github',
-    'olympia.legacy_api',
     'olympia.legacy_discovery',
     'olympia.lib.es',
     'olympia.lib.akismet',
@@ -570,7 +473,6 @@ INSTALLED_APPS = (
     'olympia.zadmin',
 
     # Third party apps
-    'product_details',
     'csp',
     'aesfield',
     'django_extensions',
@@ -1064,8 +966,10 @@ MINIFY_BUNDLES = {
 }
 
 # Prefix for cache keys (will prevent collisions when running parallel copies)
-CACHE_PREFIX = 'amo:%s:' % build_id
-KEY_PREFIX = CACHE_PREFIX
+# This value is being used by `conf/settings/{dev,stage,prod}.py
+CACHE_KEY_PREFIX = 'amo:%s:' % build_id
+
+CACHE_MIDDLEWARE_KEY_PREFIX = CACHE_KEY_PREFIX
 FETCH_BY_ID = True
 
 # Number of seconds a count() query should be cached.  Keep it short because
@@ -1106,8 +1010,7 @@ SESSION_COOKIE_DOMAIN = ".%s" % DOMAIN  # bug 608797
 MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'
 
 # These should have app+locale at the start to avoid redirects
-LOGIN_URL = reverse_lazy('users.login')
-LOGOUT_URL = reverse_lazy('users.logout')
+LOGIN_URL = '/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 # When logging in with browser ID, a username is created automatically.
@@ -1130,6 +1033,8 @@ EMAIL_DENY_LIST = env.list('EMAIL_DENY_LIST', default=('nobody@mozilla.org',))
 # URL for Add-on Validation FAQ.
 VALIDATION_FAQ_URL = ('https://wiki.mozilla.org/Add-ons/Reviewers/Guide/'
                       'AddonReviews#Step_2:_Automatic_validation')
+
+SHIELD_STUDIES_SUPPORT_URL = 'https://support.mozilla.org/kb/shield'
 
 
 # Celery
@@ -1171,7 +1076,6 @@ CELERY_TASK_QUEUES = (
     Queue('default', routing_key='default'),
     Queue('devhub', routing_key='devhub'),
     Queue('images', routing_key='images'),
-    Queue('limited', routing_key='limited'),
     Queue('priority', routing_key='priority'),
     Queue('ratings', routing_key='ratings'),
     Queue('reviewers', routing_key='reviewers'),
@@ -1209,7 +1113,7 @@ CELERY_TASK_ROUTES = {
     'olympia.devhub.tasks.submit_file': {'queue': 'devhub'},
     'olympia.devhub.tasks.validate_file': {'queue': 'devhub'},
     'olympia.devhub.tasks.validate_file_path': {'queue': 'devhub'},
-    'olympia.lib.akismet.tasks.comment_check': {'queue': 'devhub'},
+    'olympia.lib.akismet.tasks.akismet_comment_check': {'queue': 'devhub'},
 
     # Activity (goes to devhub queue).
     'olympia.activity.tasks.process_email': {'queue': 'devhub'},
@@ -1219,16 +1123,12 @@ CELERY_TASK_ROUTES = {
     # that uses chord() or group() must also be running in this queue or must
     # be on a worker that listens to the same queue.
     'celery.chord_unlock': {'queue': 'devhub'},
-    'olympia.devhub.tasks.compatibility_check': {'queue': 'devhub'},
 
     # Images.
     'olympia.bandwagon.tasks.resize_icon': {'queue': 'images'},
     'olympia.users.tasks.resize_photo': {'queue': 'images'},
     'olympia.devhub.tasks.resize_icon': {'queue': 'images'},
     'olympia.devhub.tasks.resize_preview': {'queue': 'images'},
-
-    # AMO validator.
-    'olympia.zadmin.tasks.bulk_validate_file': {'queue': 'limited'},
 
     # AMO
     'olympia.amo.tasks.delete_anonymous_collections': {'queue': 'amo'},
@@ -1250,11 +1150,9 @@ CELERY_TASK_ROUTES = {
     'olympia.api.tasks.process_webhook': {'queue': 'api'},
 
     # Crons
-    'olympia.addons.cron._update_addon_average_daily_users': {'queue': 'cron'},
-    'olympia.addons.cron._update_addon_download_totals': {'queue': 'cron'},
-    'olympia.addons.cron._update_addons_current_version': {'queue': 'cron'},
-    'olympia.addons.cron._update_appsupport': {'queue': 'cron'},
-    'olympia.addons.cron._update_daily_theme_user_counts': {'queue': 'cron'},
+    'olympia.addons.tasks.update_addon_average_daily_users': {'queue': 'cron'},
+    'olympia.addons.tasks.update_addon_download_totals': {'queue': 'cron'},
+    'olympia.addons.tasks.update_appsupport': {'queue': 'cron'},
 
     # Bandwagon
     'olympia.bandwagon.tasks.collection_meta': {'queue': 'bandwagon'},
@@ -1311,13 +1209,6 @@ CELERY_TASK_ROUTES = {
     # Zadmin
     'olympia.zadmin.tasks.admin_email': {'queue': 'zadmin'},
     'olympia.zadmin.tasks.celery_error': {'queue': 'zadmin'},
-    'olympia.zadmin.tasks.notify_compatibility': {'queue': 'zadmin'},
-    'olympia.zadmin.tasks.notify_compatibility_chunk': {'queue': 'zadmin'},
-    'olympia.zadmin.tasks.update_maxversions': {'queue': 'zadmin'},
-
-    # Github API
-    'olympia.github.tasks.process_results': {'queue': 'devhub'},
-    'olympia.github.tasks.process_webhook': {'queue': 'devhub'},
 
     # Temporary tasks to crush existing images.
     # Go in the addons queue to leave the 'devhub' queue free to process
@@ -1325,17 +1216,6 @@ CELERY_TASK_ROUTES = {
     'olympia.devhub.tasks.pngcrush_existing_theme': {'queue': 'addons'},
     'olympia.devhub.tasks.pngcrush_existing_preview': {'queue': 'addons'},
     'olympia.devhub.tasks.pngcrush_existing_icons': {'queue': 'addons'},
-}
-
-
-# This is just a place to store these values, you apply them in your
-# task decorator, for example:
-#   @task(time_limit=CELERY_TIME_LIMITS['lib...']['hard'])
-# Otherwise your task will use the default settings.
-CELERY_TIME_LIMITS = {
-    # The reindex management command can take up to 3 hours to run.
-    'olympia.lib.es.management.commands.reindex': {
-        'soft': 10800, 'hard': 14400},
 }
 
 # When testing, we always want tasks to raise exceptions. Good for sanity.
@@ -1376,11 +1256,6 @@ LOGGING = {
             'handlers': ['mozlog'],
             'level': logging.DEBUG,
             'propagate': False
-        },
-        'amo.validator': {
-            'handlers': ['mozlog'],
-            'level': logging.WARNING,
-            'propagate': False,
         },
         'amqplib': {
             'handlers': ['null'],
@@ -1489,6 +1364,7 @@ CSP_BASE_URI = (
 CSP_CONNECT_SRC = (
     "'self'",
     'https://sentry.prod.mozaws.net',
+    PROD_CDN_HOST,
 )
 CSP_FORM_ACTION = (
     "'self'",
@@ -1538,25 +1414,11 @@ ENGAGE_ROBOTS = True
 # Read-only mode setup.
 READ_ONLY = env.bool('READ_ONLY', default=False)
 
-# Expected retry-time that can be respected by clients. This will
-# be set as `Retry-After` header.
-# Please set this to a `datetime.timedelta()` instance that is
-# reasonable for clients to try again.
-# We don't support hard dates as these are usually quite hard to
-# adhere anyway.
-# Will be ignored if `None`
-READ_ONLY_RETRY_AFTER = None
-
 
 # Turn on read-only mode in local_settings.py by putting this line
 # at the VERY BOTTOM: read_only_mode(globals())
-# Please also consider setting `retry_after` like this
-# import datetime
-# read_only_mode(globals(), retry_after=datetime.timedelta(minutes=10))
-# See `READ_ONLY_RETRY_AFTER` comment for more details
-def read_only_mode(env, retry_after=None):
+def read_only_mode(env):
     env['READ_ONLY'] = True
-    env['READ_ONLY_RETRY_AFTER'] = retry_after
 
     # Replace the default (master) db with a slave connection.
     if not env.get('SLAVE_DATABASES'):
@@ -1713,7 +1575,7 @@ AUTOGRAPH_CONFIG = {
 
 # Enable addon signing. Autograph is configured to something reasonable
 # when running locally so there aren't many reasons to deactivate that.
-ENABLE_ADDON_SIGNING = True
+ENABLE_ADDON_SIGNING = False
 
 # True when the Django app is running from the test suite.
 IN_TEST_SUITE = False
@@ -1757,10 +1619,20 @@ STATICFILES_DIRS = (
     path('static'),
 )
 
-NETAPP_STORAGE = TMP_PATH
-GUARDED_ADDONS_PATH = os.path.join(ROOT, 'guarded-addons')
+# Path related settings. In dev/stage/prod `NETAPP_STORAGE_ROOT` environment
+# variable will be set and point to our NFS/EFS storage
+# Make sure to check overwrites in conftest.py if new settings are added
+# or changed.
+STORAGE_ROOT = env('NETAPP_STORAGE_ROOT', default=path('storage'))
 
-GIT_FILE_STORAGE_PATH = os.path.join(MEDIA_ROOT, 'git-storage')
+ADDONS_PATH = os.path.join(STORAGE_ROOT, 'files')
+GUARDED_ADDONS_PATH = os.path.join(STORAGE_ROOT, 'guarded-addons')
+GIT_FILE_STORAGE_PATH = os.path.join(STORAGE_ROOT, 'git-storage')
+
+SHARED_STORAGE = os.path.join(STORAGE_ROOT, 'shared_storage')
+
+MEDIA_ROOT = os.path.join(SHARED_STORAGE, 'uploads')
+TMP_PATH = os.path.join(SHARED_STORAGE, 'tmp')
 
 # These are key files that must be present on disk to encrypt/decrypt certain
 # database fields.
@@ -1793,16 +1665,23 @@ DRF_API_GATES = {
         'ratings-title-shim',
         'l10n_flat_input_output',
         'collections-downloads-shim',
+        'addons-locale_disambiguation-shim',
         'del-addons-created-field',
         'del-accounts-fxa-edit-email-url',
+        'del-version-license-is-custom',
+        'del-ratings-flags',
     ),
     'v4': (
         'l10n_flat_input_output',
         'addons-search-_score-field',
+        'ratings-can_reply',
+        'ratings-score-filter',
     ),
     'v4dev': (
         'addons-search-_score-field',
-    )
+        'ratings-can_reply',
+        'ratings-score-filter',
+    ),
 }
 
 # Change this to deactivate API throttling for views using a throttling class
@@ -1861,8 +1740,9 @@ def get_raven_release():
 
     if os.path.exists(version_json):
         try:
-            with open(version_json, 'rb') as fobj:
-                data = json.loads(fobj.read())
+            with open(version_json, 'r') as fobj:
+                contents = fobj.read()
+                data = json.loads(contents)
                 version = data.get('version') or data.get('commit')
         except (IOError, KeyError):
             version = None
@@ -1892,13 +1772,6 @@ SHELL_PLUS_POST_IMPORTS = (
 DEFAULT_FXA_CONFIG_NAME = 'default'
 ALLOWED_FXA_CONFIGS = ['default']
 
-WEBEXT_PERM_DESCRIPTIONS_URL = (
-    'https://hg.mozilla.org/mozilla-central/raw-file/tip/'
-    'browser/locales/en-US/chrome/browser/browser.properties')
-WEBEXT_PERM_DESCRIPTIONS_LOCALISED_URL = (
-    'https://hg.mozilla.org/l10n-central/{locale}/raw-file/tip/'
-    'browser/chrome/browser/browser.properties')
-
 # List all jobs that should be callable with cron here.
 # syntax is: job_and_method_name: full.package.path
 CRON_JOBS = {
@@ -1906,19 +1779,15 @@ CRON_JOBS = {
     'update_addon_download_totals': 'olympia.addons.cron',
     'addon_last_updated': 'olympia.addons.cron',
     'update_addon_appsupport': 'olympia.addons.cron',
-    'update_all_appsupport': 'olympia.addons.cron',
     'hide_disabled_files': 'olympia.addons.cron',
     'unhide_disabled_files': 'olympia.addons.cron',
     'deliver_hotness': 'olympia.addons.cron',
-    'reindex_addons': 'olympia.addons.cron',
     'cleanup_image_files': 'olympia.addons.cron',
 
     'add_latest_appversion': 'olympia.amo.cron',
     'gc': 'olympia.amo.cron',
     'category_totals': 'olympia.amo.cron',
     'weekly_downloads': 'olympia.amo.cron',
-
-    'compatibility_report': 'olympia.compat.cron',
 
     'update_blog_posts': 'olympia.devhub.cron',
 
@@ -1933,7 +1802,7 @@ CRON_JOBS = {
 
 RECOMMENDATION_ENGINE_URL = env(
     'RECOMMENDATION_ENGINE_URL',
-    default='https://taar.dev.mozaws.net/api/recommendations/')
+    default='https://taar.dev.mozaws.net/v1/api/recommendations/')
 TAAR_LITE_RECOMMENDATION_ENGINE_URL = env(
     'TAAR_LITE_RECOMMENDATION_ENGINE_URL',
     default=('https://taar.dev.mozaws.net/taarlite/api/v1/'
@@ -1952,11 +1821,9 @@ FXA_SQS_AWS_WAIT_TIME = 20  # Seconds.
 AWS_STATS_S3_BUCKET = env('AWS_STATS_S3_BUCKET', default=None)
 AWS_STATS_S3_PREFIX = env('AWS_STATS_S3_PREFIX', default='amo_stats')
 
-# For the Github webhook API.
-GITHUB_API_USER = env('GITHUB_API_USER', default='')
-GITHUB_API_TOKEN = env('GITHUB_API_TOKEN', default='')
-
 MIGRATED_LWT_DEFAULT_OWNER_EMAIL = 'addons-team+landfill-account@mozilla.com'
+
+MIGRATED_LWT_UPDATES_ENABLED = False
 
 BASKET_URL = env('BASKET_URL', default='https://basket.allizom.org')
 BASKET_API_KEY = env('BASKET_API_KEY', default=None)
@@ -1967,3 +1834,9 @@ AKISMET_API_URL = 'https://{api_key}.rest.akismet.com/1.1/{action}'
 AKISMET_API_KEY = env('AKISMET_API_KEY', default=None)
 AKISMET_API_TIMEOUT = 5
 AKISMET_REAL_SUBMIT = False
+
+GEOIP_PATH = '/usr/local/share/GeoIP/GeoLite2-Country.mmdb'
+
+# For use with DEBUG = True and local development only!
+# Bypasses FXA Auth and logs you in as the first user.
+DEV_BYPASS_AUTH = False

@@ -2,26 +2,27 @@
 import json
 import os
 import shutil
-import urlparse
 
 from django.conf import settings
 from django.core.cache import cache
 from django.test.utils import override_settings
+from django.utils.encoding import force_text
 from django.utils.http import http_date, quote_etag
 
-import pytest
+import six
 
 from mock import patch
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import urlparse
 
 from olympia import amo
 from olympia.addons.models import Addon
 from olympia.amo.tests import TestCase, version_factory
 from olympia.amo.urlresolvers import reverse
-from olympia.files.models import File
 from olympia.files.file_viewer import DiffHelper, FileViewer
-from olympia.users.models import UserProfile
+from olympia.files.models import File
 from olympia.lib.cache import Message
+from olympia.users.models import UserProfile
 
 
 files_fixtures = 'src/olympia/files/fixtures/files/'
@@ -425,7 +426,7 @@ class TestFileViewer(FilesBase, TestCase):
         for name in ['file.txt', 'file.html', 'file.htm']:
             # If you are adding files, you need to clear out the memcache
             # file listing.
-            cache.clear()
+            cache.delete(self.file_viewer._cache_key())
             self.add_file(name, '<script>alert("foo")</script>')
             res = self.client.get(self.file_url(name))
             doc = pq(res.content)
@@ -438,7 +439,8 @@ class TestFileViewer(FilesBase, TestCase):
         self.add_file('file.php', '<script>alert("foo")</script>')
         res = self.client.get(self.file_url('file.php'))
         assert res.status_code == 200
-        assert viewer.get_files()['file.php']['sha256'] in res.content
+        assert viewer.get_files()['file.php']['sha256'] in force_text(
+            res.content)
 
     def test_tree_no_file(self):
         self.file_viewer.extract()
@@ -456,13 +458,9 @@ class TestFileViewer(FilesBase, TestCase):
         res = self.client.get(self.file_url(u'\u1109\u1161\u11a9'))
         assert res.status_code == 200
 
-    def test_unicode_fails_with_wrong_configured_basepath(self):
-        with override_settings(TMP_PATH=unicode(settings.TMP_PATH)):
-            file_viewer = FileViewer(self.file)
-            file_viewer.src = unicode_filenames
-
-            with pytest.raises(UnicodeDecodeError):
-                file_viewer.extract()
+    def test_unicode_unicode_tmp_path(self):
+        with override_settings(TMP_PATH=six.text_type(settings.TMP_PATH)):
+            self.test_unicode()
 
     def test_serve_no_token(self):
         self.file_viewer.extract()
@@ -484,7 +482,7 @@ class TestFileViewer(FilesBase, TestCase):
         res = self.client.get(self.files_redirect(binary))
         assert res.status_code == 302
         url = res['Location']
-        assert urlparse.urlparse(url).query.startswith('token=')
+        assert urlparse(url).query.startswith('token=')
 
     def test_memcache_goes_bye_bye(self):
         self.file_viewer.extract()
@@ -492,7 +490,10 @@ class TestFileViewer(FilesBase, TestCase):
         url = res['Location']
         res = self.client.get(url)
         assert res.status_code == 200
-        cache.clear()
+
+        token = urlparse(url).query[6:]
+        cache.delete('token:{}'.format(token))
+
         res = self.client.get(url)
         assert res.status_code == 403
 
@@ -543,7 +544,7 @@ class TestFileViewer(FilesBase, TestCase):
     def test_content_file_size_uses_binary_prefix(self):
         self.file_viewer.extract()
         response = self.client.get(self.file_url('dictionaries/license.txt'))
-        assert '17.6 KiB' in response.content
+        assert b'17.6 KiB' in response.content
 
 
 class TestDiffViewer(FilesBase, TestCase):
@@ -559,7 +560,8 @@ class TestDiffViewer(FilesBase, TestCase):
 
     def add_file(self, file_obj, name, contents):
         dest = os.path.join(file_obj.dest, name)
-        open(dest, 'w').write(contents)
+        with open(dest, 'w') as f:
+            f.write(contents)
 
     def file_url(self, file=None):
         args = [self.files[0].pk, self.files[1].pk]
@@ -613,7 +615,7 @@ class TestDiffViewer(FilesBase, TestCase):
         filename = os.path.join(self.file_viewer.left.dest, 'install.js')
         open(filename, 'w').write('MZ')
         res = self.client.get(self.file_url(not_binary))
-        assert 'This file is not viewable online' in res.content
+        assert b'This file is not viewable online' in res.content
 
     def test_view_right_binary(self):
         self.file_viewer.extract()
@@ -621,7 +623,7 @@ class TestDiffViewer(FilesBase, TestCase):
         open(filename, 'w').write('MZ')
         assert not self.file_viewer.is_diffable()
         res = self.client.get(self.file_url(not_binary))
-        assert 'This file is not viewable online' in res.content
+        assert b'This file is not viewable online' in res.content
 
     def test_different_tree(self):
         self.file_viewer.extract()

@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
+import tarfile
+import zipfile
 
 from django import forms
 from django.conf import settings
+from django.core.validators import MinLengthValidator
 from django.db.models import Q
 from django.forms.models import BaseModelFormSet, modelformset_factory
 from django.forms.widgets import RadioSelect
@@ -10,6 +13,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext, ugettext_lazy as _
 
 import jinja2
+import six
 import waffle
 
 from olympia import amo
@@ -18,17 +22,17 @@ from olympia.activity.models import ActivityLog
 from olympia.activity.utils import log_and_notify
 from olympia.addons.forms import AddonFormBase, AkismetSpamCheckFormMixin
 from olympia.addons.models import (
-    Addon, AddonCategory, AddonDependency, AddonReviewerFlags, AddonUser,
-    Preview)
+    Addon, AddonCategory, AddonReviewerFlags, AddonUser, Preview)
 from olympia.amo.fields import HttpHttpsOnlyURLField, ReCaptchaField
 from olympia.amo.forms import AMOModelForm
 from olympia.amo.templatetags.jinja_helpers import mark_safe_lazy
 from olympia.amo.urlresolvers import reverse
 from olympia.applications.models import AppVersion
-from olympia.constants.categories import CATEGORIES
+from olympia.constants.categories import CATEGORIES, CATEGORIES_NO_APP
 from olympia.files.models import FileUpload
-from olympia.files.utils import parse_addon
-from olympia.translations.fields import TransField, TransTextarea
+from olympia.files.utils import SafeZip, archive_member_validator, parse_addon
+from olympia.translations.fields import (
+    LocaleErrorMessage, TransField, TransTextarea)
 from olympia.translations.forms import TranslationFormMixin
 from olympia.translations.models import Translation, delete_translation
 from olympia.translations.widgets import (
@@ -63,15 +67,15 @@ class BaseAuthorFormSet(BaseModelFormSet):
         if any(self.errors):
             return
         # cleaned_data could be None if it's the empty extra form.
-        data = filter(None, [f.cleaned_data for f in self.forms
-                             if not f.cleaned_data.get('DELETE', False)])
+        data = list(filter(None, [f.cleaned_data for f in self.forms
+                                  if not f.cleaned_data.get('DELETE', False)]))
         if not any(d['role'] == amo.AUTHOR_ROLE_OWNER for d in data):
             raise forms.ValidationError(
                 ugettext('Must have at least one owner.'))
         if not any(d['listed'] for d in data):
             raise forms.ValidationError(
                 ugettext('At least one author must be listed.'))
-        users = [d['user'] for d in data]
+        users = [d['user'].id for d in data]
         if sorted(users) != sorted(set(users)):
             raise forms.ValidationError(
                 ugettext('An author can only be listed once.'))
@@ -122,10 +126,10 @@ class LicenseRadioSelect(forms.RadioSelect):
         if hasattr(license, 'url') and license.url:
             details = link % (license.url, ugettext('Details'))
             context['label'] = mark_safe(
-                unicode(context['label']) + ' ' + details)
+                six.text_type(context['label']) + ' ' + details)
         if hasattr(license, 'icons'):
             context['attrs']['data-cc'] = license.icons
-        context['attrs']['data-name'] = unicode(license)
+        context['attrs']['data-name'] = six.text_type(license)
         return context
 
 
@@ -287,12 +291,31 @@ class PolicyForm(TranslationFormMixin, AMOModelForm):
 class WithSourceMixin(object):
     def clean_source(self):
         source = self.cleaned_data.get('source')
-        if source and not source.name.endswith(VALID_SOURCE_EXTENSIONS):
-            raise forms.ValidationError(
-                ugettext(
-                    'Unsupported file type, please upload an archive '
-                    'file {extensions}.'.format(
-                        extensions=VALID_SOURCE_EXTENSIONS)))
+        if source:
+            try:
+                if source.name.endswith('.zip'):
+                    zip_file = SafeZip(source)
+                    # testzip() returns None if there are no broken CRCs.
+                    if zip_file.zip_file.testzip() is not None:
+                        raise zipfile.BadZipfile()
+                elif source.name.endswith(('.tar.gz', '.tar.bz2', '.tgz')):
+                    # For tar files we need to do a little more work.
+                    mode = 'r:bz2' if source.name.endswith('bz2') else 'r:gz'
+                    with tarfile.open(mode=mode, fileobj=source) as archive:
+                        archive_members = archive.getmembers()
+                        for member in archive_members:
+                            archive_member_validator(archive, member)
+                else:
+                    valid_extensions_string = u'(%s)' % u', '.join(
+                        VALID_SOURCE_EXTENSIONS)
+                    raise forms.ValidationError(
+                        ugettext(
+                            'Unsupported file type, please upload an archive '
+                            'file {extensions}.'.format(
+                                extensions=valid_extensions_string)))
+            except (zipfile.BadZipfile, tarfile.ReadError, IOError, EOFError):
+                raise forms.ValidationError(
+                    ugettext('Invalid or broken archive.'))
         return source
 
 
@@ -314,17 +337,17 @@ class SourceFileInput(forms.widgets.ClearableFileInput):
 
 
 class VersionForm(WithSourceMixin, forms.ModelForm):
-    releasenotes = TransField(
+    release_notes = TransField(
         widget=TransTextarea(), required=False)
-    approvalnotes = forms.CharField(
+    approval_notes = forms.CharField(
         widget=TranslationTextarea(attrs={'rows': 4}), required=False)
     source = forms.FileField(required=False, widget=SourceFileInput)
     clear_pending_info_request = forms.BooleanField(required=False)
 
     class Meta:
         model = Version
-        fields = ('releasenotes', 'clear_pending_info_request',
-                  'approvalnotes', 'source',)
+        fields = ('release_notes', 'clear_pending_info_request',
+                  'approval_notes', 'source',)
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request')
@@ -397,9 +420,9 @@ class CompatForm(forms.ModelForm):
         self.fields['max'].queryset = qs.all()
 
     def clean(self):
-        min = self.cleaned_data.get('min')
-        max = self.cleaned_data.get('max')
-        if not (min and max and min.version_int <= max.version_int):
+        min_ = self.cleaned_data.get('min')
+        max_ = self.cleaned_data.get('max')
+        if not (min_ and max_ and min_.version_int <= max_.version_int):
             raise forms.ValidationError(ugettext('Invalid version range.'))
         return self.cleaned_data
 
@@ -412,12 +435,7 @@ class BaseCompatFormSet(BaseModelFormSet):
         # the add-on does not already have.
         version = self.form_kwargs.get('version')
         static_theme = version and version.addon.type == amo.ADDON_STATICTHEME
-        if static_theme:
-            available_apps = amo.APP_USAGE_STATICTHEME
-        elif waffle.switch_is_active('disallow-thunderbird-and-seamonkey'):
-            available_apps = amo.APP_USAGE_FIREFOXES_ONLY
-        else:
-            available_apps = amo.APP_USAGE
+        available_apps = amo.APP_USAGE
         self.can_delete = not static_theme  # No tinkering with apps please.
 
         # Only display the apps we care about, if somehow obsolete apps were
@@ -431,20 +449,24 @@ class BaseCompatFormSet(BaseModelFormSet):
                           'max': appver.max.pk} for appver in self.queryset] +
                         [{'application': app.id} for app in available_apps
                          if app.id not in initial_apps])
-        self.extra = max(len(available_apps) - len(self.forms), 0)
+        self.extra = (
+            max(len(available_apps) - len(self.forms), 0) if not static_theme
+            else 0)
 
         # After these changes, the forms need to be rebuilt. `forms`
         # is a cached property, so we delete the existing cache and
         # ask for a new one to be built.
-        del self.forms
+        # del self.forms
+        if hasattr(self, 'forms'):
+            del self.forms
         self.forms
 
     def clean(self):
         if any(self.errors):
             return
 
-        apps = filter(None, [f.cleaned_data for f in self.forms
-                             if not f.cleaned_data.get('DELETE', False)])
+        apps = list(filter(None, [f.cleaned_data for f in self.forms
+                                  if not f.cleaned_data.get('DELETE', False)]))
 
         if not apps:
             # At this point, we're raising a global error and re-displaying the
@@ -452,7 +474,7 @@ class BaseCompatFormSet(BaseModelFormSet):
             # hidden delete fields in the data attribute, cause that's used to
             # populate initial data for all forms, and would therefore make
             # those delete fields active again.
-            self.data = {k: v for k, v in self.data.iteritems()
+            self.data = {k: v for k, v in six.iteritems(self.data)
                          if not k.endswith('-DELETE')}
             for form in self.forms:
                 form.data = self.data
@@ -493,7 +515,7 @@ class NewUploadForm(forms.Form):
     admin_override_validation = forms.BooleanField(
         required=False, label=_(u'Override failed validation'))
     compatible_apps = forms.TypedMultipleChoiceField(
-        choices=amo.APPS_FIREFOXES_ONLY_CHOICES,
+        choices=amo.APPS_CHOICES,
         # Pre-select only Desktop Firefox, most of the times developers
         # don't develop their WebExtensions for Android.
         # See this GitHub comment: https://bit.ly/2QaMicU
@@ -566,15 +588,19 @@ class SourceForm(WithSourceMixin, forms.ModelForm):
         self.request = kwargs.pop('request')
         super(SourceForm, self).__init__(*args, **kwargs)
 
-    def clean_has_source(self):
-        data = self.cleaned_data
-        if data.get('has_source') == 'yes' and not data.get('source'):
+    def clean_source(self):
+        source = self.cleaned_data.get('source')
+        has_source = self.data.get('has_source')  # Not cleaned yet.
+        if has_source == 'yes' and not source:
             raise forms.ValidationError(
                 ugettext(u'You have not uploaded a source file.'))
-        elif data.get('has_source') == 'no' and data.get('source'):
+        elif has_source == 'no' and source:
             raise forms.ValidationError(
                 ugettext(u'Source file uploaded but you indicated no source '
                          u'was needed.'))
+        # At this point we know we can proceed with the actual archive
+        # validation.
+        return super(SourceForm, self).clean_source()
 
 
 class DescribeForm(AkismetSpamCheckFormMixin, AddonFormBase):
@@ -582,40 +608,113 @@ class DescribeForm(AkismetSpamCheckFormMixin, AddonFormBase):
     slug = forms.CharField(max_length=30)
     summary = TransField(widget=TransTextarea(attrs={'rows': 4}),
                          max_length=250)
+    description = TransField(widget=TransTextarea(attrs={'rows': 6}),
+                             min_length=10)
     is_experimental = forms.BooleanField(required=False)
     requires_payment = forms.BooleanField(required=False)
     support_url = TransField.adapt(HttpHttpsOnlyURLField)(required=False)
     support_email = TransField.adapt(forms.EmailField)(required=False)
-    has_priv = forms.BooleanField(
-        required=False, label=_(u'This add-on has a Privacy Policy'),
-        label_suffix='')
-    privacy_policy = TransField(
-        widget=TransTextarea(), required=False,
-        label=_(u'Please specify your add-on\'s Privacy Policy:'))
 
-    fields_to_akismet_comment_check = ['name', 'summary']
+    fields_to_akismet_comment_check = ['name', 'summary', 'description']
 
     class Meta:
         model = Addon
-        fields = ('name', 'slug', 'summary', 'is_experimental', 'support_url',
-                  'support_email', 'privacy_policy', 'requires_payment')
+        fields = ('name', 'slug', 'summary', 'description', 'is_experimental',
+                  'support_url', 'support_email', 'requires_payment')
 
     def __init__(self, *args, **kw):
-        kw['initial'] = {
-            'has_priv': self._has_field('privacy_policy', kw['instance'])}
         super(DescribeForm, self).__init__(*args, **kw)
+        content_waffle = waffle.switch_is_active('content-optimization')
+        if not content_waffle or self.instance.type != amo.ADDON_EXTENSION:
+            description = self.fields['description']
+            description.min_length = None
+            description.widget.attrs.pop('minlength', None)
+            description.validators = [
+                validator for validator in description.validators
+                if not isinstance(validator, MinLengthValidator)]
+            description.required = False
 
-    def _has_field(self, name, instance=None):
-        # If there's a policy in any language, this addon has a policy.
-        n = getattr(instance or self.instance, u'%s_id' % name)
-        return any(map(bool, Translation.objects.filter(id=n)))
 
-    def save(self, commit=True):
-        obj = super(DescribeForm, self).save(commit)
-        if not self.cleaned_data['has_priv']:
-            delete_translation(self.instance, 'privacy_policy')
+class CombinedNameSummaryCleanMixin(object):
+    MAX_LENGTH = 70
 
-        return obj
+    def __init__(self, *args, **kw):
+        self.should_auto_crop = kw.pop('should_auto_crop', False)
+        super(CombinedNameSummaryCleanMixin, self).__init__(*args, **kw)
+        # We need the values for the template but not the MaxLengthValidators
+        self.fields['name'].max_length = (
+            self.MAX_LENGTH - self.fields['summary'].min_length)
+        self.fields['summary'].max_length = (
+            self.MAX_LENGTH - self.fields['name'].min_length)
+
+    def clean(self):
+        message = _(u'Ensure name and summary combined are at most '
+                    u'{limit_value} characters (they have {show_value}).')
+        super(CombinedNameSummaryCleanMixin, self).clean()
+        name_summary_locales = set(
+            list(self.cleaned_data.get('name', {}).keys()) +
+            list(self.cleaned_data.get('summary', {}).keys()))
+        default_locale = self.instance.default_locale.lower()
+        name_values = self.cleaned_data.get('name') or {}
+        name_default = name_values.get(default_locale) or ''
+        summary_values = self.cleaned_data.get('summary') or {}
+        summary_default = summary_values.get(default_locale) or ''
+        for locale in name_summary_locales:
+            val_len = len(name_values.get(locale, name_default) +
+                          summary_values.get(locale, summary_default))
+            if val_len > self.MAX_LENGTH:
+                if locale == default_locale:
+                    # only error in default locale.
+                    formatted_message = message.format(
+                        limit_value=self.MAX_LENGTH, show_value=val_len)
+                    self.add_error(
+                        'name', LocaleErrorMessage(
+                            message=formatted_message, locale=locale))
+                elif self.should_auto_crop:
+                    # otherwise we need to shorten the summary (and or name?)
+                    if locale in name_values:
+                        # if only default summary need to shorten name instead.
+                        max_name_length = (
+                            self.fields['name'].max_length
+                            if locale in summary_values
+                            else self.MAX_LENGTH - len(summary_default))
+                        name = name_values[locale][:max_name_length]
+                        name_length = len(name)
+                        self.cleaned_data.setdefault('name', {})[locale] = name
+                    else:
+                        name_length = len(name_default)
+                    if locale in summary_values:
+                        max_summary_length = self.MAX_LENGTH - name_length
+                        self.cleaned_data.setdefault('summary', {})[locale] = (
+                            summary_values[locale][:max_summary_length])
+        return self.cleaned_data
+
+
+class DescribeFormContentOptimization(CombinedNameSummaryCleanMixin,
+                                      DescribeForm):
+    name = TransField(min_length=2)
+    summary = TransField(min_length=2)
+
+
+class DescribeFormUnlisted(AkismetSpamCheckFormMixin, AddonFormBase):
+    name = TransField(max_length=50)
+    slug = forms.CharField(max_length=30)
+    summary = TransField(widget=TransTextarea(attrs={'rows': 4}),
+                         max_length=250)
+    description = TransField(widget=TransTextarea(attrs={'rows': 4}),
+                             required=False)
+
+    fields_to_akismet_comment_check = ['name', 'summary', 'description']
+
+    class Meta:
+        model = Addon
+        fields = ('name', 'slug', 'summary', 'description')
+
+
+class DescribeFormUnlistedContentOptimization(CombinedNameSummaryCleanMixin,
+                                              DescribeFormUnlisted):
+    name = TransField(max_length=68, min_length=2)
+    summary = TransField(max_length=68, min_length=2)
 
 
 class PreviewForm(forms.ModelForm):
@@ -657,72 +756,6 @@ class BasePreviewFormSet(BaseModelFormSet):
 PreviewFormSet = modelformset_factory(Preview, formset=BasePreviewFormSet,
                                       form=PreviewForm, can_delete=True,
                                       extra=1)
-
-
-class CheckCompatibilityForm(forms.Form):
-    application = forms.ChoiceField(
-        label=_(u'Application'),
-        choices=[(a.id, a.pretty) for a in amo.APP_USAGE])
-    app_version = forms.ChoiceField(
-        label=_(u'Version'),
-        choices=[('', _(u'Select an application first'))])
-
-    def __init__(self, *args, **kw):
-        super(CheckCompatibilityForm, self).__init__(*args, **kw)
-        w = self.fields['application'].widget
-        # Get the URL after the urlconf has loaded.
-        w.attrs['data-url'] = reverse('devhub.compat_application_versions')
-
-    def version_choices_for_app_id(self, app_id):
-        versions = AppVersion.objects.filter(application=app_id)
-        return [(v.id, v.version) for v in versions]
-
-    def clean_application(self):
-        app_id = int(self.cleaned_data['application'])
-        app = amo.APPS_IDS.get(app_id)
-        self.cleaned_data['application'] = app
-        choices = self.version_choices_for_app_id(app_id)
-        self.fields['app_version'].choices = choices
-        return self.cleaned_data['application']
-
-    def clean_app_version(self):
-        v = self.cleaned_data['app_version']
-        return AppVersion.objects.get(pk=int(v))
-
-
-def DependencyFormSet(*args, **kw):
-    addon_parent = kw.pop('addon')
-
-    # Add-ons: Required add-ons cannot include apps nor personas.
-    # Apps:    Required apps cannot include any add-ons.
-    qs = (Addon.objects.public().exclude(id=addon_parent.id).
-          exclude(type__in=[amo.ADDON_PERSONA]))
-
-    class _Form(forms.ModelForm):
-        addon = forms.CharField(required=False, widget=forms.HiddenInput)
-        dependent_addon = forms.ModelChoiceField(qs, widget=forms.HiddenInput)
-
-        class Meta:
-            model = AddonDependency
-            fields = ('addon', 'dependent_addon')
-
-        def clean_addon(self):
-            return addon_parent
-
-    class _FormSet(BaseModelFormSet):
-
-        def clean(self):
-            if any(self.errors):
-                return
-            form_count = len([f for f in self.forms
-                              if not f.cleaned_data.get('DELETE', False)])
-            if form_count > 3:
-                raise forms.ValidationError(
-                    ugettext('There cannot be more than 3 required add-ons.'))
-
-    FormSet = modelformset_factory(AddonDependency, formset=_FormSet,
-                                   form=_Form, extra=0, can_delete=True)
-    return FormSet(*args, **kw)
 
 
 class DistributionChoiceForm(forms.Form):
@@ -769,28 +802,31 @@ class SingleCategoryForm(forms.Form):
         self.addon = kw.pop('addon')
         self.request = kw.pop('request', None)
         if len(self.addon.all_categories) > 0:
-            kw['initial'] = {'category': self.addon.all_categories[0].id}
+            kw['initial'] = {'category': self.addon.all_categories[0].slug}
         super(SingleCategoryForm, self).__init__(*args, **kw)
 
-        # Hack because we know this is only used for Static Themes that only
-        # support Thunderbird.  Hoping to unify per-app categories in the meantime.
-        app = amo.THUNDERBIRD
-        sorted_cats = sorted(CATEGORIES[app.id][self.addon.type].items(),
+        sorted_cats = sorted(CATEGORIES_NO_APP[self.addon.type].items(),
                              key=lambda slug_cat: slug_cat[0])
         self.fields['category'].choices = [
-            (c.id, c.name) for _, c in sorted_cats]
+            (slug, c.name) for slug, c in sorted_cats]
 
-        # If this add-on is featured for this application, category changes are
+        # If this add-on is featured for any application, category changes are
         # forbidden.
         if not acl.action_allowed(self.request, amo.permissions.ADDONS_EDIT):
-            self.disabled = self.addon.is_featured(app)
+            self.disabled = any(
+                (self.addon.is_featured(app) for app in amo.APP_USAGE))
 
     def save(self):
-        category = self.cleaned_data['category']
+        category_slug = self.cleaned_data['category']
         # Clear any old categor[y|ies]
         AddonCategory.objects.filter(addon=self.addon).delete()
-        # Add new category
-        AddonCategory(addon=self.addon, category_id=category).save()
+        # Add new categor[y|ies]
+        for app in CATEGORIES.keys():
+            category = CATEGORIES[app].get(
+                self.addon.type, {}).get(category_slug, None)
+            if category:
+                print("->", category.__dict__, category_slug)
+                AddonCategory(addon=self.addon, category_id=category.id).save()
         # Remove old, outdated categories cache on the model.
         del self.addon.all_categories
 

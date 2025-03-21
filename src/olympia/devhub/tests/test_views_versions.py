@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 import datetime
+import os
 import re
+import zipfile
 
 from django.core.files import temp
 from django.core.files.base import File as DjangoFile
 
 import mock
+import six
 
 from pyquery import PyQuery as pq
+from waffle.testutils import override_switch
 
 from olympia import amo
 from olympia.accounts.views import API_TOKEN_COOKIE
@@ -19,6 +23,7 @@ from olympia.amo.tests import (
 from olympia.amo.urlresolvers import reverse
 from olympia.applications.models import AppVersion
 from olympia.files.models import File
+from olympia.lib.git import AddonGitRepository
 from olympia.users.models import UserProfile
 from olympia.versions.models import ApplicationsVersions, Version
 
@@ -241,7 +246,7 @@ class TestVersion(TestCase):
         entry = ActivityLog.objects.get()
         assert entry.action == amo.LOG.USER_DISABLE.id
         msg = entry.to_string()
-        assert self.addon.name.__unicode__() in msg, ("Unexpected: %r" % msg)
+        assert six.text_type(self.addon.name) in msg, ("Unexpected: %r" % msg)
 
     @mock.patch('olympia.files.models.File.hide_disabled_file')
     def test_user_can_disable_addon_pending_version(self, hide_mock):
@@ -268,7 +273,7 @@ class TestVersion(TestCase):
         entry = ActivityLog.objects.get()
         assert entry.action == amo.LOG.USER_DISABLE.id
         msg = entry.to_string()
-        assert self.addon.name.__unicode__() in msg, ("Unexpected: %r" % msg)
+        assert six.text_type(self.addon.name) in msg, ("Unexpected: %r" % msg)
 
     @mock.patch('olympia.files.models.File.hide_disabled_file')
     def test_disabling_addon_awaiting_review_disables_version(self, hide_mock):
@@ -301,7 +306,7 @@ class TestVersion(TestCase):
         entry = ActivityLog.objects.get()
         assert entry.action == amo.LOG.USER_ENABLE.id
         msg = entry.to_string()
-        assert unicode(self.addon.name) in msg, ("Unexpected: %r" % msg)
+        assert six.text_type(self.addon.name) in msg, ("Unexpected: %r" % msg)
 
     def test_unprivileged_user_cant_disable_addon(self):
         self.addon.update(disabled_by_user=False)
@@ -582,7 +587,7 @@ class TestVersionEditMixin(object):
 
 
 class TestVersionEditBase(TestVersionEditMixin, TestCase):
-    fixtures = ['base/users', 'base/addon_3615', 'base/thunderbird']
+    fixtures = ['base/users', 'base/addon_3615']
 
     def setUp(self):
         super(TestVersionEditBase, self).setUp()
@@ -618,12 +623,12 @@ class TestVersionEditDetails(TestVersionEditBase):
         assert not doc('#id_files-0-platform')
 
     def test_edit_notes(self):
-        data = self.formset(releasenotes='xx', approvalnotes='yy')
+        data = self.formset(release_notes='xx', approval_notes='yy')
         response = self.client.post(self.url, data)
         assert response.status_code == 302
         version = self.get_version()
-        assert unicode(version.releasenotes) == 'xx'
-        assert unicode(version.approvalnotes) == 'yy'
+        assert six.text_type(version.release_notes) == 'xx'
+        assert six.text_type(version.approval_notes) == 'yy'
 
     def test_version_number_redirect(self):
         url = self.url.replace(str(self.version.id), self.version.version)
@@ -635,7 +640,7 @@ class TestVersionEditDetails(TestVersionEditBase):
         response = self.client.get(self.url)
         assert response.status_code == 404
 
-        data = self.formset(releasenotes='xx', approvalnotes='yy')
+        data = self.formset(release_notes='xx', approval_notes='yy')
         response = self.client.post(self.url, data)
         assert response.status_code == 404
 
@@ -668,9 +673,10 @@ class TestVersionEditDetails(TestVersionEditBase):
         assert doc('p.add-app')[0].attrib['class'] == 'add-app hide'
 
     def test_existing_source_link(self):
-        tmp_file = temp.NamedTemporaryFile
-        with tmp_file(suffix=".zip", dir=temp.gettempdir()) as source_file:
-            source_file.write('a' * (2 ** 21))
+        with temp.NamedTemporaryFile(
+                suffix='.zip', dir=temp.gettempdir()) as source_file:
+            with zipfile.ZipFile(source_file, 'w') as zip_file:
+                zip_file.writestr('foo', 'a' * (2 ** 21))
             source_file.seek(0)
             self.version.source = DjangoFile(source_file)
             self.version.save()
@@ -684,10 +690,10 @@ class TestVersionEditDetails(TestVersionEditBase):
             'downloads.source', args=(self.version.pk, ))
 
     def test_should_accept_zip_source_file(self):
-        tdir = temp.gettempdir()
-        tmp_file = temp.NamedTemporaryFile
-        with tmp_file(suffix=".zip", dir=tdir) as source_file:
-            source_file.write('a' * (2 ** 21))
+        with temp.NamedTemporaryFile(
+                suffix='.zip', dir=temp.gettempdir()) as source_file:
+            with zipfile.ZipFile(source_file, 'w') as zip_file:
+                zip_file.writestr('foo', 'a' * (2 ** 21))
             source_file.seek(0)
             data = self.formset(source=source_file)
             response = self.client.post(self.url, data)
@@ -701,10 +707,10 @@ class TestVersionEditDetails(TestVersionEditBase):
         assert log
 
     def test_should_not_accept_exe_source_file(self):
-        tdir = temp.gettempdir()
-        tmp_file = temp.NamedTemporaryFile
-        with tmp_file(suffix=".exe", dir=tdir) as source_file:
-            source_file.write('a' * (2 ** 21))
+        with temp.NamedTemporaryFile(
+                suffix='.exe', dir=temp.gettempdir()) as source_file:
+            with zipfile.ZipFile(source_file, 'w') as zip_file:
+                zip_file.writestr('foo', 'a' * (2 ** 21))
             source_file.seek(0)
             data = self.formset(source=source_file)
             response = self.client.post(self.url, data)
@@ -715,7 +721,8 @@ class TestVersionEditDetails(TestVersionEditBase):
         tdir = temp.gettempdir()
         tmp_file = temp.NamedTemporaryFile
         with tmp_file(suffix=".zip", dir=tdir) as source_file:
-            source_file.write('a' * (2 ** 21))
+            with zipfile.ZipFile(source_file, 'w') as zip_file:
+                zip_file.writestr('foo', 'a' * (2 ** 21))
             source_file.seek(0)
             data = self.formset(source=source_file)
             response = self.client.post(self.url, data)
@@ -735,6 +742,38 @@ class TestVersionEditDetails(TestVersionEditBase):
         assert version.source
         assert not version.addon.needs_admin_code_review
 
+    @override_switch('enable-uploads-commit-to-git-storage', active=False)
+    def test_submit_source_doesnt_commit_to_git_by_default(self):
+        with temp.NamedTemporaryFile(
+                suffix='.zip', dir=temp.gettempdir()) as source_file:
+            with zipfile.ZipFile(source_file, 'w') as zip_file:
+                zip_file.writestr('foo', 'a' * (2 ** 21))
+            source_file.seek(0)
+            data = self.formset(source=source_file)
+            response = self.client.post(self.url, data)
+        assert response.status_code == 302
+        version = Version.objects.get(pk=self.version.pk)
+        assert version.source
+
+        repo = AddonGitRepository(self.addon.pk, package_type='source')
+        assert not os.path.exists(repo.git_repository_path)
+
+    @override_switch('enable-uploads-commit-to-git-storage', active=True)
+    def test_submit_source_commits_to_git(self):
+        with temp.NamedTemporaryFile(
+                suffix='.zip', dir=temp.gettempdir()) as source_file:
+            with zipfile.ZipFile(source_file, 'w') as zip_file:
+                zip_file.writestr('foo', 'a' * (2 ** 21))
+            source_file.seek(0)
+            data = self.formset(source=source_file)
+            response = self.client.post(self.url, data)
+        assert response.status_code == 302
+        version = Version.objects.get(pk=self.version.pk)
+        assert version.source
+
+        repo = AddonGitRepository(self.addon.pk, package_type='source')
+        assert os.path.exists(repo.git_repository_path)
+
     def test_show_request_for_information(self):
         self.user = UserProfile.objects.latest('pk')
         AddonReviewerFlags.objects.create(
@@ -747,8 +786,8 @@ class TestVersionEditDetails(TestVersionEditBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' in response.content
+        assert b'this should not be shown' not in response.content
+        assert b'this is an info request' in response.content
 
     def test_dont_show_request_for_information_if_none_pending(self):
         self.user = UserProfile.objects.latest('pk')
@@ -760,8 +799,8 @@ class TestVersionEditDetails(TestVersionEditBase):
             user=self.user, details={'comments': 'this is an info request'})
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert 'this should not be shown' not in response.content
-        assert 'this is an info request' not in response.content
+        assert b'this should not be shown' not in response.content
+        assert b'this is an info request' not in response.content
 
     def test_clear_request_for_information(self):
         AddonReviewerFlags.objects.create(
@@ -784,7 +823,7 @@ class TestVersionEditDetails(TestVersionEditBase):
 
 class TestVersionEditSearchEngine(TestVersionEditMixin, TestCase):
     # https://bugzilla.mozilla.org/show_bug.cgi?id=605941
-    fixtures = ['base/users', 'base/thunderbird', 'base/addon_4594_a9.json']
+    fixtures = ['base/users', 'base/addon_4594_a9.json']
 
     def setUp(self):
         super(TestVersionEditSearchEngine, self).setUp()
@@ -793,14 +832,30 @@ class TestVersionEditSearchEngine(TestVersionEditMixin, TestCase):
                            args=['a4594', 42352])
 
     def test_search_engine_edit(self):
-        dd = self.formset(prefix="files", releasenotes='xx',
-                          approvalnotes='yy')
+        dd = self.formset(prefix="files", release_notes='xx',
+                          approval_notes='yy')
 
         response = self.client.post(self.url, dd)
         assert response.status_code == 302
         version = Addon.objects.get(id=4594).current_version
-        assert unicode(version.releasenotes) == 'xx'
-        assert unicode(version.approvalnotes) == 'yy'
+        assert six.text_type(version.release_notes) == 'xx'
+        assert six.text_type(version.approval_notes) == 'yy'
+
+    def test_no_compat(self):
+        response = self.client.get(self.url)
+        doc = pq(response.content)
+        assert not doc("#id_form-TOTAL_FORMS")
+
+    def test_no_upload(self):
+        response = self.client.get(self.url)
+        doc = pq(response.content)
+        assert not doc('a.add-file')
+
+
+class TestVersionEditStaticTheme(TestVersionEditBase):
+    def setUp(self):
+        super(TestVersionEditStaticTheme, self).setUp()
+        self.addon.update(type=amo.ADDON_STATICTHEME)
 
     def test_no_compat(self):
         response = self.client.get(self.url)
@@ -814,6 +869,13 @@ class TestVersionEditSearchEngine(TestVersionEditMixin, TestCase):
 
 
 class TestVersionEditCompat(TestVersionEditBase):
+
+    def setUp(self):
+        super(TestVersionEditCompat, self).setUp()
+        self.android_32pre, _created = AppVersion.objects.get_or_create(
+            application=amo.ANDROID.id, version='3.2a1pre')
+        self.android_30, _created = AppVersion.objects.get_or_create(
+            application=amo.ANDROID.id, version='3.0')
 
     def get_form(self, url=None):
         if not url:
@@ -833,12 +895,14 @@ class TestVersionEditCompat(TestVersionEditBase):
         form = self.client.get(
             self.url).context['compat_form'].initial_forms[0]
         data = self.formset(
-            initial(form), {'application': 18, 'min': 288, 'max': 298},
+            initial(form),
+            {'application': amo.ANDROID.id, 'min': self.android_30.id,
+             'max': self.android_32pre.id},
             initial_count=1)
         response = self.client.post(self.url, data)
         assert response.status_code == 302
-        apps = self.get_version().compatible_apps.keys()
-        assert sorted(apps) == sorted([amo.FIREFOX, amo.THUNDERBIRD])
+        apps = [app.id for app in self.get_version().compatible_apps.keys()]
+        assert sorted(apps) == sorted([amo.FIREFOX.id, amo.ANDROID.id])
         assert list(ActivityLog.objects.all().values_list('action')) == (
             [(amo.LOG.MAX_APPVERSION_UPDATED.id,)])
 
@@ -877,16 +941,16 @@ class TestVersionEditCompat(TestVersionEditBase):
         assert response.status_code == 404
 
     def test_delete_appversion(self):
-        # Add thunderbird compat so we can delete firefox.
+        # Add android compat so we can delete firefox.
         self.test_add_appversion()
         form = self.client.get(self.url).context['compat_form']
-        data = map(initial, form.initial_forms)
+        data = list(map(initial, form.initial_forms))
         data[0]['DELETE'] = True
         response = self.client.post(
             self.url, self.formset(*data, initial_count=2))
         assert response.status_code == 302
-        apps = self.get_version().compatible_apps.keys()
-        assert apps == [amo.THUNDERBIRD]
+        apps = [app.id for app in self.get_version().compatible_apps.keys()]
+        assert apps == [amo.ANDROID.id]
         assert list(ActivityLog.objects.all().values_list('action')) == (
             [(amo.LOG.MAX_APPVERSION_UPDATED.id,)])
 
@@ -943,3 +1007,8 @@ class TestVersionEditCompat(TestVersionEditBase):
         assert response.status_code == 302
         av = self.version.apps.all()[0]
         assert av.min == av.max
+
+    def test_statictheme_no_compat_edit(self):
+        """static themes don't allow users to overwrite compat data."""
+        addon = self.get_addon()
+        addon.update(type=amo.ADDON_STATICTHEME)

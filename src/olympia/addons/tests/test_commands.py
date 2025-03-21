@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.forms import ValidationError
+from django.utils import translation
 
 import mock
 import pytest
@@ -22,7 +23,8 @@ from olympia.amo.tests import (
 from olympia.applications.models import AppVersion
 from olympia.files.models import FileValidation, WebextPermission
 from olympia.reviewers.models import AutoApprovalSummary, ReviewerScore
-from olympia.versions.models import ApplicationsVersions, Version
+from olympia.versions.models import ApplicationsVersions, Version, VersionPreview
+
 
 # Where to monkeypatch "lib.crypto.tasks.sign_addons" so it's correctly mocked.
 SIGN_ADDONS = 'olympia.addons.management.commands.sign_addons.sign_addons'
@@ -167,6 +169,8 @@ def test_approve_addons_approve_files_no_review_type():
     assert file_.reload().status == amo.STATUS_PUBLIC
 
 
+@pytest.mark.django_db
+@mock.patch('olympia.reviewers.utils.sign_file', lambda f: None)
 def test_approve_addons_approve_files(use_case, mozilla_user):
     """Files are approved using the correct review type.
 
@@ -235,6 +239,22 @@ def count_subtask_calls(original_function):
     yield called
 
     original_function.subtask = original_function_subtask
+
+
+@pytest.mark.django_db
+def test_process_addons_limit_addons():
+    addon_ids = [addon_factory().id for _ in range(5)]
+    assert Addon.objects.count() == 5
+
+    with count_subtask_calls(pa.sign_addons) as calls:
+        call_command('process_addons', task='sign_addons')
+        assert len(calls) == 1
+        assert calls[0]['kwargs']['args'] == [addon_ids]
+
+    with count_subtask_calls(pa.sign_addons) as calls:
+        call_command('process_addons', task='sign_addons', limit=2)
+        assert len(calls) == 1
+        assert calls[0]['kwargs']['args'] == [addon_ids[:2]]
 
 
 class AddFirefox57TagTestCase(TestCase):
@@ -322,7 +342,7 @@ class TestAddDynamicThemeTagForThemeApiCommand(TestCase):
 
 
 class RecalculateWeightTestCase(TestCase):
-    def test_only_affects_auto_approved(self):
+    def test_only_affects_auto_approved_and_unconfirmed(self):
         # Non auto-approved add-on, should not be considered.
         addon_factory()
 
@@ -339,6 +359,13 @@ class RecalculateWeightTestCase(TestCase):
             version=extra_addon.current_version, verdict=amo.AUTO_APPROVED)
         extra_addon.current_version.update(created=self.days_ago(1))
         version_factory(addon=extra_addon)
+
+        # Add-on that was auto-approved but already confirmed, should not be
+        # considered, it's too late.
+        already_confirmed_addon = addon_factory()
+        AutoApprovalSummary.objects.create(
+            version=already_confirmed_addon.current_version,
+            verdict=amo.AUTO_APPROVED, confirmed=True)
 
         # Add-on that should be considered because it's current version is
         # auto-approved.
@@ -392,17 +419,6 @@ class BumpAppVerForLegacyAddonsTestCase(AMOPaths, TestCase):
         # Should not be included:
         addon_factory(file_kw={'is_webextension': True})
         addon_factory(version_kw={'max_app_version': '56.*'})
-        addon_factory(version_kw={'application': amo.THUNDERBIRD.id})
-        # Also should not be included, this super weird add-on targets both
-        # Firefox and Thunderbird - with a low version for Thunderbird, but a
-        # high enough (56.*) for Firefox to be ignored by the task.
-        weird_addon = addon_factory(
-            version_kw={'application': amo.THUNDERBIRD.id})
-        av_min, _ = AppVersion.objects.get_or_create(
-            application=amo.FIREFOX.id, version='48.*')
-        ApplicationsVersions.objects.get_or_create(
-            application=amo.FIREFOX.id, version=weird_addon.current_version,
-            min=av_min, max=self.firefox_56_star)
 
         with count_subtask_calls(pa.bump_appver_for_legacy_addons) as calls:
             call_command(
@@ -590,7 +606,7 @@ class TestDeleteAddonsNotCompatibleWithThunderbird(TestCase):
                 pa.delete_addon_not_compatible_with_thunderbird) as calls:
             self.make_the_call()
 
-        bad_addons_pk = map(lambda a: a.pk, bad_addons)
+        bad_addons_pk = list(map(lambda a: a.pk, bad_addons))
 
         assert len(calls) == 1
         assert calls[0]['kwargs']['args'] == [bad_addons_pk]
@@ -718,8 +734,8 @@ class TestDeletePersonas(TestCase):
         with count_subtask_calls(pa.delete_personas) as calls:
             self.make_the_call()
 
-        personas_pk = map(lambda a: a.pk, personas)
-        personas_object_pk = map(lambda a: a.persona.pk, personas)
+        personas_pk = list(map(lambda a: a.pk, personas))
+        personas_object_pk = list(map(lambda a: a.persona.pk, personas))
 
         assert len(calls) == 1
         assert calls[0]['kwargs']['args'] == [personas_pk]
@@ -748,7 +764,7 @@ class TestDeletePersonas(TestCase):
 class TestOutputPersonas(TestCase):
     def make_the_call(self):
         call_command('process_addons',
-                     task='output_personas')
+                     task='output_personas', filename='/tmp/personas.csv')
 
     def test_basic(self):
         def create_addon(version):
@@ -760,7 +776,7 @@ class TestOutputPersonas(TestCase):
 
         personas = []
 
-        file_name = 'personas.csv'
+        file_name = '/tmp/personas.csv'
 
         # Nuke the file
         with open(file_name, 'wb') as fh:
@@ -832,3 +848,186 @@ class TestMigrateLegacyDictionariesToWebextension(TestCase):
         # self.addon2 will raise a ValidationError because of the side_effect
         # above, so we should only reindex 1 and 3.
         assert index_addons_mock.call_args[0][0] == [self.addon, self.addon3]
+
+
+class TestExtractWebextensionsToGitStorage(TestCase):
+    @mock.patch('olympia.addons.tasks.index_addons.delay', autospec=True)
+    @mock.patch(
+        'olympia.versions.tasks.extract_version_to_git', autospec=True)
+    def test_basic(self, extract_version_to_git_mock, index_addons_mock):
+        addon_factory(file_kw={'is_webextension': True})
+        addon_factory(file_kw={'is_webextension': True})
+        addon_factory(
+            type=amo.ADDON_STATICTHEME, file_kw={'is_webextension': True})
+        addon_factory(
+            file_kw={'is_webextension': True}, status=amo.STATUS_DISABLED)
+        addon_factory(type=amo.ADDON_LPAPP, file_kw={'is_webextension': True})
+        addon_factory(type=amo.ADDON_DICT, file_kw={'is_webextension': True})
+        addon_factory(
+            type=amo.ADDON_SEARCH, file_kw={'is_webextension': False})
+
+        # Not supported, we focus entirely on WebExtensions
+        # (except for search plugins)
+        addon_factory(type=amo.ADDON_THEME)
+        addon_factory()
+        addon_factory()
+        addon_factory(type=amo.ADDON_LPAPP, file_kw={'is_webextension': False})
+        addon_factory(type=amo.ADDON_DICT, file_kw={'is_webextension': False})
+
+        call_command('process_addons',
+                     task='extract_webextensions_to_git_storage')
+        assert extract_version_to_git_mock.call_count == 7
+
+
+class TestDisableLegacyAddons(TestCase):
+    def test_basic(self):
+        # These add-ons should be disabled completely since they only have a
+        # single legacy file.
+        should_be_fully_disabled = [
+            addon_factory(),
+            addon_factory(type=amo.ADDON_LPAPP),
+            addon_factory(type=amo.ADDON_THEME),
+        ]
+
+        # This one has a legacy and a non-legacy version, so only the legacy
+        # File & Version should be disabled.
+        should_have_old_version_disabled = [
+            addon_factory(created=self.days_ago(42),
+                          version_kw={'created': self.days_ago(42)}),
+        ]
+        version_factory(
+            addon=should_have_old_version_disabled[0],
+            file_kw={'is_webextension': True})
+
+        # These should *not* have any File instance disabled, they should be
+        # kept intact.
+        should_be_kept_intact = [
+            addon_factory(file_kw={'is_webextension': True}),
+            addon_factory(file_kw={'is_mozilla_signed_extension': True}),
+            addon_factory(file_kw={'is_mozilla_signed_extension': True,
+                                   'is_webextension': True}),
+            addon_factory(type=amo.ADDON_DICT),
+            addon_factory(type=amo.ADDON_SEARCH),
+        ]
+
+        call_command('process_addons', task='disable_legacy_files')
+
+        for addon in should_be_fully_disabled:
+            addon.reload()
+            assert addon.status == amo.STATUS_NULL  # No public version left.
+            assert addon.current_version is None
+            file_ = addon.versions.all()[0].files.all()[0]
+            assert file_.status == amo.STATUS_DISABLED
+
+        for addon in should_have_old_version_disabled:
+            addon.reload()
+            assert addon.status == amo.STATUS_PUBLIC
+            assert addon.current_version
+            file_ = addon.current_version.files.all()[0]
+            assert file_.status == amo.STATUS_PUBLIC
+            file_ = addon.versions.exclude(
+                pk=addon.current_version.pk)[0].files.all()[0]
+            assert file_.status == amo.STATUS_DISABLED
+
+        for addon in should_be_kept_intact:
+            addon.reload()
+            assert addon.status == amo.STATUS_PUBLIC
+            assert addon.current_version
+            file_ = addon.versions.all()[0].all_files[0]
+            assert file_.status == amo.STATUS_PUBLIC
+
+
+class TestRemoveAMOLinksInURLFields(TestCase):
+    domain = settings.DOMAIN
+    allowed_url = u'https://example.org'
+
+    def test_remove_links_in_homepages(self):
+        addons = [
+            addon_factory(homepage=u'%s' % self.domain),
+            addon_factory(homepage=u'https://%s/page.html' % self.domain),
+        ]
+
+        call_command('process_addons', task='remove_amo_links_in_url_fields')
+
+        for addon in addons:
+            addon.reload()
+            assert addon.homepage.localized_string == u''
+            assert addon.homepage.localized_string_clean == u''
+
+    def test_remove_links_in_support_urls(self):
+        addons = [
+            addon_factory(support_url=u'%s' % self.domain),
+            addon_factory(support_url=u'https://%s/page.html' % self.domain),
+        ]
+
+        call_command('process_addons', task='remove_amo_links_in_url_fields')
+
+        for addon in addons:
+            addon.reload()
+            assert addon.support_url.localized_string == u''
+            assert addon.support_url.localized_string_clean == u''
+
+    def test_remove_links_in_contributions(self):
+        addons = [
+            addon_factory(contributions=u'%s' % self.domain),
+            addon_factory(contributions=u'https://%s/page.html' % self.domain),
+        ]
+
+        call_command('process_addons', task='remove_amo_links_in_url_fields')
+
+        for addon in addons:
+            addon.reload()
+            assert addon.contributions == u''
+
+    def test_remove_links_in_support_url_and_homepage(self):
+        addons = [
+            addon_factory(
+                homepage=u'http://%s' % self.domain,
+                support_url=u'%s' % self.domain,
+            ),
+        ]
+        should_be_kept_intact = [
+            addon_factory(support_url=self.allowed_url),
+        ]
+
+        call_command('process_addons', task='remove_amo_links_in_url_fields')
+
+        for addon in addons:
+            addon.reload()
+            assert addon.homepage == u''
+            assert addon.support_url == u''
+        for addon in should_be_kept_intact:
+            addon.reload()
+            assert addon.support_url == self.allowed_url
+
+    def test_with_multiple_translations(self):
+        addon = addon_factory(support_url={
+            'en-US': self.allowed_url,
+            'fr': u'http://%s' % self.domain,
+        })
+
+        call_command('process_addons', task='remove_amo_links_in_url_fields')
+
+        translation.activate('en-US')
+        addon.reload()
+        assert addon.support_url == self.allowed_url
+
+        translation.activate('fr')
+        addon.reload()
+        assert addon.support_url == u''
+
+
+class TestExtractColorsFromStaticThemes(TestCase):
+    @mock.patch('olympia.addons.tasks.extract_colors_from_image')
+    def test_basic(self, extract_colors_from_image_mock):
+        addon = addon_factory(type=amo.ADDON_STATICTHEME)
+        preview = VersionPreview.objects.create(version=addon.current_version)
+        extract_colors_from_image_mock.return_value = [
+            {'h': 4, 's': 8, 'l': 15, 'ratio': .16}
+        ]
+        call_command(
+            'process_addons', task='extract_colors_from_static_themes')
+        preview.reload()
+        assert preview.colors == [
+            {'h': 4, 's': 8, 'l': 15, 'ratio': .16}
+        ]

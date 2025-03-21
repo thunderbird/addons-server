@@ -7,13 +7,13 @@ import pytest
 
 from olympia.amo import urlresolvers
 from olympia.amo.middleware import LocaleAndAppURLMiddleware
-from olympia.amo.tests import BaseTestCase, TestCase
+from olympia.amo.tests import TestCase
 
 
 pytestmark = pytest.mark.django_db
 
 
-class MiddlewareTest(BaseTestCase):
+class MiddlewareTest(TestCase):
     """Tests that the locale and app redirection work properly."""
 
     def setUp(self):
@@ -52,7 +52,7 @@ class MiddlewareTest(BaseTestCase):
 
         for path, location in redirections.items():
             response = self.middleware.process_request(self.rf.get(path))
-            assert response.status_code == 301
+            assert response.status_code == 302
             assert response['Location'] == location
 
     def process(self, *args, **kwargs):
@@ -81,18 +81,6 @@ class MiddlewareTest(BaseTestCase):
         response = self.process('/api/v4/some/endpoint/')
         assert response is None
 
-    def test_v1_api_is_identified_as_api_request(self):
-        response = self.process('/en-US/firefox/api/')
-        assert response is None
-        assert self.request.LANG == 'en-US'
-        assert self.request.is_legacy_api
-
-        # double-check _only_ /api/ is marked as .is_api
-        response = self.process('/en-US/firefox/apii/')
-        assert response is None
-        assert self.request.LANG == 'en-US'
-        assert not self.request.is_legacy_api
-
     def test_vary(self):
         response = self.process('/')
         assert response['Vary'] == 'Accept-Language, User-Agent'
@@ -102,9 +90,6 @@ class MiddlewareTest(BaseTestCase):
 
         response = self.process('/en-US')
         assert response['Vary'] == 'User-Agent'
-
-        response = self.process('/en-US/thunderbird')
-        assert 'Vary' not in response
 
     def test_no_redirect_with_script(self):
         response = self.process('/services', SCRIPT_NAME='/oremj')
@@ -138,7 +123,7 @@ class MiddlewareTest(BaseTestCase):
         check('/en-US/firefox?lang=es-PE', '/es/firefox/')
 
 
-class TestPrefixer(BaseTestCase):
+class TestPrefixer(TestCase):
 
     def tearDown(self):
         urlresolvers.clean_url_prefixes()
@@ -179,17 +164,17 @@ class TestPrefixer(BaseTestCase):
         assert prefixer.fix('/admin/') == '/en-US/admin/'
 
         prefixer.locale = 'de'
-        prefixer.app = 'thunderbird'
+        prefixer.app = 'android'
 
-        assert prefixer.fix('/') == '/de/thunderbird/'
-        assert prefixer.fix('/foo') == '/de/thunderbird/foo'
-        assert prefixer.fix('/foo/') == '/de/thunderbird/foo/'
+        assert prefixer.fix('/') == '/de/android/'
+        assert prefixer.fix('/foo') == '/de/android/foo'
+        assert prefixer.fix('/foo/') == '/de/android/foo/'
         assert prefixer.fix('/admin') == '/de/admin'
         assert prefixer.fix('/admin/') == '/de/admin/'
 
     def test_reverse(self):
         # Make sure it works outside the request.
-        urlresolvers.clean_url_prefixes()  # Modified in BaseTestCase.
+        urlresolvers.clean_url_prefixes()  # Modified in TestCase.
         assert urlresolvers.reverse('home') == '/'
 
         # With a request, locale and app prefixes work.
@@ -230,8 +215,8 @@ class TestPrefixerActivate(TestCase):
         assert urlresolvers.reverse('home') == '/en-US/firefox/'
 
     def test_activate_app_locale(self):
-        with self.activate(locale='de', app='thunderbird'):
-            assert urlresolvers.reverse('home') == '/de/thunderbird/'
+        with self.activate(locale='de', app='android'):
+            assert urlresolvers.reverse('home') == '/de/android/'
         assert urlresolvers.reverse('home') == '/en-US/firefox/'
 
 

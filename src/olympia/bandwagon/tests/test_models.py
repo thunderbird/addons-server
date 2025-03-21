@@ -1,7 +1,8 @@
-import datetime
 import random
+import uuid
 
 import mock
+import six
 
 from olympia import amo, core
 from olympia.activity.models import ActivityLog
@@ -39,44 +40,28 @@ class TestCollections(TestCase):
             description='<a href="http://example.com">example.com</a> '
                         'http://example.com <b>foo</b> some text')
         # All markup escaped, links are stripped.
-        assert unicode(c.description) == '&lt;b&gt;foo&lt;/b&gt; some text'
-
-    def test_icon_url(self):
-        # Has no icon.
-        c = Collection(pk=512, modified=datetime.datetime.now())
-        assert c.icon_url.endswith('img/icons/collection.png')
-
-        c.icontype = 'image/png'
-        url = c.icon_url.split('?')[0]
-        assert url.endswith('0/512.png')
-
-        c.id = 12341234
-        url = c.icon_url.split('?')[0]
-        assert url.endswith('12341/12341234.png')
-
-        c.icontype = None
-        c.type = amo.COLLECTION_FAVORITES
-        assert c.icon_url.endswith('img/icons/heart.png')
+        assert six.text_type(
+            c.description) == '&lt;b&gt;foo&lt;/b&gt; some text'
 
     def test_translation_default(self):
         """Make sure we're getting strings from the default locale."""
         c = Collection.objects.get(pk=512)
-        assert unicode(c.name) == 'yay'
+        assert six.text_type(c.name) == 'yay'
 
     def test_listed(self):
         """Make sure the manager's listed() filter works."""
         listed_count = Collection.objects.listed().count()
         # Make a private collection.
         Collection.objects.create(
-            name="Hello", uuid="4e2a1acc-39ae-47ec-956f-46e080ac7f69",
+            name='Hello', uuid='4e2a1acc39ae47ec956f46e080ac7f69',
             listed=False, author=self.user)
 
         assert Collection.objects.listed().count() == listed_count
 
     def test_auto_uuid(self):
         c = Collection.objects.create(author=self.user)
-        assert c.uuid != ''
-        assert isinstance(c.uuid, basestring)
+        assert c.uuid
+        assert isinstance(c.uuid, uuid.UUID)
 
     def test_set_addons(self):
         addons = list(Addon.objects.values_list('id', flat=True))
@@ -183,7 +168,7 @@ class TestFeaturedCollectionSignals(TestCase):
             collection=self.collection,
             application=self.collection.application)
         assert index_addons.delay.call_count == 1
-        index_addons.delay.call_args[0] == ([self.addon.pk],)
+        assert index_addons.delay.call_args[0] == ([self.addon.pk],)
         index_addons.delay.reset_mock()
 
         # Adding an add-on re-indexes all add-ons in the collection
@@ -191,7 +176,8 @@ class TestFeaturedCollectionSignals(TestCase):
         # the one we just added and not the rest).
         self.collection.add_addon(extra_addon)
         assert index_addons.delay.call_count == 1
-        index_addons.delay.call_args[0] == ([self.addon.pk, extra_addon.pk],)
+        assert index_addons.delay.call_args[0] == (
+            [self.addon.pk, extra_addon.pk],)
         index_addons.delay.reset_mock()
 
         # Removing an add-on needs 2 calls: one to reindex the add-ons that
@@ -200,8 +186,8 @@ class TestFeaturedCollectionSignals(TestCase):
         # removed.
         self.collection.remove_addon(extra_addon)
         assert index_addons.delay.call_count == 2
-        index_addons.delay.call_args[0] == ([self.addon.pk],)
-        index_addons.delay.call_args[1] == ([extra_addon.pk],)
+        assert index_addons.delay.call_args_list[0][0] == ([extra_addon.pk],)
+        assert index_addons.delay.call_args_list[1][0] == ([self.addon.pk],)
 
     def test_addon_added_to_featured_collection(self):
         FeaturedCollection.objects.create(

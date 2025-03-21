@@ -15,7 +15,7 @@ data-default-locale="{{ request.LANG|lower }}"
 {% block content %}
 {% include 'users/includes/navigation.html' %}
 <div id="user_edit" class="primary prettyform grid" role="main">
-  {% if user.has_anonymous_display_name %}
+  {% if not user.display_name %}
     <div class="notification-box error anonymous">
       <h2>{{ _('Please set your display name') }}</h2>
       <p>{{ _('Please set your display name or username to complete the registration process.') }}</p>
@@ -34,11 +34,6 @@ data-default-locale="{{ request.LANG|lower }}"
             {%- endtrans %}
           </p>
           <ul class="formfields">
-            <li{% if form.username.errors %} class="error"{% endif %}>
-              <label for="id_username">{{ _('Username') }}</label>
-              {{ form.username }}
-              {{ form.username.errors }}
-            </li>
             <li>
               <label for="id_email">
                 {{ _('Email Address') }}

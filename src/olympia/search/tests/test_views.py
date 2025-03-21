@@ -1,27 +1,28 @@
 # -*- coding: utf-8 -*-
 import json
-import urlparse
 
 from django.http import QueryDict
 from django.test.client import RequestFactory
+from django.utils.encoding import force_text
 
 import mock
 import pytest
+import six
 
 from elasticsearch import Elasticsearch
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import parse_qs, parse_qsl, urlparse
 
 from olympia import amo
 from olympia.addons.models import (
     Addon, AddonCategory, AddonUser, Category, Persona)
 from olympia.amo.templatetags.jinja_helpers import locale_url, urlparams
-from olympia.amo.tests import (
-    ESTestCaseWithAddons, addon_factory, create_switch)
+from olympia.amo.tests import ESTestCaseWithAddons, addon_factory
 from olympia.amo.urlresolvers import reverse
 from olympia.search import views
 from olympia.search.utils import floor_version
 from olympia.search.views import version_sidebar
-from olympia.tags.models import AddonTag, Tag
+from olympia.tags.models import Tag
 from olympia.users.models import UserProfile
 from olympia.versions.compare import (
     MAXVERSION, num as vnum, version_int as vint)
@@ -83,7 +84,7 @@ class SearchBase(ESTestCaseWithAddons):
         if sort_by:
             results = response.context['pager'].object_list
             if sort_by == 'name':
-                expected = sorted(results, key=lambda x: unicode(x.name))
+                expected = sorted(results, key=lambda x: six.text_type(x.name))
             else:
                 expected = sorted(results, key=lambda x: getattr(x, sort_by),
                                   reverse=reverse)
@@ -100,9 +101,9 @@ class SearchBase(ESTestCaseWithAddons):
         permutations = [
             {},
             {'appver': amo.FIREFOX.id},
-            {'appver': amo.THUNDERBIRD.id},
+            {'appver': amo.ANDROID.id},
             {'platform': amo.PLATFORM_MAC.id},
-            {'appver': amo.SEAMONKEY.id, 'platform': amo.PLATFORM_WIN.id},
+            {'appver': amo.ANDROID.id, 'platform': amo.PLATFORM_WIN.id},
         ]
         for p in permutations:
             self.check_name_results(p, expected)
@@ -188,39 +189,38 @@ class TestESSearch(SearchBase):
         assert response.status_code == 302
         expected_params = 'q=f%C3%B4o&atype=1'
         redirected = response.url
-        parsed = urlparse.urlparse(redirected)
+        parsed = urlparse(redirected)
         params = parsed.query
         assert parsed.path == self.url
-        assert urlparse.parse_qs(params) == urlparse.parse_qs(expected_params)
+        assert parse_qs(params) == parse_qs(expected_params)
 
     def test_legacy_redirects(self):
         response = self.client.get(self.url + '?sort=averagerating')
         self.assert3xx(response, self.url + '?sort=rating', status_code=301)
 
     def test_legacy_redirects_to_non_ascii(self):
-        # see http://sentry.dmz.phx1.mozilla.com/addons/group/2186/
-        url = '/ga-IE/seamonkey/tag/%E5%95%86%E5%93%81%E6%90%9C%E7%B4%A2'
+        url = '/ga-IE/firefox/tag/%E5%95%86%E5%93%81%E6%90%9C%E7%B4%A2'
         from_ = ('?sort=updated&lver=1.0&advancedsearch=1'
                  '&tag=dearbhair&cat=4%2C84')
         to = ('?sort=updated&advancedsearch=1&appver=1.0'
               '&tag=dearbhair&cat=4%2C84')
-        r = self.client.get(url + from_)
-        assert r.status_code == 301
-        redirected = r.url
-        parsed = urlparse.urlparse(redirected)
+        response = self.client.get(url + from_)
+        assert response.status_code == 301
+        redirected = response.url
+        parsed = urlparse(redirected)
         params = parsed.query
         assert parsed.path == url
-        assert urlparse.parse_qs(params) == urlparse.parse_qs(to[1:])
+        assert parse_qs(params) == parse_qs(to[1:])
 
     def check_platform_filters(self, platform, expected=None):
-        r = self.client.get('%s?platform=%s' % (self.url, platform),
-                            follow=True)
-        plats = r.context['platforms']
-        for idx, plat in enumerate(plats):
+        response = self.client.get('%s?platform=%s' % (self.url, platform),
+                                   follow=True)
+        platforms = response.context['platforms']
+        for idx, platform in enumerate(platforms):
             name, selected = expected[idx]
-            label = unicode(plat.text)
+            label = six.text_type(platform.text)
             assert label == name
-            assert plat.selected == selected
+            assert platform.selected == selected
 
     def test_platform_default(self):
         expected = [
@@ -271,7 +271,7 @@ class TestESSearch(SearchBase):
     def test_platform_legacy_params(self):
         ALL = (amo.PLATFORM_ALL, amo.PLATFORM_ANY)
         listed = ALL + (amo.PLATFORM_LINUX, amo.PLATFORM_MAC, amo.PLATFORM_WIN)
-        for idx, platform in amo.PLATFORMS.iteritems():
+        for idx, platform in six.iteritems(amo.PLATFORMS):
             expected = [
                 ('All Systems', platform in ALL),
                 ('Linux', platform == amo.PLATFORM_LINUX),
@@ -298,7 +298,7 @@ class TestESSearch(SearchBase):
                                    {'appver': floor_version(appver)}, facets)
 
         all_ = versions.pop(0)
-        assert all_.text == 'Any %s' % unicode(request.APP.pretty)
+        assert all_.text == 'Any %s' % six.text_type(request.APP.pretty)
         assert not all_.selected == expected
 
         return [v.__dict__ for v in versions]
@@ -362,58 +362,59 @@ class TestESSearch(SearchBase):
         assert self.check_appver_filters('*', '*')
 
     def test_non_pjax_results(self):
-        r = self.client.get(self.url)
-        assert r.status_code == 200
-        assert r.context['is_pjax'] is None
+        response = self.client.get(self.url)
+        assert response.status_code == 200
+        assert response.context['is_pjax'] is None
 
         # These context variables should exist for normal requests.
         for var in ('categories', 'platforms', 'versions', 'tags'):
-            assert var in r.context, '%r missing context var in view' % var
+            assert var in response.context, '%r context var is missing' % var
 
-        doc = pq(r.content)
+        doc = pq(response.content)
         assert doc('html').length == 1
         assert doc('#pjax-results').length == 1
         assert doc('#search-facets .facets.pjax-trigger').length == 1
         assert doc('#sorter.pjax-trigger').length == 1
 
     def test_pjax_results(self):
-        r = self.client.get(self.url, HTTP_X_PJAX=True)
-        assert r.status_code == 200
-        assert r.context['is_pjax']
+        response = self.client.get(self.url, HTTP_X_PJAX=True)
+        assert response.status_code == 200
+        assert response.context['is_pjax']
 
-        doc = pq(r.content)
+        doc = pq(response.content)
         assert doc('html').length == 0
         assert doc('#pjax-results').length == 0
         assert doc('#search-facets .facets.pjax-trigger').length == 0
         assert doc('#sorter.pjax-trigger').length == 1
 
     def test_facet_data_params_default(self):
-        r = self.client.get(self.url)
-        a = pq(r.content)('#search-facets a[data-params]:first')
-        assert json.loads(a.attr('data-params')) == {
+        response = self.client.get(self.url)
+        alink = pq(response.content)('#search-facets a[data-params]:first')
+        assert json.loads(alink.attr('data-params')) == {
             'atype': None, 'cat': None, 'page': None}
 
     def test_facet_data_params_filtered(self):
-        r = self.client.get(self.url + '?appver=3.6&platform=mac&page=3')
-        a = pq(r.content)('#search-facets a[data-params]:first')
-        assert json.loads(a.attr('data-params')) == {
+        response = self.client.get(
+            self.url + '?appver=3.6&platform=mac&page=3')
+        alink = pq(response.content)('#search-facets a[data-params]:first')
+        assert json.loads(alink.attr('data-params')) == {
             'atype': None, 'cat': None, 'page': None}
 
     def check_cat_filters(self, params=None, selected='All Add-ons'):
         if not params:
             params = {}
 
-        r = self.client.get(urlparams(self.url, **params))
+        response = self.client.get(urlparams(self.url, **params))
         assert sorted(a.id for a in self.addons) == (
-            sorted(a.id for a in r.context['pager'].object_list))
+            sorted(a.id for a in response.context['pager'].object_list))
 
         cat = self.addons[0].all_categories[0]
-        links = pq(r.content)('#category-facets li a')
+        links = pq(response.content)('#category-facets li a')
         expected = [
             ('All Add-ons', self.url),
             ('Extensions', urlparams(self.url, atype=amo.ADDON_EXTENSION)),
-            (unicode(cat.name), urlparams(self.url, atype=amo.ADDON_EXTENSION,
-                                          cat=cat.id)),
+            (six.text_type(cat.name), urlparams(
+                self.url, atype=amo.ADDON_EXTENSION, cat=cat.id)),
         ]
         amo.tests.check_links(expected, links, selected, verify=False)
 
@@ -427,7 +428,7 @@ class TestESSearch(SearchBase):
         self.check_cat_filters({'cat': 999})
 
     def test_defaults_atype_foreign_cat(self):
-        cat = Category.objects.create(application=amo.THUNDERBIRD.id,
+        cat = Category.objects.create(application=amo.ANDROID.id,
                                       type=amo.ADDON_EXTENSION)
         self.check_cat_filters({'atype': amo.ADDON_EXTENSION, 'cat': cat.id})
 
@@ -435,7 +436,7 @@ class TestESSearch(SearchBase):
         cat = self.addons[0].all_categories[0]
         self.check_cat_filters(
             {'atype': amo.ADDON_EXTENSION, 'cat': cat.id},
-            selected=unicode(cat.name))
+            selected=six.text_type(cat.name))
 
     def test_cat_facet_stale(self):
         AddonCategory.objects.all().delete()
@@ -453,17 +454,17 @@ class TestESSearch(SearchBase):
         # Save to reindex with new categories.
         self.reindex(Addon)
 
-        r = self.client.get(self.url)
+        response = self.client.get(self.url)
         amo.tests.check_links([('All Add-ons', self.url)],
-                              pq(r.content)('#category-facets li a'),
+                              pq(response.content)('#category-facets li a'),
                               verify=False)
 
     def test_unknown_tag_filter(self):
-        r = self.client.get(urlparams(self.url, tag='xxx'))
-        a = pq(r.content)('#tag-facets li.selected a')
-        assert a.length == 1
-        assert a.text() == 'xxx'
-        assert list(r.context['pager'].object_list) == []
+        response = self.client.get(urlparams(self.url, tag='xxx'))
+        alink = pq(response.content)('#tag-facets li.selected a')
+        assert alink.length == 1
+        assert alink.text() == 'xxx'
+        assert list(response.context['pager'].object_list) == []
 
     def test_tag_filters_on_search_page(self):
         Tag(tag_text='sky').save_tag(self.addons[0])
@@ -504,9 +505,9 @@ class TestESSearch(SearchBase):
         }
 
     def test_no_tag_filters_on_tags_page(self):
-        r = self.client.get(reverse('tags.detail', args=['sky']))
-        assert r.status_code == 200
-        assert pq(r.content)('#tag-facets').length == 0
+        response = self.client.get(reverse('tags.detail', args=['sky']))
+        assert response.status_code == 200
+        assert pq(response.content)('#tag-facets').length == 0
 
     def get_results(self, response, sort=True):
         """Return pks of add-ons shown on search results page."""
@@ -566,64 +567,41 @@ class TestESSearch(SearchBase):
 
     def test_results_platform_filter_all(self):
         for platform in ('', 'all'):
-            r = self.client.get(self.url, {'platform': platform})
-            assert self.get_results(r) == (
+            response = self.client.get(self.url, {'platform': platform})
+            assert self.get_results(response) == (
                 sorted(self.addons.values_list('id', flat=True)))
 
     def test_slug_indexed_but_not_searched(self):
-        a = self.addons[0]
+        addon = self.addons[0]
 
-        r = self.client.get(self.url, {'q': 'omgyes'})
-        assert self.get_results(r) == []
+        response = self.client.get(self.url, {'q': 'omgyes'})
+        assert self.get_results(response) == []
 
-        a.update(slug='omgyes')
+        addon.update(slug='omgyes')
         self.refresh()
-        r = self.client.get(self.url, {'q': 'omgyes'})
-        assert self.get_results(r) == []
+        response = self.client.get(self.url, {'q': 'omgyes'})
+        assert self.get_results(response) == []
 
-    def test_authors_indexed(self):
-        a = self.addons[0]
+    def test_authors_indexed_but_not_searched(self):
+        addon = self.addons[0]
 
-        r = self.client.get(self.url, {'q': 'boop'})
-        assert self.get_results(r) == []
+        response = self.client.get(self.url, {'q': 'boop'})
+        assert self.get_results(response) == []
 
         AddonUser.objects.create(
-            addon=a, user=UserProfile.objects.create(username='boop'))
+            addon=addon, user=UserProfile.objects.create(username='boop'))
         AddonUser.objects.create(
-            addon=a, user=UserProfile.objects.create(username='ponypet'))
-        a.save()
+            addon=addon, user=UserProfile.objects.create(username='ponypet'))
+        addon.save()
         self.refresh()
-        r = self.client.get(self.url, {'q': 'garbage'})
-        assert self.get_results(r) == []
-        r = self.client.get(self.url, {'q': 'boop'})
-        assert self.get_results(r) == [a.id]
-        r = self.client.get(self.url, {'q': 'pony'})
-        assert self.get_results(r) == [a.id]
-
-    def test_tag_search(self):
-        a = self.addons[0]
-
-        tag_name = 'tagretpractice'
-        r = self.client.get(self.url, {'q': tag_name})
-        assert self.get_results(r) == []
-
-        AddonTag.objects.create(
-            addon=a, tag=Tag.objects.create(tag_text=tag_name))
-
-        a.save()
-        self.refresh()
-
-        r = self.client.get(self.url, {'q': tag_name})
-        assert self.get_results(r) == [a.id]
-
-        # Multiple tags.
-        tag_name_2 = 'bagemtagem'
-        AddonTag.objects.create(
-            addon=a, tag=Tag.objects.create(tag_text=tag_name_2))
-        a.save()
-        self.refresh()
-        r = self.client.get(self.url, {'q': '%s %s' % (tag_name, tag_name_2)})
-        assert self.get_results(r) == [a.id]
+        response = self.client.get(self.url, {'q': 'garbage'})
+        assert self.get_results(response) == []
+        response = self.client.get(self.url, {'q': 'boop'})
+        assert self.get_results(response) == []
+        response = self.client.get(self.url, {'q': ''})
+        del addon
+        assert self.get_results(response) == [
+            addon.id for addon in self.addons]
 
     def test_search_doesnt_return_unlisted_addons(self):
         addon = self.addons[0]
@@ -636,66 +614,86 @@ class TestESSearch(SearchBase):
         response = self.client.get(self.url, {'q': 'Addon'})
         assert addon.pk not in self.get_results(response)
 
-    def test_webextension_boost(self):
-        web_extension = list(sorted(
-            self.addons, key=lambda x: x.name, reverse=True))[0]
-        web_extension.current_version.files.update(is_webextension=True)
-        web_extension.save()
-        self.refresh()
-
-        response = self.client.get(self.url, {'q': 'Addon'})
-        result = self.get_results(response, sort=False)
-        assert result[0] != web_extension.pk
-
-        create_switch('boost-webextensions-in-search')
-        # The boost chosen should have made that addon the first one.
-        response = self.client.get(self.url, {'q': 'Addon'})
-        result = self.get_results(response, sort=False)
-        assert result[0] == web_extension.pk
-
     def test_find_addon_default_non_en_us(self):
-        with self.activate('en-GB'):
-            addon = addon_factory(
-                status=amo.STATUS_PUBLIC,
-                type=amo.ADDON_EXTENSION,
-                default_locale='en-GB',
-                name='Banana Bonkers',
-                description=u'Let your browser eat your bananas',
-                summary=u'Banana Summary',
-            )
-
-            addon.name = {'es': u'Banana Bonkers espanole'}
-            addon.description = {
-                'es': u'Deje que su navegador coma sus plátanos'}
-            addon.summary = {'es': u'resumen banana'}
-            addon.save()
-
-        addon_en = addon_factory(
-            slug='English Addon', name=u'My English Addôn')
-
-        self.refresh()
-
-        # Make sure we have en-US active
-        for locale in ('en-US', 'en-GB', 'es'):
+        def test_search_in_locale(locale):
             with self.activate(locale):
                 url = self.url.replace('en-US', locale)
 
                 response = self.client.get(url, {'q': ''})
                 result = self.get_results(response, sort=False)
 
-                # 3 add-ons in self.addon + the two just created
-                assert addon_en.pk in result
-                assert addon.pk in result
+                # 3 add-ons in self.addons + the two just created
+                assert addon_en_only.pk in result
+                assert addon_english_and_spanish.pk in result
 
+                # This should work all the time. It's present in the name
+                # in all translations.
                 response = self.client.get(url, {'q': 'Banana'})
                 result = self.get_results(response, sort=False)
+                assert result[0] == addon_english_and_spanish.pk
 
-                assert result[0] == addon.pk
-
+                # This should only work in Spanish, when searching in other
+                # languages we are not trying to match against the spanish
+                # translation.
                 response = self.client.get(url, {'q': 'plátanos'})
                 result = self.get_results(response, sort=False)
+                if locale == 'es':
+                    assert result[0] == addon_english_and_spanish.pk
+                else:
+                    assert len(result) == 0
 
-                assert result[0] == addon.pk
+                # This should work in all locales:
+                # - In english (en-GB *and* en-US) because it's part of the
+                #   english name (same analyzer used for en-US vs en-GB)
+                # - In french, because we have no french translation so we fall
+                #   back to the default locale.
+                # - In spanish, even though we do have a translated name, we
+                #   should still be searching against the default locale as
+                #   well (we just don't apply the same kind of matching).
+                response = self.client.get(url, {'q': 'Browser'})
+                result = self.get_results(response, sort=False)
+                assert result[0] == addon_english_and_spanish.pk
+
+                # Same thing, but with something in the description instead of
+                # the name. We do a multi match with the description in the
+                # default locale, so it should always work regardless of the
+                # request lang.
+                response = self.client.get(url, {'q': 'Pirate'})
+                result = self.get_results(response, sort=False)
+                assert result[0] == addon_english_and_spanish.pk
+
+                # Same thing again, but with the summary.
+                response = self.client.get(url, {'q': 'Ninja'})
+                result = self.get_results(response, sort=False)
+                assert result[0] == addon_english_and_spanish.pk
+
+        with self.activate('en-GB'):
+            addon_english_and_spanish = addon_factory(
+                status=amo.STATUS_PUBLIC,
+                type=amo.ADDON_EXTENSION,
+                default_locale='en-GB',
+                name='Banana Browser Bonkers',
+                description=u'Let your browser pirate your bananas',
+                summary=u'Banana Summary Ninja',
+            )
+
+            addon_english_and_spanish.name = {'es': u'Banana Bonkers espanole'}
+            addon_english_and_spanish.description = {
+                'es': u'Deje que su navegador coma sus plátanos'}
+            addon_english_and_spanish.summary = {'es': u'resumen banana'}
+            addon_english_and_spanish.save()
+
+        addon_en_only = addon_factory(
+            slug='English Addon', name=u'My English Addôn')
+
+        self.refresh()
+
+        # Test in various locales. It's important to test in the one used as
+        # default_locale for the add-on (en-GB), another used for all
+        # translations (es), another that we don't have translations for (fr)
+        # and en-US for good measure.
+        for locale in ('en-US', 'en-GB', 'es', 'fr'):
+            test_search_in_locale(locale)
 
 
 class TestStaticThemeSearch(SearchBase):
@@ -808,8 +806,7 @@ class TestStaticThemeSearch(SearchBase):
             assert r.status_code == 200
             results = list(r.context['pager'].object_list)
             first = results[0]
-
-            assert unicode(first.name) == expected_name, (
+            assert six.text_type(first.name) == expected_name, (
                 'Was not first result for %r. Results: %s' % (sort, results))
             assert first.average_daily_users == expected_popularity, (
                 'Incorrect users for %r. Got %r. Expected %r.' % (
@@ -860,7 +857,7 @@ class TestStaticThemeSearch(SearchBase):
 ])
 def test_search_redirects(test_input, expected):
     assert views.fix_search_query(QueryDict(test_input)) == (
-        dict(urlparse.parse_qsl(expected)))
+        dict(parse_qsl(expected)))
 
 
 @pytest.mark.parametrize("test_input", [
@@ -883,7 +880,7 @@ class TestAjaxSearch(ESTestCaseWithAddons):
             addons = []
         response = self.client.get(url + '?' + params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
 
         assert len(data) == len(addons)
         for got, expected in zip(
@@ -891,7 +888,7 @@ class TestAjaxSearch(ESTestCaseWithAddons):
                 sorted(addons, key=lambda x: x.id)):
             expected.reload()
             assert int(got['id']) == expected.id
-            assert got['name'] == unicode(expected.name)
+            assert got['name'] == six.text_type(expected.name)
             expected_url = expected.get_url_path()
             if src:
                 expected_url += '?src=ss'
@@ -958,7 +955,7 @@ class TestGenericAjaxSearch(TestAjaxSearch):
         )
         self._addons.append(addon)
         self.refresh()
-        self.search_addons('q=' + unicode(addon.name), [addon])
+        self.search_addons('q=' + six.text_type(addon.name), [addon])
 
     def test_ajax_search_by_bad_name(self):
         self.search_addons('q=some+filthy+bad+word', [])
@@ -966,21 +963,6 @@ class TestGenericAjaxSearch(TestAjaxSearch):
     def test_basic_search(self):
         public_addons = Addon.objects.public().all()
         self.search_addons('q=addon', public_addons)
-
-    def test_webextension_boost(self):
-        public_addons = Addon.objects.public().all()
-        web_extension = public_addons.order_by('name')[0]
-        web_extension.current_version.files.update(is_webextension=True)
-        web_extension.save()
-        self.refresh()
-
-        data = self.search_addons('q=Addon', public_addons)
-        assert int(data[0]['id']) != web_extension.id
-
-        create_switch('boost-webextensions-in-search')
-        # The boost chosen should have made that addon the first one.
-        data = self.search_addons('q=Addon', public_addons)
-        assert int(data[0]['id']) == web_extension.id
 
 
 class TestSearchSuggestions(TestAjaxSearch):
@@ -1008,7 +990,7 @@ class TestSearchSuggestions(TestAjaxSearch):
             apps = []
         response = self.client.get(self.url + '?' + params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
 
         data = sorted(data, key=lambda x: x['id'])
         apps = sorted(apps, key=lambda x: x.id)
@@ -1016,13 +998,13 @@ class TestSearchSuggestions(TestAjaxSearch):
         assert len(data) == len(apps)
         for got, expected in zip(data, apps):
             assert int(got['id']) == expected.id
-            assert got['name'] == '%s Add-ons' % unicode(expected.pretty)
+            assert got['name'] == '%s Add-ons' % six.text_type(expected.pretty)
             assert got['url'] == locale_url(expected.short)
             assert got['cls'] == 'app ' + expected.short
 
     def test_get(self):
-        r = self.client.get(self.url)
-        assert r.status_code == 200
+        response = self.client.get(self.url)
+        assert response.status_code == 200
 
     def test_addons(self):
         addons = (Addon.objects.public()
@@ -1047,5 +1029,5 @@ class TestSearchSuggestions(TestAjaxSearch):
         self.search_applications('', [])
         self.search_applications('q=FIREFOX', [amo.FIREFOX, amo.ANDROID])
         self.search_applications('q=firefox', [amo.FIREFOX, amo.ANDROID])
-        self.search_applications('q=bird', [amo.THUNDERBIRD])
+        self.search_applications('q=droid', [amo.ANDROID])
         self.search_applications('q=mozilla', [])

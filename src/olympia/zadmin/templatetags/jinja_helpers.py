@@ -15,8 +15,6 @@ def admin_site_links():
              reverse('discovery.module_admin')),
             ('Monthly Pick', reverse('zadmin.monthly_pick')),
             ('Fake mail', reverse('zadmin.mail')),
-            ('ACR Reports', reverse('zadmin.compat')),
-            ('Email Add-on Developers', reverse('zadmin.email_devs')),
             ('Replacement Addons', reverse(
                 'admin:addons_replacementaddon_changelist')),
         ],
@@ -27,11 +25,9 @@ def admin_site_links():
             ('View site settings', reverse('zadmin.settings')),
             ('View request environment', reverse('zadmin.env')),
             ('Django admin pages', reverse('zadmin.home')),
-            ('Site Events', reverse('zadmin.site_events')),
         ],
         'tools': [
             ('Manage elasticsearch', reverse('zadmin.elastic')),
-            ('Purge data from memcache', reverse('zadmin.memcache')),
             ('View addon log',
              reverse('admin:activity_activitylog_changelist')),
         ],

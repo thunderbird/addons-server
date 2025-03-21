@@ -30,7 +30,6 @@
             "total_downloads": 5333900,
             "disabled_by_user": 0,
             "guid": "{e968fc70-8f95-4ab9-9e79-304de2a71ee1}",
-            "locale_disambiguation": null,
             "weekly_downloads": 36381,
             "average_rating": "4.06",
             "average_daily_users": 378630,
@@ -41,7 +40,6 @@
             "privacy_policy": null,
             "default_locale": "en-US",
             "target_locale": null,
-            "external_software": 0,
             "name": 1360,
             "created": "2004-06-12 03:32:36",
             "type": 1,
@@ -57,7 +55,7 @@
             "license": 6,
             "created": "2009-06-30 19:48:43",
             "modified": "2009-12-17 12:40:26",
-            "approvalnotes": "",
+            "approval_notes": "",
             "version": "0.7.2",
             "addon": 59
         }

@@ -29,6 +29,14 @@
           <caption>{{ _('Add-on Information for {0}')|format_html(addon_name) }}</caption>
         {% endwith %}
         <tbody>
+          <tr class="addon-guid">
+            <th>{{ _('Add-on ID') }}</th>
+            <td>{{ addon.guid }}</td>
+          </tr>
+          <tr class="addon-amo-id">
+            <th>{{ _('Internal AMO ID') }}</th>
+            <td>{{ addon.id }}</td>
+          </tr>
           {% if addon.is_deleted %}
           <tr class="addon-status">
             <th>{{ _('Status') }}</th>
@@ -70,22 +78,6 @@
               {% endif %}
             </td>
           </tr>
-          {% endif %}
-          {% set deps = addon.all_dependencies %}
-          {% if deps %}
-            <tr class="addon-dependencies">
-              <th>
-                {{ _('Required Add-ons') }}
-              </th>
-              <td>
-                <ul>
-                  {% for d in deps %}
-                    <li><a href="{{ d.get_url_path() }}">
-                      {{ d.name }}</a></li>
-                  {% endfor %}
-                </ul>
-              </td>
-            </tr>
           {% endif %}
           {# XXX future feature: 'Localizations' ... #}
           <tr>
@@ -184,15 +176,7 @@
         {% endfor %}
         {% endwith %}
       </div>
-      <div class="all-backgrounds">
-        {% for background in backgrounds %}
-          {% with filename=background.rsplit('/', 1)[1] %}
-          <div class="background zoombox">
-              <img src="{{ background }}" alt="" width="1000" height="200">
-              <span>{{ _('Background file {0} of {1} - {2}')|format_html(loop.index, loop.length, filename) }}</span>
-          </div>
-          {% endwith %}
-        {% endfor %}
+      <div class="all-backgrounds" data-backgrounds-url="{{ url('reviewers.theme_background_images', version.id if version else 0) }}">
       </div>
     </div>
   {% elif addon.description or addon.current_previews|length > 1 or addon.developer_comments %}

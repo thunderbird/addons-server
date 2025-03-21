@@ -1,5 +1,4 @@
 import datetime
-import json
 import os
 import time
 
@@ -13,21 +12,22 @@ from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect
 from django.template import loader
+from django.utils.http import is_safe_url
 from django.utils.translation import ugettext, ugettext_lazy as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
+import six
 import waffle
 
 from django_statsd.clients import statsd
-from PIL import Image
 
 import olympia.core.logger
 
 from olympia import amo
 from olympia.access import acl
 from olympia.accounts.utils import redirect_for_login
-from olympia.accounts.views import API_TOKEN_COOKIE
+from olympia.accounts.views import API_TOKEN_COOKIE, logout_user
 from olympia.activity.models import ActivityLog, VersionLog
 from olympia.activity.utils import log_and_notify
 from olympia.addons import forms as addon_forms
@@ -36,29 +36,28 @@ from olympia.addons.views import BaseFilter
 from olympia.amo import messages, utils as amo_utils
 from olympia.amo.decorators import json_view, login_required, post_required
 from olympia.amo.templatetags.jinja_helpers import absolutify, urlparams
-from olympia.amo.urlresolvers import reverse
+from olympia.amo.urlresolvers import get_url_prefix, reverse
 from olympia.amo.utils import MenuItem, escape_all, render, send_mail
 from olympia.api.models import APIKey
-from olympia.applications.models import AppVersion
 from olympia.devhub.decorators import dev_required, no_admin_disabled
-from olympia.devhub.forms import (
-    AgreementForm, CheckCompatibilityForm, SourceForm)
+from olympia.devhub.forms import AgreementForm, SourceForm
 from olympia.devhub.models import BlogPost, RssKey
 from olympia.devhub.utils import (
-    add_dynamic_theme_tag, fetch_existing_translations_from_addon,
-    get_addon_akismet_reports, process_validation)
+    add_dynamic_theme_tag, extract_theme_properties,
+    fetch_existing_translations_from_addon, get_addon_akismet_reports,
+    wizard_unsupported_properties)
 from olympia.files.models import File, FileUpload, FileValidation
 from olympia.files.utils import parse_addon
-from olympia.lib.crypto.packaged import sign_file
+from olympia.lib.crypto.signing import sign_file
 from olympia.reviewers.forms import PublicWhiteboardForm
 from olympia.reviewers.models import Whiteboard
 from olympia.reviewers.templatetags.jinja_helpers import get_position
 from olympia.reviewers.utils import ReviewHelper
-from olympia.search.views import BaseAjaxSearch
 from olympia.users.models import UserProfile
 from olympia.versions import compare
+from olympia.versions.tasks import extract_version_source_to_git
 from olympia.versions.models import Version
-from olympia.zadmin.models import ValidationResult, get_config
+from olympia.zadmin.models import get_config
 
 from . import feeds, forms, signals, tasks
 
@@ -133,11 +132,6 @@ def dashboard(request, theme=False):
                 theme=theme, addon_items=addon_items)
     if data['addon_tab']:
         addons, data['filter'] = addon_listing(request)
-        # We know the dashboard is going to want to display feature
-        # compatibility. Unfortunately, cache-machine doesn't obey
-        # select_related properly, so to avoid the extra queries we do the next
-        # best thing, prefetch_related, which works fine with cache-machine.
-        addons = addons.prefetch_related('addonfeaturecompatibility')
         data['addons'] = amo_utils.paginate(request, addons, per_page=10)
 
     if theme:
@@ -261,8 +255,8 @@ def _get_items(action, addons):
 
 
 def _get_rss_feed(request):
-    key, __ = RssKey.objects.get_or_create(user=request.user)
-    return urlparams(reverse('devhub.feed_all'), privaterss=key.key)
+    key, _ = RssKey.objects.get_or_create(user=request.user)
+    return urlparams(reverse('devhub.feed_all'), privaterss=key.key.hex)
 
 
 def feed(request, addon_id=None):
@@ -287,7 +281,7 @@ def feed(request, addon_id=None):
             addon_selected = addon.id
 
             rssurl = urlparams(reverse('devhub.feed', args=[addon_id]),
-                               privaterss=key.key)
+                               privaterss=key.key.hex)
 
             if not acl.check_addon_ownership(request, addons, dev=True,
                                              ignore_disabled=True):
@@ -341,29 +335,8 @@ def edit(request, addon_id, addon):
 
 @dev_required(theme=True)
 def edit_theme(request, addon_id, addon, theme=False):
-    form = addon_forms.EditThemeForm(data=request.POST or None,
-                                     request=request, instance=addon)
-    owner_form = addon_forms.EditThemeOwnerForm(data=request.POST or None,
-                                                instance=addon)
-
-    if request.method == 'POST':
-        if 'owner_submit' in request.POST:
-            if owner_form.is_valid():
-                owner_form.save()
-                messages.success(
-                    request, ugettext('Changes successfully saved.'))
-                return redirect('devhub.themes.edit', addon.slug)
-        elif form.is_valid():
-            form.save()
-            messages.success(request, ugettext('Changes successfully saved.'))
-            return redirect('devhub.themes.edit', addon.reload().slug)
-        else:
-            messages.error(
-                request, ugettext('Please check the form for errors.'))
-
     return render(request, 'devhub/personas/edit.html', {
-        'addon': addon, 'persona': addon.persona, 'form': form,
-        'owner_form': owner_form})
+        'addon': addon, 'persona': addon.persona})
 
 
 @dev_required(owner_for_post=True, theme=True)
@@ -528,32 +501,14 @@ def ownership(request, addon_id, addon):
 
 
 @login_required
-@post_required
-@json_view
-def compat_application_versions(request):
-    app_id = request.POST['application']
-    f = CheckCompatibilityForm()
-    return {'choices': f.version_choices_for_app_id(app_id)}
-
-
-@login_required
 def validate_addon(request):
     return render(request, 'devhub/validate_addon.html',
                   {'title': ugettext('Validate Add-on'),
                    'new_addon_form': forms.DistributionChoiceForm()})
 
 
-@login_required
-def check_addon_compatibility(request):
-    form = CheckCompatibilityForm()
-    return render(request, 'devhub/validate_addon.html',
-                  {'appversion_form': form,
-                   'title': ugettext('Check Add-on Compatibility'),
-                   'new_addon_form': forms.DistributionChoiceForm()})
-
-
-def handle_upload(filedata, request, channel, app_id=None, version_id=None,
-                  addon=None, is_standalone=False, submit=False):
+def handle_upload(filedata, request, channel, addon=None, is_standalone=False,
+                  submit=False):
     automated_signing = channel == amo.RELEASE_CHANNEL_UNLISTED
 
     user = request.user if request.user.is_authenticated else None
@@ -561,45 +516,34 @@ def handle_upload(filedata, request, channel, app_id=None, version_id=None,
         filedata, filedata.name, filedata.size,
         automated_signing=automated_signing, addon=addon, user=user)
     log.info('FileUpload created: %s' % upload.uuid.hex)
-    if app_id and version_id:
-        # If app_id and version_id are present, we are dealing with a
-        # compatibility check (i.e. this is not an upload meant for submission,
-        # we were called from check_addon_compatibility()), which essentially
-        # consists in running the addon uploaded against the legacy validator
-        # with a specific min/max appversion override.
-        app = amo.APPS_ALL.get(int(app_id))
-        if not app:
-            raise http.Http404()
-        ver = get_object_or_404(AppVersion, pk=version_id)
-        tasks.compatibility_check.delay(upload.pk, app.guid, ver.version)
-    else:
-        from olympia.lib.akismet.tasks import comment_check   # circular import
 
-        if (channel == amo.RELEASE_CHANNEL_LISTED):
-            existing_data = (
-                fetch_existing_translations_from_addon(
-                    upload.addon, ('name', 'summary', 'description'))
-                if addon and addon.has_listed_versions() else ())
-            akismet_reports = get_addon_akismet_reports(
-                user=user,
-                user_agent=request.META.get('HTTP_USER_AGENT'),
-                referrer=request.META.get('HTTP_REFERER'),
-                upload=upload,
-                existing_data=existing_data)
-        else:
-            akismet_reports = []
-        # We HAVE to have a pretask here that returns a result, so we're always
-        # doing a comment_check task call even when it's pointless because
-        # there are no report ids in the list.  See tasks.validate for more.
-        akismet_checks = comment_check.si(
-            [report.id for _, report in akismet_reports])
-        if submit:
-            tasks.validate_and_submit(
-                addon, upload, channel=channel, pretask=akismet_checks)
-        else:
-            tasks.validate(
-                upload, listed=(channel == amo.RELEASE_CHANNEL_LISTED),
-                pretask=akismet_checks)
+    from olympia.lib.akismet.tasks import akismet_comment_check   # circ import
+
+    if (channel == amo.RELEASE_CHANNEL_LISTED):
+        existing_data = (
+            fetch_existing_translations_from_addon(
+                upload.addon, ('name', 'summary', 'description'))
+            if addon and addon.has_listed_versions() else ())
+        akismet_reports = get_addon_akismet_reports(
+            user=user,
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+            referrer=request.META.get('HTTP_REFERER'),
+            upload=upload,
+            existing_data=existing_data)
+    else:
+        akismet_reports = []
+    # We HAVE to have a pretask here that returns a result, so we're always
+    # doing a comment_check task call even when it's pointless because
+    # there are no report ids in the list.  See tasks.validate for more.
+    akismet_checks = akismet_comment_check.si(
+        [report.id for _, report in akismet_reports])
+    if submit:
+        tasks.validate_and_submit(
+            addon, upload, channel=channel, pretask=akismet_checks)
+    else:
+        tasks.validate(
+            upload, listed=(channel == amo.RELEASE_CHANNEL_LISTED),
+            pretask=akismet_checks)
 
     return upload
 
@@ -609,12 +553,9 @@ def handle_upload(filedata, request, channel, app_id=None, version_id=None,
 def upload(request, channel='listed', addon=None, is_standalone=False):
     channel = amo.CHANNEL_CHOICES_LOOKUP[channel]
     filedata = request.FILES['upload']
-    app_id = request.POST.get('app_id')
-    version_id = request.POST.get('version_id')
     upload = handle_upload(
-        filedata=filedata, request=request, app_id=app_id,
-        version_id=version_id, addon=addon, is_standalone=is_standalone,
-        channel=channel)
+        filedata=filedata, request=request, addon=addon,
+        is_standalone=is_standalone, channel=channel)
     if addon:
         return redirect('devhub.upload_detail_for_version',
                         addon.slug, upload.uuid.hex)
@@ -671,42 +612,6 @@ def file_validation(request, addon_id, addon, file_id):
     return render(request, 'devhub/validation.html', context)
 
 
-@dev_required(allow_reviewers=True)
-def bulk_compat_result(request, addon_id, addon, result_id):
-    qs = ValidationResult.objects.exclude(completed=None)
-    result = get_object_or_404(qs, pk=result_id)
-    job = result.validation_job
-    revalidate_url = reverse('devhub.json_bulk_compat_result',
-                             args=[addon.slug, result.id])
-    return _compat_result(request, revalidate_url,
-                          job.application, job.target_version,
-                          for_addon=result.file.version.addon,
-                          validated_filename=result.file.filename,
-                          validated_ts=result.completed)
-
-
-def _compat_result(request, revalidate_url, target_app, target_version,
-                   validated_filename=None, validated_ts=None,
-                   for_addon=None):
-    app_trans = dict((g, unicode(a.pretty)) for g, a in amo.APP_GUIDS.items())
-    ff_versions = (AppVersion.objects.filter(application=amo.FIREFOX.id,
-                                             version_int__gte=4000000000000)
-                   .values_list('application', 'version')
-                   .order_by('version_int'))
-    tpl = 'https://developer.mozilla.org/en/Firefox_%s_for_developers'
-    change_links = dict()
-    for app, ver in ff_versions:
-        major = ver.split('.')[0]  # 4.0b3 -> 4
-        change_links['%s %s' % (amo.APP_IDS[app].guid, ver)] = tpl % major
-
-    return render(request, 'devhub/validation.html',
-                  dict(validate_url=revalidate_url,
-                       filename=validated_filename, timestamp=validated_ts,
-                       target_app=target_app, target_version=target_version,
-                       addon=for_addon, result_type='compat',
-                       app_trans=app_trans, version_change_links=change_links))
-
-
 @json_view
 @csrf_exempt
 @dev_required(allow_reviewers=True)
@@ -727,18 +632,6 @@ def json_file_validation(request, addon_id, addon, file_id):
 
 
 @json_view
-@csrf_exempt
-@post_required
-@dev_required(allow_reviewers=True)
-def json_bulk_compat_result(request, addon_id, addon, result_id):
-    result = get_object_or_404(ValidationResult, pk=result_id,
-                               completed__isnull=False)
-
-    validation = json.loads(result.validation)
-    return {'validation': process_validation(validation), 'error': None}
-
-
-@json_view
 def json_upload_detail(request, upload, addon_slug=None):
     addon = None
     if addon_slug:
@@ -748,7 +641,12 @@ def json_upload_detail(request, upload, addon_slug=None):
         try:
             pkg = parse_addon(upload, addon=addon, user=request.user)
         except django_forms.ValidationError as exc:
-            errors_before = result['validation'].get('errors', 0)
+            # Don't add custom validation errors if we already
+            # failed validation (This can happen because validation does
+            # call `parse_addon` too.)
+            if result['validation'].get('errors', 0):
+                return result
+
             # This doesn't guard against client-side tinkering, and is purely
             # to display those non-linter errors nicely in the frontend. What
             # does prevent clients from bypassing those is the fact that we
@@ -764,9 +662,7 @@ def json_upload_detail(request, upload, addon_slug=None):
                 if result['validation']['ending_tier'] < 1:
                     result['validation']['ending_tier'] = 1
                 result['validation']['errors'] += 1
-
-            if not errors_before:
-                return json_view.error(result)
+            return json_view.error(result)
         else:
             result['addon_type'] = pkg.get('type', '')
     return result
@@ -785,17 +681,11 @@ def upload_validation_context(request, upload, addon=None, url=None):
 
     validation = upload.processed_validation or ''
 
-    processed_by_linter = (
-        validation and
-        validation.get('metadata', {}).get(
-            'processed_by_addons_linter', False))
-
     return {'upload': upload.uuid.hex,
             'validation': validation,
             'error': None,
             'url': url,
-            'full_report_url': full_report_url,
-            'processed_by_addons_linter': processed_by_linter}
+            'full_report_url': full_report_url}
 
 
 def upload_detail(request, uuid, format='html'):
@@ -817,11 +707,6 @@ def upload_detail(request, uuid, format='html'):
     validate_url = reverse('devhub.standalone_upload_detail',
                            args=[upload.uuid.hex])
 
-    if upload.compat_with_app:
-        return _compat_result(request, validate_url,
-                              upload.compat_with_app,
-                              upload.compat_with_appver)
-
     context = {'validate_url': validate_url, 'filename': upload.pretty_name,
                'automated_signing': upload.automated_signing,
                'timestamp': upload.created}
@@ -832,36 +717,26 @@ def upload_detail(request, uuid, format='html'):
     return render(request, 'devhub/validation.html', context)
 
 
-class AddonDependencySearch(BaseAjaxSearch):
-    # No personas.
-    types = [amo.ADDON_EXTENSION, amo.ADDON_THEME, amo.ADDON_DICT,
-             amo.ADDON_SEARCH, amo.ADDON_LPAPP]
-
-
-@dev_required
-@json_view
-def ajax_dependencies(request, addon_id, addon):
-    return AddonDependencySearch(request, excluded_ids=[addon_id]).items
-
-
 @dev_required
 def addons_section(request, addon_id, addon, section, editable=False):
     show_listed = addon.has_listed_versions()
     static_theme = addon.type == amo.ADDON_STATICTHEME
     models = {}
+    content_waffle = waffle.switch_is_active('content-optimization')
     if show_listed:
         models.update({
-            'basic': addon_forms.AddonFormBasic,
-            'details': addon_forms.AddonFormDetails,
-            'support': addon_forms.AddonFormSupport,
+            'describe': (forms.DescribeForm if not content_waffle
+                         else forms.DescribeFormContentOptimization),
+            'additional_details': addon_forms.AdditionalDetailsForm,
             'technical': addon_forms.AddonFormTechnical
         })
         if not static_theme:
             models.update({'media': addon_forms.AddonFormMedia})
     else:
         models.update({
-            'basic': addon_forms.AddonFormBasicUnlisted,
-            'details': addon_forms.AddonFormDetailsUnlisted,
+            'describe': (forms.DescribeFormUnlisted if not content_waffle
+                         else forms.DescribeFormUnlistedContentOptimization),
+            'additional_details': addon_forms.AdditionalDetailsFormUnlisted,
             'technical': addon_forms.AddonFormTechnicalUnlisted
         })
 
@@ -872,24 +747,20 @@ def addons_section(request, addon_id, addon, section, editable=False):
     cat_form = dependency_form = whiteboard_form = None
     whiteboard = None
 
-    if section == 'basic' and show_listed:
-        tags = addon.tags.not_denied().values_list('tag_text', flat=True)
+    if section == 'describe' and show_listed:
         category_form_class = (forms.SingleCategoryForm if static_theme else
                                addon_forms.CategoryFormSet)
         cat_form = category_form_class(
             request.POST or None, addon=addon, request=request)
+
+    elif section == 'additional_details' and show_listed:
+        tags = addon.tags.not_denied().values_list('tag_text', flat=True)
         restricted_tags = addon.tags.filter(restricted=True)
 
     elif section == 'media':
         previews = forms.PreviewFormSet(
             request.POST or None,
             prefix='files', queryset=addon.previews.all())
-
-    elif section == 'technical' and show_listed and not static_theme:
-        dependency_form = forms.DependencyFormSet(
-            request.POST or None,
-            queryset=addon.addons_dependencies.all(), addon=addon,
-            prefix='dependencies')
 
     if section == 'technical':
         try:
@@ -999,48 +870,79 @@ def ajax_upload_image(request, upload_type, addon_id=None):
 
         is_icon = upload_type == 'icon'
         is_persona = upload_type.startswith('persona_')
+        is_preview = upload_type == 'preview'
+        image_check = amo_utils.ImageCheck(upload_preview)
+        is_animated = image_check.is_animated()  # will also cache .is_image()
 
-        check = amo_utils.ImageCheck(upload_preview)
         if (upload_preview.content_type not in amo.IMG_TYPES or
-                not check.is_image()):
+                not image_check.is_image()):
             if is_icon:
                 errors.append(ugettext('Icons must be either PNG or JPG.'))
             else:
                 errors.append(ugettext('Images must be either PNG or JPG.'))
 
-        if check.is_animated():
+        if is_animated:
             if is_icon:
                 errors.append(ugettext('Icons cannot be animated.'))
             else:
                 errors.append(ugettext('Images cannot be animated.'))
 
-        max_size = None
         if is_icon:
             max_size = settings.MAX_ICON_UPLOAD_SIZE
-        if is_persona:
+        elif is_persona:
             max_size = settings.MAX_PERSONA_UPLOAD_SIZE
+        else:
+            max_size = None
 
         if max_size and upload_preview.size > max_size:
             if is_icon:
                 errors.append(
                     ugettext('Please use images smaller than %dMB.')
-                    % (max_size / 1024 / 1024))
+                    % (max_size // 1024 // 1024))
             if is_persona:
                 errors.append(
                     ugettext('Images cannot be larger than %dKB.')
-                    % (max_size / 1024))
+                    % (max_size // 1024))
 
-        if check.is_image() and is_persona:
+        if image_check.is_image() and is_persona:
             persona, img_type = upload_type.split('_')  # 'header' or 'footer'
             expected_size = amo.PERSONA_IMAGE_SIZES.get(img_type)[1]
-            with storage.open(loc, 'rb') as fp:
-                actual_size = Image.open(fp).size
+            actual_size = image_check.size
             if actual_size != expected_size:
                 # L10n: {0} is an image width (in pixels), {1} is a height.
                 errors.append(ugettext('Image must be exactly {0} pixels '
                                        'wide and {1} pixels tall.')
                               .format(expected_size[0], expected_size[1]))
-        if errors and upload_type == 'preview' and os.path.exists(loc):
+
+        content_waffle = waffle.switch_is_active('content-optimization')
+        if image_check.is_image() and content_waffle and is_preview:
+            min_size = amo.ADDON_PREVIEW_SIZES.get('min')
+            # * 100 to get a nice integer to compare against rather than 1.3333
+            required_ratio = min_size[0] * 100 // min_size[1]
+            actual_size = image_check.size
+            actual_ratio = actual_size[0] * 100 // actual_size[1]
+            if actual_size[0] < min_size[0] or actual_size[1] < min_size[1]:
+                # L10n: {0} is an image width (in pixels), {1} is a height.
+                errors.append(
+                    ugettext('Image must be at least {0} pixels wide and {1} '
+                             'pixels tall.').format(min_size[0], min_size[1]))
+            if actual_ratio != required_ratio:
+                errors.append(
+                    ugettext('Image dimensions must be in the ratio 4:3.'))
+
+        if image_check.is_image() and content_waffle and is_icon:
+            standard_size = amo.ADDON_ICON_SIZES[-1]
+            icon_size = image_check.size
+            if icon_size[0] < standard_size or icon_size[1] < standard_size:
+                # L10n: {0} is an image width/height (in pixels).
+                errors.append(
+                    ugettext(u'Icon must be at least {0} pixels wide and '
+                             u'tall.').format(standard_size))
+            if icon_size[0] != icon_size[1]:
+                errors.append(
+                    ugettext(u'Icon must be square (same width and height).'))
+
+        if errors and is_preview and os.path.exists(loc):
             # Delete the temporary preview file in case of error.
             os.unlink(loc)
     else:
@@ -1076,7 +978,7 @@ def version_edit(request, addon_id, addon, version_id):
     is_admin = acl.action_allowed(request,
                                   amo.permissions.REVIEWS_ADMIN)
 
-    if addon.accepts_compatible_apps():
+    if not static_theme and addon.accepts_compatible_apps():
         qs = version.apps.all()
         compat_form = forms.CompatFormSet(
             request.POST or None, queryset=qs,
@@ -1105,7 +1007,7 @@ def version_edit(request, addon_id, addon, version_id):
             had_pending_info_request = bool(addon.pending_info_request)
             data['version_form'].save()
 
-            if 'approvalnotes' in version_form.changed_data:
+            if 'approval_notes' in version_form.changed_data:
                 if had_pending_info_request:
                     log_and_notify(amo.LOG.APPROVAL_NOTES_CHANGED, None,
                                    request.user, version)
@@ -1117,6 +1019,16 @@ def version_edit(request, addon_id, addon, version_id):
                     version_form.cleaned_data['source']):
                 AddonReviewerFlags.objects.update_or_create(
                     addon=addon, defaults={'needs_admin_code_review': True})
+
+                commit_to_git = waffle.switch_is_active(
+                    'enable-uploads-commit-to-git-storage')
+
+                if commit_to_git:
+                    # Extract into git repository
+                    extract_version_source_to_git.delay(
+                        version_id=data['version_form'].instance.pk,
+                        author_id=request.user.pk)
+
                 if had_pending_info_request:
                     log_and_notify(amo.LOG.SOURCE_CODE_UPLOADED, None,
                                    request.user, version)
@@ -1327,6 +1239,41 @@ def submit_version_distribution(request, addon_id, addon):
     return _submit_distribution(request, addon, 'devhub.submit.version.upload')
 
 
+WIZARD_COLOR_FIELDS = [
+    ('accentcolor',
+     _(u'Header area background'),
+     _(u'The color of the header area background, displayed in the part of '
+       u'the header not covered or visible through the header image. Manifest '
+       u'field:  accentcolor.'),
+     'rgba(229,230,232,1)'),
+    ('textcolor',
+     _(u'Header area text and icons'),
+     _(u'The color of the text and icons in the header area, except the '
+       u'active tab. Manifest field:  textcolor.'),
+     'rgba(0,0,0,1'),
+    ('toolbar',
+     _(u'Toolbar area background'),
+     _(u'The background color for the navigation bar, the bookmarks bar, and '
+       u'the selected tab.  Manifest field:  toolbar.'),
+     False),
+    ('toolbar_text',
+     _(u'Toolbar area text and icons'),
+     _(u'The color of the text and icons in the toolbar and the active tab. '
+       u'Manifest field:  toolbar_text.'),
+     False),
+    ('toolbar_field',
+     _(u'Toolbar field area background'),
+     _(u'The background color for fields in the toolbar, such as the URL bar. '
+       u'Manifest field:  toolbar_field.'),
+     False),
+    ('toolbar_field_text',
+     _(u'Toolbar field area text'),
+     _(u'The color of text in fields in the toolbar, such as the URL bar. '
+       u'Manifest field:  toolbar_field_text.'),
+     False)
+]
+
+
 @transaction.atomic
 def _submit_upload(request, addon, channel, next_view, wizard=False):
     """ If this is a new addon upload `addon` will be None.
@@ -1381,6 +1328,14 @@ def _submit_upload(request, addon, channel, next_view, wizard=False):
     submit_page = 'version' if addon else 'addon'
     template = ('devhub/addons/submit/upload.html' if not wizard else
                 'devhub/addons/submit/wizard.html')
+    existing_properties = (
+        extract_theme_properties(addon, channel)
+        if wizard and addon else {})
+    unsupported_properties = (
+        wizard_unsupported_properties(
+            existing_properties,
+            [field for field, _, _, _ in WIZARD_COLOR_FIELDS])
+        if existing_properties else [])
     return render(request, template,
                   {'new_addon_form': form,
                    'is_admin': is_admin,
@@ -1390,6 +1345,9 @@ def _submit_upload(request, addon, channel, next_view, wizard=False):
                    'submit_page': submit_page,
                    'channel': channel,
                    'channel_choice_text': channel_choice_text,
+                   'existing_properties': existing_properties,
+                   'colors': WIZARD_COLOR_FIELDS,
+                   'unsupported_properties': unsupported_properties,
                    'version_number':
                        get_next_version_number(addon) if wizard else None})
 
@@ -1454,6 +1412,7 @@ def _submit_source(request, addon, version, next_view):
         if form.cleaned_data.get('source'):
             AddonReviewerFlags.objects.update_or_create(
                 addon=addon, defaults={'needs_admin_code_review': True})
+
             activity_log = ActivityLog.objects.create(
                 action=amo.LOG.SOURCE_CODE_UPLOADED.id,
                 user=request.user,
@@ -1464,6 +1423,15 @@ def _submit_source(request, addon, version, next_view):
             VersionLog.objects.create(
                 version_id=latest_version.id, activity_log=activity_log)
             form.save()
+
+            # We can extract the actual source file only after the form
+            # has been saved because the file behind it may not have been
+            # written to disk yet (e.g for in-memory uploads)
+            if waffle.switch_is_active('enable-uploads-commit-to-git-storage'):
+                extract_version_source_to_git.delay(
+                    version_id=form.instance.pk,
+                    author_id=request.user.pk)
+
         return redirect(next_view, *redirect_args)
     context = {
         'form': form,
@@ -1519,16 +1487,30 @@ def _submit_details(request, addon, version):
     show_all_fields = not version or not addon.has_complete_metadata()
 
     if show_all_fields:
-        describe_form = forms.DescribeForm(
-            post_data, instance=addon, request=request, version=version)
+        if waffle.switch_is_active('content-optimization'):
+            describe_form = forms.DescribeFormContentOptimization(
+                post_data, instance=addon, request=request, version=version,
+                should_auto_crop=True)
+        else:
+            describe_form = forms.DescribeForm(
+                post_data, instance=addon, request=request, version=version)
         cat_form_class = (addon_forms.CategoryFormSet if not static_theme
                           else forms.SingleCategoryForm)
         cat_form = cat_form_class(post_data, addon=addon, request=request)
+        policy_form = forms.PolicyForm(post_data, addon=addon)
         license_form = forms.LicenseForm(
             post_data, version=latest_version, prefix='license')
         context.update(license_form.get_context())
-        context.update(form=describe_form, cat_form=cat_form)
-        forms_list.extend([describe_form, cat_form, context['license_form']])
+        context.update(
+            form=describe_form,
+            cat_form=cat_form,
+            policy_form=policy_form)
+        forms_list.extend([
+            describe_form,
+            cat_form,
+            policy_form,
+            context['license_form']
+        ])
     if not static_theme:
         # Static themes don't need this form
         reviewer_form = forms.VersionForm(
@@ -1541,6 +1523,7 @@ def _submit_details(request, addon, version):
         if show_all_fields:
             addon = describe_form.save()
             cat_form.save()
+            policy_form.save()
             license_form.save(log=False)
             if not static_theme:
                 reviewer_form.save()
@@ -1593,8 +1576,8 @@ def _submit_finish(request, addon, version):
         # We can use locale-prefixed URLs because the submitter probably
         # speaks the same language by the time he/she reads the email.
         context = {
-            'addon_name': unicode(addon.name),
-            'app': unicode(request.APP.pretty),
+            'addon_name': six.text_type(addon.name),
+            'app': six.text_type(request.APP.pretty),
             'detail_url': absolutify(addon.get_url_path()),
             'version_url': absolutify(addon.get_dev_url('versions')),
             'edit_url': absolutify(addon.get_dev_url('edit')),
@@ -1820,3 +1803,51 @@ def send_key_revoked_email(to_email, key):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[to_email],
     )
+
+
+@dev_required
+@json_view
+def theme_background_image(request, addon_id, addon, channel):
+    channel_id = amo.CHANNEL_CHOICES_LOOKUP[channel]
+    version = addon.find_latest_version(channel_id)
+    return (version.get_background_images_encoded(header_only=True) if version
+            else {})
+
+
+def _clean_next_url(request):
+    gets = request.GET.copy()
+    url = gets.get('to', settings.LOGIN_REDIRECT_URL)
+
+    if not is_safe_url(url, allowed_hosts=(settings.DOMAIN,)):
+        log.info(u'Unsafe redirect to %s' % url)
+        url = settings.LOGIN_REDIRECT_URL
+
+    domain = gets.get('domain', None)
+    if domain in settings.VALID_LOGIN_REDIRECTS.keys():
+        url = settings.VALID_LOGIN_REDIRECTS[domain] + url
+
+    gets['to'] = url
+    request.GET = gets
+    return request
+
+
+def logout(request):
+    user = request.user
+    if not user.is_anonymous:
+        log.debug(u"User (%s) logged out" % user)
+
+    if 'to' in request.GET:
+        request = _clean_next_url(request)
+
+    next_url = request.GET.get('to')
+    if not next_url:
+        next_url = settings.LOGOUT_REDIRECT_URL
+        prefixer = get_url_prefix()
+        if prefixer:
+            next_url = prefixer.fix(next_url)
+
+    response = http.HttpResponseRedirect(next_url)
+
+    logout_user(request, response)
+
+    return response

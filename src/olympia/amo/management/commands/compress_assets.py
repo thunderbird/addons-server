@@ -1,21 +1,24 @@
 import hashlib
 import os
 import re
+import subprocess
 import time
 import uuid
-
-import subprocess
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.staticfiles.finders import find as find_static_path
+from django.utils.encoding import force_bytes
+
+import six
 
 from olympia.lib.jingo_minify_helpers import ensure_path_exists
 
 
 def run_command(command):
     """Run a command and correctly poll the output and write that to stdout"""
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+    process = subprocess.Popen(
+        command, stdout=subprocess.PIPE, shell=True, universal_newlines=True)
     while True:
         output = process.stdout.readline()
         if output == '' and process.poll() is not None:
@@ -43,7 +46,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         """Handle command arguments."""
         parser.add_argument(
-            'force', action='store_true',
+            '--force', action='store_true',
             help='Ignores modified/created dates and forces compression.')
 
     def generate_build_id(self):
@@ -70,8 +73,8 @@ class Command(BaseCommand):
         # - Concat all files into one
         # - Cache bust all images in CSS files
         # - Minify the concatted files
-        for ftype, bundle in settings.MINIFY_BUNDLES.iteritems():
-            for name, files in bundle.iteritems():
+        for ftype, bundle in six.iteritems(settings.MINIFY_BUNDLES):
+            for name, files in six.iteritems(bundle):
                 # Set the paths to the files.
                 concatted_file = os.path.join(
                     settings.ROOT, 'static',
@@ -177,13 +180,13 @@ class Command(BaseCommand):
         def _parse(url):
             return self._cachebust_regex(url, css_file)
 
-        css_parsed = re.sub('url\(([^)]*?)\)', _parse, css_content)
+        css_parsed = re.sub(r'url\(([^)]*?)\)', _parse, css_content)
 
         with open(css_file, 'w') as css_out:
             css_out.write(css_parsed)
 
         # Return bundle hash for cachebusting JS/CSS files.
-        file_hash = hashlib.md5(css_parsed).hexdigest()[0:7]
+        file_hash = hashlib.md5(force_bytes(css_parsed)).hexdigest()[0:7]
         self.checked_hash[css_file] = file_hash
 
         if self.missing_files:
@@ -218,7 +221,7 @@ class Command(BaseCommand):
 
         file_hash = ''
         try:
-            with open(url) as f:
+            with open(url, 'rb') as f:
                 file_hash = hashlib.md5(f.read()).hexdigest()[0:7]
         except IOError:
             self.missing_files += 1

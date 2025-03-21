@@ -2,7 +2,7 @@ from django.conf.urls import url
 from django.shortcuts import redirect
 
 from olympia.addons.urls import ADDON_ID
-from olympia.reviewers import views, views_themes
+from olympia.reviewers import views
 
 
 # All URLs under /editors/
@@ -58,35 +58,7 @@ urlpatterns = (
     url(r'^abuse-reports/%s$' % ADDON_ID, views.abuse_reports,
         name='reviewers.abuse_reports'),
     url(r'^leaderboard/$', views.leaderboard, name='reviewers.leaderboard'),
-
-    url('^themes$',
-        lambda request: redirect('reviewers.dashboard', permanent=True)),
-    url('^themes/pending$', views_themes.themes_list,
-        name='reviewers.themes.list'),
-    url('^themes/flagged$', views_themes.themes_list,
-        name='reviewers.themes.list_flagged',
-        kwargs={'flagged': True}),
-    url('^themes/updates$', views_themes.themes_list,
-        name='reviewers.themes.list_rereview',
-        kwargs={'rereview': True}),
-    url('^themes/queue/$', views_themes.themes_queue,
-        name='reviewers.themes.queue_themes'),
-    url('^themes/queue/flagged$', views_themes.themes_queue_flagged,
-        name='reviewers.themes.queue_flagged'),
-    url('^themes/queue/updates$', views_themes.themes_queue_rereview,
-        name='reviewers.themes.queue_rereview'),
-    url('^themes/queue/commit$', views_themes.themes_commit,
-        name='reviewers.themes.commit'),
-    url('^themes/queue/single/(?P<slug>[^ /]+)$', views_themes.themes_single,
-        name='reviewers.themes.single'),
-    url('^themes/history/(?P<username>[^ /]+)?$',
-        views_themes.themes_history, name='reviewers.themes.history'),
-    url(r'^themes/logs$', views_themes.themes_logs,
-        name='reviewers.themes.logs'),
-    url('^themes/release$', views_themes.release_locks,
-        name='reviewers.themes.release_locks'),
-    url('^themes/logs/deleted/$', views_themes.deleted_themes,
-        name='reviewers.themes.deleted'),
-    url('^themes/search/$', views_themes.themes_search,
-        name='reviewers.themes.search'),
+    url(r'^theme_background_images/(?P<version_id>[^ /]+)?$',
+        views.theme_background_images,
+        name='reviewers.theme_background_images'),
 )

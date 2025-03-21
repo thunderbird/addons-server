@@ -1,17 +1,14 @@
 import functools
-import hashlib
-import os
 
 from django import http
 from django.conf import settings
-from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.db.transaction import non_atomic_requests
 from django.shortcuts import get_object_or_404
 from django.utils.translation import ugettext, ugettext_lazy as _lazy
-from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST
+
+import six
 
 from django_statsd.clients import statsd
 from rest_framework import serializers
@@ -27,18 +24,17 @@ from olympia.addons.models import Addon
 from olympia.addons.views import BaseFilter
 from olympia.amo import messages
 from olympia.amo.decorators import (
-    allow_mine, json_view, login_required, post_required, use_primary_db)
+    allow_mine, login_required, post_required, use_primary_db)
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import paginate, render, urlparams
 from olympia.api.filters import OrderingAliasFilter
 from olympia.api.permissions import (
     AllOf, AllowReadOnlyIfPublic, AnyOf, PreventActionPermission)
-from olympia.legacy_api.utils import addon_to_dict
-from olympia.tags.models import Tag
 from olympia.translations.query import order_by_translation
+from olympia.users.decorators import process_user_id
 from olympia.users.models import UserProfile
 
-from . import forms, tasks
+from . import forms
 from .models import SPECIAL_SLUGS, Collection, CollectionAddon
 from .permissions import (
     AllowCollectionAuthor, AllowCollectionContributor, AllowContentCurators)
@@ -51,24 +47,24 @@ log = olympia.core.logger.getLogger('z.collections')
 
 
 @non_atomic_requests
-def get_collection(request, username, slug):
+def get_collection(request, user_id, slug):
     if (slug in SPECIAL_SLUGS.values() and request.user.is_authenticated and
-            request.user.username == username):
+            request.user.id == user_id):
         return getattr(request.user, slug + '_collection')()
     else:
         return get_object_or_404(Collection.objects,
-                                 author__username=username, slug=slug)
+                                 author_id=user_id, slug=slug)
 
 
 def owner_required(f=None, require_owner=True):
     """Requires collection to be owned, by someone."""
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(request, username, slug, *args, **kw):
-            collection = get_collection(request, username, slug)
+        def wrapper(request, user_id, slug, *args, **kw):
+            collection = get_collection(request, user_id, slug)
             if acl.check_collection_ownership(request, collection,
                                               require_owner=require_owner):
-                return func(request, collection, username, slug, *args, **kw)
+                return func(request, collection, user_id, slug, *args, **kw)
             else:
                 raise PermissionDenied
         return wrapper
@@ -100,7 +96,7 @@ def legacy_directory_redirects(request, page):
         loc = urlparams(base, sort=sorts[page])
     elif request.user.is_authenticated:
         if page == 'mine':
-            loc = reverse('collections.user', args=[request.user.username])
+            loc = reverse('collections.user', args=[request.user.id])
     return http.HttpResponseRedirect(loc)
 
 
@@ -122,27 +118,21 @@ def collection_listing(request, base=None):
                   .filter(type=amo.COLLECTION_FEATURED)
                   .exclude(addon_count=0)
     )
-    # Counts are hard to cache automatically, and accuracy for this
-    # one is less important. Remember it for 5 minutes.
-    countkey = hashlib.sha256(str(qs.query) + '_count').hexdigest()
-    count = cache.get(countkey)
-    if count is None:
-        count = qs.count()
-        cache.set(countkey, count, 300)
-    collections = paginate(request, qs, count=count)
+    collections = paginate(request, qs, count=qs.count())
     return render_cat(request, 'bandwagon/impala/collection_listing.html',
                       {'collections': collections, 'src': 'co-hc-sidebar',
                        'dl_src': 'co-dp-sidebar'})
 
 
 @allow_mine
+@process_user_id
 @non_atomic_requests
-def user_listing(request, username):
-    author = get_object_or_404(UserProfile, username=username)
-    qs = (Collection.objects.filter(author__username=username)
+def user_listing(request, user_id):
+    author = get_object_or_404(UserProfile, id=user_id)
+    qs = (Collection.objects.filter(author_id=user_id)
           .order_by('-created'))
     mine = (request.user.is_authenticated and
-            request.user.username == username)
+            request.user.id == user_id)
     if mine:
         page = 'mine'
     else:
@@ -170,9 +160,10 @@ class CollectionAddonFilter(BaseFilter):
 
 
 @allow_mine
+@process_user_id
 @non_atomic_requests
-def collection_detail(request, username, slug):
-    collection = get_collection(request, username, slug)
+def collection_detail(request, user_id, slug):
+    collection = get_collection(request, user_id, slug)
     if not collection.listed:
         if not request.user.is_authenticated:
             return redirect_for_login(request)
@@ -196,30 +187,10 @@ def collection_detail(request, username, slug):
             request, collection, require_owner=False),
     }
 
-    tags = Tag.objects.filter(
-        id__in=collection.top_tags) if collection.top_tags else []
     return render_cat(request, 'bandwagon/collection_detail.html',
                       {'collection': collection, 'filter': filter,
                        'addons': addons, 'notes': notes,
-                       'tags': tags, 'user_perms': user_perms})
-
-
-@json_view(has_trans=True)
-@allow_mine
-@non_atomic_requests
-def collection_detail_json(request, username, slug):
-    collection = get_collection(request, username, slug)
-    if not (collection.listed or acl.check_collection_ownership(
-            request, collection)):
-        raise PermissionDenied
-    # We evaluate the QuerySet with `list` to work around bug 866454.
-    addons_dict = [addon_to_dict(a) for a in list(collection.addons.valid())]
-    return {
-        'name': collection.name,
-        'url': collection.get_abs_url(),
-        'iconUrl': collection.icon_url,
-        'addons': addons_dict
-    }
+                       'user_perms': user_perms})
 
 
 def get_notes(collection, raw=False):
@@ -324,8 +295,9 @@ def ajax_list(request):
 @use_primary_db
 @login_required
 @post_required
-def collection_alter(request, username, slug, action):
-    collection = get_collection(request, username, slug)
+@process_user_id
+def collection_alter(request, user_id, slug, action):
+    collection = get_collection(request, user_id, slug)
     return change_addon(request, collection, action)
 
 
@@ -363,10 +335,11 @@ def ajax_collection_alter(request, action):
 
 @use_primary_db
 @login_required
+@process_user_id
 # Contributors are allowed to *see* the page, but there is another
 # permission check below to prevent them from doing any modifications.
 @owner_required(require_owner=False)
-def edit(request, collection, username, slug):
+def edit(request, collection, user_id, slug):
     is_admin = acl.action_allowed(request, amo.permissions.ADMIN_CURATION)
 
     if not acl.check_collection_ownership(
@@ -399,7 +372,7 @@ def edit(request, collection, username, slug):
     data = {
         'collection': collection,
         'form': form,
-        'username': username,
+        'user_id': user_id,
         'slug': slug,
         'meta': meta,
         'is_admin': is_admin,
@@ -411,9 +384,10 @@ def edit(request, collection, username, slug):
 
 @use_primary_db
 @login_required
+@process_user_id
 @owner_required(require_owner=False)
 @post_required
-def edit_addons(request, collection, username, slug):
+def edit_addons(request, collection, user_id, slug):
     if request.method == 'POST':
         form = forms.AddonsForm(request.POST)
         if form.is_valid():
@@ -427,9 +401,10 @@ def edit_addons(request, collection, username, slug):
 
 @use_primary_db
 @login_required
+@process_user_id
 @owner_required
 @post_required
-def edit_privacy(request, collection, username, slug):
+def edit_privacy(request, collection, user_id, slug):
     collection.listed = not collection.listed
     collection.save()
     log.info(u'%s changed privacy on collection %s' %
@@ -439,23 +414,23 @@ def edit_privacy(request, collection, username, slug):
 
 @use_primary_db
 @login_required
-def delete(request, username, slug):
-    collection = get_object_or_404(Collection, author__username=username,
-                                   slug=slug)
+@process_user_id
+def delete(request, user_id, slug):
+    collection = get_object_or_404(Collection, author_id=user_id, slug=slug)
 
     if not acl.check_collection_ownership(request, collection, True):
         log.info(u'%s is trying to delete collection %s'
                  % (request.user, collection.id))
         raise PermissionDenied
 
-    data = dict(collection=collection, username=username, slug=slug)
+    data = dict(collection=collection, user_id=user_id, slug=slug)
 
     if request.method == 'POST':
         if request.POST['sure'] == '1':
             collection.delete()
             log.info(u'%s deleted collection %s' %
                      (request.user, collection.id))
-            url = reverse('collections.user', args=[username])
+            url = reverse('collections.user', args=[user_id])
             return http.HttpResponseRedirect(url)
         else:
             return http.HttpResponseRedirect(collection.get_url_path())
@@ -463,35 +438,14 @@ def delete(request, username, slug):
     return render_cat(request, 'bandwagon/delete.html', data)
 
 
-@require_POST
-@use_primary_db
-@login_required
-@owner_required
-@json_view
-@csrf_protect
-def delete_icon(request, collection, username, slug):
-    log.debug(u"User deleted collection (%s) icon " % slug)
-    tasks.delete_icon(os.path.join(collection.get_img_dir(),
-                                   '%d.png' % collection.id))
-
-    collection.icontype = ''
-    collection.save()
-
-    if request.is_ajax():
-        return {'icon': collection.icon_url}
-    else:
-        messages.success(request, ugettext('Icon Deleted'))
-        return http.HttpResponseRedirect(collection.edit_url())
-
-
 @login_required
 @allow_mine
 @non_atomic_requests
-def mine(request, username=None, slug=None):
+def mine(request, user_id=None, slug=None):
     if slug is None:
-        return user_listing(request, username)
+        return user_listing(request, user_id)
     else:
-        return collection_detail(request, username, slug)
+        return collection_detail(request, user_id, slug)
 
 
 class CollectionViewSet(ModelViewSet):
@@ -601,7 +555,7 @@ class CollectionAddonViewSet(ModelViewSet):
         self.lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         lookup_value = self.kwargs.get(self.lookup_url_kwarg)
         # if the lookup is not a number, its probably the slug instead.
-        if lookup_value and not unicode(lookup_value).isdigit():
+        if lookup_value and not six.text_type(lookup_value).isdigit():
             self.lookup_field = '%s__slug' % self.lookup_field
         return super(CollectionAddonViewSet, self).get_object()
 

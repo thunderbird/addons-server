@@ -21,7 +21,7 @@ from olympia.files.models import File, FileValidation, WebextPermission
 from olympia.ratings.models import Rating
 from olympia.reviewers.models import (
     AutoApprovalNotEnoughFilesError, AutoApprovalNoValidationResultError,
-    AutoApprovalSummary, RereviewQueueTheme, ReviewerScore,
+    AutoApprovalSummary, ReviewerScore,
     ReviewerSubscription, ViewFullReviewQueue, ViewPendingQueue,
     ViewUnlistedAllList, send_notifications, set_reviewing_cache)
 from olympia.users.models import UserProfile
@@ -586,6 +586,103 @@ class TestReviewerScore(TestCase):
             amo.REVIEWED_EXTENSION_MEDIUM_RISK]
         assert score.version == self.addon.current_version
 
+    def test_award_points_extension_disabled_autoapproval(self):
+        self.version = version_factory(
+            addon=self.addon, version='1.1', file_kw={
+                'status': amo.STATUS_AWAITING_REVIEW,
+                'is_webextension': True})
+        AutoApprovalSummary.objects.create(
+            version=self.addon.current_version, verdict=amo.NOT_AUTO_APPROVED,
+            weight=101)
+        ReviewerScore.award_points(
+            self.user, self.addon, self.addon.status,
+            version=self.addon.current_version,
+            post_review=False, content_review=False)
+        score = ReviewerScore.objects.get(user=self.user)
+        assert score.score == amo.REVIEWED_SCORES[
+            amo.REVIEWED_EXTENSION_MEDIUM_RISK]
+        assert score.version == self.addon.current_version
+
+    def test_award_points_langpack_post_review(self):
+        search_provider = amo.tests.addon_factory(
+            status=amo.STATUS_PUBLIC, type=amo.ADDON_LPAPP)
+        self.version = version_factory(
+            addon=search_provider, version='1.1', file_kw={
+                'status': amo.STATUS_PUBLIC,
+                'is_webextension': True})
+        AutoApprovalSummary.objects.create(
+            version=search_provider.current_version,
+            verdict=amo.AUTO_APPROVED,
+            weight=101)
+        ReviewerScore.award_points(
+            self.user, search_provider, search_provider.status,
+            version=search_provider.current_version,
+            post_review=True, content_review=False)
+        score = ReviewerScore.objects.get(user=self.user)
+        assert score.score == amo.REVIEWED_SCORES[
+            amo.REVIEWED_LP_FULL]
+        assert score.version == search_provider.current_version
+
+    def test_award_points_langpack_disabled_auto_approval(self):
+        search_provider = amo.tests.addon_factory(
+            status=amo.STATUS_NOMINATED, type=amo.ADDON_LPAPP)
+        self.version = version_factory(
+            addon=search_provider, version='1.1', file_kw={
+                'status': amo.STATUS_AWAITING_REVIEW,
+                'is_webextension': True})
+        AutoApprovalSummary.objects.create(
+            version=search_provider.current_version,
+            verdict=amo.NOT_AUTO_APPROVED,
+            weight=101)
+        ReviewerScore.award_points(
+            self.user, search_provider, search_provider.status,
+            version=search_provider.current_version,
+            post_review=False, content_review=False)
+        score = ReviewerScore.objects.get(user=self.user)
+        assert score.score == amo.REVIEWED_SCORES[
+            amo.REVIEWED_LP_FULL]
+        assert score.version == search_provider.current_version
+
+    def test_award_points_dict_post_review(self):
+        dictionary = amo.tests.addon_factory(
+            status=amo.STATUS_PUBLIC, type=amo.ADDON_DICT)
+        self.version = version_factory(
+            addon=dictionary, version='1.1', file_kw={
+                'status': amo.STATUS_PUBLIC,
+                'is_webextension': True})
+        AutoApprovalSummary.objects.create(
+            version=dictionary.current_version,
+            verdict=amo.AUTO_APPROVED,
+            weight=101)
+        ReviewerScore.award_points(
+            self.user, dictionary, dictionary.status,
+            version=dictionary.current_version,
+            post_review=True, content_review=False)
+        score = ReviewerScore.objects.get(user=self.user)
+        assert score.score == amo.REVIEWED_SCORES[
+            amo.REVIEWED_DICT_FULL]
+        assert score.version == dictionary.current_version
+
+    def test_award_points_dict_disabled_auto_approval(self):
+        dictionary = amo.tests.addon_factory(
+            status=amo.STATUS_NOMINATED, type=amo.ADDON_DICT)
+        self.version = version_factory(
+            addon=dictionary, version='1.1', file_kw={
+                'status': amo.STATUS_AWAITING_REVIEW,
+                'is_webextension': True})
+        AutoApprovalSummary.objects.create(
+            version=dictionary.current_version,
+            verdict=amo.NOT_AUTO_APPROVED,
+            weight=101)
+        ReviewerScore.award_points(
+            self.user, dictionary, dictionary.status,
+            version=dictionary.current_version,
+            post_review=False, content_review=False)
+        score = ReviewerScore.objects.get(user=self.user)
+        assert score.score == amo.REVIEWED_SCORES[
+            amo.REVIEWED_DICT_FULL]
+        assert score.version == dictionary.current_version
+
     def test_award_moderation_points(self):
         ReviewerScore.award_moderation_points(self.user, self.addon, 1)
         score = ReviewerScore.objects.all()[0]
@@ -762,33 +859,6 @@ class TestReviewerScore(TestCase):
             ReviewerScore.get_breakdown(self.user)
 
 
-class TestRereviewQueueTheme(TestCase):
-
-    def test_manager_soft_delete_addons(self):
-        """Test manager excludes soft delete add-ons."""
-        # Normal RQT object.
-        RereviewQueueTheme.objects.create(
-            theme=addon_factory(type=amo.ADDON_PERSONA).persona, header='')
-
-        # Deleted add-on RQT object.
-        addon = addon_factory(type=amo.ADDON_PERSONA)
-        RereviewQueueTheme.objects.create(theme=addon.persona, header='')
-        addon.delete()
-
-        assert RereviewQueueTheme.objects.count() == 1
-        assert RereviewQueueTheme.unfiltered.count() == 2
-
-    def test_filter_for_many_to_many(self):
-        # Check https://bugzilla.mozilla.org/show_bug.cgi?id=1142035.
-        addon = addon_factory(type=amo.ADDON_PERSONA)
-        rqt = RereviewQueueTheme.objects.create(theme=addon.persona)
-        assert addon.persona.rereviewqueuetheme_set.get() == rqt
-
-        # Delete the addon: it shouldn't be listed anymore.
-        addon.update(status=amo.STATUS_DELETED)
-        assert addon.persona.rereviewqueuetheme_set.all().count() == 0
-
-
 class TestAutoApprovalSummary(TestCase):
     def setUp(self):
         self.addon = addon_factory(
@@ -832,6 +902,7 @@ class TestAutoApprovalSummary(TestCase):
             'uses_remote_scripts': 0,
             'uses_unknown_minified_code': 0,
             'violates_mozilla_conditions': 0,
+            'uses_coinminer': 0,
         }
         assert weight_info == expected_result
 
@@ -1395,6 +1466,7 @@ class TestAutoApprovalSummary(TestCase):
             'uses_remote_scripts': 0,
             'uses_unknown_minified_code': 0,
             'violates_mozilla_conditions': 0,
+            'uses_coinminer': 0,
         }
         assert weight_info == expected_result
 
@@ -1438,6 +1510,18 @@ class TestAutoApprovalSummary(TestCase):
         assert (
             AutoApprovalSummary.check_uses_native_messaging(self.version) == 1)
 
+    def test_calculate_weight_uses_coinminer(self):
+        validation_data = {
+            'messages': [{
+                'id': ['COINMINER_USAGE_DETECTED'],
+            }]
+        }
+        self.file_validation.update(validation=json.dumps(validation_data))
+        summary = AutoApprovalSummary(version=self.version)
+        weight_info = summary.calculate_weight()
+        assert summary.weight == 2000
+        assert weight_info['uses_coinminer'] == 2000
+
     def test_check_has_auto_approval_disabled(self):
         assert AutoApprovalSummary.check_has_auto_approval_disabled(
             self.version) == 0
@@ -1458,6 +1542,10 @@ class TestAutoApprovalSummary(TestCase):
 
         set_reviewing_cache(self.version.addon.pk, settings.TASK_USER_ID + 42)
         assert AutoApprovalSummary.check_is_locked(self.version) is True
+
+        # Langpacks are never considered locked.
+        self.addon.update(type=amo.ADDON_LPAPP)
+        assert AutoApprovalSummary.check_is_locked(self.version) is False
 
     @mock.patch.object(AutoApprovalSummary, 'calculate_weight', spec=True)
     @mock.patch.object(AutoApprovalSummary, 'calculate_verdict', spec=True)

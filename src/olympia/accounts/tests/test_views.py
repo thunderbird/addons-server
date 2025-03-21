@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import base64
 import json
-import urlparse
+import mock
+import six
 
 from os import path
+from six.moves.urllib_parse import parse_qs, urlparse
 
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
@@ -11,19 +13,18 @@ from django.contrib.messages import get_messages
 from django.urls import reverse
 from django.test import RequestFactory
 from django.test.utils import override_settings
-
-import mock
+from django.utils.encoding import force_text
 
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.settings import api_settings
-from rest_framework.test import APIRequestFactory, APITestCase
+from rest_framework.test import APIClient, APIRequestFactory
 from waffle.models import Switch
 
 from olympia import amo
 from olympia.access.acl import action_allowed_user
 from olympia.access.models import Group, GroupUser
 from olympia.accounts import verify, views
-from olympia.amo.templatetags.jinja_helpers import absolutify, urlparams
+from olympia.amo.templatetags.jinja_helpers import absolutify
 from olympia.amo.tests import (
     APITestClient, InitializeSessionMixin, PatchMixin, TestCase,
     WithDynamicEndpoints, addon_factory, assert_url_equal, create_switch,
@@ -55,8 +56,9 @@ SKIP_REDIRECT_FXA_CONFIG = {
     'default': FXA_CONFIG,
     'skip': SKIP_REDIRECT_FXA_CONFIG,
 })
-class BaseAuthenticationView(APITestCase, PatchMixin,
+class BaseAuthenticationView(TestCase, PatchMixin,
                              InitializeSessionMixin):
+    client_class = APIClient
 
     def setUp(self):
         self.url = reverse_ns(self.view_name)
@@ -92,11 +94,11 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
                         lambda: 'arandomstring'):
             response = self.client.get(self.url)
         assert response.status_code == 302
-        url = urlparse.urlparse(response['location'])
+        url = urlparse(response['location'])
         redirect = '{scheme}://{netloc}{path}'.format(
             scheme=url.scheme, netloc=url.netloc, path=url.path)
         assert redirect == 'https://accounts.firefox.com/v1/authorization'
-        assert urlparse.parse_qs(url.query) == {
+        assert parse_qs(url.query) == {
             'action': ['signin'],
             'client_id': ['amodefault'],
             'redirect_url': ['https://addons.mozilla.org/fxa-authenticate'],
@@ -110,17 +112,17 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
         assert self.client.session['fxa_state'] == 'thisisthestate'
 
     def test_to_is_included_in_redirect_state(self):
-        path = '/addons/unlisted-addon/'
+        path = b'/addons/unlisted-addon/'
         # The =s will be stripped from the URL.
-        assert '=' in base64.urlsafe_b64encode(path)
+        assert b'=' in base64.urlsafe_b64encode(path)
         state = 'somenewstatestring'
         self.initialize_session({})
         with mock.patch('olympia.accounts.views.generate_fxa_state',
                         lambda: state):
             response = self.client.get(self.url, data={'to': path})
         assert self.client.session['fxa_state'] == state
-        url = urlparse.urlparse(response['location'])
-        query = urlparse.parse_qs(url.query)
+        url = urlparse(response['location'])
+        query = parse_qs(url.query)
         state_parts = query['state'][0].split(':')
         assert len(state_parts) == 2
         assert state_parts[0] == state
@@ -132,8 +134,8 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
         self.initialize_session({})
         response = self.client.get(
             '{url}?to={path}'.format(path=path, url=self.url))
-        url = urlparse.urlparse(response['location'])
-        query = urlparse.parse_qs(url.query)
+        url = urlparse(response['location'])
+        query = parse_qs(url.query)
         assert ':' not in query['state'][0]
 
 
@@ -141,17 +143,6 @@ def has_cors_headers(response, origin='https://addons-frontend'):
     return (
         response['Access-Control-Allow-Origin'] == origin and
         response['Access-Control-Allow-Credentials'] == 'true')
-
-
-def update_domains(overrides):
-    overrides = overrides.copy()
-    overrides['CORS_ORIGIN_WHITELIST'] = ['addons-frontend', 'localhost:3000']
-    return overrides
-
-
-endpoint_overrides = [
-    (regex, update_domains(overrides))
-    for regex, overrides in settings.CORS_ENDPOINT_OVERRIDES]
 
 
 class TestLoginStartView(TestCase):
@@ -282,9 +273,6 @@ class TestRenderErrorHTML(TestCase):
         request.user = AnonymousUser()
         return self.enable_messages(request)
 
-    def login_url(self, **params):
-        return urlparams(reverse('users.login'), **params)
-
     def render_error(self, request, error, next_path=None):
         return views.render_error(
             request, error, format='html', next_path=next_path)
@@ -305,7 +293,7 @@ class TestRenderErrorHTML(TestCase):
         messages = get_messages(request)
         assert len(messages) == 1
         assert 'could not be parsed' in next(iter(messages)).message
-        assert_url_equal(response['location'], self.login_url())
+        assert_url_equal(response['location'], '/')
 
     def test_error_no_profile_with_no_path(self):
         request = self.make_request()
@@ -316,7 +304,7 @@ class TestRenderErrorHTML(TestCase):
         assert len(messages) == 1
         assert ('account could not be found'
                 in next(iter(messages)).message)
-        assert_url_equal(response['location'], self.login_url())
+        assert_url_equal(response['location'], '/')
 
     def test_error_state_mismatch_with_unsafe_path(self):
         request = self.make_request()
@@ -328,7 +316,7 @@ class TestRenderErrorHTML(TestCase):
         messages = get_messages(request)
         assert len(messages) == 1
         assert 'could not be logged in' in next(iter(messages)).message
-        assert_url_equal(response['location'], self.login_url())
+        assert_url_equal(response['location'], '/')
 
 
 class TestRenderErrorJSON(TestCase):
@@ -396,7 +384,7 @@ class TestWithUser(TestCase):
         self.request.data = {
             'code': 'foo',
             'state': u'some-blob:{next_path}'.format(
-                next_path=base64.urlsafe_b64encode('/a/path/?')),
+                next_path=force_text(base64.urlsafe_b64encode(b'/a/path/?'))),
         }
         args, kwargs = self.fn(self.request)
         assert args == (self, self.request)
@@ -462,7 +450,8 @@ class TestWithUser(TestCase):
         self.request.data = {
             'code': 'foo',
             'state': u'some-blob:{next_path}'.format(
-                next_path=base64.urlsafe_b64encode('https://www.google.com')),
+                next_path=force_text(
+                    base64.urlsafe_b64encode(b'https://www.google.com'))),
         }
         args, kwargs = self.fn(self.request)
         assert args == (self, self.request)
@@ -506,7 +495,8 @@ class TestWithUser(TestCase):
     def test_logged_in_disallows_login(self, generate_api_token_mock):
         self.request.data = {
             'code': 'foo',
-            'state': 'some-blob:{}'.format(base64.urlsafe_b64encode('/next')),
+            'state': 'some-blob:{}'.format(
+                force_text(base64.urlsafe_b64encode(b'/next'))),
         }
         self.user = UserProfile()
         self.request.user = self.user
@@ -524,7 +514,8 @@ class TestWithUser(TestCase):
     def test_already_logged_in_add_api_token_cookie_if_missing(self):
         self.request.data = {
             'code': 'foo',
-            'state': 'some-blob:{}'.format(base64.urlsafe_b64encode('/next')),
+            'state': 'some-blob:{}'.format(
+                force_text(base64.urlsafe_b64encode(b'/next'))),
         }
         self.user = UserProfile()
         self.request.user = self.user
@@ -551,7 +542,8 @@ class TestWithUser(TestCase):
         self.find_user.return_value = self.user
         self.request.data = {
             'code': 'foo',
-            'state': 'other-blob:{}'.format(base64.urlsafe_b64encode('/next')),
+            'state': 'other-blob:{}'.format(
+                force_text(base64.urlsafe_b64encode(b'/next'))),
         }
         self.fn(self.request)
         self.render_error.assert_called_with(
@@ -575,6 +567,112 @@ class TestWithUser(TestCase):
         self.request.data = {'code': 'foo', 'state': 'some-blob'}
         LoginView().post(self.request)
         self.fxa_identify.assert_called_with('foo', config=fxa_config)
+
+    def test_addon_developer_should_redirect_for_two_factor_auth(self):
+        self.create_switch('2fa-for-developers', active=True)
+        self.user = user_factory()
+        # They have developed themes, but also an extension, so they will need
+        # 2FA.
+        addon_factory(users=[self.user])
+        addon_factory(users=[self.user], type=amo.ADDON_STATICTHEME)
+        addon_factory(users=[self.user], type=amo.ADDON_PERSONA)
+        identity = {'uid': '1234', 'email': 'hey@yo.it'}
+        self.fxa_identify.return_value = identity
+        self.find_user.return_value = self.user
+        self.request.data = {
+            'code': 'foo',
+            'state': u'some-blob:{next_path}'.format(
+                next_path=force_text(base64.urlsafe_b64encode(b'/a/path/?'))),
+        }
+        # @with_user should return a redirect response directly in that case.
+        response = self.fn(self.request)
+
+        # Query params should be kept on the redirect to FxA, with
+        # acr_values=AAL2 added to force two-factor auth on FxA side.
+        assert response.status_code == 302
+        url = urlparse(response['Location'])
+        base = '{scheme}://{netloc}{path}'.format(
+            scheme=url.scheme, netloc=url.netloc, path=url.path)
+        fxa_config = settings.FXA_CONFIG[settings.DEFAULT_FXA_CONFIG_NAME]
+        assert base == '{host}{path}'.format(
+            host=fxa_config['oauth_host'],
+            path='/authorization')
+        query = parse_qs(url.query)
+        next_path = base64.urlsafe_b64encode(b'/a/path/?').rstrip(b'=')
+        assert query == {
+            'acr_values': ['AAL2'],
+            'action': ['signin'],
+            'client_id': [fxa_config['client_id']],
+            'redirect_url': [fxa_config['redirect_url']],
+            'scope': [fxa_config['scope']],
+            'state': ['some-blob:{next_path}'.format(
+                next_path=force_text(next_path))],
+        }
+
+    def test_theme_developer_should_not_redirect_for_two_factor_auth(self):
+        self.create_switch('2fa-for-developers', active=True)
+        self.user = user_factory()
+        addon_factory(users=[self.user], type=amo.ADDON_STATICTHEME)
+        addon_factory(users=[self.user], type=amo.ADDON_PERSONA)
+        identity = {'uid': '1234', 'email': 'hey@yo.it'}
+        self.fxa_identify.return_value = identity
+        self.find_user.return_value = self.user
+        self.request.data = {
+            'code': 'foo',
+            'state': u'some-blob:{next_path}'.format(
+                next_path=force_text(base64.urlsafe_b64encode(b'/a/path/?'))),
+        }
+        args, kwargs = self.fn(self.request)
+        assert args == (self, self.request)
+        assert kwargs == {
+            'user': self.user,
+            'identity': identity,
+            'next_path': '/a/path/?',
+        }
+
+    def test_addon_developer_already_using_two_factor_should_continue(self):
+        self.create_switch('2fa-for-developers', active=True)
+        self.user = user_factory()
+        addon_factory(users=[self.user])
+        identity = {
+            'uid': '1234',
+            'email': 'hey@yo.it',
+            'twoFactorAuthentication': True
+        }
+        self.fxa_identify.return_value = identity
+        self.find_user.return_value = self.user
+        self.request.data = {
+            'code': 'foo',
+            'state': u'some-blob:{next_path}'.format(
+                next_path=force_text(base64.urlsafe_b64encode(b'/a/path/?'))),
+        }
+        args, kwargs = self.fn(self.request)
+        assert args == (self, self.request)
+        assert kwargs == {
+            'user': self.user,
+            'identity': identity,
+            'next_path': '/a/path/?',
+        }
+
+    def test_waffle_switch_off_developer_without_2fa_should_continue(self):
+        self.create_switch('2fa-for-developers', active=False)
+        self.user = user_factory()
+        addon_factory(users=[self.user])
+        identity = {'uid': '1234', 'email': 'hey@yo.it'}
+        self.fxa_identify.return_value = identity
+        self.find_user.return_value = self.user
+        self.request.data = {
+            'code': 'foo',
+            'state': u'some-blob:{next_path}'.format(
+                next_path=force_text(base64.urlsafe_b64encode(b'/a/path/?'))),
+        }
+        args, kwargs = self.fn(self.request)
+        assert args == (self, self.request)
+        assert kwargs == {
+            'user': self.user,
+            'identity': identity,
+            'next_path': '/a/path/?',
+        }
 
 
 @override_settings(FXA_CONFIG={
@@ -632,9 +730,6 @@ class TestAuthenticateView(BaseAuthenticationView):
         self.login_user = self.patch('olympia.accounts.views.login_user')
         self.register_user = self.patch('olympia.accounts.views.register_user')
 
-    def login_url(self, **params):
-        return absolutify(urlparams(reverse('users.login'), **params))
-
     def test_write_is_used(self, **params):
         with mock.patch('olympia.amo.models.use_primary_db') as use_primary_db:
             self.client.get(self.url)
@@ -645,7 +740,7 @@ class TestAuthenticateView(BaseAuthenticationView):
         assert response.status_code == 302
         # Messages seem to appear in the context for some reason.
         assert 'could not be parsed' in response.context['title']
-        assert_url_equal(response['location'], self.login_url())
+        assert_url_equal(response['location'], '/')
         assert not self.login_user.called
         assert not self.register_user.called
 
@@ -654,7 +749,7 @@ class TestAuthenticateView(BaseAuthenticationView):
             self.url, {'code': 'foo', 'state': '9f865be0'})
         assert response.status_code == 302
         assert 'could not be logged in' in response.context['title']
-        assert_url_equal(response['location'], self.login_url())
+        assert_url_equal(response['location'], '/')
         assert not self.login_user.called
         assert not self.register_user.called
 
@@ -665,7 +760,7 @@ class TestAuthenticateView(BaseAuthenticationView):
         assert response.status_code == 302
         assert ('Your account could not be found'
                 in response.context['title'])
-        assert_url_equal(response['location'], self.login_url())
+        assert_url_equal(response['location'], '/')
         self.fxa_identify.assert_called_with('codes!!', config=FXA_CONFIG)
         assert not self.login_user.called
         assert not self.register_user.called
@@ -688,6 +783,10 @@ class TestAuthenticateView(BaseAuthenticationView):
         verify = WebTokenAuthentication().authenticate_token(token)
         assert verify[0] == UserProfile.objects.get(username='foo')
 
+    def test_success_no_account_registers_with_force_2fa_waffle(self):
+        self.create_switch('2fa-for-developers', active=True)
+        self.test_success_no_account_registers()
+
     def test_register_redirects_edit(self):
         user_qs = UserProfile.objects.filter(email='me@yeahoo.com')
         assert not user_qs.exists()
@@ -698,7 +797,8 @@ class TestAuthenticateView(BaseAuthenticationView):
         response = self.client.get(self.url, {
             'code': 'codes!!',
             'state': ':'.join(
-                [self.fxa_state, base64.urlsafe_b64encode('/go/here')]),
+                [self.fxa_state,
+                 force_text(base64.urlsafe_b64encode(b'/go/here'))]),
         })
         # This 302s because the user isn't logged in due to mocking.
         self.assertRedirects(
@@ -720,7 +820,8 @@ class TestAuthenticateView(BaseAuthenticationView):
         response = self.client.get(self.url, {
             'code': 'codes!!',
             'state': ':'.join(
-                [self.fxa_state, base64.urlsafe_b64encode('/go/here')]),
+                [self.fxa_state,
+                 force_text(base64.urlsafe_b64encode(b'/go/here'))]),
             'config': 'skip',
         })
         self.fxa_identify.assert_called_with(
@@ -764,7 +865,8 @@ class TestAuthenticateView(BaseAuthenticationView):
             'code': 'code',
             'state': ':'.join([
                 self.fxa_state,
-                base64.urlsafe_b64encode('/en-US/firefox/a/path')]),
+                force_text(
+                    base64.urlsafe_b64encode(b'/en-US/firefox/a/path'))]),
         })
         self.assertRedirects(
             response, '/en-US/firefox/a/path', target_status_code=404)
@@ -780,7 +882,8 @@ class TestAuthenticateView(BaseAuthenticationView):
             'code': 'code',
             'state': ':'.join([
                 self.fxa_state,
-                base64.urlsafe_b64encode('/en-US/firefox/a/path')]),
+                force_text(
+                    base64.urlsafe_b64encode(b'/en-US/firefox/a/path'))]),
         })
         self.assertRedirects(
             response, '/en-US/firefox/a/path', target_status_code=404)
@@ -927,7 +1030,6 @@ class TestAccountViewSetUpdate(TestCase):
         'homepage': 'http://bob-loblaw-law-web.blog',
         'location': 'law office',
         'occupation': 'lawyer',
-        'username': 'bob',
     }
 
     def setUp(self):
@@ -944,9 +1046,9 @@ class TestAccountViewSetUpdate(TestCase):
         response = self.patch()
         assert response.status_code == 200
         assert response.content != original
-        modified_json = json.loads(response.content)
+        modified_json = json.loads(force_text(response.content))
         self.user = self.user.reload()
-        for prop, value in self.update_data.iteritems():
+        for prop, value in six.iteritems(self.update_data):
             assert modified_json[prop] == value
             assert getattr(self.user, prop) == value
 
@@ -969,46 +1071,66 @@ class TestAccountViewSetUpdate(TestCase):
         response = self.patch(url=url)
         assert response.status_code == 200
         assert response.content != original
-        modified_json = json.loads(response.content)
+        modified_json = json.loads(force_text(response.content))
         random_user = random_user.reload()
-        for prop, value in self.update_data.iteritems():
+        for prop, value in six.iteritems(self.update_data):
             assert modified_json[prop] == value
             assert getattr(random_user, prop) == value
 
     def test_read_only_fields(self):
         self.client.login_api(self.user)
+        existing_username = self.user.username
         original = self.client.get(self.url).content
         # Try to patch a field that can't be patched.
-        response = self.patch(data={'last_login_ip': '666.666.666.666'})
+        response = self.patch(data={
+            'last_login_ip': '666.666.666.666', 'username': 'new_username'})
         assert response.status_code == 200
         assert response.content == original
         self.user = self.user.reload()
         # Confirm field hasn't been updated.
-        assert json.loads(response.content)['last_login_ip'] == ''
+        response = json.loads(force_text(response.content))
+        assert response['last_login_ip'] == ''
         assert self.user.last_login_ip == ''
+        assert response['username'] == existing_username
+        assert self.user.username == existing_username
 
     def test_biography_no_links(self):
         self.client.login_api(self.user)
         response = self.patch(
             data={'biography': '<a href="https://google.com">google</a>'})
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'biography': ['No links are allowed.']}
 
-    def test_username_valid(self):
+    def test_display_name_validation(self):
         self.client.login_api(self.user)
         response = self.patch(
-            data={'username': '123456'})
+            data={'display_name': 'a'})
         assert response.status_code == 400
-        assert json.loads(response.content) == {
-            'username': ['Usernames cannot contain only digits.']}
+        assert json.loads(force_text(response.content)) == {
+            'display_name': ['Ensure this field has at least 2 characters.']}
 
         response = self.patch(
-            data={'username': u'£^@'})
+            data={'display_name': 'a' * 51})
         assert response.status_code == 400
-        assert json.loads(response.content) == {
-            'username': [u'Enter a valid username consisting of letters, '
-                         u'numbers, underscores or hyphens.']}
+        assert json.loads(force_text(response.content)) == {
+            'display_name': [
+                'Ensure this field has no more than 50 characters.']}
+
+        response = self.patch(
+            data={'display_name': u'\x7F\u20DF'})
+        assert response.status_code == 400
+        assert json.loads(force_text(response.content)) == {
+            'display_name': [
+                'Must contain at least one printable character.']}
+
+        response = self.patch(
+            data={'display_name': u'a\x7F'})
+        assert response.status_code == 200
+
+        response = self.patch(
+            data={'display_name': 'a' * 50})
+        assert response.status_code == 200
 
     def test_picture_upload(self):
         # Make sure the picture doesn't exist already or we get a false-postive
@@ -1020,7 +1142,7 @@ class TestAccountViewSetUpdate(TestCase):
         response = self.client.patch(
             self.url, data, format='multipart')
         assert response.status_code == 200
-        json_content = json.loads(response.content)
+        json_content = json.loads(force_text(response.content))
         self.user = self.user.reload()
         assert 'anon_user.png' not in json_content['picture_url']
         assert '%s.png' % self.user.id in json_content['picture_url']
@@ -1039,7 +1161,7 @@ class TestAccountViewSetUpdate(TestCase):
         assert response.status_code == 200
         # Should delete the photo
         assert not path.exists(self.user.picture_path)
-        json_content = json.loads(response.content)
+        json_content = json.loads(force_text(response.content))
         assert json_content['picture_url'] is None
 
     def test_account_picture_disallowed_verbs(self):
@@ -1062,7 +1184,7 @@ class TestAccountViewSetUpdate(TestCase):
         response = self.client.patch(
             self.url, data, format='multipart')
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'picture_upload': [u'Images must be either PNG or JPG.']}
 
     def test_picture_upload_animated(self):
@@ -1072,7 +1194,7 @@ class TestAccountViewSetUpdate(TestCase):
         response = self.client.patch(
             self.url, data, format='multipart')
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'picture_upload': [u'Images cannot be animated.']}
 
     def test_picture_upload_not_image(self):
@@ -1082,7 +1204,7 @@ class TestAccountViewSetUpdate(TestCase):
         response = self.client.patch(
             self.url, data, format='multipart')
         assert response.status_code == 400
-        assert json.loads(response.content) == {
+        assert json.loads(force_text(response.content)) == {
             'picture_upload': [
                 u'Upload a valid image. The file you uploaded was either not '
                 u'an image or a corrupted image.'
@@ -1151,7 +1273,7 @@ class TestAccountViewSetDelete(TestCase):
 
         response = self.client.delete(self.url)
         assert response.status_code == 400
-        assert 'You must delete all add-ons and themes' in response.content
+        assert b'You must delete all add-ons and themes' in response.content
         assert not self.user.reload().deleted
         assert views.API_TOKEN_COOKIE not in response.cookies
         assert self.client.cookies[views.API_TOKEN_COOKIE].value == 'something'
@@ -1171,7 +1293,7 @@ class TestAccountViewSetDelete(TestCase):
 
         response = self.client.delete(self.url)
         assert response.status_code == 400
-        assert 'You must delete all add-ons and themes' in response.content
+        assert b'You must delete all add-ons and themes' in response.content
         assert not self.user.reload().deleted
 
         addon.delete()
@@ -1379,7 +1501,7 @@ class TestAccountNotificationViewSetList(TestCase):
         self.client.login_api(self.user)
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert len(response.data) == 10
+        assert len(response.data) == 8
         assert (
             {'name': u'reply', 'enabled': True, 'mandatory': False} in
             response.data)
@@ -1402,7 +1524,7 @@ class TestAccountNotificationViewSetList(TestCase):
         self.client.login_api(self.user)
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert len(response.data) == 10
+        assert len(response.data) == 8
         assert (
             {'name': u'reply', 'enabled': False, 'mandatory': False} in
             response.data)
@@ -1428,15 +1550,13 @@ class TestAccountNotificationViewSetList(TestCase):
         self.client.login_api(self.user)
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert len(response.data) == 10
+        assert len(response.data) == 8
         # Check for any known notification, just to see the response looks okay
         assert (
             {'name': u'reply', 'enabled': True, 'mandatory': False} in
             response.data)
 
     def test_basket_integration(self):
-        create_switch('activate-basket-sync')
-
         self.client.login_api(self.user)
         response = self.client.get(self.url)
         assert response.status_code == 200
@@ -1455,8 +1575,6 @@ class TestAccountNotificationViewSetList(TestCase):
 
     def test_basket_integration_non_dev(self):
         self.user.addons.all().delete()
-        create_switch('activate-basket-sync')
-
         self.client.login_api(self.user)
         response = self.client.get(self.url)
         assert response.status_code == 200
@@ -1473,8 +1591,6 @@ class TestAccountNotificationViewSetList(TestCase):
             not in response.data)
 
     def test_basket_integration_ignore_db(self):
-        create_switch('activate-basket-sync')
-
         # Add some old obsolete data in the database for a notification that
         # is handled by basket: it should be ignored.
         notification_id = REMOTE_NOTIFICATIONS_BY_BASKET_ID['about-addons'].id
@@ -1517,7 +1633,7 @@ class TestAccountNotificationViewSetList(TestCase):
         self.client.login_api(self.user)
         response = self.client.get(self.url)
         assert response.status_code == 200
-        assert len(response.data) == 10
+        assert len(response.data) == 8
 
     def test_disallowed_verbs(self):
         self.client.login_api(self.user)
@@ -1588,7 +1704,7 @@ class TestAccountNotificationViewSetUpdate(TestCase):
                                     data={'individual_contact': False})
         assert response.status_code == 400
         # Attempt fails.
-        assert 'Attempting to set [individual_contact] to False.' in (
+        assert b'Attempting to set [individual_contact] to False.' in (
             response.content)
         # And the notification hasn't been saved.
         assert not UserNotification.objects.filter(
@@ -1627,19 +1743,6 @@ class TestAccountNotificationViewSetUpdate(TestCase):
         assert (
             {'name': u'announcements', 'enabled': False, 'mandatory': False} in
             self.client.get(self.list_url).data)
-
-        with mock.patch('basket.base.request', autospec=True) as request_call:
-            request_call.return_value = {
-                'status': 'ok', 'token': '123',
-                'newsletters': ['announcements']}
-            self.client.post(
-                self.url,
-                data={'announcements': True})
-
-        # We haven't set the switch yet, so there are no calls.
-        assert request_call.call_count == 0
-
-        create_switch('activate-basket-sync')
 
         with mock.patch('basket.base.request', autospec=True) as request_call:
             request_call.return_value = {

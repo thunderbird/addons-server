@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import tempfile
+import uuid
 import zipfile
 import shutil
 
@@ -12,6 +13,7 @@ from django import forms
 from django.conf import settings
 from django.core.files.storage import default_storage as storage
 from django.test.utils import override_settings
+from django.utils.encoding import force_text
 
 import mock
 import pytest
@@ -20,12 +22,13 @@ from mock import patch
 
 from olympia import amo
 from olympia.addons.models import Addon
-from olympia.amo.tests import TestCase, user_factory
+from olympia.amo.tests import TestCase, user_factory, fix_webext_fixture
 from olympia.amo.utils import chunked
 from olympia.applications.models import AppVersion
+from olympia.constants.applications import THUNDERBIRD
 from olympia.files.models import (
-    EXTENSIONS, File, FileUpload, FileValidation, Permission, WebextPermission,
-    WebextPermissionDescription, nfd_str, track_file_status_change)
+    File, FileUpload, FileValidation, WebextPermission,
+    nfd_str, track_file_status_change)
 from olympia.files.utils import (
     Extractor, check_xpi_info, parse_addon, parse_xpi)
 from olympia.versions.models import Version
@@ -43,7 +46,8 @@ class UploadTest(TestCase, amo.tests.AMOPaths):
         return self.file_fixture_path(*args, **kw)
 
     def get_upload(self, filename=None, abspath=None, validation=None):
-        xpi = open(abspath if abspath else self.file_path(filename)).read()
+        with open(abspath if abspath else self.file_path(filename), 'rb') as f:
+            xpi = f.read()
         upload = FileUpload.from_post([xpi], filename=abspath or filename,
                                       size=1234)
         # Simulate what fetch_manifest() does after uploading an app.
@@ -154,8 +158,9 @@ class TestFile(TestCase, amo.tests.AMOPaths):
     def test_unhide_disabled_files(self):
         f = File.objects.get(pk=67442)
         f.status = amo.STATUS_PUBLIC
+        f.filename = u'test_unhide_disabled_filés.xpi'
         with storage.open(f.guarded_file_path, 'wb') as fp:
-            fp.write('some data\n')
+            fp.write(b'some data\n')
         f.unhide_disabled_file()
         assert storage.exists(f.file_path)
         assert storage.open(f.file_path).size
@@ -212,12 +217,12 @@ class TestFile(TestCase, amo.tests.AMOPaths):
 
     def test_generate_filename_many_apps(self):
         f = File.objects.get(id=67442)
-        f.version._compatible_apps = {amo.THUNDERBIRD: None, amo.FIREFOX: None}
+        f.version._compatible_apps = {amo.FIREFOX: None, amo.ANDROID: None}
         # After adding sorting for compatible_apps, above becomes
-        # (amo.FIREFOX, amo.THUNDERBIRD) so 'fx+tb' is appended to filename
-        # instead of 'tb+fx'
+        # (amo.ANDROID, amo.FIREFOX) so 'an+fx' is appended to filename
+        # instead of 'fx+an'
         # See: https://github.com/mozilla/addons-server/issues/3358
-        assert f.generate_filename() == 'delicious_bookmarks-2.1.072-fx+tb.xpi'
+        assert f.generate_filename() == 'delicious_bookmarks-2.1.072-an+fx.xpi'
 
     def test_generate_filename_ja(self):
         f = File()
@@ -235,9 +240,9 @@ class TestFile(TestCase, amo.tests.AMOPaths):
 
         file_ = File.objects.get(pk=67442)
         with storage.open(file_.file_path, 'wb') as fp:
-            fp.write('some data\n')
+            fp.write(b'some data\n')
         with storage.open(file_.guarded_file_path, 'wb') as fp:
-            fp.write('some data guarded\n')
+            fp.write(b'some data guarded\n')
         assert file_.generate_hash().startswith('sha256:5aa03f96c77536579166f')
         file_.status = amo.STATUS_DISABLED
         assert file_.generate_hash().startswith('sha256:6524f7791a35ef4dd4c6f')
@@ -254,68 +259,6 @@ class TestFile(TestCase, amo.tests.AMOPaths):
     def _cmp_permission(self, perm_a, perm_b):
         return (perm_a.name == perm_b.name and
                 perm_a.description == perm_b.description)
-
-    def test_webext_permissions_order(self):
-        perm_list = [u'tabs', u'bookmarks', u'nativeMessaging',
-                     u'made up permission', u'https://google.com/']
-        WebextPermissionDescription.objects.create(
-            name=u'bookmarks', description=u'Read and modify bookmarks')
-        WebextPermissionDescription.objects.create(
-            name=u'tabs', description=u'Access browser tabs')
-        WebextPermissionDescription.objects.create(
-            name=u'nativeMessaging',
-            description=u'Exchange messages with programs other than Firefox')
-
-        result = [
-            # First match urls for specified site(s).
-            Permission('single-match',
-                       'Access your data for https://google.com/'),
-            # Then nativeMessaging, if specified
-            Permission(u'nativeMessaging',
-                       u'Exchange messages with programs other than Firefox'),
-            # Then any other known permission(s).
-            Permission(u'bookmarks',
-                       u'Read and modify bookmarks'),
-            Permission(u'tabs',
-                       u'Access browser tabs'),
-        ]
-
-        file_ = File.objects.get(pk=67442)
-        file_.webext_permissions_list = perm_list
-
-        # Check the order
-        assert len(file_.webext_permissions) == len(result)
-        assert all(map(self._cmp_permission, result,
-                       file_.webext_permissions))
-
-        # Check the order isn't dependent on the order in the manifest
-        file_.webext_permissions_list.reverse()
-        assert all(map(self._cmp_permission, result,
-                       file_.webext_permissions))
-
-        # Unknown permission strings aren't included.
-        assert ((u'made up permission', u'made up permission')
-                not in file_.webext_permissions)
-
-    def test_webext_permissions_match_urls(self):
-        file_ = File.objects.get(pk=67442)
-        # Multiple urls for specified sites should be grouped together
-        file_.webext_permissions_list = [
-            u'https://mozilla.org/', u'https://mozillians.org/']
-
-        assert len(file_.webext_permissions) == 1
-        perm = file_.webext_permissions[0]
-        assert perm.name == u'multiple-match'
-        assert perm.description == (
-            u'<details><summary>Access your data on the following websites:'
-            u'</summary><ul><li>https://mozilla.org/</li>'
-            u'<li>https://mozillians.org/</li></ul></details>')
-
-        file_.webext_permissions_list += [u'http://*/*', u'<all_urls>']
-        # Match-all patterns should override the specific sites
-        assert len(file_.webext_permissions) == 1
-        assert file_.webext_permissions[0] == (
-            WebextPermissionDescription.ALL_URLS_PERMISSION)
 
     def test_webext_permissions_list_string_only(self):
         file_ = File.objects.get(pk=67442)
@@ -336,7 +279,7 @@ class TestFile(TestCase, amo.tests.AMOPaths):
             u'iamstring', u'iamnutherstring', u'laststring!']
 
     def test_current_file_path(self):
-        public_fp = '/media/addons/3615/delicious_bookmarks-2.1.072-fx.xpi'
+        public_fp = '/storage/files/3615/delicious_bookmarks-2.1.072-fx.xpi'
         guarded_fp = '/guarded-addons/3615/delicious_bookmarks-2.1.072-fx.xpi'
 
         # Add-on enabled, file approved
@@ -412,20 +355,6 @@ class TestTrackFileStatusChange(TestCase):
             'file_status_change.all.status_{}'.format(amo.STATUS_PUBLIC)
         )
 
-    def test_increment_jetpack_sdk_only_status(self):
-        f = self.create_file(
-            status=amo.STATUS_PUBLIC,
-            jetpack_version='1.0',
-            is_restart_required=False,
-            requires_chrome=False,
-        )
-        with patch('olympia.files.models.statsd.incr') as mock_incr:
-            track_file_status_change(f)
-        mock_incr.assert_any_call(
-            'file_status_change.jetpack_sdk_only.status_{}'
-            .format(amo.STATUS_PUBLIC)
-        )
-
 
 class TestParseXpi(TestCase):
 
@@ -439,7 +368,7 @@ class TestParseXpi(TestCase):
                                       version=version)
         self.user = user_factory()
 
-    def parse(self, addon=None, filename='extension.xpi', **kwargs):
+    def parse(self, addon=None, filename='webextension.xpi', **kwargs):
         path = 'src/olympia/files/fixtures/files/' + filename
         xpi = os.path.join(settings.ROOT, path)
         parse_addon_kwargs = {
@@ -447,14 +376,17 @@ class TestParseXpi(TestCase):
         }
         parse_addon_kwargs.update(**kwargs)
 
-        with open(xpi) as fobj:
-            return parse_addon(fobj, addon, **parse_addon_kwargs)
+        with fix_webext_fixture(xpi) as temp_file:
+            with open(temp_file, 'rb') as fobj:
+                parsed = parse_addon(fobj, addon, **parse_addon_kwargs)
+
+        return parsed
 
     def test_parse_basics(self):
         # Basic test for key properties (more advanced testing is done in other
         # methods).
         expected = {
-            'guid': 'guid@xpi',
+            'guid': '@webextension-guid',
             'name': 'xpi name',
             'summary': 'xpi description',
             'version': '0.1',
@@ -470,7 +402,7 @@ class TestParseXpi(TestCase):
         # When minimal=True is passed, ensure we only have those specific
         # properties.
         expected = {
-            'guid': 'guid@xpi',
+            'guid': '@webextension-guid',
             'version': '0.1',
             'type': amo.ADDON_EXTENSION,
             'is_webextension': False,
@@ -488,7 +420,7 @@ class TestParseXpi(TestCase):
     def test_parse_no_user_but_minimal_is_true(self):
         # When minimal=True is passed, we can omit the user parameter.
         expected = {
-            'guid': 'guid@xpi',
+            'guid': '@webextension-guid',
             'version': '0.1',
             'type': amo.ADDON_EXTENSION,
             'is_webextension': False,
@@ -512,16 +444,14 @@ class TestParseXpi(TestCase):
             AppVersion.objects.get(version='3.6.*'))]
         assert self.parse()['apps'] == expected
 
-    def test_parse_apps_error_webextension(self):
+    def test_no_parse_apps_error_webextension(self):
         AppVersion.objects.all().delete()
-        with self.assertRaises(forms.ValidationError) as e:
-            assert self.parse(filename='webextension_with_apps_targets.xpi')
+        assert self.parse(filename='webextension_with_apps_targets.xpi')
         assert e.exception.messages[0].startswith('Lowest supported "strict_min_version"')
 
-        with self.assertRaises(forms.ValidationError) as e:
-            assert self.parse(
-                filename='webextension_with_apps_targets.xpi',
-                minimal=False)
+        assert self.parse(
+            filename='webextension_with_apps_targets.xpi',
+            minimal=False)
         assert e.exception.messages[0].startswith('Lowest supported "strict_min_version"')
 
         # When minimal=True is passed, we don't do validation...
@@ -577,9 +507,9 @@ class TestParseXpi(TestCase):
         assert self.parse()['apps'] == []
 
     def test_guid_match(self):
-        addon = Addon.objects.create(guid='guid@xpi', type=1)
+        addon = Addon.objects.create(guid='@webextension-guid', type=1)
         parsed = self.parse(addon)
-        assert parsed['guid'] == 'guid@xpi'
+        assert parsed['guid'] == '@webextension-guid'
         assert not parsed['is_experiment']
 
     def test_guid_nomatch(self):
@@ -589,7 +519,7 @@ class TestParseXpi(TestCase):
         assert e.exception.messages[0].startswith('The add-on ID in your')
 
     def test_guid_dupe(self):
-        Addon.objects.create(guid='guid@xpi', type=1)
+        Addon.objects.create(guid='@webextension-guid', type=1)
         with self.assertRaises(forms.ValidationError) as e:
             self.parse()
         assert e.exception.messages == ['Duplicate add-on ID found.']
@@ -623,23 +553,15 @@ class TestParseXpi(TestCase):
         assert info['guid'] == addon.guid
 
     def test_match_type(self):
-        addon = Addon.objects.create(guid='guid@xpi', type=4)
+        addon = Addon.objects.create(guid='@webextension-guid', type=4)
         with self.assertRaises(forms.ValidationError) as e:
             self.parse(addon)
-        assert e.exception.messages[0].startswith(
-            '<em:type> in your install.rdf')
-
-    def test_match_type_extension_for_telemetry_experiments(self):
-        self.grant_permission(self.user, 'Experiments:submit')
-        parsed = self.parse(filename='telemetry_experiment.xpi')
-        # See bug 1220097: telemetry experiments (type 128) map to extensions.
-        assert parsed['type'] == amo.ADDON_EXTENSION
-        assert parsed['is_experiment']
-        assert not parsed['is_restart_required']
+        assert e.exception.messages[0] == (
+            'The type (1) does not match the type of your add-on on AMO (4)')
 
     def test_match_type_extension_for_webextension_experiments(self):
         self.grant_permission(self.user, 'Experiments:submit')
-        parsed = self.parse(filename='webextension_experiment.xpi')
+        parsed = self.parse(filename='experiment_inside_webextension.xpi')
         # See #3315: webextension experiments (type 256) map to extensions.
         assert parsed['type'] == amo.ADDON_EXTENSION
         assert parsed['is_experiment']
@@ -661,17 +583,26 @@ class TestParseXpi(TestCase):
         assert not parsed['is_restart_required']
         assert parsed['is_experiment']
 
+    def test_theme_experiment_inside_webextension(self):
+        self.grant_permission(self.user, 'Experiments:submit')
+        parsed = self.parse(
+            filename='theme_experiment_inside_webextension.xpi')
+        assert parsed['type'] == amo.ADDON_STATICTHEME
+        assert parsed['is_webextension']
+        assert not parsed['is_restart_required']
+        assert parsed['is_experiment']
+
     def test_match_mozilla_signed_extension(self):
         self.user.update(email='foo@mozilla.com')
         parsed = self.parse(filename='webextension_signed_already.xpi')
         assert parsed['is_mozilla_signed_extension']
 
     def test_xml_for_extension(self):
-        addon = Addon.objects.create(guid='guid@xpi', type=1)
+        addon = Addon.objects.create(guid='@webextension-guid', type=1)
         with self.assertRaises(forms.ValidationError) as e:
             self.parse(addon, filename='search.xml')
-        assert e.exception.messages[0].startswith(
-            '<em:type> in your install.rdf')
+        assert e.exception.messages[0] == (
+            'The type (4) does not match the type of your add-on on AMO (1)')
 
     def test_unknown_app(self):
         data = self.parse(filename='theme-invalid-app.jar')
@@ -679,6 +610,8 @@ class TestParseXpi(TestCase):
 
     def test_bad_zipfile(self):
         with self.assertRaises(forms.ValidationError) as e:
+            # This file doesn't exist, it will raise an IOError that should
+            # be caught and re-raised as a ValidationError.
             parse_addon('baxmldzip.xpi', None)
         assert e.exception.messages == ['Could not parse the manifest file.']
 
@@ -765,7 +698,7 @@ class TestParseAlternateXpi(TestCase, amo.tests.AMOPaths):
         self.user = user_factory()
 
     def parse(self, filename='alt-rdf.xpi'):
-        with open(self.file_fixture_path(filename)) as fobj:
+        with open(self.file_fixture_path(filename), 'rb') as fobj:
             return parse_addon(fobj, user=self.user)
 
     def test_parse_basics(self):
@@ -806,25 +739,26 @@ class TestFileUpload(UploadTest):
 
     def setUp(self):
         super(TestFileUpload, self).setUp()
-        self.data = 'file contents'
+        self.data = b'file contents'
 
     def upload(self, **params):
         # The data should be in chunks.
-        data = [''.join(x) for x in chunked(self.data, 3)]
-        return FileUpload.from_post(data, 'filename.xpi',
+        data = [bytes(bytearray(s)) for s in chunked(self.data, 3)]
+        return FileUpload.from_post(data, u'filenamé.xpi',
                                     len(self.data), **params)
 
     def test_from_post_write_file(self):
-        assert storage.open(self.upload().path).read() == self.data
+        assert storage.open(self.upload().path, 'rb').read() == self.data
 
     def test_from_post_filename(self):
         upload = self.upload()
         assert upload.uuid
-        assert upload.name == '{0}_filename.xpi'.format(upload.uuid.hex)
+        assert upload.name == u'{0}_filenamé.xpi'.format(
+            force_text(upload.uuid.hex))
 
     def test_from_post_hash(self):
-        hash = hashlib.sha256(self.data).hexdigest()
-        assert self.upload().hash == 'sha256:%s' % hash
+        hashdigest = hashlib.sha256(self.data).hexdigest()
+        assert self.upload().hash == 'sha256:%s' % hashdigest
 
     def test_from_post_extra_params(self):
         upload = self.upload(automated_signing=True, addon_id=3615)
@@ -862,16 +796,16 @@ class TestFileUpload(UploadTest):
         assert not upload.valid
 
     def test_ascii_names(self):
-        upload = FileUpload.from_post('', u'jétpack.xpi', 0)
+        upload = FileUpload.from_post(b'', u'jétpack.xpi', 0)
         assert 'xpi' in upload.name
 
-        upload = FileUpload.from_post('', u'мозила_србија-0.11-fx.xpi', 0)
+        upload = FileUpload.from_post(b'', u'мозила_србија-0.11-fx.xpi', 0)
         assert 'xpi' in upload.name
 
-        upload = FileUpload.from_post('', u'フォクすけといっしょ.xpi', 0)
+        upload = FileUpload.from_post(b'', u'フォクすけといっしょ.xpi', 0)
         assert 'xpi' in upload.name
 
-        upload = FileUpload.from_post('', u'\u05d0\u05d5\u05e1\u05e3.xpi', 0)
+        upload = FileUpload.from_post(b'', u'\u05d0\u05d5\u05e1\u05e3.xpi', 0)
         assert 'xpi' in upload.name
 
     def test_validator_sets_binary_via_extensions(self):
@@ -1117,7 +1051,7 @@ class TestFileFromUpload(UploadTest):
 
     def upload(self, name):
         # Add in `.xpi` if the filename doesn't have a valid file extension.
-        if os.path.splitext(name)[-1] not in EXTENSIONS:
+        if os.path.splitext(name)[-1] not in amo.VALID_ADDON_FILE_EXTENSIONS:
             name = name + '.xpi'
 
         validation_data = json.dumps({
@@ -1131,26 +1065,12 @@ class TestFileFromUpload(UploadTest):
             with storage.open(fname, 'w') as fs:
                 shutil.copyfileobj(open(fname), fs)
         data = {
-            'path': fname,
-            'name': name,
+            'path': force_text(fname),
+            'name': force_text(name),
             'hash': 'sha256:%s' % name,
             'validation': validation_data
         }
         return FileUpload.objects.create(**data)
-
-    def test_jetpack_version(self):
-        upload = self.upload('jetpack')
-        file_ = File.from_upload(
-            upload, self.version, self.platform, parsed_data={})
-        file_ = File.objects.get(id=file_.id)
-        assert file_.jetpack_version == '1.0b4'
-
-    def test_jetpack_with_invalid_json(self):
-        upload = self.upload('jetpack_invalid')
-        file_ = File.from_upload(
-            upload, self.version, self.platform, parsed_data={})
-        file_ = File.objects.get(id=file_.id)
-        assert file_.jetpack_version is None
 
     def test_filename(self):
         upload = self.upload('jetpack')
@@ -1204,6 +1124,21 @@ class TestFileFromUpload(UploadTest):
         file_ = File.from_upload(
             upload, self.version, self.platform, parsed_data={})
         assert file_.filename == u'jets-0.1.xpi'
+
+    @mock.patch('olympia.files.models.copy_stored_file')
+    def test_dont_send_both_bytes_and_str_to_copy_stored_file(
+            self, copy_stored_file_mock):
+        upload = self.upload(u'jétpack')
+        self.version.addon.name = u'jéts!'
+        file_ = File.from_upload(
+            upload, self.version, self.platform, parsed_data={})
+        assert file_.filename == u'jets-0.1.xpi'
+        expected_path_orig = force_text(upload.path)
+        expected_path_dest = force_text(file_.current_file_path)
+        assert copy_stored_file_mock.call_count == 1
+        assert copy_stored_file_mock.call_args_list[0][0] == (
+            expected_path_orig, expected_path_dest
+        )
 
     def test_size(self):
         upload = self.upload('extension')
@@ -1279,7 +1214,7 @@ class TestFileFromUpload(UploadTest):
         assert not file_.is_multi_package
 
     def test_experiment(self):
-        upload = self.upload('telemetry_experiment')
+        upload = self.upload('experiment_inside_webextension')
         file_ = File.from_upload(
             upload, self.version, self.platform,
             parsed_data={'is_experiment': True})
@@ -1443,6 +1378,7 @@ class TestParseSearch(TestCase, amo.tests.AMOPaths):
             'guid': None,
             'name': u'search tool',
             'is_restart_required': False,
+            'is_experiment': False,
             'is_webextension': False,
             'version': datetime.now().strftime('%Y%m%d'),
             'summary': u'Search Engine for Firefox',
@@ -1476,7 +1412,7 @@ def test_parse_xpi():
     """Fire.fm can sometimes give us errors.  Let's prevent that."""
     firefm = os.path.join(settings.ROOT,
                           'src/olympia/files/fixtures/files/firefm.xpi')
-    rdf = parse_xpi(open(firefm))
+    rdf = parse_xpi(firefm)
     assert rdf['name'] == 'Fire.fm'
 
 

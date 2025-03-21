@@ -2,10 +2,7 @@ from django import forms
 from django.conf import settings
 from django.forms import ModelForm
 from django.forms.models import BaseModelFormSet, modelformset_factory
-from django.forms.widgets import RadioSelect
-from django.utils.translation import ugettext, ugettext_lazy as _
-
-from product_details import product_details
+from django.utils.translation import ugettext
 
 import olympia.core.logger
 
@@ -13,38 +10,20 @@ from olympia import amo
 from olympia.addons.models import Addon
 from olympia.bandwagon.models import (
     Collection, FeaturedCollection, MonthlyPick)
-from olympia.compat.forms import APPVER_CHOICES
+from olympia.core.languages import LANGUAGE_MAPPING
 from olympia.files.models import File
-from olympia.zadmin.models import SiteEvent
 
 
 LOGGER_NAME = 'z.zadmin'
 log = olympia.core.logger.getLogger(LOGGER_NAME)
 
 
-class DevMailerForm(forms.Form):
-    _choices = [('eula',
-                 'Developers who have set up EULAs for active add-ons'),
-                ('sdk', 'Developers of active SDK add-ons'),
-                ('all_extensions', 'All extension developers'),
-                ('depreliminary',
-                 'Developers who have addons that were preliminary reviewed'),
-                ]
-    recipients = forms.ChoiceField(choices=_choices, required=True)
-    subject = forms.CharField(widget=forms.TextInput(attrs=dict(size='100')),
-                              required=True)
-    preview_only = forms.BooleanField(initial=True, required=False,
-                                      label=u'Log emails instead of sending')
-    message = forms.CharField(widget=forms.Textarea, required=True)
-
-
 class FeaturedCollectionForm(forms.ModelForm):
     LOCALES = (('', u'(Default Locale)'),) + tuple(
-        (i, product_details.languages[i]['native'])
-        for i in settings.AMO_LANGUAGES
-        if i not in ('dbl', 'dbr'))
+        (idx, LANGUAGE_MAPPING[idx]['native'])
+        for idx in settings.LANGUAGE_MAPPING)
 
-    application = forms.ChoiceField(amo.APPS_CHOICES)
+    application = forms.ChoiceField(choices=amo.APPS_CHOICES)
     collection = forms.CharField(widget=forms.HiddenInput)
     locale = forms.ChoiceField(choices=LOCALES, required=False)
 
@@ -127,28 +106,3 @@ class FileStatusForm(ModelForm):
 
 FileFormSet = modelformset_factory(File, form=FileStatusForm,
                                    formset=BaseModelFormSet, extra=0)
-
-
-class SiteEventForm(ModelForm):
-    class Meta:
-        model = SiteEvent
-        fields = ('start', 'end', 'event_type', 'description',
-                  'more_info_url')
-
-
-class YesImSure(forms.Form):
-    yes = forms.BooleanField(required=True, label="Yes, I'm sure")
-
-
-class CompatForm(forms.Form):
-    appver = forms.ChoiceField(choices=APPVER_CHOICES, required=False)
-    type = forms.ChoiceField(choices=(('all', _('All Add-ons')),
-                                      ('binary', _('Binary')),
-                                      ('non-binary', _('Non-binary'))),
-                             widget=RadioSelect, required=False)
-    _minimum_choices = [(x, x) for x in xrange(100, -10, -10)]
-    minimum = forms.TypedChoiceField(choices=_minimum_choices, coerce=int,
-                                     required=False)
-    _ratio_choices = [('%.1f' % (x / 10.0), '%.0f%%' % (x * 10))
-                      for x in xrange(9, -1, -1)]
-    ratio = forms.ChoiceField(choices=_ratio_choices, required=False)

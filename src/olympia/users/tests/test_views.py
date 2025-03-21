@@ -1,24 +1,23 @@
 import json
 
 from datetime import datetime, timedelta
-from urlparse import urlparse
 
 from django.conf import settings
 from django.core import mail
-from django.core.cache import cache
 from django.forms.models import model_to_dict
-from django.utils.encoding import force_text
+from django.utils.encoding import force_bytes, force_text
+
+import six
 
 from dateutil.parser import parse
 from lxml.html import HTMLParser, fromstring
 from mock import Mock, patch
 from pyquery import PyQuery as pq
+from six.moves.urllib_parse import urlparse
 
-from olympia import amo
-from olympia import core
+from olympia import amo, core
 from olympia.abuse.models import AbuseReport
 from olympia.access.models import Group, GroupUser
-from olympia.accounts.views import API_TOKEN_COOKIE
 from olympia.activity.models import ActivityLog
 from olympia.addons.models import Addon, AddonUser, Category
 from olympia.amo.templatetags.jinja_helpers import urlparams
@@ -80,7 +79,7 @@ class TestAjax(UserViewBase):
     def test_ajax_success(self):
         r = self.client.get(reverse('users.ajax'), {'q': 'fligtar@gmail.com'},
                             follow=True)
-        data = json.loads(r.content)
+        data = json.loads(force_text(r.content))
         assert data == {
             'status': 1, 'message': '', 'id': 9945,
             'name': u'Justin Scott \u0627\u0644\u062a\u0637\u0628'}
@@ -92,20 +91,20 @@ class TestAjax(UserViewBase):
             'Expected <script> to be in display name')
         r = self.client.get(reverse('users.ajax'),
                             {'q': self.user.email, 'dev': 0})
-        assert '<script>' not in r.content
-        assert '&lt;script&gt;' in r.content
+        assert b'<script>' not in r.content
+        assert b'&lt;script&gt;' in r.content
 
     def test_ajax_failure_incorrect_email(self):
         r = self.client.get(reverse('users.ajax'), {'q': 'incorrect'},
                             follow=True)
-        data = json.loads(r.content)
+        data = json.loads(force_text(r.content))
         assert data == (
             {'status': 0,
              'message': 'A user with that email address does not exist.'})
 
     def test_ajax_failure_no_email(self):
         r = self.client.get(reverse('users.ajax'), {'q': ''}, follow=True)
-        data = json.loads(r.content)
+        data = json.loads(force_text(r.content))
         assert data == (
             {'status': 0,
              'message': 'An email address is required.'})
@@ -135,13 +134,13 @@ class TestEdit(UserViewBase):
         r = self.client.post(self.url, data, follow=True)
         self.assert3xx(r, self.url)
         self.assertContains(r, data['biography'])
-        assert unicode(self.get_profile().biography) == data['biography']
+        assert six.text_type(self.get_profile().biography) == data['biography']
 
         data['biography'] = 'yyy unst unst'
         r = self.client.post(self.url, data, follow=True)
         self.assert3xx(r, self.url)
         self.assertContains(r, data['biography'])
-        assert unicode(self.get_profile().biography) == data['biography']
+        assert six.text_type(self.get_profile().biography) == data['biography']
 
     def test_bio_no_links(self):
         self.data.update(biography='<a href="https://google.com">google</a>')
@@ -176,7 +175,7 @@ class TestEdit(UserViewBase):
             (l.id, l.label) for l in email.NOTIFICATIONS_COMBINED]
         self.check_default_choices(choices)
 
-        self.data['notifications'] = [4, 6]
+        self.data['notifications'] = [4, 5]
         r = self.client.post(self.url, self.data)
         self.assert3xx(r, self.url, 302)
 
@@ -193,8 +192,8 @@ class TestEdit(UserViewBase):
         assert doc('.more-all').length == len(email.NOTIFICATION_GROUPS)
 
     def test_edit_notifications_non_dev(self):
-        notifications_not_dev = [
-            l for l in email.NOTIFICATIONS_COMBINED if l.group != 'dev']
+        notifications_not_dev = list(
+            [l for l in email.NOTIFICATIONS_COMBINED if l.group != 'dev'])
         choices_not_dev = [
             (l.id, l.label) for l in notifications_not_dev]
         self.check_default_choices(choices_not_dev)
@@ -205,7 +204,7 @@ class TestEdit(UserViewBase):
 
         assert UserNotification.objects.count() == len(notifications_not_dev)
         assert UserNotification.objects.filter(enabled=True).count() == (
-            len(filter(lambda x: x.mandatory, notifications_not_dev)))
+            len(list(filter(lambda x: x.mandatory, notifications_not_dev))))
         self.check_default_choices(choices_not_dev, checked=False)
 
     def test_edit_notifications_non_dev_error(self):
@@ -291,7 +290,7 @@ class TestEditAdmin(UserViewBase):
         delete_url = reverse('admin:users_userprofile_delete',
                              args=(self.regular.pk,))
         res = self.client.post(delete_url, {'post': 'yes'}, follow=True)
-        assert self.regular.display_name not in res.content
+        assert force_bytes(self.regular.display_name) not in res.content
 
 
 class TestLogin(UserViewBase):
@@ -408,82 +407,6 @@ class TestSessionLength(UserViewBase):
         assert expiry >= four_weeks_from_now
 
 
-class TestLogout(UserViewBase):
-
-    def test_success(self):
-        user = UserProfile.objects.get(email='jbalogh@mozilla.com')
-        self.client.login(email=user.email)
-        response = self.client.get('/', follow=True)
-        assert (
-            pq(response.content.decode('utf-8'))('.account .user').text() ==
-            user.display_name)
-        assert (
-            pq(response.content)('.account .user').attr('title') == user.email)
-
-        response = self.client.get('/users/logout', follow=True)
-        assert not pq(response.content)('.account .user')
-
-    def test_redirect(self):
-        self.client.login(email='jbalogh@mozilla.com')
-        self.client.get('/', follow=True)
-        url = '/en-US/about'
-        response = self.client.get(urlparams(reverse('users.logout'), to=url),
-                                   follow=True)
-        self.assert3xx(response, url, status_code=302)
-
-        url = urlparams(reverse('users.logout'), to='/addon/new',
-                        domain='builder')
-        response = self.client.get(url, follow=False)
-        self.assert3xx(
-            response, 'https://builder.addons.mozilla.org/addon/new',
-            status_code=302)
-
-        # Test an invalid domain
-        url = urlparams(reverse('users.logout'), to='/en-US/about',
-                        domain='http://evil.com')
-        response = self.client.get(url, follow=False)
-        self.assert3xx(response, '/en-US/about', status_code=302)
-
-    def test_session_cookie_deleted_on_logout(self):
-        self.client.login(email='jbalogh@mozilla.com')
-        self.client.cookies[API_TOKEN_COOKIE] = 'some.token.value'
-        response = self.client.get(reverse('users.logout'))
-        cookie = response.cookies[settings.SESSION_COOKIE_NAME]
-        assert cookie.value == ''
-        assert cookie['expires'] == u'Thu, 01-Jan-1970 00:00:00 GMT'
-        jwt_cookie = response.cookies[API_TOKEN_COOKIE]
-        assert jwt_cookie.value == ''
-        assert jwt_cookie['expires'] == u'Thu, 01-Jan-1970 00:00:00 GMT'
-
-
-class TestRegistrationAndLoginViews(UserViewBase):
-
-    def test_register_redirects_to_login(self):
-        """Register should redirect to login."""
-        response = self.client.get(reverse('users.register'), follow=True)
-        self.assert3xx(response, reverse('users.login'), status_code=301)
-
-    def test_login_page_redirects_to_url_if_authenticated(self):
-        self.client.login(email=self.user.email)
-        # Set target_url to a known valid view on the site.
-        self.target_url = reverse('users.profile', args=[self.user.id])
-        self.url = reverse('users.login') + '?to=%s' % self.target_url
-        response = self.client.get(self.url)
-        self.assert3xx(response, self.target_url, status_code=302)
-
-        # With an external url, we redirect to the homepage instead.
-        self.target_url = 'https://www.example.com/'
-        self.url = reverse('users.login') + '?to=%s' % self.target_url
-        response = self.client.get(self.url)
-        self.assert3xx(response, '/', status_code=302)
-
-    def test_login_page_shows_fxa_transition_message_if_anonymous(self):
-        response = self.client.get(
-            reverse('users.login') + '?to=/foo', follow=True)
-        assert response.status_code == 200
-        assert response.templates[0].name == 'users/login.html'
-
-
 class TestProfileView(UserViewBase):
 
     def setUp(self):
@@ -536,15 +459,11 @@ class TestProfileLinks(UserViewBase):
         admingroup = Group(rules='Users:Edit')
         admingroup.save()
         GroupUser.objects.create(group=admingroup, user=self.user)
-        cache.clear()
 
         # Admin, own profile.
         links = get_links(self.user.id)
         assert links.length == 2
         assert links.eq(0).attr('href') == reverse('users.edit')
-        # TODO XXX Uncomment when we have real user editing pages
-        # assert links.eq(1).attr('href') + "/" == (
-        # reverse('admin:users_userprofile_change', args=[self.user.id]))
 
     def test_user_properties(self):
         self.client.login(email='jbalogh@mozilla.com')
@@ -667,13 +586,13 @@ class TestProfileSections(TestCase):
 
         doc = pq(response.content)
         items = doc('#my-themes .persona')
-        assert items.length == 1
-        assert items('a[href="%s"]' % addon.get_url_path()).length == 1
+        # ATN: We don't show personas anymore
+        assert items.length == 0
+        assert items('a[href="%s"]' % addon.get_url_path()).length == 0
 
     def test_my_reviews(self):
         rating = Rating.objects.filter(reply_to=None)[0]
         rating.update(user=self.user)
-        cache.clear()
         self.assertSetEqual(set(self.user.ratings), {rating})
 
         response = self.client.get(self.url)
@@ -699,7 +618,6 @@ class TestProfileSections(TestCase):
         rating = Rating.objects.filter(reply_to=None)[0]
         rating.user_id = 999
         rating.save()
-        cache.clear()
         slug = Addon.objects.get(id=rating.addon_id).slug
         delete_url = reverse('addons.ratings.delete', args=[slug, rating.pk])
 
@@ -730,7 +648,6 @@ class TestProfileSections(TestCase):
         rating.user_id = 999
         rating.editorreview = True
         rating.save()
-        cache.clear()
         slug = Addon.objects.get(id=rating.addon_id).slug
         delete_url = reverse('addons.ratings.delete', args=[slug, rating.pk])
 
@@ -747,7 +664,7 @@ class TestProfileSections(TestCase):
         assert pq(r.content)('#my-addons .paginator').length == 0
 
     def test_my_reviews_pagination(self):
-        for i in xrange(20):
+        for i in range(20):
             AddonUser.objects.create(user=self.user, addon_id=3615)
         assert self.user.num_addons_listed > 10, (
             'This user should have way more than 10 add-ons.')
@@ -772,7 +689,7 @@ class TestProfileSections(TestCase):
 
         a = li.find('a')
         assert a.attr('href') == coll.get_url_path()
-        assert a.text() == unicode(coll.name)
+        assert a.text() == six.text_type(coll.name)
 
     def test_no_my_collections(self):
         Collection.objects.filter(author=self.user).delete()
@@ -815,13 +732,13 @@ class TestProfileSections(TestCase):
                       u'<b>acceptably bold</b>')
         assert '<script>' in self.user.biography
         response = self.client.get(self.url)
-        assert '<script>' not in response.content
-        assert 'http://spam.com/' not in response.content
+        assert b'<script>' not in response.content
+        assert b'http://spam.com/' not in response.content
 
-        assert 'alert("xss")' in response.content
-        assert 'line<br/>break' in response.content
-        assert 'linkylink' in response.content
-        assert '<b>acceptably bold</b>' in response.content
+        assert b'alert("xss")' in response.content
+        assert b'line<br/>break' in response.content
+        assert b'linkylink' in response.content
+        assert b'<b>acceptably bold</b>' in response.content
 
 
 class TestThemesProfile(TestCase):
@@ -846,9 +763,8 @@ class TestThemesProfile(TestCase):
         assert doc('.no-results').length == 0
 
         results = doc('.personas-grid .persona.hovercard')
-        assert results.length == 1
-        assert force_text(
-            results.find('h3').html()) == unicode(self.theme.name)
+        # ATN: We've removed personas from user profile!
+        assert results.length == 0
 
     def test_bad_user(self):
         res = self.client.get(reverse('users.themes', args=['yolo']))

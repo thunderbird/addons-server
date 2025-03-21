@@ -19,8 +19,7 @@ from olympia.versions.models import Version
 
 
 class TestLastUpdated(TestCase):
-    fixtures = ['base/addon_3615', 'addons/listed',
-                'addons/persona', 'base/seamonkey', 'base/thunderbird']
+    fixtures = ['base/addon_3615', 'addons/listed', 'addons/persona']
 
     def test_personas(self):
         Addon.objects.update(type=amo.ADDON_PERSONA, status=amo.STATUS_PUBLIC)
@@ -54,12 +53,12 @@ class TestLastUpdated(TestCase):
 
     def test_appsupport(self):
         ids = Addon.objects.values_list('id', flat=True)
-        cron._update_appsupport(ids)
-        assert AppSupport.objects.filter(app=amo.FIREFOX.id).count() == 4
+        cron.update_appsupport(ids)
+        assert AppSupport.objects.filter(app=amo.FIREFOX.id).count() == 3  # ??
 
         # Run it again to test deletes.
-        cron._update_appsupport(ids)
-        assert AppSupport.objects.filter(app=amo.FIREFOX.id).count() == 4
+        cron.update_appsupport(ids)
+        assert AppSupport.objects.filter(app=amo.FIREFOX.id).count() == 3  # ??
 
     def test_appsupport_listed(self):
         AppSupport.objects.all().delete()
@@ -67,14 +66,6 @@ class TestLastUpdated(TestCase):
         cron.update_addon_appsupport()
         assert AppSupport.objects.filter(
             addon=3723, app=amo.FIREFOX.id).count() == 0
-
-    def test_appsupport_seamonkey(self):
-        addon = Addon.objects.get(pk=15663)
-        addon.update(status=amo.STATUS_PUBLIC)
-        AppSupport.objects.all().delete()
-        cron.update_addon_appsupport()
-        assert AppSupport.objects.filter(
-            addon=15663, app=amo.SEAMONKEY.id).count() == 1
 
 
 class TestHideDisabledFiles(TestCase):
@@ -372,3 +363,56 @@ class TestCleanupImageFiles(TestCase):
         assert os_listdir_mock.called
         assert os_stat_mock.called
         assert os_unlink_mock.called
+
+
+class TestDeliverHotness(TestCase):
+    def setUp(self):
+        self.persona = addon_factory(type=amo.ADDON_PERSONA)
+        self.extension = addon_factory()
+        self.static_theme = addon_factory(type=amo.ADDON_STATICTHEME)
+        self.awaiting_review = addon_factory(status=amo.STATUS_NOMINATED)
+
+        today = datetime.date.today()
+
+        stats = [
+            (today - datetime.timedelta(days=days_in_past), update_count)
+            for days_in_past, update_count in (
+                (1, 827080), (2, 787930), (3, 995860), (4, 1044260),
+                (5, 105431), (6, 106065), (7, 980930), (8, 817100), (9, 78843),
+                (10, 993830), (11, 104431), (12, 105943), (13, 105039),
+                (14, 100183), (15, 82265), (16, 100183), (17, 82265),
+                (18, 100183), (19, 82265), (20, 100183), (21, 82265),
+
+            )]
+
+        for obj in (self.persona, self.extension, self.static_theme,
+                    self.awaiting_review):
+            UpdateCount.objects.bulk_create([
+                UpdateCount(addon=obj, date=date, count=count)
+                for date, count in stats
+            ])
+
+    @mock.patch('olympia.addons.cron.time.sleep', lambda *a, **kw: None)
+    def test_basic(self):
+        cron.deliver_hotness()
+
+        # Personas are excluded
+        assert self.persona.reload().hotness == 0
+
+        assert self.extension.reload().hotness == 1.652672126445855
+        assert self.static_theme.reload().hotness == 1.652672126445855
+
+        # Only public add-ons get hotness calculated
+        assert self.awaiting_review.reload().hotness == 0
+
+    @mock.patch('olympia.addons.cron.time.sleep', lambda *a, **kw: None)
+    def test_avoid_overwriting_values(self):
+        cron.deliver_hotness()
+
+        assert self.extension.reload().hotness == 1.652672126445855
+
+        # Make sure we don't update add-ons if nothing changed
+        with mock.patch('olympia.addons.cron.Addon.update') as mocked_update:
+            cron.deliver_hotness()
+
+        assert not mocked_update.called

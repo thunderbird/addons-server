@@ -1,7 +1,8 @@
 import re
 
+from django.conf import settings
 from django.core import exceptions
-from django.core.validators import URLValidator
+from django.core.validators import RegexValidator, URLValidator
 from django.db import models
 from django.forms import fields
 from django.utils.translation import ugettext, ugettext_lazy as _
@@ -38,7 +39,24 @@ class URLValidatorBackport(URLValidator):
 
 
 class HttpHttpsOnlyURLField(fields.URLField):
-    default_validators = [URLValidatorBackport(schemes=('http', 'https'))]
+
+    def __init__(self, *args, **kwargs):
+        super(HttpHttpsOnlyURLField, self).__init__(*args, **kwargs)
+
+        self.validators = [
+            URLValidatorBackport(schemes=('http', 'https')),
+            # Reject AMO URLs, see:
+            # https://github.com/mozilla/addons-server/issues/9012
+            RegexValidator(
+                regex=r'%s' % re.escape(settings.DOMAIN),
+                message=_(
+                    'This field can only be used to link to external websites.'
+                    ' URLs on %(domain)s are not allowed.',
+                ) % {'domain': settings.DOMAIN},
+                code='no_amo_url',
+                inverse_match=True
+            )
+        ]
 
 
 class ReCaptchaField(HumanCaptchaField):
@@ -54,12 +72,12 @@ class ColorField(fields.CharField):
     widget = ColorWidget
 
     def __init__(self, max_length=7, min_length=None, *args, **kwargs):
-        super(ColorField, self).__init__(max_length, min_length, *args,
-                                         **kwargs)
+        super(ColorField, self).__init__(
+            *args, max_length=max_length, min_length=min_length, **kwargs)
 
     def clean(self, value):
         super(ColorField, self).clean(value)
-        if value and not re.match('^\#([0-9a-fA-F]{6})$', value):
+        if value and not re.match(r'^\#([0-9a-fA-F]{6})$', value):
             raise exceptions.ValidationError(ugettext(
                 u'This must be a valid hex color code, such as #000000.'))
         return value

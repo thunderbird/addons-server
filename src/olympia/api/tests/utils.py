@@ -1,13 +1,16 @@
 from datetime import datetime
 
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient
+from six import text_type
 
+from olympia.amo.tests import TestCase
 from olympia.api.authentication import JWTKeyAuthentication
 from olympia.api.tests.test_jwt_auth import JWTAuthKeyTester
 from olympia.users.models import UserProfile
 
 
-class APIKeyAuthTestMixin(APITestCase, JWTAuthKeyTester):
+class APIKeyAuthTestMixin(TestCase, JWTAuthKeyTester):
+    client_class = APIClient
 
     def create_api_user(self):
         self.user = UserProfile.objects.create(
@@ -15,7 +18,8 @@ class APIKeyAuthTestMixin(APITestCase, JWTAuthKeyTester):
             email='a@m.o',
             read_dev_agreement=datetime.today(),
         )
-        self.api_key = self.create_api_key(self.user, str(self.user.pk) + ':f')
+        self.api_key = self.create_api_key(
+            self.user, text_type(self.user.pk) + ':f')
 
     def authorization(self):
         """

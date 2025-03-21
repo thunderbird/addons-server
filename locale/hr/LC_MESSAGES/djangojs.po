@@ -6,9 +6,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: addons VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-09-22 22:59+0000\n"
-"Last-Translator: Karlo Prikratki <me@karloprikratki.com>\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2018-11-07 18:03+0000\n"
+"Last-Translator: echrs <echrs@outlook.com>\n"
 "Language-Team: Croatian\n"
 "Language: hr\n"
 "MIME-Version: 1.0\n"
@@ -51,8 +51,8 @@ msgstr "Učitavanje {0}"
 msgid "Error with {0}"
 msgstr "Greška u {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "Omogućili smo novi linter kako bi procesuirali vaš dodatak. Molimo da zabilježite sve probleme na GiHub-u"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr ""
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
@@ -73,7 +73,7 @@ msgid "Validating {0}"
 msgstr "Ovjera {0}"
 
 msgid "Your add-on exceeds the maximum size of {0}."
-msgstr ""
+msgstr "Vaš dodatak premašuje maksimalnu veličinu od {0}."
 
 msgid "Received an empty response from the server; status: {0}"
 msgstr "Primljen prazni odgovor od servera; status: {0}"
@@ -140,7 +140,7 @@ msgid "The filetype you uploaded isn't recognized."
 msgstr "Tip datoteke koji ste učitali nije prepoznat."
 
 msgid "Your file exceeds the maximum size of {0}."
-msgstr ""
+msgstr "Vaša datoteka premašuje maksimalnu veličinu od {0}."
 
 msgid "You cancelled the upload."
 msgstr "Prekinuli ste učitavanje."
@@ -781,9 +781,18 @@ msgstr "Nema rezultata."
 msgid "Loading..."
 msgstr "Pokretanje..."
 
+#. L10n: {0} is the number of characters entered.
+#, fuzzy
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "preostalo <b>{0}</b> slovo."
+msgstr[1] "preostalo <b>{0}</b> slova."
+msgstr[2] "preostalo <b>{0}</b> slova."
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
+#, fuzzy
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
 msgstr[0] "preostalo <b>{0}</b> slovo."
 msgstr[1] "preostalo <b>{0}</b> slova."
 msgstr[2] "preostalo <b>{0}</b> slova."
@@ -831,7 +840,7 @@ msgid "Number of Reviews"
 msgstr "Broj ocjena"
 
 msgid "Maximum upload size is {0} - choose a smaller background image."
-msgstr ""
+msgstr "Maksimalna veličina je {0} - odaberite manju sliku pozadine."
 
 msgid "Requested Info"
 msgstr "Zatražene informacije"
@@ -880,9 +889,6 @@ msgstr "{0} linija {1} kolona {2}"
 
 msgid "{0} line {1}"
 msgstr "{0} linija {1}"
-
-msgid "Compatibility Tests"
-msgstr "Testovi kompatibilnosti"
 
 msgid "Add-on failed validation."
 msgstr "Dodatak nije prošao ovjeru."

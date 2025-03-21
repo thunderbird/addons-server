@@ -72,3 +72,60 @@ def test_category_section_loads_correct_category(base_url, selenium):
     name = item.name
     category = item.click()
     assert name in category.header.name
+
+
+@pytest.mark.nondestructive
+def test_title_routes_to_home(base_url, selenium):
+    page = Extensions(selenium, base_url).open()
+    home = page.header.click_title()
+    assert home.hero_banner.is_displayed()
+
+
+@pytest.mark.parametrize(
+    'i, page_url',
+    enumerate(['language-tools', 'search-tools', 'android']))
+@pytest.mark.nondestructive
+def test_more_dropdown_navigates_correctly(base_url, selenium, i, page_url):
+    page = Home(selenium, base_url).open()
+    page.header.more_menu(item=i)
+    assert page_url in selenium.current_url
+
+
+@pytest.mark.desktop_only
+@pytest.mark.parametrize(
+    'i, links',
+    enumerate([
+        'about',
+        'blog.mozilla.org',
+        'developers',
+        'AMO/Policy',
+        'discourse',
+        '#Contact_us',
+        'review_guide',
+        'status',
+    ])
+)
+@pytest.mark.nondestructive
+def test_add_ons_footer_links(base_url, selenium, i, links):
+    page = Home(selenium, base_url).open()
+    page.footer.addon_links[i].click()
+    assert links in selenium.current_url
+
+
+@pytest.mark.desktop_only
+@pytest.mark.parametrize(
+    'i, links',
+    enumerate([
+        'firefox/new',
+        'firefox/mobile',
+        'firefox/mobile',
+        'firefox/mobile',
+        'firefox',
+        'firefox/channel/desktop',
+    ])
+)
+@pytest.mark.nondestructive
+def test_firefox_footer_links(base_url, selenium, i, links):
+    page = Home(selenium, base_url).open()
+    page.footer.firefox_links[i].click()
+    assert links in selenium.current_url

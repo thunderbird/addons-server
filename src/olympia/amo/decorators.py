@@ -5,7 +5,6 @@ import json
 from django import http
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.db import connection, transaction
 
 import olympia.core.logger
 
@@ -164,42 +163,16 @@ def allow_cross_site_request(f):
 
 def allow_mine(f):
     @functools.wraps(f)
-    def wrapper(request, username, *args, **kw):
+    def wrapper(request, user_id, *args, **kw):
         """
         If the author is `mine` then show the current user's collection
         (or something).
         """
         # Prevent circular ref in accounts.utils
         from olympia.accounts.utils import redirect_for_login
-        if username == 'mine':
+        if user_id == 'mine':
             if not request.user.is_authenticated:
                 return redirect_for_login(request)
-            username = request.user.username
-        return f(request, username, *args, **kw)
+            user_id = request.user.id
+        return f(request, user_id, *args, **kw)
     return wrapper
-
-
-def atomic(fn):
-    """Set the transaction isolation level to SERIALIZABLE and then delegate
-    to transaction.atomic to run the specified code atomically. The
-    SERIALIZABLE level will run SELECTs in LOCK IN SHARE MODE when used in
-    conjunction with transaction.atomic.
-    Docs: https://dev.mysql.com/doc/refman/5.6/en/set-transaction.html.
-    """
-    # TODO: Make this the default for all transactions.
-    @functools.wraps(fn)
-    @use_primary_db
-    def inner(*args, **kwargs):
-        cursor = connection.cursor()
-        cursor.execute('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
-        with transaction.atomic():
-            return fn(*args, **kwargs)
-    # The non_atomic version is essentially just a non-decorated version of the
-    # function. This is just here to handle the fact that django's tests are
-    # run in a transaction and setting this will make mysql blow up. You can
-    # mock your function to the non-atomic version to make it run in a test.
-    #
-    #  with mock.patch('module.func', module.func.non_atomic):
-    #      test_something()
-    inner.non_atomic = fn
-    return inner

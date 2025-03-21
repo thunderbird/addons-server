@@ -1,6 +1,6 @@
 {% set show_listed=addon.has_listed_versions() %}
 {% set urls = [
-  (addon.get_dev_url(), _('Edit Information')),
+  (addon.get_dev_url(), _('Edit Product Page')),
   (addon.get_dev_url('owner'), _('Manage Authors & License')),
   (addon.get_dev_url('versions'), _('Manage Status & Versions')),
   ] %}
@@ -34,7 +34,7 @@
     <ul class="refinements">
       {% if show_listed %}
       <li><a href="{{ addon.get_url_path() }}">
-        {{ _('View Listing') }}</a></li>
+        {{ _('View Product Page') }}</a></li>
       {% endif %}
       {% if action_allowed(amo.permissions.ADDONS_EDIT) %}
         <li><a href="{{ url('reviewers.review', addon.slug) }}">
@@ -52,19 +52,6 @@
         {% if show_listed %}
           <li class="view-stats"><a href="{{ url('stats.overview', addon.slug) }}">
             {{ _('View Statistics Dashboard') }}</a></li>
-        {% endif %}
-        {% if latest_version and not latest_version.is_webextension %}
-          <li class="compat-reports">
-            <a href="{{ url('compat.reporter_detail', addon.guid) }}">
-              <span>{{ _('Compatibility Reports') }}</span>
-              <br />
-              {% set compat_counts = get_compat_counts(addon) %}
-              <b class="failure" title="{{ _('{0} failure reports')|format_html(compat_counts.failure) }}">
-                {{ compat_counts.failure|numberfmt }}</b>
-              <b class="success" title="{{ _('{0} success reports')|format_html(compat_counts.success) }}">
-                {{ compat_counts.success|numberfmt }}</b>
-            </a>
-          </li>
         {% endif %}
       {% endif %}
     </ul>

@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import json
+import sys
 
 from datetime import datetime, timedelta
 
 from django import test
 from django.conf import settings
 from django.test.utils import override_settings
+from django.utils.encoding import force_text
 
 import mock
 import pytest
@@ -45,7 +47,7 @@ class Test403(TestCase):
         self.assertTemplateUsed(response, 'amo/403.html')
 
     def test_403_app(self):
-        response = self.client.get('/en-US/thunderbird/admin/', follow=True)
+        response = self.client.get('/en-US/android/admin/', follow=True)
         assert response.status_code == 403
         self.assertTemplateUsed(response, 'amo/403.html')
 
@@ -61,10 +63,10 @@ class Test404(TestCase):
         self.assertTemplateUsed(response, 'amo/404.html')
 
     def test_404_app_links(self):
-        res = self.client.get('/en-US/thunderbird/xxxxxxx')
+        res = self.client.get('/en-US/android/xxxxxxx')
         assert res.status_code == 404
         self.assertTemplateUsed(res, 'amo/404.html')
-        links = pq(res.content)('[role=main] ul a[href^="/en-US/thunderbird"]')
+        links = pq(res.content)('[role=main] ul a[href^="/en-US/android"]')
         assert links.length == 4
 
     def test_404_api_v3(self):
@@ -244,15 +246,15 @@ class TestOtherStuff(TestCase):
         assert doc('#site-welcome').length == 1
 
     @mock.patch.object(settings, 'READ_ONLY', False)
-    def test_thunderbird_balloons_no_readonly(self):
-        response = self.client.get('/en-US/thunderbird/')
+    def test_android_balloons_no_readonly(self):
+        response = self.client.get('/en-US/android/')
         assert response.status_code == 200
         doc = pq(response.content)
         assert doc('#site-notice').length == 0
 
     @mock.patch.object(settings, 'READ_ONLY', True)
-    def test_thunderbird_balloons_readonly(self):
-        response = self.client.get('/en-US/thunderbird/')
+    def test_android_balloons_readonly(self):
+        response = self.client.get('/en-US/android/')
         doc = pq(response.content)
         assert doc('#site-notice').length == 1
         assert doc('#site-nonfx').length == 0, (
@@ -267,7 +269,6 @@ class TestOtherStuff(TestCase):
             assert text == doc('.site-title').text()
 
         title_eq('/firefox/', 'Firefox', 'Add-ons')
-        title_eq('/thunderbird/', 'Thunderbird', 'Add-ons')
         title_eq('/android/', 'Firefox for Android', 'Android Add-ons')
 
     @patch('olympia.accounts.utils.default_fxa_login_url',
@@ -306,29 +307,19 @@ class TestOtherStuff(TestCase):
         assert set_remote_addr_mock.call_args_list[0] == (('1.1.1.1',), {})
         assert set_remote_addr_mock.call_args_list[1] == ((None,), {})
 
-    @patch.object(settings, 'CDN_HOST', 'https://cdn.example.com')
-    def test_jsi18n_caching_and_cdn(self):
-        # The jsi18n catalog should be cached for a long time.
-        # Get the url from a real page so it includes the build id.
-        client = test.Client()
-        doc = pq(client.get('/', follow=True).content)
-        js_url = '%s%s' % (settings.CDN_HOST, reverse('jsi18n'))
-        url_with_build = doc('script[src^="%s"]' % js_url).attr('src')
-
-        response = client.get(url_with_build.replace(settings.CDN_HOST, ''),
-                              follow=False)
-        self.assertCloseToNow(response['Expires'],
-                              now=datetime.now() + timedelta(days=365))
-
     @pytest.mark.needs_locales_compilation
     def test_jsi18n(self):
         """Test that the jsi18n library has an actual catalog of translations
         rather than just identity functions."""
 
-        en = self.client.get(reverse('jsi18n')).content
+        response = self.client.get(reverse('jsi18n'))
+        self.assertCloseToNow(response['Expires'],
+                              now=datetime.now() + timedelta(days=365))
+
+        en = self.client.get(reverse('jsi18n')).content.decode('utf-8')
 
         with self.activate('fr'):
-            fr = self.client.get(reverse('jsi18n')).content
+            fr = self.client.get(reverse('jsi18n')).content.decode('utf-8')
 
         assert en != fr
 
@@ -341,14 +332,17 @@ class TestOtherStuff(TestCase):
         assert doc('#site-nav #more .more-lang a').attr('href') == (
             reverse('browse.language-tools'))
 
+    def test_no_dictionaries_link_when_not_firefox(self):
+        doc = pq(test.Client().get('/android', follow=True).content)
+        assert doc('#site-nav #more .more-lang').length == 0
+
     def test_mobile_link_firefox(self):
         doc = pq(test.Client().get('/firefox', follow=True).content)
         assert doc('#site-nav #more .more-mobile a').length == 1
 
     def test_mobile_link_nonfirefox(self):
-        for app in ('thunderbird', 'android'):
-            doc = pq(test.Client().get('/' + app, follow=True).content)
-            assert doc('#site-nav #more .more-mobile').length == 0
+        doc = pq(test.Client().get('/android', follow=True).content)
+        assert doc('#site-nav #more .more-mobile').length == 0
 
     def test_opensearch(self):
         client = test.Client()
@@ -370,12 +364,6 @@ class TestCORS(TestCase):
 
     def test_no_cors(self):
         response = self.get(reverse('home'))
-        assert response.status_code == 200
-        assert not response.has_header('Access-Control-Allow-Origin')
-        assert not response.has_header('Access-Control-Allow-Credentials')
-
-    def test_no_cors_legacy_api(self):
-        response = self.get('/en-US/firefox/api/1.5/search/test')
         assert response.status_code == 200
         assert not response.has_header('Access-Control-Allow-Origin')
         assert not response.has_header('Access-Control-Allow-Credentials')
@@ -414,7 +402,16 @@ class TestRobots(TestCase):
         url = reverse('collections.list')
         response = self.client.get('/robots.txt')
         assert response.status_code == 200
-        assert 'Disallow: %s' % url in response.content
+        assert 'Disallow: %s' % url in response.content.decode('utf-8')
+
+    @override_settings(ENGAGE_ROBOTS=True)
+    def test_allow_mozilla_collections(self):
+        """Make sure Mozilla collections are allowed"""
+        url = '{}{}/'.format(reverse('collections.list'),
+                             settings.TASK_USER_ID)
+        response = self.client.get('/robots.txt')
+        assert response.status_code == 200
+        assert 'Allow: {}'.format(url) in response.content.decode('utf-8')
 
 
 class TestAtomicRequests(WithDynamicEndpointsAndTransactions):
@@ -468,3 +465,6 @@ class TestVersion(TestCase):
         assert res.status_code == 200
         assert res._headers['content-type'] == (
             'Content-Type', 'application/json')
+        content = json.loads(force_text(res.content))
+        assert content['python'] == '%s.%s' % (
+            sys.version_info.major, sys.version_info.minor)

@@ -437,7 +437,7 @@ class TestDefaultToCompat(VersionCheckMixin, TestCase):
             ('FakeHeader', 'FakeHeaderValue')
         ]
 
-        expected_output = '{"fake": "output"}'
+        expected_output = b'{"fake": "output"}'
 
         def start_response_inspector(status, headers):
             self.start_response_call_count += 1
@@ -561,7 +561,7 @@ class TestDefaultToCompat(VersionCheckMixin, TestCase):
 
 
 class TestResponse(VersionCheckMixin, TestCase):
-    fixtures = ['base/addon_3615', 'base/seamonkey']
+    fixtures = ['base/addon_3615']
 
     def setUp(self):
         super(TestResponse, self).setUp()
@@ -725,14 +725,14 @@ class TestResponse(VersionCheckMixin, TestCase):
         data = json.loads(content)
         assert 'update_hash' not in data['addons'][guid]['updates'][0]
 
-    def test_releasenotes(self):
+    def test_release_notes(self):
         content = self.get_update_instance(self.data).get_output()
         data = json.loads(content)
         guid = '{2fa4ed95-0317-4c6a-a74c-5f3e3912c1f9}'
         assert data['addons'][guid]['updates'][0]['update_info_url']
 
         version = Version.objects.get(pk=81551)
-        version.update(releasenotes=None)
+        version.update(release_notes=None)
 
         content = self.get_update_instance(self.data).get_output()
         data = json.loads(content)
@@ -748,6 +748,8 @@ class TestResponse(VersionCheckMixin, TestCase):
         }
         instance = self.get_update_instance(data)
         result = instance.get_output()
+        print(result)
+        assert len(instance.data['row']) > 0, instance.data
         assert instance.data['row']['hash'].startswith('sha256:9d9a389')
         assert instance.data['row']['min'] == '1.0'
         assert instance.data['row']['version'] == '0.5.2'

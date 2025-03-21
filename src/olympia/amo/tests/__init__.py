@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
+import json
 import os
 import random
 import shutil
+import zipfile
+
+import six
 import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import partial
 from importlib import import_module
+from six.moves.urllib_parse import parse_qs, urlparse
 from tempfile import NamedTemporaryFile
-from urlparse import parse_qs, urlparse
+
 
 from django import forms, test
 from django.conf import settings
@@ -23,7 +28,7 @@ from django.test.client import Client, RequestFactory
 from django.test.utils import override_settings
 from django.conf import urls as django_urls
 from django.utils import translation
-from django.utils.encoding import force_str
+from django.utils.encoding import force_str, force_text
 
 import mock
 import pytest
@@ -36,11 +41,11 @@ from waffle.models import Flag, Sample, Switch
 from olympia import amo
 from olympia.access.acl import check_ownership
 from olympia.api.authentication import WebTokenAuthentication
-from olympia.search import indexers as search_indexers
 from olympia.stats import search as stats_search
 from olympia.amo import search as amo_search
 from olympia.access.models import Group, GroupUser
 from olympia.accounts.utils import fxa_login_url
+from olympia.addons import indexers as addons_indexers
 from olympia.addons.models import (
     Addon, AddonCategory, Category, Persona,
     update_search_index as addon_update_search_index)
@@ -59,7 +64,7 @@ from olympia.versions.models import ApplicationsVersions, License, Version
 from olympia.users.models import UserProfile
 
 from . import dynamic_urls
-
+from ...constants.applications import THUNDERBIRD
 
 # We might not have gettext available in jinja2.env.globals when running tests.
 # It's only added to the globals when activating a language (which
@@ -100,8 +105,8 @@ def setup_es_test_data(es):
             list(e.args[1:]))
         raise
 
-    aliases_and_indexes = set(settings.ES_INDEXES.values() +
-                              es.indices.get_alias().keys())
+    aliases_and_indexes = set(list(settings.ES_INDEXES.values()) +
+                              list(es.indices.get_alias().keys()))
 
     for key in aliases_and_indexes:
         if key.startswith('test_'):
@@ -114,10 +119,10 @@ def setup_es_test_data(es):
     actual_indices = {key: get_es_index_name(key)
                       for key in settings.ES_INDEXES.keys()}
 
-    # Create new search and stats indexes with the timestamped name.
+    # Create new addons and stats indexes with the timestamped name.
     # This is crucial to set up the correct mappings before we start
     # indexing things in tests.
-    search_indexers.create_new_index(index_name=actual_indices['default'])
+    addons_indexers.create_new_index(index_name=actual_indices['default'])
     stats_search.create_new_index(index_name=actual_indices['stats'])
 
     # Alias it to the name the code is going to use (which is suffixed by
@@ -188,7 +193,7 @@ def check_links(expected, elements, selected=None, verify=True):
         if isinstance(item, tuple):
             text, link = item
         # Or list item could be `link`.
-        elif isinstance(item, basestring):
+        elif isinstance(item, six.string_types):
             text, link = None, item
 
         e = elements.eq(idx)
@@ -208,8 +213,8 @@ def check_links(expected, elements, selected=None, verify=True):
 
 def assert_url_equal(url, expected, compare_host=False):
     """Compare url paths and query strings."""
-    parsed = urlparse(unicode(url))
-    parsed_expected = urlparse(unicode(expected))
+    parsed = urlparse(six.text_type(url))
+    parsed_expected = urlparse(six.text_type(expected))
     compare_url_part(parsed.path, parsed_expected.path)
     compare_url_part(parse_qs(parsed.query), parse_qs(parsed_expected.query))
     if compare_host:
@@ -228,6 +233,8 @@ def create_sample(name=None, **kw):
     if not created:
         sample.__dict__.update(kw)
         sample.save()
+    sample.flush()
+
     return sample
 
 
@@ -239,6 +246,8 @@ def create_switch(name=None, **kw):
     if not created:
         switch.__dict__.update(kw)
         switch.save()
+    switch.flush()
+
     return switch
 
 
@@ -250,6 +259,8 @@ def create_flag(name=None, **kw):
     if not created:
         flag.__dict__.update(kw)
         flag.save()
+    flag.flush()
+
     return flag
 
 
@@ -351,6 +362,10 @@ ES_patchers = [
 
 
 def start_es_mocks():
+    # Before starting to mock, stop them first. That way we ensure we're not
+    # trying to mock over an existing mock, which would be problematic since
+    # we use spec=True.
+    stop_es_mocks()
     for patch in ES_patchers:
         patch.start()
 
@@ -362,23 +377,6 @@ def stop_es_mocks():
         except RuntimeError:
             # Ignore already stopped patches.
             pass
-
-
-class BaseTestCase(test.TestCase):
-    """Base test case that most test cases should inherit from."""
-
-    def _pre_setup(self):
-        super(BaseTestCase, self)._pre_setup()
-        self.client = self.client_class()
-
-    def trans_eq(self, trans, localized_string, locale):
-        assert trans.id
-        translation = Translation.objects.get(id=trans.id, locale=locale)
-        assert translation.localized_string == localized_string
-
-    def assertUrlEqual(self, url, other, compare_host=False):
-        """Compare url paths and query strings."""
-        assert_url_equal(url, other, compare_host=compare_host)
 
 
 def fxa_login_link(response=None, to=None, request=None):
@@ -395,27 +393,62 @@ def fxa_login_link(response=None, to=None, request=None):
         action='signin')
 
 
-class TestCase(PatchMixin, InitializeSessionMixin, BaseTestCase):
+@contextmanager
+def activate_locale(locale=None, app=None):
+    """Active an app or a locale."""
+    prefixer = old_prefix = get_url_prefix()
+    old_app = old_prefix.app
+    old_locale = translation.get_language()
+    if locale:
+        rf = RequestFactory()
+        prefixer = Prefixer(rf.get('/%s/' % (locale,)))
+        translation.activate(locale)
+    if app:
+        prefixer.app = app
+    set_url_prefix(prefixer)
+    yield
+    old_prefix.app = old_app
+    set_url_prefix(old_prefix)
+    translation.activate(old_locale)
+
+
+def grant_permission(user_obj, rules, name):
+    group = Group.objects.create(name=name, rules=rules)
+    GroupUser.objects.create(group=group, user=user_obj)
+
+
+class TestCase(PatchMixin, InitializeSessionMixin, test.TestCase):
     """Base class for all amo tests."""
     client_class = TestClient
+
+    def _pre_setup(self):
+        super(TestCase, self)._pre_setup()
+        self.client = self.client_class()
+
+    @classmethod
+    def setUpClass(cls):
+        start_es_mocks()
+        super(TestCase, cls).setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        stop_es_mocks()
+        super(TestCase, cls).tearDownClass()
+
+    def trans_eq(self, trans, localized_string, locale):
+        assert trans.id
+        translation = Translation.objects.get(id=trans.id, locale=locale)
+        assert translation.localized_string == localized_string
+
+    def assertUrlEqual(self, url, other, compare_host=False):
+        """Compare url paths and query strings."""
+        assert_url_equal(url, other, compare_host=compare_host)
 
     @contextmanager
     def activate(self, locale=None, app=None):
         """Active an app or a locale."""
-        prefixer = old_prefix = get_url_prefix()
-        old_app = old_prefix.app
-        old_locale = translation.get_language()
-        if locale:
-            rf = RequestFactory()
-            prefixer = Prefixer(rf.get('/%s/' % (locale,)))
-            translation.activate(locale)
-        if app:
-            prefixer.app = app
-        set_url_prefix(prefixer)
-        yield
-        old_prefix.app = old_app
-        set_url_prefix(old_prefix)
-        translation.activate(old_locale)
+        with activate_locale(locale, app):
+            yield
 
     def assertNoFormErrors(self, response):
         """Asserts that no form in the context has errors.
@@ -433,7 +466,7 @@ class TestCase(PatchMixin, InitializeSessionMixin, BaseTestCase):
             # There are multiple contexts so iter all of them.
             tpl = response.context
         for ctx in tpl:
-            for k, v in ctx.iteritems():
+            for k, v in six.iteritems(ctx):
                 if isinstance(v, (forms.BaseForm, forms.formsets.BaseFormSet)):
                     if isinstance(v, forms.formsets.BaseFormSet):
                         # Concatenate errors from each form in the formset.
@@ -464,7 +497,7 @@ class TestCase(PatchMixin, InitializeSessionMixin, BaseTestCase):
         """
 
         # Try parsing the string if it's not a datetime.
-        if isinstance(dt, basestring):
+        if isinstance(dt, six.string_types):
             try:
                 dt = dateutil_parser(dt)
             except ValueError as e:
@@ -526,8 +559,7 @@ class TestCase(PatchMixin, InitializeSessionMixin, BaseTestCase):
 
     def grant_permission(self, user_obj, rules, name='Test Group'):
         """Creates group with rule, and adds user to group."""
-        group = Group.objects.create(name=name, rules=rules)
-        GroupUser.objects.create(group=group, user=user_obj)
+        grant_permission(user_obj, rules, name)
 
     def days_ago(self, days):
         return days_ago(days)
@@ -537,10 +569,6 @@ class TestCase(PatchMixin, InitializeSessionMixin, BaseTestCase):
         if '@' not in email:
             email += '@mozilla.com'
         assert self.client.login(email=email)
-
-    def assertUrlEqual(self, url, other, compare_host=False):
-        """Compare url paths and query strings."""
-        assert_url_equal(url, other, compare_host)
 
     def enable_messages(self, request):
         setattr(request, 'session', 'session')
@@ -618,7 +646,8 @@ def addon_factory(
     default_locale = kw.get('default_locale', settings.LANGUAGE_CODE)
 
     # Keep as much unique data as possible in the uuid: '-' aren't important.
-    name = kw.pop('name', u'Addôn %s' % unicode(uuid.uuid4()).replace('-', ''))
+    name = kw.pop('name', u'Addôn %s' %
+                  six.text_type(uuid.uuid4()).replace('-', ''))
     slug = kw.pop('slug', None)
     if slug is None:
         slug = name.replace(' ', '-').lower()[:30]
@@ -637,12 +666,13 @@ def addon_factory(
         'created': when,
         'last_updated': when,
     }
-    if type_ != amo.ADDON_PERSONA:
-        # Personas don't have a summary.
+    if type_ != amo.ADDON_PERSONA and 'summary' not in kw:
+        # Assign a dummy summary if none was specified in keyword args, unless
+        # we're creating a Persona since they don't have summaries.
         kwargs['summary'] = u'Summary for %s' % name
-    if type_ not in [amo.ADDON_PERSONA, amo.ADDON_SEARCH]:
+    #if type_ not in [amo.ADDON_PERSONA, amo.ADDON_SEARCH]:
         # Personas and search engines don't need guids
-        kwargs['guid'] = kw.pop('guid', '{%s}' % unicode(uuid.uuid4()))
+    kwargs['guid'] = kw.pop('guid', '{%s}' % six.text_type(uuid.uuid4()))
     kwargs.update(kw)
 
     # Save 1.
@@ -671,8 +701,8 @@ def addon_factory(
 
     application = version_kw.get('application', amo.FIREFOX.id)
     if not category:
-        static_category = random.choice(
-            CATEGORIES[application][addon.type].values())
+        static_category = random.choice(list(
+            CATEGORIES[application][addon.type].values()))
         category = Category.from_static_category(static_category, True)
     AddonCategory.objects.create(addon=addon, category=category)
 
@@ -737,7 +767,7 @@ def license_factory(**kw):
 
 def file_factory(**kw):
     version = kw['version']
-    filename = kw.pop('filename', '%s-%s' % (version.addon_id, version.id))
+    filename = kw.pop('filename', '%s-%s.xpi' % (version.addon_id, version.id))
     status = kw.pop('status', amo.STATUS_PUBLIC)
     platform = kw.pop('platform', amo.PLATFORM_ALL.id)
 
@@ -792,6 +822,11 @@ def user_factory(**kw):
     if 'username' not in kw:
         user_factory_counter = user.id + 1
     return user
+
+
+def developer_factory(**kw):
+    kw.setdefault('read_dev_agreement', datetime.now())
+    return user_factory(**kw)
 
 
 def create_default_webext_appversion():
@@ -932,9 +967,8 @@ class TestXss(TestCase):
     def setUp(self):
         super(TestXss, self).setUp()
         self.addon = Addon.objects.get(id=3615)
-        self.name = "<script>alert('hé')</script>"
-        self.escaped = (
-            "&lt;script&gt;alert(&#39;h\xc3\xa9&#39;)&lt;/script&gt;")
+        self.name = u"<script>alert('hé')</script>"
+        self.escaped = u'&lt;script&gt;alert(&#39;hé&#39;)&lt;/script&gt;'
         self.addon.name = self.name
         self.addon.save()
         u = UserProfile.objects.get(email='del@icio.us')
@@ -944,8 +978,9 @@ class TestXss(TestCase):
 
     def assertNameAndNoXSS(self, url):
         response = self.client.get(url)
-        assert self.name not in response.content
-        assert self.escaped in response.content
+        content = force_text(response.content)
+        assert self.name not in content
+        assert self.escaped in content
 
 
 @contextmanager
@@ -1059,14 +1094,10 @@ def prefix_indexes(config):
     # allow xdist to transparently group all ES tests into a single process.
     # Unfurtunately, it's surprisingly difficult to achieve with our current
     # unittest-based setup.
-
     for key, index in settings.ES_INDEXES.items():
         if not index.startswith(prefix):
             settings.ES_INDEXES[key] = '{prefix}_amo_{index}'.format(
                 prefix=prefix, index=index)
-
-    settings.CACHE_PREFIX = 'amo:{0}:'.format(prefix)
-    settings.KEY_PREFIX = settings.CACHE_PREFIX
 
 
 def reverse_ns(viewname, api_version=None, args=None, kwargs=None, **extra):
@@ -1089,3 +1120,55 @@ def reverse_ns(viewname, api_version=None, args=None, kwargs=None, **extra):
     return drf_reverse(
         viewname, args=args or [], kwargs=kwargs or {}, request=request,
         **extra)
+
+
+@contextmanager
+def fix_webext_fixture(filename):
+    """Most test fixtures don't work with the latest addons-linter due to various errors.
+    This 'fixes' those errors by hacking at the manifest.json until it fits nicely.
+
+    Current 'fixes':
+    * applications key is renamed to browser_specific_settings if encountered.
+    * browser_specific_settings.gecko.id is generated if not found.
+    * if experiment is found in the filename a browser_specific_settings.gecko.strict_max_version is set."""
+    temp_file = f'/tmp/{uuid.uuid4().hex}.xpi'
+    shutil.copy(filename, temp_file)
+
+    # HACK: This is so we don't have to modify a bunch of binaries...it's ugly!
+    # Check if we have a GUID for this addon, if not then make one.
+    if any(['.xpi' in filename, '.jar' in filename]):
+        with zipfile.ZipFile(temp_file) as xpi_contents:
+            # Do we have a manifest file at all?
+            # (If not it's not a web extension and will fail later)
+            if 'manifest.json' in xpi_contents.namelist():
+                with xpi_contents.open('manifest.json') as fh:
+                    manifest = fh.read()
+
+                manifest = json.loads(manifest)
+
+                if not manifest.get('browser_specific_settings'):
+                    # If we have the deprecated applications, rename it to browser_specific_settings
+                    if manifest.get('applications'):
+                        manifest['browser_specific_settings'] = manifest['applications']
+                        del manifest['applications']
+                    else:
+                        # Otherwise generate a guid
+                        manifest['browser_specific_settings'] = {
+                            'gecko': {
+                                'id': f'{uuid.uuid4().hex}@example.com',
+                            }
+                        }
+
+                # If we're an experiment (indicated by filename) then set the strict max version
+                if 'experiment' in filename:
+                    manifest['browser_specific_settings']['gecko']['strict_max_version'] = THUNDERBIRD.latest_version
+                manifest = json.dumps(manifest)
+
+                with zipfile.ZipFile(temp_file, 'w') as xpi_contents:
+                    xpi_contents.writestr('manifest.json', manifest)
+
+    yield temp_file
+
+    # Clean up the temp file
+    os.remove(temp_file)
+

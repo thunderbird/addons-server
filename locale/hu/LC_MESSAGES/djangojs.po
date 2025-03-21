@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-09-17 10:58+0000\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-02-01 12:52+0000\n"
 "Last-Translator: Balázs Meskó <meskobalazs@gmail.com>\n"
 "Language-Team: Hungarian <kde-l10n-hu@kde.org>\n"
 "Language: hu\n"
@@ -48,8 +48,8 @@ msgstr "{0} feltöltése"
 msgid "Error with {0}"
 msgstr "Hiba ezzel: {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "Egy új elemzőt engedélyeztünk a kiegészítője feldolgozásához. Kérjük jelentse az esetleges problémákat a GitHubon"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr "A kódellenőrzővel kapcsolatos problémákat jelentse a GitHubon"
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
@@ -764,11 +764,17 @@ msgstr "Nincs találat."
 msgid "Loading..."
 msgstr "Betöltés…"
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "<b>{0}</b> karakter"
+msgstr[1] "<b>{0}</b> karakter"
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
-msgstr[0] "<b>{0}</b> karakter maradt."
-msgstr[1] "<b>{0}</b> karakter maradt."
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
+msgstr[0] "<b>{0}</b> karakter maradt"
+msgstr[1] "<b>{0}</b> karakter maradt"
 
 msgid "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
 msgstr "Ez a funkció a weboldal karbantartása alatt, átmenetileg nem érhető el. Kérjük, látogasson vissza kicsit később."
@@ -862,9 +868,6 @@ msgstr "{0} {1}. sor {2}. oszlop"
 
 msgid "{0} line {1}"
 msgstr "{0} {1}. sor"
-
-msgid "Compatibility Tests"
-msgstr "Kompatibilitás tesztek"
 
 msgid "Add-on failed validation."
 msgstr "A kiegészítő nem ment át a vizsgálaton."

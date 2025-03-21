@@ -38,9 +38,6 @@ $(document).ready(function() {
     $("#submit-describe").exists(initCatFields);
     $("#submit-describe").exists(initCCLicense);
 
-    // Submission > Descript > Summary
-    $('.addon-submission-process #submit-describe').exists(initTruncateSummary);
-
     // Submission > Media
     $('#submit-media').exists(function() {
         initUploadIcon();
@@ -269,7 +266,7 @@ function addonFormSubmit() {
     (function(parent_div){
         // If the baseurl changes (the slug changed) we need to go to the new url.
         var baseurl = function(){
-            return parent_div.find('#addon-edit-basic').attr('data-baseurl');
+            return parent_div.find('#addon-edit-describe').attr('data-baseurl');
         };
         $('.edit-media-button button').prop('disabled', false);
         $('form', parent_div).submit(function(e){
@@ -298,9 +295,6 @@ function addonFormSubmit() {
                 }
                 if ($form.find('#addon-categories-edit').length) {
                     initCatFields();
-                }
-                if ($form.find('#required-addons').length) {
-                    initRequiredAddons();
                 }
 
                 if (!hasErrors) {
@@ -340,9 +334,6 @@ function initEditAddon() {
                 if (parent_div.find('#addon-categories-edit').length) {
                     initCatFields();
                 }
-                if (parent_div.find('#required-addons').length) {
-                    initRequiredAddons();
-                }
                 $(this).each(addonFormSubmit);
                 initInvisibleUploads();
             });
@@ -356,34 +347,6 @@ function initEditAddon() {
     initUploadIcon();
     initUploadPreview();
 }
-
-
-function initRequiredAddons() {
-    var $req = $('#required-addons');
-    if (!$req.length || !$('input.autocomplete', $req).length) {
-        return;
-    }
-    $.zAutoFormset({
-        delegate: '#required-addons',
-        forms: 'ul.dependencies',
-        prefix: 'dependencies',
-        hiddenField: 'dependent_addon',
-        addedCB: function(emptyForm, item) {
-            var f = template(emptyForm)({
-                icon: item.icons['32'],
-                name: _.escape(item.name) || ''
-            });
-            // Firefox automatically escapes the contents of `href`, borking
-            // the curly braces in the {url} placeholder, so let's do this.
-            // Note: the trim removes the leading space from the template
-            // output so that jquery 1.9 treats it as HTML not a selector.
-            var $f = $(f.trim());
-            $f.find('div a').attr('href', item.url);
-            return $f;
-        }
-    });
-}
-
 
 function create_new_preview_field() {
     var forms_count = $('#id_files-TOTAL_FORMS').val(),
@@ -771,11 +734,33 @@ function initSubmit() {
                 $('#id_slug').attr('data-customized', 0);
                 slugify();
             }
-        });
+        })
+        .on('keyup blur', showNameSummaryCroppingWarnings);
     $('#id_slug').each(slugify);
+    showNameSummaryCroppingWarnings();
     reorderPreviews();
     $('.invisible-upload [disabled]').prop("disabled", false);
     $('.invisible-upload .disabled').removeClass("disabled");
+}
+
+function showNameSummaryCroppingWarnings() {
+    var exceeds_max_length = false,
+        max_length = $('.edit-addon-details .char-count').data('maxlength'),
+        name_default_val = $('[name^="name_"]:visible').val(),
+        summary_default_val = $('[name^="summary_"]:visible').val(),
+        selectors ='.combine-name-summary [name^="name_"]:hidden, .combine-name-summary [name^="summary_"]:hidden';
+
+    $(selectors).each(function(index, element) {
+        var locale = $(element).attr('lang'),
+            name_val = $('[name="name_' + locale + '"]').val() || name_default_val,
+            summary_val = $('[name="summary_' + locale + '"]').val() || summary_default_val;
+        if (locale != "init" && (name_val.length + summary_val.length > max_length)) {
+            exceeds_max_length = true;
+            return false;
+        }
+    });
+
+    $('#name-summary-locales-warning').toggle(exceeds_max_length);
 }
 
 function generateErrorList(o) {
@@ -1208,35 +1193,6 @@ function initAddonCompatCheck($doc) {
         !$('#id_app_version option:selected', $form).val()) {
         // If an app is selected when page loads and it's not a form post.
         $elem.trigger('change');
-    }
-}
-
-function initTruncateSummary() {
-    // If the summary from a manifest is too long, truncate it!
-    // EN-US only, since it'll be way too hard to accomodate all languages properly.
-    var $submit_describe = $('#submit-describe'),
-        $summary = $('textarea[name=summary_en-us]', $submit_describe),
-        $desc = $('textarea[name=description_en-us]', $submit_describe);
-
-    if($summary.length && $desc.length) {
-        var max_length = parseInt($('.char-count', $submit_describe).attr('data-maxlength'), 10),
-            text = $summary.val(),
-            submitted = ($('.errorlist li', $submit_describe).length > 0);
-
-        if($desc.val() === "" && text.length > max_length && !submitted) {
-            var new_text = text.substr(0, max_length),
-                // New line or punctuation followed by a space
-                punctuation = new_text.match(/\n|[.?!]\s/g);
-
-            if(punctuation.length) {
-                var d = punctuation[punctuation.length - 1];
-                new_text = new_text.substr(0, new_text.lastIndexOf(d)+1).trim();
-                if(new_text.length > 0) {
-                    $desc.val(text);
-                    $summary.val(new_text).trigger('keyup');
-                }
-            }
-        }
     }
 }
 

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 import json
+import mock
 import time
-import urlparse
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
+from six.moves.urllib_parse import parse_qs, urlparse
 
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from django.test.utils import override_settings
-
-import mock
+from django.utils.encoding import force_text
 
 from olympia.accounts import utils
 from olympia.accounts.utils import process_fxa_event
@@ -60,43 +60,100 @@ def test_fxa_config_logged_in():
 
 @override_settings(FXA_CONFIG=FXA_CONFIG)
 def test_default_fxa_login_url_with_state():
-    path = '/en-US/addons/abp/?source=ddg'
+    path = b'/en-US/addons/abp/?source=ddg'
     request = RequestFactory().get(path)
     request.session = {'fxa_state': 'myfxastate'}
     raw_url = utils.default_fxa_login_url(request)
-    url = urlparse.urlparse(raw_url)
+    url = urlparse(raw_url)
     base = '{scheme}://{netloc}{path}'.format(
         scheme=url.scheme, netloc=url.netloc, path=url.path)
     assert base == 'https://accounts.firefox.com/oauth/authorization'
-    query = urlparse.parse_qs(url.query)
-    next_path = urlsafe_b64encode(path).rstrip('=')
+    query = parse_qs(url.query)
+    next_path = urlsafe_b64encode(path).rstrip(b'=')
     assert query == {
         'action': ['signin'],
         'client_id': ['foo'],
         'redirect_url': ['https://testserver/fxa'],
         'scope': ['profile'],
-        'state': ['myfxastate:{next_path}'.format(next_path=next_path)],
+        'state': ['myfxastate:{next_path}'.format(
+            next_path=force_text(next_path))],
     }
 
 
 @override_settings(FXA_CONFIG=FXA_CONFIG)
 def test_default_fxa_register_url_with_state():
-    path = '/en-US/addons/abp/?source=ddg'
+    path = b'/en-US/addons/abp/?source=ddg'
     request = RequestFactory().get(path)
     request.session = {'fxa_state': 'myfxastate'}
     raw_url = utils.default_fxa_register_url(request)
-    url = urlparse.urlparse(raw_url)
+    url = urlparse(raw_url)
     base = '{scheme}://{netloc}{path}'.format(
         scheme=url.scheme, netloc=url.netloc, path=url.path)
     assert base == 'https://accounts.firefox.com/oauth/authorization'
-    query = urlparse.parse_qs(url.query)
-    next_path = urlsafe_b64encode(path).rstrip('=')
+    query = parse_qs(url.query)
+    next_path = urlsafe_b64encode(path).rstrip(b'=')
     assert query == {
         'action': ['signup'],
         'client_id': ['foo'],
         'redirect_url': ['https://testserver/fxa'],
         'scope': ['profile'],
-        'state': ['myfxastate:{next_path}'.format(next_path=next_path)],
+        'state': ['myfxastate:{next_path}'.format(
+            next_path=force_text(next_path))],
+    }
+
+
+@override_settings(FXA_CONFIG=FXA_CONFIG)
+def test_fxa_login_url_without_requiring_two_factor_auth():
+    path = '/en-US/addons/abp/?source=ddg'
+    request = RequestFactory().get(path)
+    request.session = {'fxa_state': 'myfxastate'}
+
+    raw_url = utils.fxa_login_url(
+        config=FXA_CONFIG['default'],
+        state=request.session['fxa_state'], next_path=path, action='signin',
+        force_two_factor=False)
+
+    url = urlparse(raw_url)
+    base = '{scheme}://{netloc}{path}'.format(
+        scheme=url.scheme, netloc=url.netloc, path=url.path)
+    assert base == 'https://accounts.firefox.com/oauth/authorization'
+    query = parse_qs(url.query)
+    next_path = urlsafe_b64encode(path.encode('utf-8')).rstrip(b'=')
+    assert query == {
+        'action': ['signin'],
+        'client_id': ['foo'],
+        'redirect_url': ['https://testserver/fxa'],
+        'scope': ['profile'],
+        'state': ['myfxastate:{next_path}'.format(
+            next_path=force_text(next_path))],
+    }
+
+
+@override_settings(FXA_CONFIG=FXA_CONFIG)
+def test_fxa_login_url_requiring_two_factor_auth():
+    path = u'/en-US/addons/abp/?source=ddg'
+    request = RequestFactory().get(path)
+    request.session = {'fxa_state': 'myfxastate'}
+
+    raw_url = utils.fxa_login_url(
+        config=FXA_CONFIG['default'],
+        state=request.session['fxa_state'], next_path=path, action='signin',
+        force_two_factor=True)
+
+    url = urlparse(raw_url)
+    base = u'{scheme}://{netloc}{path}'.format(
+        scheme=url.scheme, netloc=url.netloc, path=url.path)
+    assert base == 'https://accounts.firefox.com/oauth/authorization'
+    query = parse_qs(url.query)
+    next_path = urlsafe_b64encode(path.encode('utf-8')).rstrip(b'=')
+    assert query == {
+        'acr_values': ['AAL2'],
+        'action': ['signin'],
+        'client_id': ['foo'],
+        'redirect_url': ['https://testserver/fxa'],
+        'scope': ['profile'],
+        'state': ['myfxastate:{next_path}'.format(
+            next_path=force_text(next_path))],
     }
 
 
@@ -105,7 +162,7 @@ def test_unicode_next_path():
     request = RequestFactory().get(path)
     request.session = {}
     url = utils.default_fxa_login_url(request)
-    state = urlparse.parse_qs(urlparse.urlparse(url).query)['state'][0]
+    state = parse_qs(urlparse(url).query)['state'][0]
     next_path = urlsafe_b64decode(state.split(':')[1] + '===')
     assert next_path.decode('utf-8') == path
 

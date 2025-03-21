@@ -1,5 +1,3 @@
-import json
-
 from django.core.management import call_command
 from django.db import IntegrityError
 
@@ -57,21 +55,6 @@ class TestViews(TestCase):
 
 class TestCommands(TestCase):
     fixtures = ['base/appversion']
-
-    def test_dump_apps(self):
-        from olympia.applications.management.commands import dump_apps
-        call_command('dump_apps')
-        with open(dump_apps.Command.get_json_path(), 'r') as f:
-            apps = json.load(f)
-        for idx, app in amo.APP_IDS.iteritems():
-            data = apps[str(app.id)]
-            versions = sorted([a.version for a in
-                               AppVersion.objects.filter(
-                                   application=app.id)])
-            assert "%s: %r" % (app.short, sorted(data['versions'])) == (
-                "%s: %r" % (app.short, versions))
-            assert data['name'] == app.short
-            assert data['guid'] == app.guid
 
     def test_addnewversion(self):
         new_version = '123.456'

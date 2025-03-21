@@ -1,5 +1,6 @@
 import math
 import os
+import shutil
 import tempfile
 
 from django.conf import settings
@@ -19,10 +20,10 @@ from olympia.versions.utils import (
 )
 def test_write_svg_to_png(filename):
     # If you want to regenerate these, e.g. the svg template has significantly
-    # changed, easiest way is to patch write_svg_to_png to not delete the
-    # temporary file (delete:False in temp_args) and copy the svg out of /tmp.
-    # Output png files are in user-media/version-previews/full and /thumbs.
-    out = tempfile.mktemp()
+    # changed, you can grab the svg file from shared_storage/tmp - when
+    # settings.DEBUG==True it's not deleted afterwards.
+    # Output png files are in shared_storage/uploads/version-previews/full
+    # and /thumbs.
     svg_xml = os.path.join(
         settings.ROOT,
         'src/olympia/versions/tests/static_themes/%s.svg' % filename)
@@ -31,13 +32,20 @@ def test_write_svg_to_png(filename):
         'src/olympia/versions/tests/static_themes/%s.png' % filename)
     with storage.open(svg_xml, 'rb') as svgfile:
         svg = svgfile.read()
-    write_svg_to_png(svg, out)
-    assert storage.exists(out)
-    # compare the image content. rms should be 0 but travis renders it
-    # different... 3 is the magic difference.
-    svg_png_img = Image.open(svg_png)
-    svg_out_img = Image.open(out)
-    image_diff = ImageChops.difference(svg_png_img, svg_out_img)
+    try:
+        out_dir = tempfile.mkdtemp()
+        out = os.path.join(out_dir, 'a', 'b.png')
+        write_svg_to_png(svg, out)
+        assert storage.exists(out)
+        # compare the image content. rms should be 0 but travis renders it
+        # different... 3 is the magic difference.
+        svg_png_img = Image.open(svg_png)
+        svg_out_img = Image.open(out)
+        image_diff = ImageChops.difference(svg_png_img, svg_out_img)
+    except Exception as e:
+        raise e
+    finally:
+        shutil.rmtree(out_dir)
     sum_of_squares = sum(
         value * ((idx % 256) ** 2)
         for idx, value in enumerate(image_diff.histogram()))
@@ -60,7 +68,7 @@ def test_additional_background_split_alignment(alignment, alignments_tuple):
     assert AdditionalBackground.split_alignment(alignment) == alignments_tuple
 
 
-@mock.patch('olympia.versions.utils.encode_header_image')
+@mock.patch('olympia.versions.utils.encode_header')
 @pytest.mark.parametrize(
     'alignment, tiling, image_width, image_height, '  # inputs
     'pattern_width, pattern_height, pattern_x, pattern_y',  # results
@@ -105,14 +113,12 @@ def test_additional_background_split_alignment(alignment, alignments_tuple):
     )
 )
 def test_additional_background(
-        encode_header_image_mock, alignment, tiling, image_width, image_height,
+        encode_header_mock, alignment, tiling, image_width, image_height,
         pattern_width, pattern_height, pattern_x, pattern_y):
-    encode_header_image_mock.return_value = (
+    encode_header_mock.return_value = (
         'foobaa', image_width, image_height)
     path = 'empty.png'
-    header_root = os.path.join(
-        settings.ROOT, 'src/olympia/versions/tests/static_themes/')
-    background = AdditionalBackground(path, alignment, tiling, header_root)
+    background = AdditionalBackground(path, alignment, tiling, None)
     assert background.src == 'foobaa'
     assert background.width == image_width
     assert background.height == image_height
@@ -127,10 +133,11 @@ def test_additional_background(
 
 @pytest.mark.parametrize(
     'chrome_prop, chrome_color, firefox_prop, css_color', (
-        ('bookmark_text', [2, 3, 4], 'toolbar_text', u'rgb(2, 3, 4)'),
-        ('frame', [12, 13, 14], 'accentcolor', u'rgb(12, 13, 14)'),
-        ('frame_inactive', [22, 23, 24], 'accentcolor', u'rgb(22, 23, 24)'),
-        ('tab_background_text', [32, 33, 34], 'textcolor', u'rgb(32, 33, 34)'),
+        ('bookmark_text', [2, 3, 4], 'toolbar_text', u'rgb(2,3,4)'),
+        ('frame', [12, 13, 14], 'accentcolor', u'rgb(12,13,14)'),
+        ('frame_inactive', [22, 23, 24], 'accentcolor', u'rgb(22,23,24)'),
+        ('tab_background_text', [32, 33, 34], 'textcolor', u'rgb(32,33,34)'),
+        ('accentcolor', u'rgb(32, 33,  34)', 'accentcolor', u'rgb(32,33,34)'),
     )
 )
 def test_process_color_value(chrome_prop, chrome_color, firefox_prop,

@@ -3,9 +3,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2017-11-18 23:35+0000\n"
-"Last-Translator: yoonggunx <yoonggunx@gmail.com>\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-02-20 06:07+0000\n"
+"Last-Translator: Quế Tùng <best.cloney.1301@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: vi\n"
 "MIME-Version: 1.0\n"
@@ -17,16 +17,16 @@ msgstr ""
 
 msgid "{0} star"
 msgid_plural "{0} stars"
-msgstr[0] "{0} sao{0} sao"
+msgstr[0] "{0} sao"
 
 msgid "There was a problem contacting the server."
-msgstr ""
+msgstr "Kết nối tới máy chủ có vấn đề."
 
 msgid "Select a file..."
 msgstr "Chọn tập tin…"
 
 msgid "Your add-on should end with .zip, .xpi, .crx, .jar or .xml"
-msgstr ""
+msgstr "Tiện ích của bạn phải có đuôi là .zip, .xpi, .crx, .jar or .xml"
 
 #. L10n: {0} is the percent of the file that has been uploaded.
 #, python-format
@@ -44,91 +44,95 @@ msgid "Uploading {0}"
 msgstr "Đang tải lên {0}"
 
 msgid "Error with {0}"
-msgstr ""
+msgstr "Lỗi {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr ""
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr "Vui lòng đảm bảo báo cáo mọi vấn đề liên quan đến linting trên GitHub"
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
-msgstr[0] ""
+msgstr[0] "Tiện ích của bạn đã được xác thực không thành công với {0} lỗi."
 
 msgid "&hellip;and {0} more"
 msgid_plural "&hellip;and {0} more"
-msgstr[0] ""
+msgstr[0] "&hellip; và {0} cái khác"
 
 msgid "See full validation report"
-msgstr ""
+msgstr "Xem bản báo cáo đầy đủ của quá trình xác thực"
 
 msgid "Validating {0}"
 msgstr "Xác nhận {0}"
 
 msgid "Your add-on exceeds the maximum size of {0}."
-msgstr ""
+msgstr "Tiện ích của bạn vượt quá kích thước tối đa {0}."
 
 msgid "Received an empty response from the server; status: {0}"
-msgstr ""
+msgstr "Đã nhận được phản hồi trống từ máy chủ; trạng thái: {0}"
 
 msgid "Unexpected server error while validating."
 msgstr "Xảy ra lỗi khi xác nhận từ máy chủ."
 
 msgid "Finished validating {0}"
-msgstr ""
+msgstr "Đã hoàn tất xác thực {0}"
 
 msgid "Your add-on validation timed out, it will be manually reviewed."
-msgstr ""
+msgstr "Xác thực tiện ích của bạn đã quá thời gian qui định và đã được chuyển sang đánh giá thủ công."
 
 msgid "Your add-on was validated with no errors and {0} warning."
 msgid_plural "Your add-on was validated with no errors and {0} warnings."
-msgstr[0] ""
+msgstr[0] "Tiện ích của bạn đã được xác thực không có lỗi và {0} cảnh báo."
 
 msgid "Your add-on was validated with no errors and {0} message."
 msgid_plural "Your add-on was validated with no errors and {0} messages."
-msgstr[0] ""
+msgstr[0] "Tiện ích của bạn đã được xác thực không có lỗi và {0} lời nhắn."
 
 msgid "Your add-on was validated with no errors or warnings."
-msgstr ""
+msgstr "Tiện ích của bạn đã được xác thực không có lỗi hay cảnh báo nào."
 
 msgid "Your submission will be automatically signed."
-msgstr ""
+msgstr "Bản đệ trình của bạn sẽ được chứng thực tự động."
 
 msgid "WebExtension upgrade"
 msgstr "Nâng cấp WebExtension"
 
 msgid "We allow and encourage an upgrade but you cannot reverse this process. Once your users have the WebExtension installed, they will not be able to install a legacy add-on."
-msgstr ""
+msgstr "Chúng tôi cho phép và khuyến khích nâng cấp nhưng bạn không thể đảo ngược quá trình này. Một khi người dùng của bạn đã cài đặt WebExtension, họ sẽ không thể cài đặt tiện ích cũ."
 
 msgid "Porting a legacy Firefox add-on on MDN"
-msgstr ""
+msgstr "Chuyển đổi tiện ích Firefox cũ trên MDN"
 
 msgid "Include detailed version notes (this can be done in the next step)."
-msgstr ""
+msgstr "Bao gồm các ghi chú chi tiết (điều này có thể hoàn tất trong bước tiếp theo)."
 
 msgid "If your add-on requires an account to a website in order to be fully tested, include a test username and password in the Notes to Reviewer (this can be done in the next step)."
 msgstr ""
+"Nếu tiện ích của bạn yêu cầu tài khoản cho trang web để được kiểm tra đầy đủ, nhớ đính kèm tên người dùng và mật khẩu thử nghiệm trong Ghi chú cho đánh giá viên (điều này có thể được hoàn thành "
+"trong bước tiếp theo)."
 
 msgid "Add-on submission checklist"
-msgstr ""
+msgstr "Danh sách kiểm tra bản đệ trình tiện ích"
 
 msgid "Please verify the following points before finalizing your submission. This will minimize delays or misunderstanding during the review process:"
-msgstr ""
+msgstr "Vui lòng xác minh các điểm sau đây trước khi hoàn thành đệ trình của bạn. Điều này sẽ giảm thiểu sự chậm trễ hoặc hiểu lầm trong quá trình xem xét:"
 
 msgid ""
 "Compiled binaries, as well as minified or obfuscated scripts (excluding known libraries) need to have their sources submitted separately for review. Make sure that you use the source code upload "
 "field to avoid having your submission rejected."
 msgstr ""
+"Các tệp nhị phân được biên dịch, cũng như các tập lệnh rút gọn hoặc bị xáo trộn (không bao gồm các thư viện đã biết) cần phải có các nguồn được gửi riêng để xem xét. Đảm bảo rằng bạn sử dụng trường "
+"tải lên mã nguồn để tránh việc đệ trình của bạn bị từ chối."
 
 msgid "The validation process found these issues that can lead to rejections:"
-msgstr ""
+msgstr "Quá trình xác nhận đã tìm thấy những vấn đề có thể dẫn đến từ chối:"
 
 msgid "The filetype you uploaded isn't recognized."
-msgstr ""
+msgstr "Kiểu tệp bạn đã tải lên không được công nhận."
 
 msgid "Your file exceeds the maximum size of {0}."
-msgstr ""
+msgstr "Tệp của bạn vượt quá kích thước tối đa {0}."
 
 msgid "You cancelled the upload."
-msgstr ""
+msgstr "Bạn đã hủy quá trình tải lên."
 
 msgid "Images must be either PNG or JPG."
 msgstr "Các hình ảnh phải dưới dạng PNG hoặc JPEG."
@@ -140,14 +144,14 @@ msgid "Follow this Collection"
 msgstr "Theo dõi bộ sưu tập này"
 
 msgid "Stop Following"
-msgstr "Dừng dõi theo"
+msgstr "Ngừng theo dõi"
 
 msgid "Following"
-msgstr "Đang dõi theo"
+msgstr "Đang theo dõi"
 
 #. L10n: {0} is an app name.
 msgid "This theme is incompatible with your version of {0}"
-msgstr ""
+msgstr "Chủ đề này không tương thích với phiên bản {0} của bạn"
 
 msgid "All Rights Reserved"
 msgstr "Bảo lưu toàn quyền"
@@ -174,16 +178,16 @@ msgid "Your Theme's Name"
 msgstr "Tên giao diện của bạn"
 
 msgid "Flagged for review"
-msgstr ""
+msgstr "Đã gắn cờ cho đánh giá"
 
 msgid "Your input is required"
 msgstr "Vui lòng điền thông tin"
 
 msgid "Marked for deletion"
-msgstr ""
+msgstr "Đánh dấu để xóa"
 
 msgid "Updating results&hellip;"
-msgstr ""
+msgstr "Cập nhật kết quả&hellip;"
 
 msgid "Category"
 msgstr "Phân mục"
@@ -203,41 +207,34 @@ msgstr "Sử dụng bản gốc"
 msgid "Week of {0}"
 msgstr "Tuần {0}"
 
-#, fuzzy
 msgid "{0} download"
 msgid_plural "{0} downloads"
-msgstr[0] " tải xuống"
+msgstr[0] "{0} tải về"
 
-#, fuzzy
 msgid "{0} user"
 msgid_plural "{0} users"
 msgstr[0] "{0} người dùng"
 
-#, fuzzy
 msgid "{0} add-on"
 msgid_plural "{0} add-ons"
 msgstr[0] "{0} tiện ích"
 
-#, fuzzy
 msgid "{0} collection"
 msgid_plural "{0} collections"
 msgstr[0] "{0} bộ sưu tập"
 
-#, fuzzy
 msgid "{0} review"
 msgid_plural "{0} reviews"
 msgstr[0] "{0} đánh giá"
 
-#, fuzzy
 msgid "{0} sale"
 msgid_plural "{0} sales"
-msgstr[0] "{0} sao{0} sao"
+msgstr[0] "{0} bán hàng"
 
 msgid "{0} refund"
 msgid_plural "{0} refunds"
-msgstr[0] ""
+msgstr[0] "{0} hoàn tiền"
 
-#, fuzzy
 msgid "{0} install"
 msgid_plural "{0} installs"
 msgstr[0] "{0} lần cài đặt"
@@ -249,10 +246,10 @@ msgid "Daily Users"
 msgstr "Người dùng Hàng ngày"
 
 msgid "Amount, in USD"
-msgstr ""
+msgstr "Số tiền, bằng USD"
 
 msgid "Number of Contributions"
-msgstr ""
+msgstr "Số lần đóng góp"
 
 msgid "More Info..."
 msgstr "Thêm thông tin…"
@@ -265,31 +262,31 @@ msgid "Collections Created"
 msgstr "Bộ sưu tập đã được tạo"
 
 msgid "Add-ons in Use"
-msgstr "Số Tiện ích được Sử dụng"
+msgstr "Tiện ích đang sử dụng"
 
 msgid "Add-ons Created"
-msgstr "Số Tiện ích được Tạo"
+msgstr "Tiện ích đã tạo"
 
 msgid "Add-ons Downloaded"
-msgstr "Số Tiện ích được Tải về"
+msgstr "Tiện ích đã tải xuống"
 
 msgid "Add-ons Updated"
-msgstr "Số Tiện ích được Cập nhật"
+msgstr "Tiện ích đã cập nhật"
 
 msgid "Reviews Written"
 msgstr "Số bài xem xét được viết"
 
 msgid "User Signups"
-msgstr ""
+msgstr "Đăng ký người dùng"
 
 msgid "Subscribers"
-msgstr ""
+msgstr "Người theo dõi"
 
 msgid "Ratings"
 msgstr "Số đánh giá"
 
 msgid "Sales"
-msgstr ""
+msgstr "Giảm giá"
 
 msgid "Installs"
 msgstr "Cài đặt"
@@ -301,13 +298,13 @@ msgid "Add-ons Manager"
 msgstr "Trình quản lý tiện ích"
 
 msgid "Add-ons Manager Promo"
-msgstr ""
+msgstr "Quản lý tiện ích khuyến mãi"
 
 msgid "Add-ons Manager Featured"
-msgstr ""
+msgstr "Quản lý tiện ích nổi bật"
 
 msgid "Add-ons Manager Learn More"
-msgstr ""
+msgstr "Quản lý tiện ích khám phá"
 
 msgid "Search Suggestions"
 msgstr "Gợi ý tìm kiếm"
@@ -316,10 +313,10 @@ msgid "Search Results"
 msgstr "Kết quả tìm kiếm"
 
 msgid "Homepage Promo"
-msgstr ""
+msgstr "Trang chủ khuyến mãi"
 
 msgid "Homepage Featured"
-msgstr ""
+msgstr "Trang chủ nổi bật"
 
 msgid "Homepage Up and Coming"
 msgstr ""
@@ -337,16 +334,16 @@ msgid "Detail Page (Development Channel)"
 msgstr "Trang Chi tiết (Kênh Phát triển)"
 
 msgid "Often Used With"
-msgstr ""
+msgstr "Thường dùng với"
 
 msgid "Others By Author"
-msgstr ""
+msgstr "Những người khác theo tác giả"
 
 msgid "Dependencies"
-msgstr ""
+msgstr "Phụ thuộc"
 
 msgid "Upsell"
-msgstr ""
+msgstr "Phiên bản trả phí"
 
 msgid "Meet the Developer"
 msgstr "Gặp lập trình viên"
@@ -403,13 +400,13 @@ msgid "Browse Listing Up and Coming Sort"
 msgstr ""
 
 msgid "Total Amount Contributed"
-msgstr ""
+msgstr "Tổng số tiền đã đóng góp"
 
 msgid "Average Contribution"
 msgstr "Khoản góp Trung bình"
 
 msgid "Usage"
-msgstr ""
+msgstr "Lưu lượng sử dụng"
 
 msgid "Firefox"
 msgstr "Firefox"
@@ -434,11 +431,11 @@ msgstr "Android"
 
 #. L10n: {0} is an integer.
 msgid "Downloads and Daily Users, last {0} days"
-msgstr "Số lượt tải về và người dùng hàng ngày, {0} ngày trước"
+msgstr "Số lượt tải xuống và người dùng hàng ngày, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Downloads and Daily Users from {0} to {1}"
-msgstr "Lần Cài đặt và Người dùng Hàng ngày từ {0} đến {1}"
+msgstr "Số lượt tải xuống và người dùng hàng ngày từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Installs and Daily Users, last {0} days"
@@ -450,11 +447,11 @@ msgstr "Lần Cài đặt và Người dùng Hàng ngày từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Downloads, last {0} days"
-msgstr "Lượt tải về, {0} ngày trước"
+msgstr "Lượt tải xuống, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Downloads from {0} to {1}"
-msgstr "Lượt tải từ {0} đến {1}"
+msgstr "Lượt tải xuống từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Daily Users, last {0} days"
@@ -490,27 +487,27 @@ msgstr "Ngôn ngữ từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Add-on Versions, last {0} days"
-msgstr "Phiên bản Tiện ích, {0} ngày trước"
+msgstr "Phiên bản tiện ích, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Add-on Versions from {0} to {1}"
-msgstr "Phiên bản Tiện ích từ {0} đến {1}"
+msgstr "Phiên bản tiện ích từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Add-on Status, last {0} days"
-msgstr "Trạng thái Tiện ích, {0} ngày trước"
+msgstr "Trạng thái tiện ích, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Add-on Status from {0} to {1}"
-msgstr "Trạng thái Tiện ích từ {0} đến {1}"
+msgstr "Trạng thái tiện ích từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Download Sources, last {0} days"
-msgstr "Nguồn Tải về, {0} ngày trước"
+msgstr "Nguồn tải xuống, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Download Sources from {0} to {1}"
-msgstr "Nguồn Tải về từ {0} đến {1}"
+msgstr "Nguồn tải xuống từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Contributions, last {0} days"
@@ -522,11 +519,11 @@ msgstr "Khoảng Đóng góp từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Site Metrics, last {0} days"
-msgstr ""
+msgstr "Số liệu trang web, {0} ngày qua"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Site Metrics from {0} to {1}"
-msgstr ""
+msgstr "Số liệu trang web từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Add-ons in Use, last {0} days"
@@ -534,31 +531,31 @@ msgstr "Tiện ích được Sử dụng, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Add-ons in Use from {0} to {1}"
-msgstr ""
+msgstr "Tiện ích mở rộng được sử dụng từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Add-ons Downloaded, last {0} days"
-msgstr ""
+msgstr "Tiện ích đã tải xuống, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Add-ons Downloaded from {0} to {1}"
-msgstr ""
+msgstr "Tiện ích đã tải xuống từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Add-ons Created, last {0} days"
-msgstr ""
+msgstr "Tiện ích được tạo, {0} ngày qua"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Add-ons Created from {0} to {1}"
-msgstr ""
+msgstr "Tiện ích được tạo từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Add-ons Updated, last {0} days"
-msgstr ""
+msgstr "Tiện ích đã cập nhật, {0} ngày qua"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Add-ons Updated from {0} to {1}"
-msgstr ""
+msgstr "Tiện ích đã cập nhật từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Reviews Written, last {0} days"
@@ -586,11 +583,11 @@ msgstr "Bộ sưu tập được Tạo ra từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Subscribers, last {0} days"
-msgstr ""
+msgstr "Người đăng ký, {0} ngày qua"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Subscribers from {0} to {1}"
-msgstr ""
+msgstr "Người đăng ký từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Ratings, last {0} days"
@@ -598,15 +595,15 @@ msgstr "Đánh giá, {0} ngày trước"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Ratings from {0} to {1}"
-msgstr ""
+msgstr "Xếp hạng từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Sales, last {0} days"
-msgstr ""
+msgstr "Bán hàng, {0} ngày qua"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Sales from {0} to {1}"
-msgstr ""
+msgstr "Bán hàng từ {0} đến {1}"
 
 #. L10n: {0} is an integer.
 msgid "Installs, last {0} days"
@@ -622,7 +619,7 @@ msgstr "<b>{0}</b> vào {1} ngày trước"
 
 #. L10n: {0} is an integer and {1} and {2} are dates in YYYY-MM-DD format.
 msgid "<b>{0}</b> from {1} to {2}"
-msgstr ""
+msgstr "<b>{0}</b> từ {1} đến {2}"
 
 #. L10n: {0} and {1} are integers.
 msgid "<b>{0}</b> average in last {1} days"
@@ -642,11 +639,11 @@ msgstr "Chọn một ứng dụng trước tiên"
 
 msgid "Set {0} add-on to a max version of {1} and email the author."
 msgid_plural "Set {0} add-ons to a max version of {1} and email the authors."
-msgstr[0] ""
+msgstr[0] "Đặt {0} tiện ích mở rộng thành phiên bản tối đa của {1} và gửi email cho các tác giả."
 
 msgid "Email author of {2} add-on which failed validation."
 msgid_plural "Email authors of {2} add-ons which failed validation."
-msgstr[0] ""
+msgstr[0] "Tác giả email của {2} tiện ích mở rộng xác thực thất bại."
 
 #. L10n: {0} is an app name like Firefox.
 msgid "Accept and Install"
@@ -660,7 +657,7 @@ msgid "Install for {0} anyway"
 msgstr "Vẫn cứ cài đặt {0}"
 
 msgid "Download for {0} anyway"
-msgstr "Cứ tải về cho {0}"
+msgstr "Vẫn tải xuống cho {0}"
 
 msgid "Not available for your platform"
 msgstr "Không có sẵn cho nền của bạn"
@@ -685,16 +682,16 @@ msgid "Sorry, you need a Mozilla-based browser (such as Firefox) to install a se
 msgstr "Rất tiếc, bạn cần phải sử dụng một trình duyệt gốc Mozilla (ví dụ như Firefox) để cài đặt một công cụ tìm kiếm."
 
 msgid "Adding to Favorites&hellip;"
-msgstr ""
+msgstr "Đang thêm vào ưa thích&hellip;"
 
 msgid "Removing Favorite&hellip;"
-msgstr ""
+msgstr "Đang gỡ bỏ mục ưa thích&hellip;"
 
 msgid "Add to Favorites"
 msgstr "Thêm vào ưa thích"
 
 msgid "Remove from Favorites"
-msgstr ""
+msgstr "Gỡ bỏ khỏi ưa thích"
 
 msgid "Pending"
 msgstr "Đang chờ đợi"
@@ -706,7 +703,7 @@ msgid "Comment"
 msgstr "Bình luận"
 
 msgid "Remove this add-on from the collection"
-msgstr ""
+msgstr "Gỡ bỏ tiện ích khỏi bộ sưu tập"
 
 msgid "Remove"
 msgstr "Gỡ bỏ"
@@ -724,24 +721,24 @@ msgid "Your browser does not support the video tag"
 msgstr "Trình duyệt của bạn không hỗ trợ thẻ video"
 
 msgid "Changes Saved"
-msgstr ""
+msgstr "Đã lưu các thay đổi"
 
 msgid "Enter a new author's email address"
-msgstr ""
+msgstr "Nhập địa chỉ email của tác giả mới"
 
 msgid "There was an error uploading your file."
-msgstr ""
+msgstr "Xảy ra lỗi trong quá trình tải lên tập tin."
 
 msgid "{files} file"
 msgid_plural "{files} files"
-msgstr[0] ""
+msgstr[0] "{files} tập tin"
 
 msgid "{reviews} user review"
 msgid_plural "{reviews} user reviews"
 msgstr[0] "{reviews} đánh giá của người dùng{reviews} đánh giá của người dùng"
 
 msgid "Image changes being processed"
-msgstr ""
+msgstr "Thay đổi hình ảnh đang được xử lý"
 
 msgid "No results found."
 msgstr "Không tìm thấy kết quả."
@@ -749,10 +746,15 @@ msgstr "Không tìm thấy kết quả."
 msgid "Loading..."
 msgstr "Đang tải..."
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "<b>{0}</b> ký tự"
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
-msgstr[0] ""
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
+msgstr[0] "<b>{0}</b> ký tự còn lại"
 
 msgid "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
 msgstr " Tính năng này tạm thời bị vô hiệu hóa trong khi chúng tôi đang bảo trì trang web. Vui lòng kiểm tra lại sau. "
@@ -761,16 +763,16 @@ msgid "Remove this localization"
 msgstr "Xóa bản dịch này"
 
 msgid "{name} was viewing this page first."
-msgstr ""
+msgstr "{name} đã xem trang này đầu tiên."
 
 msgid "Receipt checked by app."
-msgstr ""
+msgstr "Hóa đơn đã được kiểm tra bằng ứng dụng."
 
 msgid "Receipt was not checked by app."
-msgstr ""
+msgstr "Hóa đơn chưa được kiểm tra bằng ứng dụng."
 
 msgid "{name} was viewing this add-on first."
-msgstr ""
+msgstr "{name} đã xem tiện ích này trước tiên."
 
 msgid "Loading&hellip;"
 msgstr "Đang tải&hellip;"
@@ -785,19 +787,19 @@ msgid "No version notes found"
 msgstr "Không tìm thấy ghi chú về phiên bản"
 
 msgid "Review Text"
-msgstr ""
+msgstr "Xem lại văn bản"
 
 msgid "Review notes found"
-msgstr ""
+msgstr "Xem lại ghi chú"
 
 msgid "Average Reviews"
-msgstr ""
+msgstr "Đánh giá trung bình"
 
 msgid "Number of Reviews"
 msgstr "Số lượng review"
 
 msgid "Maximum upload size is {0} - choose a smaller background image."
-msgstr ""
+msgstr "Kích thước tải lên tối đa là {0} - chọn hình nền nhỏ hơn."
 
 msgid "Requested Info"
 msgstr "Thông tin được yêu cầu"
@@ -815,25 +817,25 @@ msgid "Approved"
 msgstr "Chấp nhận"
 
 msgid "No results found"
-msgstr ""
+msgstr "Không tìm thấy kết quả nào"
 
 msgid "Theme"
-msgstr ""
+msgstr "Chủ đề"
 
 msgid "Reviewer"
-msgstr ""
+msgstr "Người đánh giá"
 
 msgid "Status"
 msgstr "Trạng thái"
 
 msgid "All tests passed successfully."
-msgstr ""
+msgstr "Tất cả các bài kiểm tra đã thông qua."
 
 msgid "These tests were not run."
-msgstr ""
+msgstr "Những bài kiểm tra đã không được chạy."
 
 msgid "Tests"
-msgstr ""
+msgstr "Kiểm tra"
 
 msgid "Error"
 msgstr "Lỗi"
@@ -842,34 +844,31 @@ msgid "Warning"
 msgstr "Cảnh báo"
 
 msgid "{0} line {1} column {2}"
-msgstr ""
+msgstr "{0} dòng {1} cột {2}"
 
 msgid "{0} line {1}"
-msgstr ""
-
-msgid "Compatibility Tests"
-msgstr ""
+msgstr "{0} dòng {1}"
 
 msgid "Add-on failed validation."
-msgstr ""
+msgstr "Tiện ích xác thực không thành công."
 
 msgid "Add-on passed validation."
-msgstr ""
+msgstr "Tiện ích đã thông qua xác nhận."
 
 msgid "{0} error"
 msgid_plural "{0} errors"
-msgstr[0] ""
+msgstr[0] "{0} lỗi"
 
 msgid "{0} warning"
 msgid_plural "{0} warnings"
-msgstr[0] ""
+msgstr[0] "{0} cảnh báo"
 
 msgid "{0} notice"
 msgid_plural "{0} notices"
 msgstr[0] "{0} chú ý"
 
 msgid "Validation task could not complete or completed with errors"
-msgstr ""
+msgstr "Tác vụ xác nhận không hoàn thành hoặc hoàn thành với lỗi"
 
 msgid "Internal server error"
 msgstr "Lỗi nội bộ máy chủ"

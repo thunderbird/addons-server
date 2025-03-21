@@ -1,5 +1,9 @@
 from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_bytes
 from django.utils.translation import ugettext, ugettext_lazy as _
+
+import six
+from six.moves.urllib_parse import quote, urljoin
 
 from olympia import amo
 from olympia.addons.models import Addon, Category
@@ -25,7 +29,7 @@ class AddonFeedMixin(object):
 
     def item_description(self, addon):
         """Description for particular add-on (<item><description>)"""
-        return unicode(addon.description) or ''
+        return six.text_type(addon.description) or ''
 
     def item_author_name(self, addon):
         """Author for a particular add-on (<item><dc:creator>)"""
@@ -40,10 +44,11 @@ class AddonFeedMixin(object):
         return addon.created if sort == 'created' else addon.last_updated
 
     def item_guid(self, addon):
-        """Guid for a particuar version (<item><guid>)"""
-        url_ = reverse('addons.versions',
-                       args=[addon.slug, addon.current_version])
-        return absolutify(url_)
+        """Guid for a particular version (<item><guid>)"""
+        guid = urljoin(
+            reverse('addons.versions', args=[addon.slug]),
+            quote(force_bytes(addon.current_version.version)))
+        return absolutify(guid)
 
 
 class CategoriesRss(AddonFeedMixin, BaseFeed):
@@ -121,7 +126,7 @@ class FeaturedRss(AddonFeedMixin, BaseFeed):
     def get_object(self, request):
         self.request = request
         self.app = request.APP
-        self.appname = unicode(request.APP.pretty)
+        self.appname = six.text_type(request.APP.pretty)
 
     def title(self):
         """Title for the feed"""

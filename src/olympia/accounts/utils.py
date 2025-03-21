@@ -1,22 +1,26 @@
+import binascii
 import json
 import os
 
 from base64 import urlsafe_b64encode
-from urllib import urlencode
 
 from django.conf import settings
 from django.http import HttpResponseRedirect
+from django.utils.encoding import force_text
 from django.utils.http import is_safe_url
 
 import boto3
+import six
+from six.moves.urllib_parse import urlencode
 
 from olympia.accounts.tasks import primary_email_change_event
+from olympia.amo.utils import dev_bypass_auth
 from olympia.core.logger import getLogger
 
 
 def fxa_config(request):
     config = {camel_case(key): value
-              for key, value in settings.FXA_CONFIG['default'].iteritems()
+              for key, value in six.iteritems(settings.FXA_CONFIG['default'])
               if key != 'client_secret'}
     if request.user.is_authenticated:
         config['email'] = request.user.email
@@ -25,9 +29,11 @@ def fxa_config(request):
     return config
 
 
-def fxa_login_url(config, state, next_path=None, action=None):
-    if next_path and is_safe_url(next_path):
-        state += ':' + urlsafe_b64encode(next_path.encode('utf-8')).rstrip('=')
+def fxa_login_url(
+        config, state, next_path=None, action=None, force_two_factor=False):
+    if next_path and is_safe_url(next_path, allowed_hosts=(settings.DOMAIN,)):
+        state += u':' + force_text(
+            urlsafe_b64encode(next_path.encode('utf-8'))).rstrip(u'=')
     query = {
         'client_id': config['client_id'],
         'redirect_url': config['redirect_url'],
@@ -36,6 +42,10 @@ def fxa_login_url(config, state, next_path=None, action=None):
     }
     if action is not None:
         query['action'] = action
+    if force_two_factor is True:
+        # Specifying AAL2 will require the token to have an authentication
+        # assurance level >= 2 which corresponds to requiring 2FA.
+        query['acr_values'] = 'AAL2'
     return '{host}/authorization?{query}'.format(
         host=config['oauth_host'], query=urlencode(query))
 
@@ -50,6 +60,9 @@ def default_fxa_register_url(request):
 
 
 def default_fxa_login_url(request):
+    if dev_bypass_auth():
+        return '/api/v3/accounts/login/start/'
+
     request.session.setdefault('fxa_state', generate_fxa_state())
     return fxa_login_url(
         config=settings.FXA_CONFIG['default'],
@@ -59,7 +72,7 @@ def default_fxa_login_url(request):
 
 
 def generate_fxa_state():
-    return os.urandom(32).encode('hex')
+    return force_text(binascii.hexlify(os.urandom(32)))
 
 
 def redirect_for_login(request):

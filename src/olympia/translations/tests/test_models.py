@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+import six
 
 import django
 
@@ -17,7 +18,7 @@ from mock import patch
 from pyquery import PyQuery as pq
 
 from olympia.amo.models import use_primary_db
-from olympia.amo.tests import BaseTestCase
+from olympia.amo.tests import TestCase
 from olympia.translations.models import (
     LinkifiedTranslation, NoLinksNoMarkupTranslation,
     PurifiedTranslation, Translation, TranslationSequence)
@@ -34,7 +35,7 @@ def ids(qs):
     return [o.id for o in qs]
 
 
-class TranslationFixturelessTestCase(BaseTestCase):
+class TranslationFixturelessTestCase(TestCase):
     "We want to be able to rollback stuff."
 
     def test_whitespace(self):
@@ -43,7 +44,7 @@ class TranslationFixturelessTestCase(BaseTestCase):
         assert 'khaaaaaan!' == t.localized_string
 
 
-class TranslationSequenceTestCase(BaseTestCase):
+class TranslationSequenceTestCase(TestCase):
     """
     Make sure automatic translation sequence generation works
     as expected.
@@ -76,7 +77,7 @@ class TranslationSequenceTestCase(BaseTestCase):
             'Translation sequence needs to keep increasing.')
 
 
-class TranslationTestCase(BaseTestCase):
+class TranslationTestCase(TestCase):
     fixtures = ['testapp/test_models.json']
 
     def setUp(self):
@@ -264,7 +265,7 @@ class TranslationTestCase(BaseTestCase):
     def test_order_by_translations_query_uses_left_outer_join(self):
         translation.activate('de')
         qs = TranslatedModel.objects.all()
-        query = unicode(order_by_translation(qs, 'name').query)
+        query = six.text_type(order_by_translation(qs, 'name').query)
         # There should be 2 LEFT OUTER JOIN to find translations matching
         # current language and fallback.
         joins = re.findall('LEFT OUTER JOIN `translations`', query)
@@ -395,7 +396,7 @@ class TranslationTestCase(BaseTestCase):
 
     def test_require_locale(self):
         obj = TranslatedModel.objects.get(pk=1)
-        assert unicode(obj.no_locale) == 'blammo'
+        assert six.text_type(obj.no_locale) == 'blammo'
         assert obj.no_locale.locale == 'en-US'
 
         # Switch the translation to a locale we wouldn't pick up by default.
@@ -403,7 +404,7 @@ class TranslationTestCase(BaseTestCase):
         obj.no_locale.save()
 
         obj = TranslatedModel.objects.get(pk=1)
-        assert unicode(obj.no_locale) == 'blammo'
+        assert six.text_type(obj.no_locale) == 'blammo'
         assert obj.no_locale.locale == 'fr'
 
     def test_delete_set_null(self):
@@ -491,7 +492,7 @@ class TranslationMultiDbTests(TransactionTestCase):
         assert len(connections['default'].queries) == 2
 
     @override_settings(DEBUG=True)
-    @patch('multidb.get_slave', lambda: 'slave-2')
+    @patch('multidb.get_replica', lambda: 'slave-2')
     def test_translations_reading_from_multiple_db(self):
         with patch.object(django.db.connections, 'databases', self.mocked_dbs):
             # Make sure we are in a clean environnement.
@@ -503,7 +504,7 @@ class TranslationMultiDbTests(TransactionTestCase):
             assert len(connections['slave-2'].queries) == 2
 
     @override_settings(DEBUG=True)
-    @patch('multidb.get_slave', lambda: 'slave-2')
+    @patch('multidb.get_replica', lambda: 'slave-2')
     @pytest.mark.xfail(reason='Needs django-queryset-transform patch to work')
     def test_translations_reading_from_multiple_db_using(self):
         with patch.object(django.db.connections, 'databases', self.mocked_dbs):
@@ -516,7 +517,7 @@ class TranslationMultiDbTests(TransactionTestCase):
             assert len(connections['slave-2'].queries) == 0
 
     @override_settings(DEBUG=True)
-    @patch('multidb.get_slave', lambda: 'slave-2')
+    @patch('multidb.get_replica', lambda: 'slave-2')
     def test_translations_reading_from_multiple_db_pinning(self):
         with patch.object(django.db.connections, 'databases', self.mocked_dbs):
             # Make sure we are in a clean environnement.
@@ -529,10 +530,10 @@ class TranslationMultiDbTests(TransactionTestCase):
                 assert len(connections['slave-2'].queries) == 0
 
 
-class PurifiedTranslationTest(BaseTestCase):
+class PurifiedTranslationTest(TestCase):
 
     def test_output(self):
-        assert isinstance(PurifiedTranslation().__html__(), unicode)
+        assert isinstance(PurifiedTranslation().__html__(), six.text_type)
 
     def test_raw_text(self):
         s = u'   This is some text   '
@@ -578,7 +579,7 @@ class PurifiedTranslationTest(BaseTestCase):
         assert doc('b')[0].text == 'markup'
 
 
-class LinkifiedTranslationTest(BaseTestCase):
+class LinkifiedTranslationTest(TestCase):
 
     @patch('olympia.amo.urlresolvers.get_outgoing_url')
     def test_allowed_tags(self, get_outgoing_url_mock):
@@ -597,7 +598,7 @@ class LinkifiedTranslationTest(BaseTestCase):
             '&lt;b&gt;bold&lt;/b&gt;')
 
 
-class NoLinksNoMarkupTranslationTest(BaseTestCase):
+class NoLinksNoMarkupTranslationTest(TestCase):
 
     def test_forbidden_tags(self):
         s = u'<script>some naughty xss</script> <b>bold</b>'
@@ -629,41 +630,40 @@ class NoLinksNoMarkupTranslationTest(BaseTestCase):
 
 
 def test_translation_bool():
-    def t(s):
+    def translation(s):
         return Translation(localized_string=s)
 
-    assert bool(t('text')) is True
-    assert bool(t(' ')) is False
-    assert bool(t('')) is False
-    assert bool(t(None)) is False
+    assert bool(translation('text')) is True
+    assert bool(translation(' ')) is False
+    assert bool(translation('')) is False
+    assert bool(translation(None)) is False
 
 
 def test_translation_unicode():
-    def t(s):
+    def translation(s):
         return Translation(localized_string=s)
 
-    assert unicode(t('hello')) == 'hello'
-    assert unicode(t(None)) == ''
+    assert six.text_type(translation('hello')) == 'hello'
+    assert six.text_type(translation(None)) == ''
 
 
 def test_comparison_with_lazy():
-    x = Translation(localized_string='xxx')
-    lazy_u = lazy(lambda x: x, unicode)
-    x == lazy_u('xxx')
-    lazy_u('xxx') == x
+    lazy_u = lazy(lambda s: s, six.text_type)
+    Translation(localized_string='xxx') == lazy_u('xxx')
+    lazy_u('xxx') == Translation(localized_string='xxx')
 
 
 def test_translated_field_default_null():
     assert Translation.objects.count() == 0
-    o = TranslatedModelWithDefaultNull.objects.create(name='english name')
+    obj = TranslatedModelWithDefaultNull.objects.create(name='english name')
 
     def get_model():
-        return TranslatedModelWithDefaultNull.objects.get(pk=o.pk)
+        return TranslatedModelWithDefaultNull.objects.get(pk=obj.pk)
 
     assert Translation.objects.count() == 1
 
     # Make sure the translation id is stored on the model, not the autoid.
-    assert o.name.id == o.name_id
+    assert obj.name.id == obj.name_id
 
     # Reload the object from database with a different locale activated.
     # Its name should still be there, using the fallback...
@@ -681,8 +681,8 @@ def test_translated_field_default_null():
     assert german.name.locale == 'de'
 
     # ids should be the same, autoids are different.
-    assert o.name.id == german.name.id
-    assert o.name.autoid != german.name.autoid
+    assert obj.name.id == german.name.id
+    assert obj.name.autoid != german.name.autoid
 
     # Check that de finds the right translation.
     fresh_german = get_model()
@@ -690,30 +690,30 @@ def test_translated_field_default_null():
 
     # Update!
     translation.activate('en-us')
-    o = TranslatedModelWithDefaultNull.objects.get(pk=o.pk)
-    translation_id = o.name.autoid
+    obj = TranslatedModelWithDefaultNull.objects.get(pk=obj.pk)
+    translation_id = obj.name.autoid
 
-    o.name = 'new name'
-    o.save()
+    obj.name = 'new name'
+    obj.save()
 
-    o = TranslatedModelWithDefaultNull.objects.get(pk=o.pk)
-    assert o.name == 'new name'
-    assert o.name.locale == 'en-us'
+    obj = TranslatedModelWithDefaultNull.objects.get(pk=obj.pk)
+    assert obj.name == 'new name'
+    assert obj.name.locale == 'en-us'
     # Make sure it was an update, not an insert.
-    assert o.name.autoid == translation_id
+    assert obj.name.autoid == translation_id
 
     # Set translations with a dict.
     strings = {'en-us': 'right language', 'de': 'wrong language'}
-    o = TranslatedModelWithDefaultNull.objects.create(name=strings)
+    obj = TranslatedModelWithDefaultNull.objects.create(name=strings)
 
     # Make sure we get the English text since we're in en-US.
-    assert o.name == 'right language'
+    assert obj.name == 'right language'
 
     # Check that de was set.
     translation.activate('de')
-    o = TranslatedModelWithDefaultNull.objects.get(pk=o.pk)
-    assert o.name == 'wrong language'
-    assert o.name.locale == 'de'
+    obj = TranslatedModelWithDefaultNull.objects.get(pk=obj.pk)
+    assert obj.name == 'wrong language'
+    assert obj.name.locale == 'de'
 
 
 def test_translated_field_fk_lookups():
@@ -768,3 +768,40 @@ def test_translated_field_fk_lookups():
     fresh_parent = TranslatedModel.objects.get(pk=parent.pk)
     assert fresh_parent.translated_through_fk.name_id == obj.name_id
     assert fresh_parent.translated_through_fk.name is not None
+
+
+def test_translated_field_emoji_support():
+    # Make sure utf8mb4 settings are correct and emojis are correctly handled
+    assert Translation.objects.count() == 0
+    obj = TranslatedModel.objects.create(name=u'😀❤')
+
+    def get_model():
+        return TranslatedModel.objects.get(pk=obj.pk)
+
+    assert Translation.objects.count() == 1
+
+    # Make sure the translation id is stored on the model, not the autoid.
+    assert obj.name.id == obj.name_id
+
+    # Reload the object from database with a different locale activated.
+    # Its name should still be there, using the fallback...
+    translation.activate('de')
+    german = get_model()
+    assert german.name == u'😀❤'
+    assert german.name.locale == 'en-us'
+
+    # Check that a different locale creates a new row with the same id.
+    german.name = u'😀'
+    german.save()
+
+    assert Translation.objects.count() == 2  # New name *and* description.
+    assert german.name == u'😀'
+    assert german.name.locale == 'de'
+
+    # ids should be the same, autoids are different.
+    assert obj.name.id == german.name.id
+    assert obj.name.autoid != german.name.autoid
+
+    # Check that de finds the right translation.
+    fresh_german = get_model()
+    assert fresh_german.name == u'😀'

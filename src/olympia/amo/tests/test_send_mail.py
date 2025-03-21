@@ -8,11 +8,12 @@ from django.core.mail import EmailMessage
 from django.utils import translation
 
 import mock
+import six
 
 from celery.exceptions import Retry
 
 from olympia.amo.models import FakeEmail
-from olympia.amo.tests import BaseTestCase
+from olympia.amo.tests import TestCase
 from olympia.amo.utils import send_html_mail_jinja, send_mail
 from olympia.users import notifications
 from olympia.users.models import UserNotification, UserProfile
@@ -22,7 +23,7 @@ TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ATTACHMENTS_DIR = os.path.join(TESTS_DIR, 'attachments')
 
 
-class TestSendMail(BaseTestCase):
+class TestSendMail(TestCase):
     fixtures = ['base/users']
 
     def setUp(self):
@@ -212,14 +213,14 @@ class TestSendMail(BaseTestCase):
         assert '<a href' not in message1, 'text-only email contained HTML!'
         assert '<a href' in message2, 'HTML email did not contain HTML!'
 
-        unsubscribe_msg = unicode(notifications.individual_contact.label)
+        unsubscribe_msg = six.text_type(notifications.individual_contact.label)
         assert unsubscribe_msg in message1
         assert unsubscribe_msg in message2
 
     def test_send_attachment(self):
         path = os.path.join(ATTACHMENTS_DIR, 'bacon.txt')
         attachments = [(
-            os.path.basename(path), storage.open(path).read(),
+            os.path.basename(path), storage.open(path, 'r').read(),
             mimetypes.guess_type(path)[0])]
         send_mail('test subject', 'test body', from_email='a@example.com',
                   recipient_list=['b@example.com'], attachments=attachments)

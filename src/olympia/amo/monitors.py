@@ -1,11 +1,11 @@
 import os
 import socket
-import StringIO
 import traceback
 
 from django.conf import settings
 
 import requests
+import six
 
 from kombu import Connection
 from PIL import Image
@@ -14,7 +14,6 @@ import olympia.core.logger
 
 from olympia.amo import search
 from olympia.amo.templatetags.jinja_helpers import user_media_path
-from olympia.applications.management.commands import dump_apps
 
 
 monitor_log = olympia.core.logger.getLogger('z.monitor')
@@ -65,7 +64,7 @@ def libraries():
     libraries_results = []
     status = ''
     try:
-        Image.new('RGB', (16, 16)).save(StringIO.StringIO(), 'JPEG')
+        Image.new('RGB', (16, 16)).save(six.BytesIO(), 'JPEG')
         libraries_results.append(('PIL+JPEG', True, 'Got it!'))
     except Exception as e:
         msg = "Failed to create a jpeg image: %s" % e
@@ -94,23 +93,18 @@ def elastic():
 
 def path():
     # Check file paths / permissions
-    rw = (settings.TMP_PATH,
-          settings.MEDIA_ROOT,
-          user_media_path('addons'),
-          user_media_path('guarded_addons'),
-          user_media_path('addon_icons'),
-          user_media_path('collection_icons'),
-          user_media_path('previews'),
-          user_media_path('userpics'),
-          user_media_path('reviewer_attachments'),
-          dump_apps.Command.get_json_path(),)
-    r = [os.path.join(settings.ROOT, 'locale'),
-         # The deploy process will want write access to this.
-         # We do not want Django to have write access though.
-         settings.PROD_DETAILS_DIR]
+    read_and_write = (
+        settings.TMP_PATH,
+        settings.MEDIA_ROOT,
+        user_media_path('addons'),
+        user_media_path('guarded_addons'),
+        user_media_path('addon_icons'),
+        user_media_path('previews'),
+        user_media_path('userpics'),)
+    read_only = [os.path.join(settings.ROOT, 'locale')]
     filepaths = [(path, os.R_OK | os.W_OK, 'We want read + write')
-                 for path in rw]
-    filepaths += [(path, os.R_OK, 'We want read') for path in r]
+                 for path in read_and_write]
+    filepaths += [(path, os.R_OK, 'We want read') for path in read_only]
     filepath_results = []
     filepath_status = True
 
@@ -119,7 +113,7 @@ def path():
         path_perms = os.access(path, perms)
         filepath_status = filepath_status and path_exists and path_perms
 
-        if not isinstance(path, str):
+        if not isinstance(path, bytes):
             notes += ' / should be a bytestring!'
 
         filepath_results.append((path, path_exists, path_perms, notes))

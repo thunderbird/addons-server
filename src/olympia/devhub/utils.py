@@ -11,15 +11,16 @@ from six import text_type
 
 import olympia.core.logger
 
-from olympia import amo
+from olympia import amo, core
 from olympia.addons.models import Addon
 from olympia.amo.urlresolvers import linkify_escape
 from olympia.files.models import File, FileUpload
-from olympia.files.utils import parse_addon
+from olympia.files.utils import parse_addon, parse_xpi
 from olympia.lib.akismet.models import AkismetReport
 from olympia.tags.models import Tag
 from olympia.translations.models import Translation
 from olympia.versions.compare import version_int
+from olympia.versions.utils import process_color_value
 
 from . import tasks
 
@@ -27,11 +28,12 @@ from . import tasks
 log = olympia.core.logger.getLogger('z.devhub')
 
 
-def process_validation(validation, is_compatibility=False, file_hash=None):
+def process_validation(validation, is_compatibility=False, file_hash=None,
+                       channel=amo.RELEASE_CHANNEL_LISTED):
     """Process validation results into the format expected by the web
     frontend, including transforming certain fields into HTML,  mangling
     compatibility messages, and limiting the number of messages displayed."""
-    validation = fix_addons_linter_output(validation)
+    validation = fix_addons_linter_output(validation, channel=channel)
 
     # Secondly remove any privileged errors
     validation = remove_privileged_errors(validation)
@@ -66,7 +68,7 @@ def remove_privileged_errors(validation):
     to_remove = []
 
     for index, error in enumerate(validation['messages']):
-        if error['id'][0] in ['PRIVILEGED_FEATURES_REQUIRED', 'MOZILLA_ADDONS_PERMISSION_REQUIRED']:
+        if len(error['id']) > 0 and error['id'][0] in ['PRIVILEGED_FEATURES_REQUIRED', 'MOZILLA_ADDONS_PERMISSION_REQUIRED']:
             # Prepend to the list, this will ensure our positional pops work correctly
             to_remove.insert(0, index)
 
@@ -158,7 +160,7 @@ def htmlify_validation(validation):
                 linkify_escape(text) for text in msg['description']]
 
 
-def fix_addons_linter_output(validation, listed=True):
+def fix_addons_linter_output(validation, channel):
     """Make sure the output from the addons-linter is the same as amo-validator
     for backwards compatibility reasons."""
     if 'messages' in validation:
@@ -185,10 +187,9 @@ def fix_addons_linter_output(validation, listed=True):
 
     # Essential metadata.
     metadata = {
-        'listed': listed,
+        'listed': channel == amo.RELEASE_CHANNEL_LISTED,
         'identified_files': identified_files,
-        'processed_by_addons_linter': True,
-        'is_webextension': True
+        'is_webextension': True,
     }
     # Add metadata already set by the linter.
     metadata.update(validation.get('metadata', {}))
@@ -205,9 +206,6 @@ def fix_addons_linter_output(validation, listed=True):
         'errors': validation['summary']['errors'],
         'messages': list(_merged_messages()),
         'metadata': metadata,
-        # The addons-linter only deals with WebExtensions and no longer
-        # outputs this itself, so we hardcode it.
-        'detected_type': 'extension',
         'ending_tier': 5,
     }
 
@@ -244,13 +242,19 @@ def find_previous_version(addon, file, version_string, channel):
     vint = version_int(version_string)
     for file_ in qs.order_by('-id'):
         # Only accept versions which come before the one we're validating.
-        if file_.version.version_int < vint:
+        if (file_.version.version_int or 0) < vint:
             return file_
 
 
 class Validator(object):
-    """Class which handles creating or fetching validation results for File
-    and FileUpload instances."""
+    """
+    Class which handles creating or fetching validation results for File
+    and FileUpload instances.
+
+    It forwards the actual validation to `devhub.tasks:validate_file_path`
+    and `devhub.tasks:validate_file` but implements shortcuts for
+    legacy add-ons and search plugins to avoid running the linter.
+    """
 
     def __init__(self, file_, addon=None, listed=None):
         self.addon = addon
@@ -262,7 +266,6 @@ class Validator(object):
             channel = (amo.RELEASE_CHANNEL_LISTED if listed else
                        amo.RELEASE_CHANNEL_UNLISTED)
             save = tasks.handle_upload_validation_result
-            is_webextension = False
             is_mozilla_signed = False
             is_experiment = False
 
@@ -281,7 +284,7 @@ class Validator(object):
                 addon_data = None
             else:
                 file_.update(version=addon_data.get('version'))
-            validate = self.validate_upload(file_, channel, is_webextension, is_experiment)
+            validate_task = self.validate_upload(file_, channel)
         elif isinstance(file_, File):
             # The listed flag for a File object should always come from
             # the status of its owner Addon. If the caller tries to override
@@ -291,7 +294,7 @@ class Validator(object):
             channel = file_.version.channel
             is_mozilla_signed = file_.is_mozilla_signed_extension
             save = tasks.handle_file_validation_result
-            validate = self.validate_file(file_)
+            validate_task = self.validate_file(file_)
 
             self.file = file_
             self.addon = self.file.version.addon
@@ -303,15 +306,17 @@ class Validator(object):
         # Fallback error handler to save a set of exception results, in case
         # anything unexpected happens during processing.
         on_error = save.subtask(
-            [amo.VALIDATOR_SKELETON_EXCEPTION, file_.pk, channel,
+            [amo.VALIDATOR_SKELETON_EXCEPTION_WEBEXT, file_.pk, channel,
              is_mozilla_signed],
             immutable=True)
 
         # When the validation jobs complete, pass the results to the
         # appropriate save task for the object type.
-        self.task = chain(validate, save.subtask(
-            [file_.pk, channel, is_mozilla_signed],
-            link_error=on_error))
+        self.task = chain(
+            validate_task,
+            save.subtask(
+                [file_.pk, channel, is_mozilla_signed],
+                link_error=on_error))
 
         # Create a cache key for the task, so multiple requests to
         # validate the same object do not result in duplicate tasks.
@@ -324,20 +329,18 @@ class Validator(object):
         """Return a subtask to validate a File instance."""
         kwargs = {
             'hash_': file.original_hash,
-            'is_webextension': file.is_webextension,
             'is_experiment': file.is_experiment
         }
         return tasks.validate_file.subtask([file.pk], kwargs)
 
     @staticmethod
-    def validate_upload(upload, channel, is_webextension, is_experiment=False):
+    def validate_upload(upload, channel, is_experiment=False):
         """Return a subtask to validate a FileUpload instance."""
         assert not upload.validation
 
         kwargs = {
             'hash_': upload.hash,
-            'listed': (channel == amo.RELEASE_CHANNEL_LISTED),
-            'is_webextension': is_webextension,
+            'channel': channel,
             'is_experiment': is_experiment
         }
         return tasks.validate_file_path.subtask([upload.path], kwargs)
@@ -370,8 +373,13 @@ def get_addon_akismet_reports(user, user_agent, referrer, upload=None,
 
     if upload:
         addon = addon or upload.addon
-        data = data or Addon.resolve_webext_translations(
-            parse_addon(upload, addon, user, minimal=True), upload)
+        if not data:
+            try:
+                data = Addon.resolve_webext_translations(
+                    parse_addon(upload, addon, user, minimal=True), upload)
+            except ValidationError:
+                # The xpi is broken - it'll be rejected by the linter so abort.
+                return []
 
     reports = []
     for prop in properties:
@@ -394,3 +402,35 @@ def get_addon_akismet_reports(user, user_agent, referrer, upload=None,
                 referrer=referrer)
             reports.append((prop, report))
     return reports
+
+
+def extract_theme_properties(addon, channel):
+    version = addon.find_latest_version(channel)
+    if not version or not version.all_files:
+        return {}
+    try:
+        parsed_data = parse_xpi(
+            version.all_files[0].file_path, addon=addon, user=core.get_user())
+    except ValidationError:
+        # If we can't parse the existing manifest safely return.
+        return {}
+    theme_props = parsed_data.get('theme', {})
+    # pre-process colors to convert chrome style colors and strip spaces
+    theme_props['colors'] = dict(
+        process_color_value(prop, color)
+        for prop, color in theme_props.get('colors', {}).items())
+    return theme_props
+
+
+def wizard_unsupported_properties(data, wizard_fields):
+    # collect any 'theme' level unsupported properties
+    unsupported = [
+        key for key in data.keys() if key not in ['colors', 'images']]
+    # and any unsupported 'colors' properties
+    unsupported += [
+        key for key in data.get('colors', {}) if key not in wizard_fields]
+    # and finally any 'images' properties (wizard only supports the background)
+    unsupported += [
+        key for key in data.get('images', {}) if key != 'headerURL']
+
+    return unsupported

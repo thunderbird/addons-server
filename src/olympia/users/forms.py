@@ -1,12 +1,12 @@
 import os
 import re
 
-import waffle
-
 from django import forms
 from django.conf import settings
 from django.core.files.storage import default_storage as storage
 from django.utils.translation import ugettext, ugettext_lazy as _
+
+import six
 
 import olympia.core.logger
 
@@ -15,7 +15,7 @@ from olympia.accounts.views import fxa_error_message
 from olympia.activity.models import ActivityLog
 from olympia.amo.fields import HttpHttpsOnlyURLField
 from olympia.amo.utils import (
-    clean_nl, has_links, ImageCheck, slug_validator,
+    clean_nl, has_links, ImageCheck,
     fetch_subscribed_newsletters, subscribe_newsletter,
     unsubscribe_newsletter)
 from olympia.users import notifications
@@ -28,7 +28,7 @@ from .widgets import (
 
 
 log = olympia.core.logger.getLogger('z.users')
-admin_re = re.compile('(?=.*\d)(?=.*[a-zA-Z])')
+admin_re = re.compile(r'(?=.*\d)(?=.*[a-zA-Z])')
 
 
 class UserDeleteForm(forms.Form):
@@ -64,7 +64,6 @@ LOGIN_HELP_URL = (
 
 
 class UserEditForm(forms.ModelForm):
-    username = forms.CharField(max_length=50, required=False)
     display_name = forms.CharField(label=_(u'Display Name'), max_length=50,
                                    required=False)
     location = forms.CharField(label=_(u'Location'), max_length=100,
@@ -105,11 +104,7 @@ class UserEditForm(forms.ModelForm):
 
         if self.instance:
             # We are fetching all `UserNotification` instances and then,
-            # if the waffle-switch is active overwrite their value with the
-            # data from basket. This simplifies the process of implementing
-            # the waffle-switch. Once we switched the integration "on" on prod
-            # all `UserNotification` instances that are now handled by basket
-            # can be deleted.
+            # overwrite their value with the data from basket.
             default = {
                 idx: notification.default_checked
                 for idx, notification
@@ -119,12 +114,13 @@ class UserEditForm(forms.ModelForm):
                 for notification in self.instance.notifications.all()}
             default.update(user)
 
-            if waffle.switch_is_active('activate-basket-sync'):
-                newsletters = fetch_subscribed_newsletters(self.instance)
+            # Fetch data from basket and overwrite our local data
+            # (which will then be updated on .save() accordingly)
+            newsletters = fetch_subscribed_newsletters(self.instance)
 
-                by_basket_id = notifications.REMOTE_NOTIFICATIONS_BY_BASKET_ID
-                for basket_id, notification in by_basket_id.items():
-                    default[notification.id] = basket_id in newsletters
+            by_basket_id = notifications.REMOTE_NOTIFICATIONS_BY_BASKET_ID
+            for basket_id, notification in by_basket_id.items():
+                default[notification.id] = basket_id in newsletters
 
             # Add choices to Notification.
             if self.instance.is_developer:
@@ -152,43 +148,10 @@ class UserEditForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = (
-            'username', 'email', 'display_name', 'location', 'occupation',
+            'email', 'display_name', 'location', 'occupation',
             'homepage', 'photo', 'biography', 'display_collections',
             'notifications',
         )
-
-    def clean_username(self):
-        name = self.cleaned_data['username']
-
-        if not name:
-            if self.instance.has_anonymous_username:
-                name = self.instance.username
-            else:
-                name = self.instance.anonymize_username()
-
-        # All-digits usernames are disallowed since they can be
-        # confused for user IDs in URLs. (See bug 862121.)
-        if name.isdigit():
-            raise forms.ValidationError(
-                ugettext('Usernames cannot contain only digits.'))
-
-        slug_validator(
-            name, lower=False,
-            message=ugettext(
-                'Enter a valid username consisting of letters, numbers, '
-                'underscores or hyphens.'))
-        if DeniedName.blocked(name):
-            raise forms.ValidationError(
-                ugettext('This username cannot be used.'))
-
-        # FIXME: Bug 858452. Remove this check when collation of the username
-        # column is changed to case insensitive.
-        if (UserProfile.objects.exclude(id=self.instance.id)
-                       .filter(username__iexact=name).exists()):
-            raise forms.ValidationError(
-                ugettext('This username is already in use.'))
-
-        return name
 
     def clean_display_name(self):
         name = self.cleaned_data['display_name']
@@ -225,7 +188,7 @@ class UserEditForm(forms.ModelForm):
 
     def clean_biography(self):
         biography = self.cleaned_data['biography']
-        normalized = clean_nl(unicode(biography))
+        normalized = clean_nl(six.text_type(biography))
         if has_links(normalized):
             # There's some links, we don't want them.
             raise forms.ValidationError(ugettext('No links are allowed.'))
@@ -254,22 +217,22 @@ class UserEditForm(forms.ModelForm):
         for (notification_id, notification) in visible_notifications.items():
             enabled = (notification.mandatory or
                        (str(notification_id) in data['notifications']))
+
             UserNotification.objects.update_or_create(
                 user=self.instance, notification_id=notification_id,
                 defaults={'enabled': enabled})
 
-        if waffle.switch_is_active('activate-basket-sync'):
-            by_basket_id = notifications.REMOTE_NOTIFICATIONS_BY_BASKET_ID
-            for basket_id, notification in by_basket_id.items():
-                needs_subscribe = str(notification.id) in data['notifications']
-                needs_unsubscribe = (
-                    str(notification.id) not in data['notifications'])
+        by_basket_id = notifications.REMOTE_NOTIFICATIONS_BY_BASKET_ID
+        for basket_id, notification in by_basket_id.items():
+            needs_subscribe = str(notification.id) in data['notifications']
+            needs_unsubscribe = (
+                str(notification.id) not in data['notifications'])
 
-                if needs_subscribe:
-                    subscribe_newsletter(
-                        self.instance, basket_id, request=self.request)
-                elif needs_unsubscribe:
-                    unsubscribe_newsletter(self.instance, basket_id)
+            if needs_subscribe:
+                subscribe_newsletter(
+                    self.instance, basket_id, request=self.request)
+            elif needs_unsubscribe:
+                unsubscribe_newsletter(self.instance, basket_id)
 
         log.debug(u'User (%s) updated their profile' % user)
 

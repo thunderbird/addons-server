@@ -1,13 +1,15 @@
+from django.utils.encoding import force_text
 from django.utils.http import urlsafe_base64_encode
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 
 import basket
+from six import binary_type
 
 from mock import Mock, patch, MagicMock
 from pyquery import PyQuery as pq
 
-from olympia.amo.tests import TestCase, addon_factory, create_switch
+from olympia.amo.tests import TestCase, addon_factory
 from olympia.amo.tests.test_helpers import get_uploaded_file
 from olympia.amo.urlresolvers import reverse
 from olympia.users.forms import AdminUserEditForm, UserEditForm
@@ -21,7 +23,10 @@ class UserFormBase(TestCase):
     def setUp(self):
         super(UserFormBase, self).setUp()
         self.user = self.user_profile = UserProfile.objects.get(id='4043307')
-        self.uidb64 = urlsafe_base64_encode(str(self.user.id))
+        # need to keep this force_text because pre django2.2
+        # urlsafe_base64_encode returns a bytestring and a string after
+        self.uidb64 = force_text(
+            urlsafe_base64_encode(binary_type(self.user.id)))
 
 
 class TestUserDeleteForm(UserFormBase):
@@ -66,39 +71,40 @@ class TestUserEditForm(UserFormBase):
         self.client.login(email='jbalogh@mozilla.com')
         self.url = reverse('users.edit')
 
-    def test_no_username_or_display_name(self):
-        assert not self.user.has_anonymous_username
-        data = {'username': '',
-                'email': 'jbalogh@mozilla.com'}
-        response = self.client.post(self.url, data)
-        self.assertNoFormErrors(response)
-        assert self.user.reload().has_anonymous_username
-
-    def test_change_username(self):
-        assert self.user.username != 'new-username'
-        data = {'username': 'new-username',
-                'email': 'jbalogh@mozilla.com'}
-        response = self.client.post(self.url, data)
-        self.assertNoFormErrors(response)
-        assert self.user.reload().username == 'new-username'
-
     def test_cannot_change_display_name_to_denied_ones(self):
         assert self.user.display_name != 'Mozilla'
-        data = {'username': 'new-username',
-                'display_name': 'IE6Fan',
+        data = {'display_name': 'IE6Fan',
                 'email': 'jbalogh@mozilla.com'}
         response = self.client.post(self.url, data)
         msg = "This display name cannot be used."
         self.assertFormError(response, 'form', 'display_name', msg)
         assert self.user.reload().display_name != 'IE6Fan'
 
+    def test_display_name_length(self):
+        data = {'display_name': 'a' * 51,
+                'email': 'jbalogh@mozilla.com'}
+        response = self.client.post(self.url, data)
+        msg = 'Ensure this value has at most 50 characters (it has 51).'
+        self.assertFormError(response, 'form', 'display_name', msg)
+        assert self.user.reload().display_name != 'a' * 51
+
+        data['display_name'] = 'a'
+        response = self.client.post(self.url, data)
+        msg = 'Ensure this value has at least 2 characters (it has 1).'
+        self.assertFormError(response, 'form', 'display_name', msg)
+        assert self.user.reload().display_name != 'a'
+
+        data['display_name'] = ''
+        response = self.client.post(self.url, data)
+        self.assertNoFormErrors(response)
+        assert self.user.reload().display_name == ''
+
     def test_no_username_anonymous_does_not_change(self):
         """Test that username isn't required with auto-generated usernames and
         the auto-generated value does not change."""
         username = self.user.anonymize_username()
         self.user.save()
-        data = {'username': '',
-                'email': 'jbalogh@mozilla.com'}
+        data = {'email': 'jbalogh@mozilla.com'}
         response = self.client.post(self.url, data)
         self.assertNoFormErrors(response)
         assert self.user.reload().username == username
@@ -119,9 +125,8 @@ class TestUserEditForm(UserFormBase):
         self.assertContains(r, 'Profile Updated')
 
     def test_long_data(self):
-        data = {'username': 'jbalogh',
-                'email': 'jbalogh@mozilla.com'}
-        for field, length in (('username', 50), ('display_name', 50),
+        data = {'email': 'jbalogh@mozilla.com'}
+        for field, length in (('display_name', 50),
                               ('location', 100), ('occupation', 100)):
             data[field] = 'x' * (length + 1)
             r = self.client.post(self.url, data, follow=True)
@@ -219,8 +224,6 @@ class TestUserEditForm(UserFormBase):
         assert self.user.reload().email == 'me@example.com'
 
     def test_only_show_notifications_user_has_permission_to(self):
-        create_switch('activate-basket-sync')
-
         with patch('basket.base.request', autospec=True) as request_call:
             request_call.return_value = {
                 'status': 'ok', 'token': '123', 'newsletters': []}
@@ -247,14 +250,12 @@ class TestUserEditForm(UserFormBase):
         del self.user.cached_developer_status
 
         form = UserEditForm({}, instance=self.user)
-        assert len(form.fields['notifications'].choices) == 10
+        assert len(form.fields['notifications'].choices) == 8
         assert [x[0] for x in form.fields['notifications'].choices] == [
-            3, 4, 5, 6, 7, 9, 10, 11, 12, 8
+            3, 4, 5, 7, 9, 11, 12, 8
         ]
 
     def test_basket_unsubscribe_newsletter(self):
-        create_switch('activate-basket-sync')
-
         with patch('basket.base.request', autospec=True) as request_call:
             request_call.return_value = {
                 'status': 'ok', 'token': '123',
@@ -286,8 +287,6 @@ class TestUserEditForm(UserFormBase):
     def test_basket_data_is_used_for_initial_checkbox_state_subscribed(self):
         # When using basket, what's in the database is ignored for the
         # notification
-        create_switch('activate-basket-sync')
-
         notification_id = REMOTE_NOTIFICATIONS_BY_BASKET_ID['about-addons'].id
 
         # Add some old obsolete data in the database for a notification that
@@ -314,8 +313,6 @@ class TestUserEditForm(UserFormBase):
     def test_basket_data_is_used_for_initial_checkbox_state(self):
         # When using basket, what's in the database is ignored for the
         # notification
-        create_switch('activate-basket-sync')
-
         notification_id = REMOTE_NOTIFICATIONS_BY_BASKET_ID['about-addons'].id
 
         # Add some old obsolete data in the database for a notification that
@@ -343,8 +340,6 @@ class TestUserEditForm(UserFormBase):
         """
         Test that unsubscribing from a newsletter if user didn't exist yet
         """
-        create_switch('activate-basket-sync')
-
         with patch('basket.base.request', autospec=True) as request_call:
             request_call.side_effect = basket.base.BasketException(
                 'description', status_code=401,
@@ -360,8 +355,6 @@ class TestUserEditForm(UserFormBase):
             params={'email': u'jbalogh@mozilla.com'})
 
     def test_basket_subscribe_newsletter(self):
-        create_switch('activate-basket-sync')
-
         addon_factory(users=[self.user])
 
         with patch('basket.base.request', autospec=True) as request_call:
@@ -395,17 +388,6 @@ class TestUserEditForm(UserFormBase):
                 'newsletters': 'about-addons', 'sync': 'Y',
                 'optin': 'Y', 'source_url': 'http://testserver/users/edit/',
                 'email': u'jbalogh@mozilla.com'})
-
-    def test_basket_sync_behind_flag(self):
-
-        with patch('basket.base.request', autospec=True) as request_call:
-            request_call.return_value = {
-                'status': 'ok', 'token': '123',
-                'newsletters': ['announcements']}
-
-            UserEditForm({}, instance=self.user)
-
-        assert request_call.call_count == 0
 
 
 class TestAdminUserEditForm(UserFormBase):

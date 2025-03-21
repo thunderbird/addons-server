@@ -230,13 +230,14 @@ VALID_CONTRIBUTION_DOMAINS = (
 )
 
 # Icon upload sizes
-ADDON_ICON_SIZES = [32, 48, 64, 128, 256, 512]
+ADDON_ICON_SIZES = [32, 64, 128]
 
 _size_tuple = namedtuple('SizeTuple', 'width height')
-# Preview upload sizes - see mozilla/addons-server#7908 for background.
+# Preview upload sizes - see mozilla/addons-server#9487 for background.
 ADDON_PREVIEW_SIZES = {
-    'thumb': _size_tuple(320, 200),  # 1/4 of 'full' size.
-    'full': _size_tuple(1280, 800)  # Chrome store uses this size too.
+    'thumb': _size_tuple(640, 480),
+    'min': _size_tuple(1000, 750),
+    'full': _size_tuple(2400, 1800)
 }
 
 # Static theme preview sizes
@@ -265,12 +266,18 @@ PERSONA_IMAGE_SIZES = {
     'icon': [None, (32, 32)],
 }
 
-# Accepted image MIME-types
+# Accepted image extensions and MIME-types
+THEME_BACKGROUND_EXTS = ('.jpg', '.jpeg', '.png', '.apng', '.svg', '.gif')
 IMG_TYPES = ('image/png', 'image/jpeg')
 VIDEO_TYPES = ('video/webm',)
 
 # The string concatinating all accepted image MIME-types with '|'
 SUPPORTED_IMAGE_TYPES = '|'.join(IMG_TYPES)
+
+# Acceptable Add-on file extensions.
+# This is being used by `parse_addon` so please make sure we don't have
+# to touch add-ons before removing anything from this list.
+VALID_ADDON_FILE_EXTENSIONS = ('.crx', '.xpi', '.jar', '.xml', '.json', '.zip')
 
 # These types don't maintain app compatibility in the db.  Instead, we look at
 # APP.types and APP_TYPE_SUPPORT to figure out where they are compatible.
@@ -280,7 +287,6 @@ HAS_COMPAT = {t: t not in NO_COMPAT for t in ADDON_TYPES}
 # Personas
 PERSONAS_ADDON_ID = 10900  # Add-on ID of the Personas Plus Add-on
 PERSONAS_FIREFOX_MIN = '3.6'  # First Firefox version to support Personas
-PERSONAS_THUNDERBIRD_MIN = '3.1'  # Ditto for Thunderbird
 
 # Collections.
 COLLECTION_NORMAL = 0
@@ -319,7 +325,6 @@ COLLECTION_SEARCH_CHOICES = [
 # Validation.
 
 # A skeleton set of passing validation results.
-# TODO: Move to validator, generate dynamically via ErrorBundle instance.
 VALIDATOR_SKELETON_RESULTS = {
     "errors": 0,
     "warnings": 0,
@@ -329,41 +334,15 @@ VALIDATOR_SKELETON_RESULTS = {
     "metadata": {"requires_chrome": False, "listed": True},
     "messages": [],
     "message_tree": {},
-    "detected_type": "extension",
     "ending_tier": 5,
 }
 
 # A skeleton set of validation results for a system error.
-VALIDATOR_SKELETON_EXCEPTION = {
-    "errors": 1,
-    "warnings": 0,
-    "notices": 0,
-    "success": True,
-    "compatibility_summary": {"notices": 0, "errors": 0, "warnings": 0},
-    "metadata": {"requires_chrome": False, "listed": True},
-    "messages": [
-        {"id": ["validator", "unexpected_exception"],
-         "message": "Sorry, we couldn't load your add-on.",
-         "description": [
-            "Validation was unable to complete successfully due to an "
-            "unexpected error.",
-            "The error has been logged, but please consider filing an issue "
-            "report here: http://bit.ly/1POrYYU"],
-         "type": "error",
-         "tier": 1,
-         "for_appversions": None,
-         "uid": "35432f419340461897aa8362398339c4"}
-    ],
-    "message_tree": {},
-    "detected_type": "extension",
-    "ending_tier": 5,
-}
-
 VALIDATOR_SKELETON_EXCEPTION_WEBEXT = {
     "errors": 1,
     "warnings": 0,
     "notices": 0,
-    "success": True,
+    "success": False,
     "compatibility_summary": {"notices": 0, "errors": 0, "warnings": 0},
     "metadata": {
         "requires_chrome": False,
@@ -380,29 +359,16 @@ VALIDATOR_SKELETON_EXCEPTION_WEBEXT = {
             "to ensure your webextension is valid or file a bug at "
             "http://bit.ly/1POrYYU"],
          "type": "error",
+         "fatal": True,
          "tier": 1,
          "for_appversions": None,
          "uid": "35432f419340461897aa8362398339c4"}
     ],
     "message_tree": {},
-    "detected_type": "extension",
     "ending_tier": 5,
 }
 
-VERSION_SEARCH = re.compile('\.(\d+)$')
-
-# Types of SiteEvent
-SITE_EVENT_OTHER = 1
-SITE_EVENT_EXCEPTION = 2
-SITE_EVENT_RELEASE = 3
-SITE_EVENT_CHANGE = 4
-
-SITE_EVENT_CHOICES = {
-    SITE_EVENT_OTHER: _('Other'),
-    SITE_EVENT_EXCEPTION: _('Exception'),
-    SITE_EVENT_RELEASE: _('Release'),
-    SITE_EVENT_CHANGE: _('Change'),
-}
+VERSION_SEARCH = re.compile(r'\.(\d+)$')
 
 # For use in urls.
 ADDON_ID = r"""(?P<addon_id>[^/<>"']+)"""
@@ -424,8 +390,11 @@ DEFAULT_WEBEXT_MIN_VERSION_NO_ID = '48.0'
 # The default version of Firefox that supported `browser_specific_settings`
 DEFAULT_WEBEXT_MIN_VERSION_BROWSER_SPECIFIC = '48.0'
 
-# The version of Firefox that first supported static themes.  Not Android yet.
+# The version of desktop Firefox that first supported static themes.
 DEFAULT_STATIC_THEME_MIN_VERSION_FIREFOX = '53.0'
+
+# The version of Android that first minimally supported static themes.
+DEFAULT_STATIC_THEME_MIN_VERSION_ANDROID = '65.0'
 
 # The version of Firefox that first supported webext dictionaries. Note that
 # on AMO at the moment, dicts have no compatibility exposed - ADDON_DICT is in
@@ -439,27 +408,6 @@ DEFAULT_WEBEXT_DICT_MIN_VERSION_THUNDERBIRD = '60.5.0'
 
 # Minimum version allowed to use manifest v3
 DEFAULT_MANIFEST_V3_MIN_VERSION = '128.0'
-
-E10S_UNKNOWN = 0
-E10S_COMPATIBLE = 1
-E10S_COMPATIBLE_WEBEXTENSION = 2
-E10S_INCOMPATIBLE = 3
-
-E10S_COMPATIBILITY_CHOICES = (
-    (E10S_UNKNOWN, _('Unknown')),
-    # We don't need to show developers the actual, more granular state, only
-    # that it's compatible or not.
-    (E10S_COMPATIBLE_WEBEXTENSION, _('Compatible')),
-    (E10S_COMPATIBLE, _('Compatible')),
-    (E10S_INCOMPATIBLE, _('Incompatible')),
-)
-
-E10S_COMPATIBILITY_CHOICES_API = {
-    E10S_UNKNOWN: 'unknown',
-    E10S_COMPATIBLE_WEBEXTENSION: 'compatible-webextension',
-    E10S_COMPATIBLE: 'compatible',
-    E10S_INCOMPATIBLE: 'incompatible',
-}
 
 ADDON_GUID_PATTERN = re.compile(
     # Match {uuid} or something@host.tld ("something" being optional)

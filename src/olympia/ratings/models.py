@@ -1,7 +1,10 @@
 from django.core.cache import cache
 from django.db import models
 from django.db.models import Q
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
+
+import six
 
 import olympia.core.logger
 
@@ -68,14 +71,20 @@ class WithoutRepliesRatingManager(ManagerBase):
         return qs.filter(reply_to__isnull=True)
 
 
+@python_2_unicode_compatible
 class Rating(ModelBase):
     id = PositiveAutoField(primary_key=True)
-    addon = models.ForeignKey('addons.Addon', related_name='_ratings')
-    version = models.ForeignKey('versions.Version', related_name='ratings',
-                                null=True)
-    user = models.ForeignKey('users.UserProfile', related_name='_ratings_all')
+    addon = models.ForeignKey(
+        'addons.Addon', related_name='_ratings', on_delete=models.CASCADE)
+    version = models.ForeignKey(
+        'versions.Version', related_name='ratings', null=True,
+        on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        'users.UserProfile', related_name='_ratings_all',
+        on_delete=models.CASCADE)
     reply_to = models.OneToOneField(
-        'self', null=True, related_name='reply', db_column='reply_to')
+        'self', null=True, related_name='reply', db_column='reply_to',
+        on_delete=models.CASCADE)
 
     rating = models.PositiveSmallIntegerField(null=True)
     body = models.TextField(db_column='text_body', null=True)
@@ -87,7 +96,6 @@ class Rating(ModelBase):
     deleted = models.BooleanField(default=False)
 
     # Denormalized fields for easy lookup queries.
-    # TODO: index on addon, user, latest
     is_latest = models.BooleanField(
         default=True, editable=False,
         help_text="Is this the user's latest rating for the add-on?")
@@ -106,8 +114,8 @@ class Rating(ModelBase):
         base_manager_name = 'unfiltered'
         ordering = ('-created',)
 
-    def __unicode__(self):
-        return truncate(unicode(self.body), 10)
+    def __str__(self):
+        return truncate(six.text_type(self.body), 10)
 
     def __init__(self, *args, **kwargs):
         user_responsible = kwargs.pop('user_responsible', None)
@@ -139,9 +147,9 @@ class Rating(ModelBase):
 
         activity.log_create(
             amo.LOG.APPROVE_RATING, self.addon, self, user=user, details=dict(
-                body=unicode(self.body),
+                body=six.text_type(self.body),
                 addon_id=self.addon.pk,
-                addon_title=unicode(self.addon.name),
+                addon_title=six.text_type(self.addon.name),
                 is_flagged=self.ratingflag_set.exists()))
         for flag in self.ratingflag_set.all():
             flag.delete()
@@ -166,16 +174,16 @@ class Rating(ModelBase):
             activity.log_create(
                 amo.LOG.DELETE_RATING, self.addon, self, user=user_responsible,
                 details=dict(
-                    body=unicode(self.body),
+                    body=six.text_type(self.body),
                     addon_id=self.addon.pk,
-                    addon_title=unicode(self.addon.name),
+                    addon_title=six.text_type(self.addon.name),
                     is_flagged=self.ratingflag_set.exists()))
             for flag in self.ratingflag_set.all():
                 flag.delete()
 
         log.info(u'Rating deleted: %s deleted id:%s by %s ("%s")',
                  user_responsible.name, self.pk, self.user.name,
-                 unicode(self.body))
+                 six.text_type(self.body))
         self.update(deleted=True)
         # Force refreshing of denormalized data (it wouldn't happen otherwise
         # because we're not dealing with a creation).
@@ -297,12 +305,14 @@ class RatingFlag(ModelBase):
         (OTHER, _(u'Other (please specify)')),
     )
 
-    rating = models.ForeignKey(Rating, db_column='review_id')
-    user = models.ForeignKey('users.UserProfile', null=True)
-    flag = models.CharField(max_length=64, default=OTHER,
-                            choices=FLAGS, db_column='flag_name')
-    note = models.CharField(max_length=100, db_column='flag_notes', blank=True,
-                            default='')
+    rating = models.ForeignKey(
+        Rating, db_column='review_id', on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        'users.UserProfile', null=True, on_delete=models.CASCADE)
+    flag = models.CharField(
+        max_length=64, default=OTHER, choices=FLAGS, db_column='flag_name')
+    note = models.CharField(
+        max_length=100, db_column='flag_notes', blank=True, default='')
 
     class Meta:
         db_table = 'reviews_moderation_flags'

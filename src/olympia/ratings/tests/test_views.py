@@ -3,14 +3,18 @@ import json
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.core import mail
-from django.core.cache import cache
+from django.test.utils import override_settings
+from django.utils.encoding import force_text
 
 import mock
-from waffle.testutils import override_switch
+import six
 
 from freezegun import freeze_time
 from pyquery import PyQuery as pq
+from rest_framework.exceptions import ErrorDetail
+from waffle.testutils import override_switch
 
 from olympia import amo
 from olympia.access.models import Group, GroupUser
@@ -21,8 +25,13 @@ from olympia.amo.templatetags import jinja_helpers
 from olympia.amo.tests import (
     APITestClient, TestCase, addon_factory, reverse_ns, user_factory,
     version_factory)
+from olympia.lib.akismet.models import AkismetReport
 from olympia.ratings.models import Rating, RatingFlag
 from olympia.users.models import UserProfile
+
+
+locmem_cache = settings.CACHES.copy()
+locmem_cache['default']['BACKEND'] = 'django.core.cache.backends.locmem.LocMemCache'  # noqa
 
 
 class ReviewTest(TestCase):
@@ -216,8 +225,8 @@ class TestFlag(ReviewTest):
         response = self.client.post(self.url, {'flag': RatingFlag.SPAM})
         assert response.status_code == 200
         assert response.content == (
-            '{"msg": "Thanks; this review has been '
-            'flagged for reviewer approval."}')
+            b'{"msg": "Thanks; this review has been '
+            b'flagged for reviewer approval."}')
         assert RatingFlag.objects.filter(flag=RatingFlag.SPAM).count() == 1
         assert Rating.objects.filter(editorreview=True).count() == 1
 
@@ -266,8 +275,8 @@ class TestFlag(ReviewTest):
             'addons.ratings.flag', self.addon.slug, review.id)
         response = self.client.post(flag_url, {'flag': RatingFlag.SPAM})
         assert response.content == (
-            '{"msg": "This rating can\'t be flagged because it has no review '
-            'text."}')
+            b'{"msg": "This rating can\'t be flagged because it has no review '
+            b'text."}')
 
 
 class TestDelete(ReviewTest):
@@ -442,7 +451,7 @@ class TestCreate(ReviewTest):
         response = self.client.get(url)
         assert response.status_code == 200
         # We should have a form with the body.
-        assert response.context['form'].fields.keys() == ['body']
+        assert list(response.context['form'].fields.keys()) == ['body']
 
     def test_new_reply(self):
         self.login_dev()
@@ -475,7 +484,7 @@ class TestCreate(ReviewTest):
                 'addons.ratings.detail', self.addon.slug, 218207))
         assert self.qs.filter(reply_to=218207).count() == 1
         review = Rating.objects.get(id=218468)
-        assert unicode(review.body) == u'unst unst'
+        assert six.text_type(review.body) == u'unst unst'
 
         # Not a new reply, no mail is sent.
         assert len(mail.outbox) == 0
@@ -485,7 +494,7 @@ class TestCreate(ReviewTest):
             self.add_url, {'body': 'foo<br>bar', 'rating': 3})
         self.assertRedirects(response, self.list_url, status_code=302)
         review = Rating.objects.latest('pk')
-        assert unicode(review.body) == "foo\nbar"
+        assert six.text_type(review.body) == "foo\nbar"
 
     def test_add_link_visitor(self):
         """
@@ -611,8 +620,8 @@ class TestCreate(ReviewTest):
         assert self.client.get(self.add_url).status_code == 404
 
     @override_switch('akismet-spam-check', active=True)
-    @mock.patch('olympia.ratings.utils.check_with_akismet.delay')
-    def test_create_calls_akismet(self, check_with_akismet_mock):
+    @mock.patch('olympia.ratings.utils.check_akismet_reports.delay')
+    def test_create_calls_akismet(self, check_akismet_reports_mock):
         response = self.client.post(
             self.add_url, {'body': 'xx', 'rating': 3},
             HTTP_USER_AGENT='. Gecko/20100101 Firefox/62.0',
@@ -620,8 +629,12 @@ class TestCreate(ReviewTest):
         self.assertRedirects(response, self.list_url, status_code=302)
 
         rating = Rating.objects.latest('pk')
-        check_with_akismet_mock.assert_called_with(
-            rating.pk, '. Gecko/20100101 Firefox/62.0', 'https://mozilla.org/')
+        assert AkismetReport.objects.count() == 1
+        report = AkismetReport.objects.get()
+        assert report.rating_instance == rating
+        assert report.user_agent == '. Gecko/20100101 Firefox/62.0'
+        assert report.referrer == 'https://mozilla.org/'
+        check_akismet_reports_mock.assert_called_with([report.id])
 
 
 class TestEdit(ReviewTest):
@@ -649,7 +662,7 @@ class TestEdit(ReviewTest):
                                     X_REQUESTED_WITH='XMLHttpRequest')
         assert response.status_code == 400
         assert response['Content-type'] == 'application/json'
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['body'] == ['This field is required.']
 
     def test_edit_not_owner(self):
@@ -727,8 +740,8 @@ class TestEdit(ReviewTest):
         assert len(mail.outbox) == 0
 
     @override_switch('akismet-spam-check', active=True)
-    @mock.patch('olympia.ratings.utils.check_with_akismet.delay')
-    def test_edit_calls_akismet(self, check_with_akismet_mock):
+    @mock.patch('olympia.ratings.utils.check_akismet_reports.delay')
+    def test_edit_calls_akismet(self, check_akismet_reports_mock):
         url = jinja_helpers.url('addons.ratings.edit', self.addon.slug, 218207)
         response = self.client.post(
             url, {'rating': 2, 'body': 'woo woo'},
@@ -737,8 +750,12 @@ class TestEdit(ReviewTest):
             HTTP_REFERER='https://mozilla.org/')
         assert response.status_code == 200
 
-        check_with_akismet_mock.assert_called_with(
-            218207, '. Gecko/20100101 Firefox/62.0', 'https://mozilla.org/')
+        assert AkismetReport.objects.count() == 1
+        report = AkismetReport.objects.get()
+        assert report.rating_instance_id == 218207
+        assert report.user_agent == '. Gecko/20100101 Firefox/62.0'
+        assert report.referrer == 'https://mozilla.org/'
+        check_akismet_reports_mock.assert_called_with([report.id])
 
 
 class TestRatingViewSetGet(TestCase):
@@ -803,16 +820,83 @@ class TestRatingViewSetGet(TestCase):
         params.update(kwargs)
         response = self.client.get(self.url, params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 2
         assert data['results']
         assert len(data['results']) == 2
         assert data['results'][0]['id'] == review2.pk
         assert data['results'][1]['id'] == review1.pk
+        if 'show_permissions_for' not in kwargs:
+            assert 'can_reply' not in data
 
         if 'show_grouped_ratings' not in kwargs:
             assert 'grouped_ratings' not in data
+
+        if 'show_for' not in kwargs:
+            assert 'flags' not in data['results'][0]
+            assert 'flags' not in data['results'][1]
+
         return data
+
+    def test_list_show_permission_for_anonymous(self):
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk,
+                       'show_permissions_for': 666})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_permissions_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_list_show_permission_for_not_int(self):
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk,
+                       'show_permissions_for': 'nope'})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_permissions_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_list_show_permission_for_not_right_user(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk,
+                       'show_permissions_for': self.user.pk + 42})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_permissions_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_list_show_permissions_for_without_addon(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        response = self.client.get(
+            self.url, {'user': self.user.pk,
+                       'show_permissions_for': self.user.pk})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_permissions_for parameter is only valid if the addon '
+            'parameter is also present')
+
+    def test_list_can_reply(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        self.addon.addonuser_set.create(user=self.user, listed=False)
+        data = self.test_list_addon(show_permissions_for=self.user.pk)
+        assert data['can_reply'] is True
+
+    def test_list_can_not_reply(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        data = self.test_list_addon(show_permissions_for=self.user.pk)
+        assert data['can_reply'] is False
+
+    def test_list_can_reply_field_absent_in_v3(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        self.url = reverse_ns('rating-list', api_version='v3')
+        data = self.test_list_addon(show_permissions_for=self.user.pk)
+        assert 'can_reply' not in data
 
     def test_list_addon_queries(self):
         version1 = self.addon.current_version
@@ -831,7 +915,6 @@ class TestRatingViewSetGet(TestCase):
 
         assert Rating.unfiltered.count() == 3
 
-        cache.clear()
         with self.assertNumQueries(5):
             # 5 queries:
             # - Two for opening and releasing a savepoint. Those only happen in
@@ -849,7 +932,7 @@ class TestRatingViewSetGet(TestCase):
                 response = self.client.get(
                     self.url, {'addon': self.addon.pk, 'lang': 'en-US'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 3
         assert data['results']
         assert len(data['results']) == 3
@@ -883,7 +966,6 @@ class TestRatingViewSetGet(TestCase):
 
         assert Rating.unfiltered.count() == 5
 
-        cache.clear()
         with self.assertNumQueries(5):
             # 5 queries:
             # - Two for opening and releasing a savepoint. Those only happen in
@@ -901,7 +983,7 @@ class TestRatingViewSetGet(TestCase):
                 response = self.client.get(
                     self.url, {'addon': self.addon.pk, 'lang': 'en-US'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 3
         assert data['results']
         assert len(data['results']) == 3
@@ -931,7 +1013,7 @@ class TestRatingViewSetGet(TestCase):
         response = self.client.get(self.url, {
             'addon': self.addon.pk, 'show_grouped_ratings': 'blah'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'show_grouped_ratings parameter should be a boolean')
 
@@ -940,7 +1022,7 @@ class TestRatingViewSetGet(TestCase):
         params.update(kwargs)
         response = self.client.get(self.url, params)
         assert response.status_code == 404
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         return data
 
     def test_list_addon_grouped_ratings_unknown_addon_not_present(self):
@@ -969,21 +1051,21 @@ class TestRatingViewSetGet(TestCase):
 
         # Do show the reviews with no body by default
         response = self.client.get(self.url, {'addon': self.addon.pk})
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 5 == len(data['results'])
 
         self.client.login_api(self.user)
         # Unless you filter them out
         response = self.client.get(
             self.url, {'addon': self.addon.pk, 'filter': 'without_empty_body'})
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 2 == len(data['results'])
 
         # And maybe you only want your own empty reviews
         response = self.client.get(
             self.url, {'addon': self.addon.pk,
                        'filter': 'without_empty_body,with_yours'})
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 3 == len(data['results'])
 
     def test_list_user(self, **kwargs):
@@ -1013,13 +1095,14 @@ class TestRatingViewSetGet(TestCase):
         params.update(kwargs)
         response = self.client.get(self.url, params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 3
         assert data['results']
         assert len(data['results']) == 3
         assert data['results'][0]['id'] == reply.pk
         assert data['results'][1]['id'] == review1.pk
         assert data['results'][2]['id'] == review2.pk
+        assert 'can_reply' not in data  # Not enough information to show this.
         return data
 
     def test_list_addon_and_user(self):
@@ -1050,7 +1133,7 @@ class TestRatingViewSetGet(TestCase):
         params = {'addon': self.addon.pk, 'user': self.user.pk}
         response = self.client.get(self.url, params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 1
         assert data['results']
         assert len(data['results']) == 1
@@ -1092,7 +1175,7 @@ class TestRatingViewSetGet(TestCase):
         params = {'addon': self.addon.pk, 'version': old_version.pk}
         response = self.client.get(self.url, params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 2
         assert data['results']
         assert len(data['results']) == 2
@@ -1135,7 +1218,7 @@ class TestRatingViewSetGet(TestCase):
         params = {'user': self.user.pk, 'version': old_version.pk}
         response = self.client.get(self.url, params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 1
         assert data['results']
         assert len(data['results']) == 1
@@ -1181,11 +1264,70 @@ class TestRatingViewSetGet(TestCase):
         }
         response = self.client.get(self.url, params)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 1
         assert data['results']
         assert len(data['results']) == 1
         assert data['results'][0]['id'] == old_review.pk
+
+    def test_list_addon_score_filter(self):
+        rating_3a = Rating.objects.create(
+            addon=self.addon, body='review 3a', user=user_factory(), rating=3)
+        rating_3b = Rating.objects.create(
+            addon=self.addon, body='review 3b', user=user_factory(), rating=3)
+        rating_4 = Rating.objects.create(
+            addon=self.addon, body='review 4', user=user_factory(), rating=4)
+        # Throw in some other ratings with different scores
+        Rating.objects.create(
+            addon=self.addon, body='review 2', user=user_factory(), rating=2)
+        Rating.objects.create(
+            addon=self.addon, body='review 1', user=user_factory(), rating=1)
+
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk, 'score': '3,4'})
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data['count'] == len(data['results']) == 3
+        assert data['results'][0]['id'] == rating_4.pk
+        assert data['results'][1]['id'] == rating_3b.pk
+        assert data['results'][2]['id'] == rating_3a.pk
+
+        # and with just one score
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk, 'score': '3'})
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data['count'] == len(data['results']) == 2
+        assert data['results'][0]['id'] == rating_3b.pk
+        assert data['results'][1]['id'] == rating_3a.pk
+
+    def test_list_addon_score_filter_invalid(self):
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk, 'score': '3,foo'})
+        assert response.status_code == 400
+        data = json.loads(force_text(response.content))
+        assert data['detail'] == (
+            'score parameter should be an integer or a list of integers '
+            '(separated by a comma).'
+        )
+
+    def test_score_filter_ignored_for_v3(self):
+        Rating.objects.create(
+            addon=self.addon, body='review 2', user=user_factory(), rating=2)
+        params = {'addon': self.addon.pk, 'score': '3,4'}
+
+        # with a default (v4+) url first
+        response = self.client.get(self.url, params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data['count'] == 0
+
+        # But will be ignored in v3
+        response = self.client.get(
+            reverse_ns('rating-list', api_version='v3'), params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data['count'] == len(data['results']) == 1
 
     def test_list_addon_exclude_ratings(self):
         excluded_review1 = Rating.objects.create(
@@ -1212,7 +1354,7 @@ class TestRatingViewSetGet(TestCase):
         }
         response = self.client.get(self.url, params)
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == (
             'exclude_ratings parameter should be an '
             'integer or a list of integers (separated by a comma).'
@@ -1226,8 +1368,94 @@ class TestRatingViewSetGet(TestCase):
     def test_list_no_addon_or_user_present(self):
         response = self.client.get(self.url)
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['detail'] == 'Need an addon or user parameter'
+
+    def test_list_show_flags_for_anonymous(self):
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk, 'show_flags_for': 666})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_flags_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_list_show_flags_for_not_int(self):
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk, 'show_flags_for': 'nope'})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_flags_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_list_show_flags_for_not_right_user(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        response = self.client.get(
+            self.url, {'addon': self.addon.pk,
+                       'show_flags_for': self.user.pk + 42})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_flags_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_list_rating_flags(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        rating1 = Rating.objects.create(
+            addon=self.addon, body='review 1', user=user_factory(),
+            rating=2)
+        rating0 = Rating.objects.create(
+            addon=self.addon, body='review 0', user=user_factory(),
+            rating=1)
+        reply_to_0 = Rating.objects.create(
+            addon=self.addon, body='reply to review 0', reply_to=rating0,
+            user=user_factory())
+        params = {'addon': self.addon.pk, 'show_flags_for': self.user.pk}
+
+        # First, not flagged
+        response = self.client.get(self.url, params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data['results'][0]['flags'] == []
+        assert data['results'][0]['reply']['flags'] == []
+        assert data['results'][1]['flags'] == []
+
+        # then add some RatingFlag - one for a rating, the other a reply
+        RatingFlag.objects.create(
+            rating=rating1, user=self.user, flag=RatingFlag.LANGUAGE)
+        RatingFlag.objects.create(
+            rating=reply_to_0, user=self.user, flag=RatingFlag.OTHER,
+            note=u'foo')
+
+        response = self.client.get(self.url, params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        rating0 = data['results'][0]
+        rating1 = data['results'][1]
+        assert 'flags' in rating0
+        assert 'flags' in rating1
+        assert 'flags' in rating0['reply']
+        assert rating0['flags'] == []
+        assert rating0['reply']['flags'] == [
+            {'flag': RatingFlag.OTHER, 'note': 'foo'}]
+        assert rating1['flags'] == [
+            {'flag': RatingFlag.LANGUAGE, 'note': None}]
+
+    def test_list_rating_flags_absent_in_v3(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        rating = Rating.objects.create(
+            addon=self.addon, body='review', user=user_factory(),
+            rating=1)
+        RatingFlag.objects.create(
+            rating=rating, user=self.user, flag=RatingFlag.OTHER,
+            note=u'foo')
+        params = {'addon': self.addon.pk, 'show_flags_for': self.user.pk}
+        response = self.client.get(
+            reverse_ns('rating-list', api_version='v3'), params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert 'flags' not in data['results'][0]
 
     def test_detail(self):
         review = Rating.objects.create(
@@ -1236,7 +1464,7 @@ class TestRatingViewSetGet(TestCase):
 
         response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['id'] == review.pk
 
     def test_detail_reply(self):
@@ -1249,7 +1477,7 @@ class TestRatingViewSetGet(TestCase):
 
         response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['id'] == reply.pk
 
     def test_detail_deleted(self):
@@ -1272,7 +1500,7 @@ class TestRatingViewSetGet(TestCase):
 
         response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['id'] == review.pk
         assert data['reply'] is None
 
@@ -1291,10 +1519,87 @@ class TestRatingViewSetGet(TestCase):
 
         response = self.client.get(self.url)
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['id'] == review.pk
         assert data['reply']
         assert data['reply']['id'] == reply.pk
+
+    def test_detail_show_flags_for_anonymous(self):
+        rating = Rating.objects.create(
+            addon=self.addon, body='review', user=user_factory())
+        detail_url = reverse_ns(self.detail_url_name, kwargs={'pk': rating.pk})
+        response = self.client.get(detail_url, {'show_flags_for': 666})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_flags_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_detail_show_flags_for_not_int(self):
+        rating = Rating.objects.create(
+            addon=self.addon, body='review', user=user_factory())
+        detail_url = reverse_ns(self.detail_url_name, kwargs={'pk': rating.pk})
+        response = self.client.get(detail_url, {'show_flags_for': 'nope'})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_flags_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_detail_show_flags_for_not_right_user(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        rating = Rating.objects.create(
+            addon=self.addon, body='review', user=user_factory())
+        detail_url = reverse_ns(self.detail_url_name, kwargs={'pk': rating.pk})
+        response = self.client.get(
+            detail_url, {'show_flags_for': self.user.pk + 42})
+        assert response.status_code == 400
+        assert response.data['detail'] == (
+            'show_flags_for parameter value should be equal to the user '
+            'id of the authenticated user')
+
+    def test_detail_rating_flags(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        rating = Rating.objects.create(
+            addon=self.addon, body='review 1', user=user_factory(),
+            rating=2)
+
+        detail_url = reverse_ns(self.detail_url_name, kwargs={'pk': rating.pk})
+        params = {'show_flags_for': self.user.pk}
+
+        # First, not flagged
+        response = self.client.get(detail_url, params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert data['flags'] == []
+
+        # then add some RatingFlag - one for a rating, the other a reply
+        RatingFlag.objects.create(
+            rating=rating, user=self.user, flag=RatingFlag.LANGUAGE)
+
+        response = self.client.get(detail_url, params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert 'flags' in data
+        assert data['flags'] == [
+            {'flag': RatingFlag.LANGUAGE, 'note': None}]
+
+    def test_detail_rating_flags_absent_in_v3(self):
+        self.user = user_factory()
+        self.client.login_api(self.user)
+        rating = Rating.objects.create(
+            addon=self.addon, body='review', user=user_factory(),
+            rating=1)
+        RatingFlag.objects.create(
+            rating=rating, user=self.user, flag=RatingFlag.OTHER,
+            note=u'foo')
+        detail_url = reverse_ns(
+            self.detail_url_name, kwargs={'pk': rating.pk}, api_version='v3')
+        params = {'show_flags_for': self.user.pk}
+        response = self.client.get(detail_url, params)
+        assert response.status_code == 200
+        data = json.loads(force_text(response.content))
+        assert 'flags' not in data
 
     def test_list_by_admin_does_not_show_deleted_by_default(self):
         self.user = user_factory()
@@ -1326,7 +1631,7 @@ class TestRatingViewSetGet(TestCase):
 
         response = self.client.get(self.url, {'addon': self.addon.pk})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 2
         assert data['results']
         assert len(data['results']) == 2
@@ -1368,7 +1673,7 @@ class TestRatingViewSetGet(TestCase):
         response = self.client.get(
             self.url, {'addon': self.addon.pk, 'filter': 'with_deleted'})
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['count'] == 3
         assert data['results']
         assert len(data['results']) == 3
@@ -1401,14 +1706,14 @@ class TestRatingViewSetGet(TestCase):
         response = self.client.get(
             self.url, {'addon': self.addon.pk, 'user': u'çæ→'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data == {'detail': 'user parameter should be an integer.'}
 
         # Version parameter is weird (it should be a pk, as string): 404.
         response = self.client.get(
             self.url, {'addon': self.addon.pk, 'version': u'çæ→'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data == {'detail': 'version parameter should be an integer.'}
 
     def test_get_then_post_then_get_any_caching_is_cleared(self):
@@ -1426,7 +1731,7 @@ class TestRatingViewSetGet(TestCase):
             'user': self.user.pk
         })
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert len(data['results']) == 0
         assert data['count'] == 0
 
@@ -1445,7 +1750,7 @@ class TestRatingViewSetGet(TestCase):
             'user': self.user.pk
         })
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert len(data['results']) == 1
         assert data['count'] == 1
 
@@ -1620,7 +1925,8 @@ class TestRatingViewSetEdit(TestCase):
         assert response.status_code == 200
         self.rating.reload()
         assert response.data['id'] == self.rating.pk
-        assert response.data['body'] == unicode(self.rating.body) == u'løl!'
+        assert response.data['body'] == six.text_type(
+            self.rating.body) == u'løl!'
         assert response.data['score'] == self.rating.rating == 2
         assert response.data['version'] == {
             'id': self.rating.version.id,
@@ -1667,7 +1973,8 @@ class TestRatingViewSetEdit(TestCase):
         assert response.status_code == 200
         self.rating.reload()
         assert response.data['id'] == self.rating.pk
-        assert response.data['body'] == unicode(self.rating.body) == u'løl!'
+        assert response.data['body'] == six.text_type(
+            self.rating.body) == u'løl!'
         assert response.data['version'] == {
             'id': self.rating.version.id,
             'version': self.rating.version.version,
@@ -1711,15 +2018,15 @@ class TestRatingViewSetEdit(TestCase):
         response = self.client.patch(self.url, {'score': 2, 'body': u'nó!'})
         assert response.status_code == 200
         self.rating.reload()
-        assert unicode(self.rating.body) == u'nó!'
+        assert six.text_type(self.rating.body) == u'nó!'
         response = self.client.patch(self.url, {'score': 3, 'body': u'yés!'})
         assert response.status_code == 200
         self.rating.reload()
-        assert unicode(self.rating.body) == u'yés!'
+        assert six.text_type(self.rating.body) == u'yés!'
 
     @override_switch('akismet-spam-check', active=True)
-    @mock.patch('olympia.ratings.utils.check_with_akismet.delay')
-    def test_edit_calls_akismet(self, check_with_akismet_mock):
+    @mock.patch('olympia.ratings.utils.check_akismet_reports.delay')
+    def test_edit_calls_akismet(self, check_akismet_reports_mock):
         self.client.login_api(self.user)
         response = self.client.patch(
             self.url, {'score': 2, 'body': u'løl!'},
@@ -1729,9 +2036,12 @@ class TestRatingViewSetEdit(TestCase):
         self.rating.reload()
         assert response.data['id'] == self.rating.pk
 
-        check_with_akismet_mock.assert_called_with(
-            self.rating.pk,
-            '. Gecko/20100101 Firefox/62.0', 'https://mozilla.org/')
+        assert AkismetReport.objects.count() == 1
+        report = AkismetReport.objects.get()
+        assert report.rating_instance == self.rating
+        assert report.user_agent == '. Gecko/20100101 Firefox/62.0'
+        assert report.referrer == 'https://mozilla.org/'
+        check_akismet_reports_mock.assert_called_with([report.id])
 
 
 class TestRatingViewSetPost(TestCase):
@@ -1778,8 +2088,12 @@ class TestRatingViewSetPost(TestCase):
             'addon': self.addon.pk, 'body': u'test bodyé',
             'score': 5, 'version': self.addon.current_version.version})
         assert response.status_code == 400
-        assert response.data['version'] == [
-            'Incorrect type. Expected pk value, received unicode.']
+        error_string = (
+            ['Incorrect type. Expected pk value, received unicode.'] if six.PY2
+            else [ErrorDetail(
+                string='Incorrect type. Expected pk value, received str.',
+                code='incorrect_type')])
+        assert response.data['version'] == error_string
 
     def test_post_logged_in(self):
         addon_author = user_factory()
@@ -1794,7 +2108,8 @@ class TestRatingViewSetPost(TestCase):
         assert response.status_code == 201
         review = Rating.objects.latest('pk')
         assert review.pk == response.data['id']
-        assert unicode(review.body) == response.data['body'] == u'test bodyé'
+        assert six.text_type(
+            review.body) == response.data['body'] == u'test bodyé'
         assert review.rating == response.data['score'] == 5
         assert review.user == self.user
         assert review.reply_to is None
@@ -1829,7 +2144,8 @@ class TestRatingViewSetPost(TestCase):
         assert response.status_code == 201
         review = Rating.objects.latest('pk')
         assert review.pk == response.data['id']
-        assert unicode(review.body) == response.data['body'] == cleaned_body
+        assert six.text_type(
+            review.body) == response.data['body'] == cleaned_body
         assert review.rating == response.data['score'] == 5
         assert review.user == self.user
         assert review.reply_to is None
@@ -1884,7 +2200,8 @@ class TestRatingViewSetPost(TestCase):
         assert response.status_code == 201
         review = Rating.objects.latest('pk')
         assert review.pk == response.data['id']
-        assert unicode(review.body) == response.data['body'] == u'test bodyé'
+        assert six.text_type(
+            review.body) == response.data['body'] == u'test bodyé'
         assert review.rating == response.data['score'] == 5
         assert review.user == self.user
         assert review.reply_to is None
@@ -2081,6 +2398,7 @@ class TestRatingViewSetPost(TestCase):
             u"You can't leave more than one review for the same version of "
             u"an add-on."]
 
+    @override_settings(CACHES=locmem_cache)
     def test_throttle(self):
         with freeze_time('2017-11-01') as frozen_time:
             self.user = user_factory()
@@ -2107,6 +2425,7 @@ class TestRatingViewSetPost(TestCase):
                 'score': 2, 'version': new_version.pk})
             assert response.status_code == 201, response.content
 
+    @override_settings(CACHES=locmem_cache)
     def test_rating_throttle_separated_from_abuse_throttle(self):
         with freeze_time('2017-11-01') as frozen_time:
             self.user = user_factory()
@@ -2116,7 +2435,8 @@ class TestRatingViewSetPost(TestCase):
             report_abuse_url = reverse_ns(self.abuse_report_url_name)
             response = self.client.post(
                 report_abuse_url,
-                data={'addon': unicode(self.addon.pk), 'message': 'lol!'},
+                data={'addon': six.text_type(
+                    self.addon.pk), 'message': 'lol!'},
                 REMOTE_ADDR='123.45.67.89')
             assert response.status_code == 201
 
@@ -2137,7 +2457,8 @@ class TestRatingViewSetPost(TestCase):
             # We can still report abuse, it's a different throttle.
             response = self.client.post(
                 report_abuse_url,
-                data={'addon': unicode(self.addon.pk), 'message': 'again!'},
+                data={'addon': six.text_type(
+                    self.addon.pk), 'message': 'again!'},
                 REMOTE_ADDR='123.45.67.89')
             assert response.status_code == 201
 
@@ -2151,8 +2472,8 @@ class TestRatingViewSetPost(TestCase):
             assert response.status_code == 201, response.content
 
     @override_switch('akismet-spam-check', active=True)
-    @mock.patch('olympia.ratings.utils.check_with_akismet.delay')
-    def test_post_rating_calls_akismet(self, check_with_akismet_mock):
+    @mock.patch('olympia.ratings.utils.check_akismet_reports.delay')
+    def test_post_rating_calls_akismet(self, check_akismet_reports_mock):
         self.user = user_factory()
         self.client.login_api(self.user)
         assert not Rating.objects.exists()
@@ -2165,8 +2486,13 @@ class TestRatingViewSetPost(TestCase):
         assert response.status_code == 201
         rating = Rating.objects.latest('pk')
         assert rating.pk == response.data['id']
-        check_with_akismet_mock.assert_called_with(
-            rating.pk, '. Gecko/20100101 Firefox/62.0', 'https://mozilla.org/')
+
+        assert AkismetReport.objects.count() == 1
+        report = AkismetReport.objects.get()
+        assert report.rating_instance == rating
+        assert report.user_agent == '. Gecko/20100101 Firefox/62.0'
+        assert report.referrer == 'https://mozilla.org/'
+        check_akismet_reports_mock.assert_called_with([report.id])
 
 
 class TestRatingViewSetFlag(TestCase):
@@ -2203,7 +2529,7 @@ class TestRatingViewSetFlag(TestCase):
         self.client.login_api(self.user)
         response = self.client.post(self.url)
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['flag'] == [u'This field is required.']
         assert self.rating.reload().editorreview is False
 
@@ -2213,7 +2539,7 @@ class TestRatingViewSetFlag(TestCase):
         response = self.client.post(
             self.url, data={'flag': 'review_flag_reason_spam'})
         assert response.status_code == 202
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data == {
             'msg':
                 'Thanks; this review has been flagged for reviewer approval.'
@@ -2247,7 +2573,7 @@ class TestRatingViewSetFlag(TestCase):
         response = self.client.post(
             self.url, data={'flag': 'review_flag_reason_other'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['note'] == [
             'A short explanation must be provided when selecting "Other" as a'
             ' flag reason.']
@@ -2258,7 +2584,7 @@ class TestRatingViewSetFlag(TestCase):
         response = self.client.post(
             self.url, data={'flag': 'lol'})
         assert response.status_code == 400
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert data['flag'] == [
             'Select a valid choice. lol is not one of the available choices.']
         assert self.rating.reload().editorreview is False
@@ -2445,10 +2771,11 @@ class TestRatingViewSetReply(TestCase):
             'body': u'My réply...',
         })
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert Rating.objects.count() == 2
         existing_reply.reload()
-        assert unicode(existing_reply.body) == data['body'] == u'My réply...'
+        assert six.text_type(
+            existing_reply.body) == data['body'] == u'My réply...'
 
     def test_reply_if_an_existing_reply_was_deleted_updates_existing(self):
         self.addon_author = user_factory()
@@ -2464,11 +2791,12 @@ class TestRatingViewSetReply(TestCase):
             'body': u'My réply...',
         })
         assert response.status_code == 200
-        data = json.loads(response.content)
+        data = json.loads(force_text(response.content))
         assert Rating.objects.count() == 2  # No longer deleted.
         assert Rating.unfiltered.count() == 2
         existing_reply.reload()
-        assert unicode(existing_reply.body) == data['body'] == u'My réply...'
+        assert six.text_type(
+            existing_reply.body) == data['body'] == u'My réply...'
         assert existing_reply.deleted is False
 
     def test_reply_disabled_addon(self):
@@ -2495,6 +2823,7 @@ class TestRatingViewSetReply(TestCase):
         assert response.data['non_field_errors'] == [
             u"You can't reply to a review that is already a reply."]
 
+    @override_settings(CACHES=locmem_cache)
     def test_throttle(self):
         self.addon_author = user_factory()
         self.addon.addonuser_set.create(user=self.addon_author)

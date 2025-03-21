@@ -65,7 +65,6 @@
             "developer_comments": 558043,
             "disabled_by_user": 0,
             "guid": "toolbar@sape.ru",
-            "locale_disambiguation": null,
             "weekly_downloads": 1252,
             "average_rating": "4.93",
             "average_daily_users": 5587,
@@ -77,7 +76,6 @@
             "privacy_policy": null,
             "default_locale": "ru",
             "target_locale": null,
-            "external_software": 0,
             "name": 222546,
             "created": "2008-08-29 07:02:08",
             "type": 1,
@@ -110,7 +108,7 @@
         "fields": {
             "license": 5,
             "created": "2009-12-06 03:06:48",
-            "approvalnotes": "",
+            "approval_notes": "",
             "modified": "2009-12-06 06:43:48",
             "version": "1.32",
             "addon": 8680

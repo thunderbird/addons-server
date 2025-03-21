@@ -5,13 +5,14 @@ won't be tracked in git).
 
 """
 import os
-from urlparse import urlparse
+from six.moves.urllib_parse import urlparse
 
 from olympia.lib.settings_base import *  # noqa
 
 WSGI_APPLICATION = 'olympia.wsgi.application'
 
 DEBUG = True
+DEV_BYPASS_AUTH = False
 
 # These apps are great during development.
 INSTALLED_APPS += (
@@ -19,9 +20,6 @@ INSTALLED_APPS += (
 )
 
 FILESYSTEM_CACHE_ROOT = os.path.join(TMP_PATH, 'cache')
-
-# Disable cache-machine locally and in tests to prepare for its removal.
-CACHE_MACHINE_ENABLED = False
 
 # We are setting memcached here to make sure our local setup is as close
 # to our production system as possible.
@@ -37,19 +35,6 @@ SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_DOMAIN = None
 
 CELERY_TASK_ALWAYS_EAGER = False
-
-# Assuming you did `npm install` (and not `-g`) like you were supposed to, this
-# will be the path to the `lessc` executable.
-LESS_BIN = os.getenv('LESS_BIN', path('node_modules/less/bin/lessc'))
-CLEANCSS_BIN = os.getenv(
-    'CLEANCSS_BIN',
-    path('node_modules/clean-css-cli/bin/cleancss'))
-UGLIFY_BIN = os.getenv(
-    'UGLIFY_BIN',
-    path('node_modules/uglify-js/bin/uglifyjs'))
-ADDONS_LINTER_BIN = os.getenv(
-    'ADDONS_LINTER_BIN',
-    path('node_modules/addons-linter/bin/addons-linter'))
 
 # Locally we typically don't run more than 1 elasticsearch node. So we set
 # replicas to zero.
@@ -74,9 +59,9 @@ AES_KEYS = {
         ROOT, 'src', 'olympia', 'api', 'tests', 'assets', 'test-api-key.txt'),
 }
 
-CORS_ENDPOINT_OVERRIDES = cors_endpoint_overrides(
-    ['localhost:3000', 'olympia.test']
-)
+DATABASES = {
+    'default': get_db_config('DATABASES_DEFAULT_URL', charset='utf8mb4'),
+}
 
 # FxA config for local development only.
 FXA_CONFIG = {

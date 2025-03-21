@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-10-08 05:07+0000\n"
-"PO-Revision-Date: 2018-09-17 14:15+0000\n"
+"POT-Creation-Date: 2019-02-26 05:26+0000\n"
+"PO-Revision-Date: 2019-02-04 03:49+0000\n"
 "Last-Translator: Melo46 <melo@carmu.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: ia\n"
@@ -48,8 +48,8 @@ msgstr "Cargamento de {0} fluente"
 msgid "Error with {0}"
 msgstr "Error per {0}"
 
-msgid "We have enabled a new linter to process your Add-on. Please make sure to report any issues on GitHub"
-msgstr "Nos ha activate un nove dispositivo pro processar tu additivo. Per favor reporta sempre ulle problemas sur GitHub"
+msgid "Please make sure to report any linting related issues on GitHub"
+msgstr "Cura de signalar sur GitHub ulle problema correlate al linting"
 
 msgid "Your add-on failed validation with {0} error."
 msgid_plural "Your add-on failed validation with {0} errors."
@@ -254,7 +254,7 @@ msgstr[0] "{0} installationes"
 msgstr[1] "{0} installation"
 
 msgid "Downloads"
-msgstr "Discargas"
+msgstr "Discargamentos"
 
 msgid "Daily Users"
 msgstr "Usatores quotidian"
@@ -351,7 +351,7 @@ msgid "Often Used With"
 msgstr "Sovente usate con"
 
 msgid "Others By Author"
-msgstr "Altero del mesme autor"
+msgstr "Alteres del mesme autor"
 
 msgid "Dependencies"
 msgstr "Dependentias"
@@ -445,11 +445,11 @@ msgstr "Android"
 
 #. L10n: {0} is an integer.
 msgid "Downloads and Daily Users, last {0} days"
-msgstr "Discargas e usatores per die, ultime {0} dies"
+msgstr "Discargamentos e usatores per die, ultime {0} dies"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Downloads and Daily Users from {0} to {1}"
-msgstr "Discargas e usatores per die ab {0} a {1}"
+msgstr "Discargamentos e usatores per die de {0} a {1}"
 
 #. L10n: {0} is an integer.
 msgid "Installs and Daily Users, last {0} days"
@@ -461,11 +461,11 @@ msgstr "Installationes e usatores per die ab {0} a {1}"
 
 #. L10n: {0} is an integer.
 msgid "Downloads, last {0} days"
-msgstr "Discargas, ultime {0} dies"
+msgstr "Discargamentos, ultime {0} dies"
 
 #. L10n: both {0} and {1} are dates in YYYY-MM-DD format.
 msgid "Downloads from {0} to {1}"
-msgstr "Discargas ab {0} a {1}"
+msgstr "Discargamentos de {0} a {1}"
 
 #. L10n: {0} is an integer.
 msgid "Daily Users, last {0} days"
@@ -646,7 +646,7 @@ msgid "Date"
 msgstr "Data"
 
 msgid "Other"
-msgstr "Altero"
+msgstr "Altere"
 
 msgid "Select an application first"
 msgstr "Elige antea un application"
@@ -704,10 +704,10 @@ msgid "Removing Favorite&hellip;"
 msgstr "Remotion de Favorite&hellip;"
 
 msgid "Add to Favorites"
-msgstr "Adder al consiliatos"
+msgstr "Adder al favoritos"
 
 msgid "Remove from Favorites"
-msgstr "Remover ab favoritos"
+msgstr "Remover del favoritos"
 
 msgid "Pending"
 msgstr "Pendente"
@@ -734,7 +734,7 @@ msgid "Stop following"
 msgstr "Non plus sequer"
 
 msgid "Your browser does not support the video tag"
-msgstr "Tu navigator non supporta le tag video"
+msgstr "Tu navigator non supporta le etiquetta video"
 
 msgid "Changes Saved"
 msgstr "Cambios salvate"
@@ -764,11 +764,17 @@ msgstr "Nulle resultatos."
 msgid "Loading..."
 msgstr "Cargamento..."
 
+#. L10n: {0} is the number of characters entered.
+msgid "<b>{0}</b> character"
+msgid_plural "<b>{0}</b> characters"
+msgstr[0] "<b>{0}</b> character"
+msgstr[1] "<b>{0}</b> characteres"
+
 #. L10n: {0} is the number of characters left.
-msgid "<b>{0}</b> character left."
-msgid_plural "<b>{0}</b> characters left."
-msgstr[0] "<b>{0}</b> character restante."
-msgstr[1] "<b>{0}</b> characteres restante."
+msgid "<b>{0}</b> character left"
+msgid_plural "<b>{0}</b> characters left"
+msgstr[0] "<b>{0}</b> character restante"
+msgstr[1] "<b>{0}</b> characteres restante"
 
 msgid "This feature is temporarily disabled while we perform website maintenance. Please check back a little later."
 msgstr "Iste functionalitate es temporarimente disactivate durante que nos exeque le mantenentia del sito web. Per favor controla de novo un poco plus tarde."
@@ -801,7 +807,7 @@ msgid "No version notes found"
 msgstr "Nulle notas de version trovate"
 
 msgid "Review Text"
-msgstr "Testo pro revision"
+msgstr "Texto pro revision"
 
 msgid "Review notes found"
 msgstr "Notas de revision trovate"
@@ -862,9 +868,6 @@ msgstr "{0} linea {1} columna {2}"
 
 msgid "{0} line {1}"
 msgstr "{0} linea {1}"
-
-msgid "Compatibility Tests"
-msgstr "Test de compatibilitate"
 
 msgid "Add-on failed validation."
 msgstr "Validation de additivo fallite."

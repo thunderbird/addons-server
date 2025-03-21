@@ -1,10 +1,7 @@
 import os
 
 import pytest
-from django.conf import settings
-from olympia import amo
 
-from olympia.landfill.serializers import GenerateAddonsSerializer
 from pages.desktop.devhub import DevHub
 
 # Window resolutions
@@ -62,7 +59,8 @@ def selenium(selenium, request):
 
     """
     # Skip mobile test with marker 'desktop_only'
-    if request.node.get_marker('desktop_only') and request.param == MOBILE:
+    marker = request.node.get_closest_marker('desktop_only')
+    if marker and request.param == MOBILE:
         pytest.skip('Skipping mobile test')
     selenium.set_window_size(*request.param)
     return selenium
@@ -79,7 +77,7 @@ def fxa_account(request):
         fxa_account.email = os.environ['FXA_EMAIL']
         fxa_account.password = os.environ['FXA_PASSWORD']
     except KeyError:
-        if request.node.get_marker('fxa_login'):
+        if request.node.get_closest_marker('fxa_login'):
             pytest.skip(
                 'Skipping test because no fxa account was found.'
                 ' Are FXA_EMAIL and FXA_PASSWORD environment variables set?')
@@ -89,10 +87,9 @@ def fxa_account(request):
 @pytest.fixture
 def devhub_login(selenium, base_url, fxa_account):
     """Log into the devhub."""
-    url = selenium.get('http://olympia.test/developers')
+    selenium.get('http://olympia.test/developers')
     devhub = DevHub(selenium, base_url)
-    devhub.login(fxa_account.email, fxa_account.password)
-    return devhub.wait_for_page_to_load()
+    return devhub.login(fxa_account.email, fxa_account.password)
 
 
 @pytest.fixture

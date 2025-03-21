@@ -43,7 +43,7 @@ def jwt_decode_handler(token, get_api_key=APIKey.get_jwt_key):
         'verify_nbf': False,
         'verify_iat': False,
         'verify_aud': False,
-    })
+    }, algorithms=[api_settings.JWT_ALGORITHM])
 
     if 'iss' not in token_data:
         log.info('No issuer in JWT auth token: {}'.format(token_data))
@@ -52,7 +52,7 @@ def jwt_decode_handler(token, get_api_key=APIKey.get_jwt_key):
 
     try:
         api_key = get_api_key(key=token_data['iss'])
-    except ObjectDoesNotExist as exc:
+    except ObjectDoesNotExist:
         log.info('No API key for JWT issuer: {}'.format(token_data['iss']))
         raise exceptions.AuthenticationFailed(
             detail='Unknown JWT iss (issuer).')

@@ -1,4 +1,4 @@
-FROM python:2.7.18-slim-stretch
+FROM python:2.7.15-slim-stretch
 
 ENV PYTHONDONTWRITEBYTECODE=1
 
@@ -28,8 +28,11 @@ RUN apt-get update && apt-get install -y \
         zlib1g-dev \
         libffi-dev \
         libssl-dev \
+        libmagic-dev \
         python-dev \
+        python3-dev \
         python-pip \
+        python3-pip \
         nodejs \
         # Git, because we're using git-checkout dependencies
         git \
@@ -44,12 +47,21 @@ RUN apt-get update && apt-get install -y \
         pngcrush \
         # our makefile and ui-tests require uuid to be installed
         uuid \
+        # Use libmaxmind for speedy geoip lookups
+        libmaxminddb0                    \
+        libmaxminddb-dev                 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get -t stretch-backports install -y \
         # For git-based files storage backend
         libgit2-dev \
     && rm -rf /var/lib/apt/lists/*
+
+ADD http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.mmdb.gz /tmp
+
+RUN mkdir -p /usr/local/share/GeoIP \
+ && gunzip -c /tmp/GeoLite2-Country.mmdb.gz > /usr/local/share/GeoIP/GeoLite2-Country.mmdb \
+ && rm -f /tmp/GeoLite2-Country.mmdb.gz
 
 # Compile required locale
 RUN localedef -i en_US -f UTF-8 en_US.UTF-8
