@@ -18,10 +18,10 @@ If you're unsure, activate your ``virtualenv`` and run::
 
 The documentation is viewable at http://addons-server.readthedocs.io/, and
 covers development using Add-ons Server, the source code for `Add-ons
-<https://addons.mozilla.org/>`_.
+<https://addons.thunderbird.net/>`_.
 
 Its source location is in the `/docs
-<https://github.com/mozilla/addons-server/tree/master/docs>`_ folder.
+<https://github.com/thundernest/addons-server/tree/master/docs>`_ folder.
 
 Note: this project was once called *olympia*, this documentation often uses
 that term.
