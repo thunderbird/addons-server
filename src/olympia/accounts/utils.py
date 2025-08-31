@@ -29,9 +29,9 @@ def fxa_login_url(config, state, next_path=None, action=None):
     if next_path and is_safe_url(next_path):
         state += ':' + urlsafe_b64encode(next_path.encode('utf-8')).rstrip('=')
     query = {
-        'client_id': config['client_id'],
-        'redirect_url': config['redirect_url'],
-        'scope': config['scope'],
+        'client_id': config.get('client_id'),
+        'redirect_uri': config.get('redirect_url'),
+        'scope': config.get('scope', 'profile'),
         'state': state,
     }
     if action is not None:
