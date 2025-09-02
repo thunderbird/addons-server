@@ -8,7 +8,7 @@ Addons-Server
 
 Welcome to the Addons Server repository! Please feel free to visit the web page of the current project hosted on `addons.thunderbird.net`_. If you want to install it follow our guide located in `install docs`_.
 
-Please report bugs here: https://github.com/thundernest/addons-server/issues
+Please report bugs here: https://github.com/thunderbird/addons-server/issues
 
 
 You can find our mailing list and matrix channels at `www.thunderbird.net/get-involved`_
