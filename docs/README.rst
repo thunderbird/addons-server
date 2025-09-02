@@ -21,7 +21,7 @@ covers development using Add-ons Server, the source code for `Add-ons
 <https://addons.thunderbird.net/>`_.
 
 Its source location is in the `/docs
-<https://github.com/thundernest/addons-server/tree/master/docs>`_ folder.
+<https://github.com/thunderbird/addons-server/tree/master/docs>`_ folder.
 
 Note: this project was once called *olympia*, this documentation often uses
 that term.

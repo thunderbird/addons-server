@@ -1,5 +1,5 @@
 .. image:: https://img.shields.io/badge/%E2%9D%A4-code%20of%20conduct-blue.svg
-    :target: https://github.com/thundernest/addons-server/blob/master/CODE_OF_CONDUCT.md
+    :target: https://github.com/thunderbird/addons-server/blob/master/CODE_OF_CONDUCT.md
     :alt: Code of conduct
 
 
