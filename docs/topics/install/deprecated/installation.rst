@@ -298,7 +298,7 @@ The :ref:`contributing` page has more on managing branches.
 Contact
 -------
 
-Come talk to us on irc://irc.mozilla.org/amo if you have questions, issues, or
+Visit https://www.thunderbird.net/get-involved/#communication if you have questions, issues, or
 compliments.
 
 

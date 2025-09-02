@@ -147,7 +147,7 @@ Other :ref:`editable values <v3-account-edit-request>` can be set at the same ti
 
     .. sourcecode:: bash
 
-        curl "https://addons.mozilla.org/api/v3/accounts/account/12345/"
+        curl "https://addons.thunderbird.net/api/v3/accounts/account/12345/"
             -g -XPATCH --form "picture_upload=@photo.png"
             -H "Authorization: Bearer <token>"
 
@@ -266,7 +266,7 @@ This allows you to generate a new user account and sign in as that user.
 
     .. sourcecode:: bash
 
-        curl "https://addons.mozilla.org/api/v3/accounts/super-create/" \
+        curl "https://addons.thunderbird.net/api/v3/accounts/super-create/" \
             -X POST -H "Authorization: JWT <jwt-token>"
 
     **Response:**
@@ -297,7 +297,7 @@ This allows you to generate a new user account and sign in as that user.
     .. sourcecode:: bash
 
         curl --cookie sessionid=... -s -D - \
-            "https://addons.mozilla.org/en-US/developers/addon/submit/1" \
+            "https://addons.thunderbird.net/en-US/developers/addon/submit/1" \
             -o /dev/null
 
 .. _`v3-session`:
@@ -316,7 +316,7 @@ sessions.
 
     .. sourcecode:: bash
 
-        curl "https://addons.mozilla.org/api/v3/accounts/session/"
+        curl "https://addons.thunderbird.net/api/v3/accounts/session/"
             -H "Authorization: Bearer <jwt-token>" -X DELETE
 
     **Response:**

@@ -46,7 +46,7 @@ validation and you will be able to check its status.
 
     .. sourcecode:: bash
 
-        curl "https://addons.mozilla.org/api/v3/addons/@my-addon/versions/1.0/"
+        curl "https://addons.thunderbird.net/api/v3/addons/@my-addon/versions/1.0/"
             -g -XPUT --form "upload=@build/my-addon.xpi"
             -H "Authorization: JWT <jwt-token>"
 
@@ -93,7 +93,7 @@ Uploading without an ID
 
     .. sourcecode:: bash
 
-        curl "https://addons.mozilla.org/api/v3/addons/"
+        curl "https://addons.thunderbird.net/api/v3/addons/"
             -g -XPOST -F "upload=@build/my-addon.xpi" -F "version=1.0"
             -H "Authorization: JWT <jwt-token>"
 
@@ -149,7 +149,7 @@ automatically or after a manual review. Once review is complete then the
 
     .. sourcecode:: bash
 
-        curl "https://addons.mozilla.org/api/v3/addons/@my-addon/versions/1.0/"
+        curl "https://addons.thunderbird.net/api/v3/addons/@my-addon/versions/1.0/"
             -g -H "Authorization: JWT <jwt-token>"
 
     :param addon-id: the id for the add-on.
@@ -166,7 +166,7 @@ automatically or after a manual review. Once review is complete then the
                 "automated_signing": true,
                 "files": [
                     {
-                        "download_url": "https://addons.mozilla.org/api/v3/downloads/file/100/example-id.0-fx+an.xpi?src=api",
+                        "download_url": "https://addons.thunderbird.net/api/v3/downloads/file/100/example-id.0-fx+an.xpi?src=api",
                         "hash": "sha256:1bb945266bf370170a656350d9b640cbcaf70e671cf753c410e604219cdd9267",
                         "signed": true
                     }
@@ -175,10 +175,10 @@ automatically or after a manual review. Once review is complete then the
                 "pk": "f68abbb3b1624c098fe979a409fe3ce9",
                 "processed": true,
                 "reviewed": true,
-                "url": "https://addons.mozilla.org/api/v3/addons/@example-id.0/uploads/f68abbb3b1624c098fe979a409fe3ce9/",
+                "url": "https://addons.thunderbird.net/api/v3/addons/@example-id.0/uploads/f68abbb3b1624c098fe979a409fe3ce9/",
                 "valid": true,
                 "validation_results": {},
-                "validation_url": "https://addons.mozilla.org/en-US/developers/upload/f68abbb3b1624c098fe979a409fe3ce9",
+                "validation_url": "https://addons.thunderbird.net/en-US/developers/upload/f68abbb3b1624c098fe979a409fe3ce9",
                 "version": "1.0"
             }
 
@@ -226,7 +226,7 @@ This endpoint returns the actual file data for download.
 
     .. sourcecode:: bash
 
-        curl "https://addons.mozilla.org/api/v3/file/123/some-addon.xpi?src=api"
+        curl "https://addons.thunderbird.net/api/v3/file/123/some-addon.xpi?src=api"
             -g -H "Authorization: JWT <jwt-token>"
 
     :param file_id: the primary key of the add-on file.

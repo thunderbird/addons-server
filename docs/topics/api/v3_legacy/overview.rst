@@ -5,7 +5,7 @@ Overview
 ========
 
 This describes the details of the requests and responses you can expect from
-the `addons.mozilla.org <https://addons.mozilla.org/en-US/firefox/>`_ API.
+the `addons.thunderbird.net <https://addons.thunderbird.net/>`_ API.
 
 --------
 Requests
