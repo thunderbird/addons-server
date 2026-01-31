@@ -1,0 +1,199 @@
+# Build and Push to ECR
+# This workflow builds the Docker image and pushes it to AWS ECR
+# Triggered on pushes to stage branch (tag-based releases can be enabled later)
+#
+# On pull_request: build-only (validates Dockerfile, no AWS auth required)
+# On push to stage: build + push to ECR (requires OIDC role below)
+#
+# Authentication: GitHub OIDC
+#   Prerequisites:
+#     1. AWS OIDC provider for token.actions.githubusercontent.com (already exists)
+#     2. IAM role with trust policy condition:
+#        "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" }
+#        "StringLike": { "token.actions.githubusercontent.com:sub": "repo:thunderbird/addons-server:ref:refs/heads/stage" }
+#     3. Repository variable: AWS_ROLE_ARN (role ARN from step 2)
+#        Note: Can later be moved to an environment for stricter controls
+#   See: https://tinyurl.com/ghAwsOidc
+#
+# Publishing is gated on BOTH:
+#   - Event type (push, not pull_request)
+#   - vars.AWS_ROLE_ARN is set
+# If either condition fails, then build succeeds but publish is skipped
+#
+# Required IAM permissions for the OIDC role:
+#   - ecr:GetAuthorizationToken
+#   - ecr:BatchCheckLayerAvailability
+#   - ecr:BatchGetImage
+#   - ecr:CompleteLayerUpload
+#   - ecr:DescribeImages
+#   - ecr:InitiateLayerUpload
+#   - ecr:GetDownloadUrlForLayer
+#   - ecr:ListImages
+#   - ecr:UploadLayerPart
+#   - ecr:PutImage
+
+name: Build and Push to ECR
+
+on:
+  push:
+    branches:
+      - stage
+    # tags:
+    #   - 'v*'  # Uncomment when tag-based releases are defined
+  pull_request:
+    branches:
+      - stage
+      - master
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REPOSITORY: atn-stage-addons-server
+  AWS_ACCOUNT_ID: "768512802988"
+
+jobs:
+  # Build job: always runs, validates Dockerfile, no AWS permissions needed
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Note: no id-token here - minimum privilege for PR/build-only scenarios
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=
+            # type=semver,pattern={{version}}      # Enable when tag triggers are added
+            # type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.ecs
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            OLYMPIA_UID=9500
+            OLYMPIA_GID=9500
+
+  # Informational job: shows why publishing skipped when not configured role
+  publish-disabled:
+    name: Publish (skipped - AWS_ROLE_ARN not set)
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage' && vars.AWS_ROLE_ARN == ''
+    steps:
+      - name: Publishing not configured
+        run: |
+          echo "::notice::Publish skipped: AWS_ROLE_ARN repo variable not set (OIDC role not configured yet)"
+          echo "See workflow header comments for IAM role setup instructions"
+
+  # Publish job: only runs on push to stage when OIDC role is configured
+  publish:
+    name: Publish to ECR
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage' && vars.AWS_ROLE_ARN != ''
+    concurrency:
+      group: ecr-stage-publish
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC authn - only granted when actually publishing
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=stage-latest
+
+      - name: Build and push Docker image
+        id: build-image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.ecs
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            OLYMPIA_UID=9500
+            OLYMPIA_GID=9500
+
+      # Generate build metadata (future: bake into image or upload to S3 for traceability)
+      - name: Generate version.json
+        run: |
+          echo '{
+            "commit": "${{ github.sha }}",
+            "version": "${{ github.ref_name }}",
+            "source": "https://github.com/${{ github.repository }}",
+            "build": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }' > version.json
+          cat version.json
+
+      - name: Image digest
+        run: echo "Image pushed with digest ${{ steps.build-image.outputs.digest }}"
+
+  # Deploy to ECS (optional - we would uncomment this when ready, or move to separate deploy.yml)
+  # deploy:
+  #   name: Deploy to ECS
+  #   needs: publish
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     id-token: write
+  #
+  #   steps:
+  #     - name: Configure AWS credentials (OIDC)
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+  #         aws-region: ${{ env.AWS_REGION }}
+  #
+  #     - name: Update ECS services
+  #       run: |
+  #         for service in web worker versioncheck; do
+  #           aws ecs update-service \
+  #             --cluster thunderbird-addons-stage-${service}-cluster \
+  #             --service thunderbird-addons-stage-${service}-service \
+  #             --force-new-deployment
+  #         done
