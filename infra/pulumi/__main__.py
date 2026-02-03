@@ -220,18 +220,53 @@ def main():
         pulumi.export("gha_ecr_publish_role_arn", gha_ecr_publish_role.arn)
 
     # =========================================================================
-    # Security Groups
+    # Security Groups (accounts-repo pattern)
     # =========================================================================
+    # Pattern: separate load_balancers and containers sections
+    # For each service, matching entries in both. Workers with no LB set to null.
+    # Code dynamically wires source_security_group_id from LB SG to container ingress.
     sg_configs = resources.get("tb:network:SecurityGroupWithRules", {})
-    security_groups = {}
+    lb_sg_configs = sg_configs.get("load_balancers", {})
+    container_sg_configs = sg_configs.get("containers", {})
 
-    for sg_name, sg_config in sg_configs.items():
+    # Build security groups for load balancers
+    lb_sgs = {}
+    for service, sg_config in lb_sg_configs.items():
+        if sg_config is None:
+            lb_sgs[service] = None
+            continue
         if vpc_resource:
             sg_config["vpc_id"] = vpc_resource.id
-
-        security_groups[sg_name] = tb_pulumi.network.SecurityGroupWithRules(
-            name=f"{project.name_prefix}-{sg_name}",
+        lb_sgs[service] = tb_pulumi.network.SecurityGroupWithRules(
+            name=f"{project.name_prefix}-sg-lb-{service}",
             project=project,
+            opts=pulumi.ResourceOptions(depends_on=[vpc] if vpc_config else None),
+            **sg_config,
+        )
+
+    # Build security groups for containers
+    # Wire source_security_group_id from LB SG to container ingress rules
+    container_sgs = {}
+    for service, sg_config in container_sg_configs.items():
+        if service not in lb_sgs:
+            pulumi.log.warn(f"Container SG '{service}' has no matching load_balancers entry")
+        # Dynamically set source_security_group_id for ingress rules
+        if lb_sgs.get(service) is not None:
+            for rule in sg_config.get("rules", {}).get("ingress", []):
+                if "self" not in rule or not rule.get("self"):
+                    # Set source SG to the matching LB SG
+                    rule["source_security_group_id"] = lb_sgs[service].resources["sg"].id
+        if vpc_resource:
+            sg_config["vpc_id"] = vpc_resource.id
+        depends_on = []
+        if lb_sgs.get(service):
+            depends_on.append(lb_sgs[service].resources["sg"])
+        if vpc_config:
+            depends_on.append(vpc)
+        container_sgs[service] = tb_pulumi.network.SecurityGroupWithRules(
+            name=f"{project.name_prefix}-sg-cont-{service}",
+            project=project,
+            opts=pulumi.ResourceOptions(depends_on=depends_on) if depends_on else None,
             **sg_config,
         )
 
@@ -247,29 +282,28 @@ def main():
         subnets = private_subnets if is_internal else public_subnets
 
         if subnets:
-            # Determine which security groups to apply
-            # Container SG: controls what can reach the task
-            # ALB SG: controls what can reach the load balancer (public-facing)
-            if service_name == "web":
-                container_sgs = [security_groups.get("web-sg")]
-                alb_sgs = [security_groups.get("alb-sg")]
-            elif service_name == "worker":
-                container_sgs = [security_groups.get("worker-sg")]
-                alb_sgs = []  # Workers don't have ALB
-            else:
-                container_sgs = [security_groups.get("web-sg")]  # Default
-                alb_sgs = [security_groups.get("alb-sg")]
+            # Get security groups for this service
+            lb_sg = lb_sgs.get(service_name)
+            container_sg = container_sgs.get(service_name)
 
-            # Filter out None values and extract SG IDs
-            container_sg_ids = [sg.resources["sg"].id for sg in container_sgs if sg is not None]
-            alb_sg_ids = [sg.resources["sg"].id for sg in alb_sgs if sg is not None]
+            # Extract SG IDs
+            lb_sg_ids = [lb_sg.resources["sg"].id] if lb_sg else []
+            container_sg_ids = [container_sg.resources["sg"].id] if container_sg else []
+
+            # Build depends_on list
+            depends_on = [*subnets]
+            if container_sg:
+                depends_on.append(container_sg.resources["sg"])
+            if lb_sg:
+                depends_on.append(lb_sg.resources["sg"])
 
             fargate_services[service_name] = tb_pulumi.fargate.FargateClusterWithLogging(
                 name=f"{project.name_prefix}-{service_name}",
                 project=project,
                 subnets=[s.id for s in subnets] if subnets else [],
                 container_security_groups=container_sg_ids,
-                load_balancer_security_groups=alb_sg_ids if not is_internal else [],
+                load_balancer_security_groups=lb_sg_ids if not is_internal else [],
+                opts=pulumi.ResourceOptions(depends_on=depends_on),
                 **service_config,
             )
 

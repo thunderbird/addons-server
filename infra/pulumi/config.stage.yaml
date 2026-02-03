@@ -314,65 +314,93 @@ resources:
   # =============================================================================
   # Security Groups
   # =============================================================================
-  # Architecture: Internet -> ALB (alb-sg) -> Container (web-sg)
-  # ALB SG allows public HTTPS; container SG allows traffic only from ALB SG
+  # Pattern from thunderbird-accounts: separate load_balancers and containers sections
+  # For each Fargate service, create matching entries in both sections.
+  # Services without LB (e.g., workers) set load_balancers entry to null.
+  # Code dynamically wires source_security_group_id from LB SG to container ingress.
   tb:network:SecurityGroupWithRules:
-    alb-sg:
-      description: Security group for public-facing ALB
-      rules:
-        ingress:
-        - description: HTTPS from internet
-          from_port: 443
-          to_port: 443
-          protocol: tcp
-          cidr_blocks:
-          - 0.0.0.0/0
-        - description: HTTP redirect (optional)
-          from_port: 80
-          to_port: 80
-          protocol: tcp
-          cidr_blocks:
-          - 0.0.0.0/0
-        egress:
-        - description: To container tasks
-          from_port: 8000
-          to_port: 8000
-          protocol: tcp
-          cidr_blocks:
-          - 10.100.0.0/16  # VPC CIDR or could be tightened to private subnets
+    load_balancers:
+      web:
+        rules:
+          ingress:
+          - description: HTTPS from internet
+            from_port: 443
+            to_port: 443
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+          - description: HTTP redirect (optional)
+            from_port: 80
+            to_port: 80
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+          egress:
+          - description: Allow outbound to containers
+            from_port: 0
+            to_port: 65535
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+      versioncheck:
+        rules:
+          ingress:
+          - description: HTTPS from internet
+            from_port: 443
+            to_port: 443
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+          egress:
+          - description: Allow outbound to containers
+            from_port: 0
+            to_port: 65535
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+      worker: null  # Workers don't have ALB
 
-    web-sg:
-      description: Security group for web Fargate tasks
-      # NOTE: Ideally ingress would use source_security_group_id: alb-sg
-      # but tb_pulumi.network.SecurityGroupWithRules may not support SG references
-      # Using VPC CIDR as interim; traffic only comes from ALB in practice
-      rules:
-        ingress:
-        - description: From ALB only
-          from_port: 8000
-          to_port: 8000
-          protocol: tcp
-          cidr_blocks:
-          - 10.100.0.0/16  # TODO: Replace with alb-sg reference instead when supported
-        egress:
-        - description: Allow all outbound
-          from_port: 0
-          to_port: 65535
-          protocol: tcp
-          cidr_blocks:
-          - 0.0.0.0/0
-
-    worker-sg:
-      description: Security group for worker Fargate tasks
-      rules:
-        ingress: []
-        egress:
-        - description: Allow all outbound
-          from_port: 0
-          to_port: 65535
-          protocol: tcp
-          cidr_blocks:
-          - 0.0.0.0/0
+    containers:
+      web:
+        rules:
+          ingress:
+          - description: From ALB to container port
+            from_port: 8000
+            to_port: 8000
+            protocol: tcp
+            # source_security_group_id set dynamically in __main__.py
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 65535
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+      versioncheck:
+        rules:
+          ingress:
+          - description: From ALB to container port
+            from_port: 8000
+            to_port: 8000
+            protocol: tcp
+            # source_security_group_id set dynamically in __main__.py
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 65535
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+      worker:
+        rules:
+          ingress: []  # Workers have no inbound traffic
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 65535
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
 
   # =============================================================================
   # ECS Scheduled Tasks (Cron Jobs)
