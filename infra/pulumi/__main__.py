@@ -248,22 +248,28 @@ def main():
 
         if subnets:
             # Determine which security groups to apply
+            # Container SG: controls what can reach the task
+            # ALB SG: controls what can reach the load balancer (public-facing)
             if service_name == "web":
                 container_sgs = [security_groups.get("web-sg")]
+                alb_sgs = [security_groups.get("alb-sg")]
             elif service_name == "worker":
                 container_sgs = [security_groups.get("worker-sg")]
+                alb_sgs = []  # Workers don't have ALB
             else:
                 container_sgs = [security_groups.get("web-sg")]  # Default
+                alb_sgs = [security_groups.get("alb-sg")]
 
-            # Filter out None values
+            # Filter out None values and extract SG IDs
             container_sg_ids = [sg.resources["sg"].id for sg in container_sgs if sg is not None]
+            alb_sg_ids = [sg.resources["sg"].id for sg in alb_sgs if sg is not None]
 
             fargate_services[service_name] = tb_pulumi.fargate.FargateClusterWithLogging(
                 name=f"{project.name_prefix}-{service_name}",
                 project=project,
                 subnets=[s.id for s in subnets] if subnets else [],
                 container_security_groups=container_sg_ids,
-                load_balancer_security_groups=container_sg_ids if not is_internal else [],
+                load_balancer_security_groups=alb_sg_ids if not is_internal else [],
                 **service_config,
             )
 

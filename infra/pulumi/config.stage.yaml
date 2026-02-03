@@ -314,17 +314,46 @@ resources:
   # =============================================================================
   # Security Groups
   # =============================================================================
+  # Architecture: Internet -> ALB (alb-sg) -> Container (web-sg)
+  # ALB SG allows public HTTPS; container SG allows traffic only from ALB SG
   tb:network:SecurityGroupWithRules:
-    web-sg:
-      description: Security group for web Fargate tasks
+    alb-sg:
+      description: Security group for public-facing ALB
       rules:
         ingress:
-        - description: HTTPS from ALB
+        - description: HTTPS from internet
+          from_port: 443
+          to_port: 443
+          protocol: tcp
+          cidr_blocks:
+          - 0.0.0.0/0
+        - description: HTTP redirect (optional)
+          from_port: 80
+          to_port: 80
+          protocol: tcp
+          cidr_blocks:
+          - 0.0.0.0/0
+        egress:
+        - description: To container tasks
           from_port: 8000
           to_port: 8000
           protocol: tcp
           cidr_blocks:
-          - 10.100.0.0/16
+          - 10.100.0.0/16  # VPC CIDR or could be tightened to private subnets
+
+    web-sg:
+      description: Security group for web Fargate tasks
+      # NOTE: Ideally ingress would use source_security_group_id: alb-sg
+      # but tb_pulumi.network.SecurityGroupWithRules may not support SG references
+      # Using VPC CIDR as interim; traffic only comes from ALB in practice
+      rules:
+        ingress:
+        - description: From ALB only
+          from_port: 8000
+          to_port: 8000
+          protocol: tcp
+          cidr_blocks:
+          - 10.100.0.0/16  # TODO: Replace with alb-sg reference instead when supported
         egress:
         - description: Allow all outbound
           from_port: 0
