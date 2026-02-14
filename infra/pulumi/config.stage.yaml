@@ -1,0 +1,514 @@
+---
+# Thunderbird Add-ons Server - Stage Environment
+# This configuration mirrors the current EC2 setup, targeting ECS Fargate
+#
+# Current architecture (EC2/Ansible) - based on our analysis:
+#   - Web servers -> Fargate web service
+#   - 2x celery workers -> Fargate worker service
+#   - 1x versioncheck server -> Fargate versioncheck service
+#   - 1x admin/cron server -> Fargate scheduled tasks
+#
+# Reference: thundernest-ansible/addons/env/*.yml
+
+resources:
+  # =============================================================================
+  # ECR Repository
+  # =============================================================================
+  # Container registry for addons-server images
+  # Images are pushed by CI/CD pipeline (CircleCI/GitHub Actions)
+  aws:ecr:Repository:
+    addons-server:
+      name: atn-stage-addons-server
+      image_tag_mutability: MUTABLE
+      force_delete: true  # Stage only: allows pulumi destroy with images present
+      scan_on_push: true
+      encryption_type: AES256
+      # Lifecycle policy keep last 50 tagged images (here any tag), expire untagged after 7 days
+      # This catches SHA tags, stage-latest, and any future tag patterns
+      lifecycle_policy: |
+        {
+          "rules": [
+            {
+              "rulePriority": 1,
+              "description": "Keep last 50 tagged images (any tag)",
+              "selection": {
+                "tagStatus": "tagged",
+                "tagPrefixList": ["stage-", "sha-"],
+                "countType": "imageCountMoreThan",
+                "countNumber": 50
+              },
+              "action": {
+                "type": "expire"
+              }
+            },
+            {
+              "rulePriority": 2,
+              "description": "Delete untagged images older than 7 days",
+              "selection": {
+                "tagStatus": "untagged",
+                "countType": "sinceImagePushed",
+                "countUnit": "days",
+                "countNumber": 7
+              },
+              "action": {
+                "type": "expire"
+              }
+            }
+          ]
+        }
+
+  # =============================================================================
+  # GitHub Actions OIDC Role
+  # =============================================================================
+  # Allows GH Actions to push images to ECR via OIDC
+  #
+  # After deployment
+  #   1. we copy the exported 'gha_ecr_publish_role_arn' value
+  #   2. we set it as repository variable AWS_ROLE_ARN in GitHub
+  #   3. this pushes to stage branch will then publish to ECR
+  #
+  # Trust policy restricts assumption to:
+  #   - repo:thunderbird/addons-server:ref:refs/heads/stage
+  #   - job_workflow_ref: .github/workflows/build-and-push.yml@refs/heads/stage
+  aws:iam:GitHubActionsOIDCRole:
+    github_org: thunderbird
+    github_repo: addons-server
+    allowed_branches:
+      - stage
+    workflow_file: .github/workflows/build-and-push.yml
+
+  # =============================================================================
+  # VPC Configuration
+  # =============================================================================
+  # Using MultiTierVpc for public/private subnet separation
+  # Public: Load balancers
+  # Private: Fargate tasks, RDS, ElastiCache, OpenSearch
+  tb:network:MultiTierVpc:
+    vpc:
+      cidr_block: 10.100.0.0/16
+      enable_dns_hostnames: true
+      enable_internet_gateway: true
+      enable_nat_gateway: true
+      egress_via_internet_gateway: true
+      egress_via_nat_gateway: true
+
+      # VPC Endpoints for AWS services (reduces NAT Gateway costs)
+      endpoint_interfaces:
+      - ecr.api
+      - ecr.dkr
+      - logs
+      - secretsmanager
+      - ssm
+      endpoint_gateways:
+      - s3
+
+      # Public subnets for ALBs
+      public_subnets:
+        us-west-2a:
+        - 10.100.1.0/24
+        us-west-2b:
+        - 10.100.2.0/24
+        us-west-2c:
+        - 10.100.3.0/24
+
+      # Private subnets for Fargate tasks
+      private_subnets:
+        us-west-2a:
+        - 10.100.101.0/24
+        us-west-2b:
+        - 10.100.102.0/24
+        us-west-2c:
+        - 10.100.103.0/24
+
+      # VPC Peering is handled in __main__.py (not here) because
+      # MultiTierVpc places peering routes on the default route table,
+      # but our subnets use custom public/private route tables.
+      # See __main__.py for peering connection, routes, and SG rules.
+
+  # =============================================================================
+  # Web Service - Fargate (intended to replace current web tier)
+  # =============================================================================
+  # uwsgi with 4 processes, 4 threads per process
+  # Image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
+  tb:fargate:FargateClusterWithLogging:
+    web:
+      desired_count: 4  # Match current 4 web servers
+      assign_public_ip: false
+      internal: false  # Public-facing ALB
+      enable_container_insights: true
+      health_check_grace_period_seconds: 120
+
+      services:
+        web:
+          name: atn-stage-web
+          container_name: web
+          container_port: 8000
+          listener_port: 443
+          listener_proto: HTTPS
+          listener_cert_arn: arn:aws:acm:us-west-2:768512802988:certificate/2cff184f-31a3-4e9e-b478-eff82076f06f
+          health_check:
+            path: /services/monitor.json
+            interval: 30
+            timeout: 10
+            healthy_threshold: 2
+            unhealthy_threshold: 3
+            matcher: '200'
+
+      task_definition:
+        cpu: '1024'      # 1 vCPU
+        memory: '2048'   # 2 GB
+        network_mode: awsvpc
+        requires_compatibilities:
+        - FARGATE
+
+        container_definitions:
+          web:
+            # ECR image URL - updated by CI/CD pipeline
+            image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
+            essential: true
+            # Entrypoint uses docker-entrypoint.sh, command specifies service mode
+            command:
+            - web
+            portMappings:
+            - containerPort: 8000
+              protocol: tcp
+            environment:
+            - name: DJANGO_SETTINGS_MODULE
+              value: settings
+            - name: UWSGI_PROCESSES
+              value: '4'
+            - name: UWSGI_THREADS
+              value: '4'
+            - name: UWSGI_PORT
+              value: '8000'
+            # logConfiguration: omitted; tb_pulumi injects defaults targeting
+            # the log group it creates (thunderbird-addons-stage-web-fargate-logs)
+
+    # ===========================================================================
+    # Celery Worker Service - Fargate (intended to replace current worker tier)
+    # ===========================================================================
+    # t3a.large has 8GB RAM - needed for addons-linter memory requirements
+    # Multiple queue groups for different workloads
+    worker:
+      desired_count: 2  # Match current 2 celery servers
+      assign_public_ip: false
+      internal: true
+      build_load_balancer: false  # Workers don't need ALB
+      enable_container_insights: true
+
+      task_definition:
+        cpu: '2048'      # 2 vCPU (match t3a.large)
+        memory: '8192'   # 8 GB (addons-linter needs significant memory)
+        network_mode: awsvpc
+        requires_compatibilities:
+        - FARGATE
+
+        container_definitions:
+          worker:
+            image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
+            essential: true
+            # Uses docker-entrypoint.sh worker mode
+            command:
+            - worker
+            environment:
+            - name: DJANGO_SETTINGS_MODULE
+              value: settings
+            - name: CELERY_CONCURRENCY
+              value: '4'
+            - name: CELERY_QUEUES
+              value: default,devhub,images,limited,priority,reviews,celery,api,files,search,tags,cron,ratings,reviewers,zadmin,stats,crypto
+            - name: CELERY_LOGLEVEL
+              value: info
+            # logConfiguration: omitted; tb_pulumi injects defaults targeting
+            # the log group it creates (thunderbird-addons-stage-worker-fargate-logs)
+
+    # ===========================================================================
+    # Versioncheck Service - Fargate (intended to replace current versioncheck)
+    # ===========================================================================
+    # Separate ALB endpoint for version checking API (versioncheck.addons.thunderbird.net)
+    # Lightweight service - c7a.medium equivalent
+    versioncheck:
+      desired_count: 2
+      assign_public_ip: false
+      internal: false
+      enable_container_insights: true
+      health_check_grace_period_seconds: 60
+
+      services:
+        versioncheck:
+          name: atn-stage-vc
+          container_name: versioncheck
+          container_port: 8000
+          listener_port: 443
+          listener_proto: HTTPS
+          listener_cert_arn: arn:aws:acm:us-west-2:768512802988:certificate/2cff184f-31a3-4e9e-b478-eff82076f06f
+          health_check:
+            # Versioncheck uses a simpler health endpoint
+            path: /services/monitor.json
+            interval: 30
+            timeout: 5
+            healthy_threshold: 2
+            unhealthy_threshold: 3
+            matcher: '200'
+
+      task_definition:
+        cpu: '512'       # 0.5 vCPU (c7a.medium has 1 vCPU)
+        memory: '1024'   # 1 GB (c7a.medium has 2 GB)
+        network_mode: awsvpc
+        requires_compatibilities:
+        - FARGATE
+
+        container_definitions:
+          versioncheck:
+            image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
+            essential: true
+            # Uses docker-entrypoint.sh versioncheck mode
+            command:
+            - versioncheck
+            portMappings:
+            - containerPort: 8000
+              protocol: tcp
+            environment:
+            - name: DJANGO_SETTINGS_MODULE
+              value: settings
+            - name: UWSGI_PROCESSES
+              value: '4'
+            - name: UWSGI_THREADS
+              value: '4'
+            - name: UWSGI_PORT
+              value: '8000'
+            # logConfiguration: omitted; tb_pulumi injects defaults targeting
+            # the log group it creates (thunderbird-addons-stage-versioncheck-fargate-logs)
+
+  # =============================================================================
+  # ElastiCache - Redis (intended to replace current Redis setup)
+  # =============================================================================
+  # Used for: Celery result backend
+  tb:elasticache:ElastiCacheReplicationGroup:
+    redis:
+      description: ATN Stage Redis cluster for Celery
+      engine: redis
+      engine_version: '7.1'
+      node_type: cache.t3.small
+      num_cache_nodes: 1
+      port: 6379
+      # source_cidrs will be populated from VPC CIDR
+
+  # =============================================================================
+  # ElastiCache - Memcached (intended to replace current Memcached setup)
+  # =============================================================================
+  # Note: tb_pulumi has ElastiCacheReplicationGroup for Redis
+  # Memcached may need custom implementation or AWS provider direct use
+  # For stage, we might use Redis for both caching and Celery
+
+  # =============================================================================
+  # Security Groups
+  # =============================================================================
+  # Pattern from thunderbird-accounts: separate load_balancers and containers
+  # sections. For each Fargate service, matching entries in both. Workers with
+  # no ALB set load_balancers entry to null. Code dynamically wires
+  # source_security_group_id from LB SG to container ingress.
+  tb:network:SecurityGroupWithRules:
+    load_balancers:
+      web:
+        description: ALB security group for web service
+        rules:
+          ingress:
+          - description: HTTPS from internet
+            from_port: 443
+            to_port: 443
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+          - description: HTTP redirect
+            from_port: 80
+            to_port: 80
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 0
+            protocol: '-1'
+            cidr_blocks:
+            - 0.0.0.0/0
+      versioncheck:
+        description: ALB security group for versioncheck service
+        rules:
+          ingress:
+          - description: HTTPS from internet
+            from_port: 443
+            to_port: 443
+            protocol: tcp
+            cidr_blocks:
+            - 0.0.0.0/0
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 0
+            protocol: '-1'
+            cidr_blocks:
+            - 0.0.0.0/0
+      worker: null  # Workers have no ALB
+
+    containers:
+      web:
+        description: Container security group for web Fargate tasks
+        rules:
+          ingress:
+          - description: From ALB to container port
+            from_port: 8000
+            to_port: 8000
+            protocol: tcp
+            # source_security_group_id wired dynamically in __main__.py
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 0
+            protocol: '-1'
+            cidr_blocks:
+            - 0.0.0.0/0
+      versioncheck:
+        description: Container security group for versioncheck Fargate tasks
+        rules:
+          ingress:
+          - description: From ALB to container port
+            from_port: 8000
+            to_port: 8000
+            protocol: tcp
+            # source_security_group_id wired dynamically in __main__.py
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 0
+            protocol: '-1'
+            cidr_blocks:
+            - 0.0.0.0/0
+      worker:
+        description: Container security group for worker Fargate tasks
+        rules:
+          ingress: []  # Workers have no inbound traffic
+          egress:
+          - description: Allow all outbound
+            from_port: 0
+            to_port: 0
+            protocol: '-1'
+            cidr_blocks:
+            - 0.0.0.0/0
+
+  # =============================================================================
+  # ECS Scheduled Tasks (Cron Jobs)
+  # =============================================================================
+  # Intended to replace the cron jobs from the current admin/cron setup
+  # Uses EventBridge Scheduler to trigger ECS tasks on schedule
+  aws:scheduler:ScheduledTasks:
+    # Every 5 minutes
+    auto-approve:
+      schedule_expression: rate(5 minutes)
+      command: [manage, auto_approve]
+      description: Auto-approve add-ons that meet criteria
+
+    # Hourly tasks
+    info-request-warning:
+      schedule_expression: cron(15 * * * ? *)
+      command: [manage, send_info_request_last_warning_notifications]
+      description: Send info request last warning notifications
+
+    addon-last-updated:
+      schedule_expression: cron(20 * * * ? *)
+      command: [manage, cron, addon_last_updated]
+      description: Update addon last_updated timestamps
+
+    update-addon-appsupport:
+      schedule_expression: cron(45 * * * ? *)
+      command: [manage, cron, update_addon_appsupport]
+      description: Update addon application support info
+
+    cleanup-extracted-file:
+      schedule_expression: cron(50 * * * ? *)
+      command: [manage, cron, cleanup_extracted_file]
+      description: Clean up extracted files
+
+    unhide-disabled-files:
+      schedule_expression: cron(55 * * * ? *)
+      command: [manage, cron, unhide_disabled_files]
+      description: Unhide disabled files
+
+    # Twice daily (5am and 5pm, 6am and 6pm UTC)
+    hide-disabled-files:
+      schedule_expression: cron(25 5,17 * * ? *)
+      command: [manage, cron, hide_disabled_files]
+      description: Hide disabled files
+
+    cleanup-image-files:
+      schedule_expression: cron(25 6,18 * * ? *)
+      command: [manage, cron, cleanup_image_files]
+      description: Clean up orphaned image files
+
+    # Daily tasks
+    update-user-ratings:
+      schedule_expression: cron(0 1 * * ? *)
+      command: [manage, cron, update_user_ratings]
+      description: Update user ratings aggregations
+
+    category-totals:
+      schedule_expression: cron(30 14 * * ? *)
+      command: [manage, cron, category_totals]
+      description: Update category totals
+
+    gc:
+      schedule_expression: cron(0 22 * * ? *)
+      command: [manage, cron, gc]
+      description: Garbage collection
+
+    dump-apps:
+      schedule_expression: cron(30 1 * * ? *)
+      command: [manage, dump_apps]
+      description: Dump application data
+
+    update-product-details:
+      schedule_expression: cron(45 1 * * ? *)
+      command: [manage, update_product_details]
+      description: Update product details from remote
+
+    add-latest-appversion:
+      schedule_expression: cron(0 2 * * ? *)
+      command: [manage, cron, add_latest_appversion]
+      description: Add latest application versions
+
+    update-global-totals:
+      schedule_expression: cron(40 0 * * ? *)
+      command: [manage, cron, update_global_totals]
+      description: Update global statistics totals
+
+    update-addon-daily-users:
+      schedule_expression: cron(20 0 * * ? *)
+      command: [manage, cron, update_addon_average_daily_users]
+      description: Update addon average daily users
+
+# =============================================================================
+# Secrets Manager - Required Secrets
+# =============================================================================
+# These secrets must be created manually or via separate Pulumi stack
+# before deploying the ECS services
+#
+# Required secrets (path: atn/stage/):
+#   - mysql (JSON with host, port, username, password)
+#   - celery_broker (connection string)
+#   - django_secret_key
+#   - fxa (JSON with client_id, client_secret)
+#   - cache_host
+#   - email_url
+#   - recaptcha (JSON with public, private)
+#   - inbound_email (JSON with secret_key, validation_key)
+#
+# See docs/environment-variables.md for full reference
+
+# =============================================================================
+# Notes for implementation:
+# =============================================================================
+# 1. RDS MySQL - Not yet in tb_pulumi, may need custom component
+# 2. OpenSearch - Not yet in tb_pulumi, may need custom component
+# 3. EFS - For shared add-on file storage, needs custom component
+# 4. Amazon MQ (RabbitMQ) - Decision pending: keep EC2 or migrate to Amazon MQ
