@@ -34,6 +34,25 @@ def main():
     # This loads config.{stack}.yaml automatically
     project = tb_pulumi.ThunderbirdPulumiProject()
 
+    # =========================================================================
+    # Extended resource tags
+    # =========================================================================
+    # tb_pulumi sets 4 default tags: environment, project, pulumi_project,
+    # pulumi_stack. We extend with operational and FinOps tags BEFORE creating
+    # any resources so all ThunderbirdComponentResources inherit them via
+    # their __init__ copy of common_tags. Resources created directly via
+    # aws.* also pick these up through project.common_tags spread
+    project.common_tags.update(
+        {
+            "managed_by": "pulumi",
+            "repository": "thunderbird/addons-server",
+            "repository_url": "https://github.com/thunderbird/addons-server",
+            "owner": "thunderbird",
+            "service": "addons",
+            "lifecycle": "ephemeral" if project.stack == "stage" else "persistent",
+        }
+    )
+
     # Pull the resources configuration
     resources = project.config.get("resources", {})
 
@@ -69,7 +88,10 @@ def main():
             vpc_id=vpc_resource.id,
             peer_vpc_id="vpc-441e5e22",
             auto_accept=True,
-            tags={**project.common_tags, "Name": f"{project.name_prefix}-to-default-vpc"},
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-to-default-vpc",
+            },
             opts=pulumi.ResourceOptions(depends_on=[vpc_resource]),
         )
 
@@ -255,7 +277,9 @@ def main():
         github_org = gha_oidc_config.get("github_org", "thunderbird")
         github_repo = gha_oidc_config.get("github_repo", "addons-server")
         allowed_branches = gha_oidc_config.get("allowed_branches", ["stage"])
-        workflow_file = gha_oidc_config.get("workflow_file", ".github/workflows/build-and-push.yml")
+        workflow_file = gha_oidc_config.get(
+            "workflow_file", ".github/workflows/build-and-push.yml"
+        )
 
         # Build the subject conditions for allowed branches
         sub_conditions = [
@@ -269,28 +293,34 @@ def main():
             for branch in allowed_branches
         ]
 
-        gha_trust_policy = json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Principal": {
-                        "Federated": f"arn:aws:iam::{project.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
-                    },
-                    "Action": "sts:AssumeRoleWithWebIdentity",
-                    "Condition": {
-                        "StringEquals": {
-                            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-                            "token.actions.githubusercontent.com:iss": "https://token.actions.githubusercontent.com"
+        gha_trust_policy = json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Federated": f"arn:aws:iam::{project.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
                         },
-                        "StringLike": {
-                            "token.actions.githubusercontent.com:sub": sub_conditions if len(sub_conditions) > 1 else sub_conditions[0],
-                            "token.actions.githubusercontent.com:job_workflow_ref": workflow_ref_conditions if len(workflow_ref_conditions) > 1 else workflow_ref_conditions[0]
-                        }
+                        "Action": "sts:AssumeRoleWithWebIdentity",
+                        "Condition": {
+                            "StringEquals": {
+                                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                                "token.actions.githubusercontent.com:iss": "https://token.actions.githubusercontent.com",
+                            },
+                            "StringLike": {
+                                "token.actions.githubusercontent.com:sub": sub_conditions
+                                if len(sub_conditions) > 1
+                                else sub_conditions[0],
+                                "token.actions.githubusercontent.com:job_workflow_ref": workflow_ref_conditions
+                                if len(workflow_ref_conditions) > 1
+                                else workflow_ref_conditions[0],
+                            },
+                        },
                     }
-                }
-            ]
-        })
+                ],
+            }
+        )
 
         gha_ecr_publish_role = aws.iam.Role(
             f"{project.name_prefix}-gha-ecr-publish",
@@ -301,34 +331,38 @@ def main():
         )
 
         # ECR push permissions derive ARN from actual repo to avoid drifts
-        gha_ecr_policy_doc = addons_repo.arn.apply(lambda arn: json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [
+        gha_ecr_policy_doc = addons_repo.arn.apply(
+            lambda arn: json.dumps(
                 {
-                    "Sid": "ECRAuth",
-                    "Effect": "Allow",
-                    "Action": "ecr:GetAuthorizationToken",
-                    "Resource": "*"
-                },
-                {
-                    "Sid": "ECRPush",
-                    "Effect": "Allow",
-                    "Action": [
-                        "ecr:BatchCheckLayerAvailability",
-                        "ecr:BatchGetImage",
-                        "ecr:CompleteLayerUpload",
-                        "ecr:DescribeImages",
-                        "ecr:DescribeRepositories",
-                        "ecr:GetDownloadUrlForLayer",
-                        "ecr:InitiateLayerUpload",
-                        "ecr:ListImages",
-                        "ecr:PutImage",
-                        "ecr:UploadLayerPart"
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "ECRAuth",
+                            "Effect": "Allow",
+                            "Action": "ecr:GetAuthorizationToken",
+                            "Resource": "*",
+                        },
+                        {
+                            "Sid": "ECRPush",
+                            "Effect": "Allow",
+                            "Action": [
+                                "ecr:BatchCheckLayerAvailability",
+                                "ecr:BatchGetImage",
+                                "ecr:CompleteLayerUpload",
+                                "ecr:DescribeImages",
+                                "ecr:DescribeRepositories",
+                                "ecr:GetDownloadUrlForLayer",
+                                "ecr:InitiateLayerUpload",
+                                "ecr:ListImages",
+                                "ecr:PutImage",
+                                "ecr:UploadLayerPart",
+                            ],
+                            "Resource": arn,
+                        },
                     ],
-                    "Resource": arn
                 }
-            ]
-        }))
+            )
+        )
 
         gha_ecr_policy = aws.iam.Policy(
             f"{project.name_prefix}-gha-ecr-push-policy",
@@ -378,12 +412,16 @@ def main():
     container_sgs = {}
     for service, sg_config in container_sg_configs.items():
         if service not in lb_sg_configs:
-            pulumi.log.warn(f"Container SG '{service}' has no matching load_balancers entry")
+            pulumi.log.warn(
+                f"Container SG '{service}' has no matching load_balancers entry"
+            )
         # Dynamically set source_security_group_id for ingress rules
         if lb_sgs.get(service) is not None:
             for rule in sg_config.get("rules", {}).get("ingress", []):
                 if "self" not in rule or not rule.get("self"):
-                    rule["source_security_group_id"] = lb_sgs[service].resources["sg"].id
+                    rule["source_security_group_id"] = (
+                        lb_sgs[service].resources["sg"].id
+                    )
         if vpc_resource:
             sg_config["vpc_id"] = vpc_resource.id
         depends_on = []
@@ -396,6 +434,75 @@ def main():
             project=project,
             opts=pulumi.ResourceOptions(depends_on=depends_on) if depends_on else None,
             **sg_config,
+        )
+
+    # =========================================================================
+    # Fargate App Task Role
+    # =========================================================================
+    # tb_pulumi creates a task_role per FargateClusterWithLogging but only
+    # sets it as execution_role_arn (image pulls, log writes, ECS-injected
+    # secrets). It does NOT set task_role_arn on the ECS task definition, so
+    # the container has no IAM identity at runtime -- boto3 calls (e.g., the
+    # app fetching secrets directly from Secrets Manager) would fail
+    #
+    # Approach: create a shared app-level task role with runtime permissions,
+    # inject its ARN into each service task_definition config dict before
+    # passing to FargateClusterWithLogging. The dict gets splatted into
+    # aws.ecs.TaskDefinition(**task_def), so task_role_arn propagates cleanly
+    fargate_app_task_role = None
+    if vpc_resource:
+        app_task_assume_role = json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                        "Action": "sts:AssumeRole",
+                    }
+                ],
+            }
+        )
+
+        fargate_app_task_role = aws.iam.Role(
+            f"{project.name_prefix}-fargate-app-task-role",
+            name=f"{project.name_prefix}-fargate-app-task-role",
+            description="Runtime IAM role for Fargate containers (boto3 / SDK calls)",
+            assume_role_policy=app_task_assume_role,
+            tags=project.common_tags,
+        )
+
+        # Attach the atn/{stack}/* secrets policy so the app can fetch secrets
+        # at runtime via boto3 (settings_local.py reads from Secrets Manager)
+        # NOTE: here if any secret uses a customer-managed KMS key, kms:Decrypt
+        # will also be needed here -- add as a follow-up if GetSecretValue
+        # returns AccessDenied
+        app_task_secrets_policy_doc = json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "AllowATNSecretsAccess",
+                        "Effect": "Allow",
+                        "Action": "secretsmanager:GetSecretValue",
+                        "Resource": f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*",
+                    }
+                ],
+            }
+        )
+
+        app_task_secrets_policy = aws.iam.Policy(
+            f"{project.name_prefix}-app-task-secrets-policy",
+            name=f"{project.name_prefix}-app-task-secrets",
+            description="Allows Fargate app containers to read atn secrets at runtime",
+            policy=app_task_secrets_policy_doc,
+            tags=project.common_tags,
+        )
+
+        aws.iam.RolePolicyAttachment(
+            f"{project.name_prefix}-app-task-secrets-attachment",
+            role=fargate_app_task_role.name,
+            policy_arn=app_task_secrets_policy.arn,
         )
 
     # =========================================================================
@@ -418,44 +525,67 @@ def main():
             lb_sg_ids = [lb_sg.resources["sg"].id] if lb_sg else []
             container_sg_ids = [container_sg.resources["sg"].id] if container_sg else []
 
+            # Inject task_role_arn into the task definition so containers
+            # have an IAM identity at runtime (cf. Fargate App Task Role
+            # section above for why this is needed)
+            # setdefault ensures the dict is on service_config even if
+            # task_definition was absent, so the ARN isn't dropped when
+            # **service_config is spread into the constructor.
+            task_def = service_config.setdefault("task_definition", {})
+            if fargate_app_task_role and "task_role_arn" not in task_def:
+                task_def["task_role_arn"] = fargate_app_task_role.arn
+
             # Build depends_on list
             depends_on = [*subnets]
             if container_sg:
                 depends_on.append(container_sg.resources["sg"])
             if lb_sg:
                 depends_on.append(lb_sg.resources["sg"])
+            if fargate_app_task_role:
+                depends_on.append(fargate_app_task_role)
 
-            fargate_services[service_name] = tb_pulumi.fargate.FargateClusterWithLogging(
-                name=f"{project.name_prefix}-{service_name}",
-                project=project,
-                subnets=subnets,  # Pass subnet objects; tb_pulumi extracts .id internally
-                container_security_groups=container_sg_ids,
-                load_balancer_security_groups=lb_sg_ids if not is_internal else [],
-                opts=pulumi.ResourceOptions(depends_on=depends_on),
-                **service_config,
+            fargate_services[service_name] = (
+                tb_pulumi.fargate.FargateClusterWithLogging(
+                    name=f"{project.name_prefix}-{service_name}",
+                    project=project,
+                    subnets=subnets,  # Pass subnet objects; tb_pulumi extracts .id internally
+                    container_security_groups=container_sg_ids,
+                    load_balancer_security_groups=lb_sg_ids if not is_internal else [],
+                    opts=pulumi.ResourceOptions(depends_on=depends_on),
+                    **service_config,
+                )
             )
 
     # =========================================================================
-    # Additional Secrets Manager access for Fargate services
+    # Additional Secrets Manager access for Fargate execution roles
     # =========================================================================
-    # tb_pulumi scopes secrets to {project}/{stack}/* = thunderbird-addons/stage/*
-    # but the app expects atn/stage/* (existing convention). Add an additional
-    # policy to each fargate task role to allow access to atn/stage/*.
-    atn_secrets_policy_doc = json.dumps({
-        "Version": "2012-10-17",
-        "Statement": [{
-            "Sid": "AllowATNSecretsAccess",
-            "Effect": "Allow",
-            "Action": "secretsmanager:GetSecretValue",
-            "Resource": f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/stage/*"
-        }]
-    })
+    # tb_pulumi scopes its auto-created secrets policy to
+    # {project}/{stack}/* = thunderbird-addons/stage/*, but the app expects
+    # atn/stage/* (existing convention). We attach an additional policy to
+    # each tb_pulumi-managed execution role so the ECS agent can inject
+    # atn secrets into containers at launch time.
+    #
+    # Note: runtime boto3 access is here handled by the separate app task role
+    # (fargate_app_task_role) created above, which has its own secrets policy.
+    atn_exec_secrets_policy_doc = json.dumps(
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "AllowATNSecretsAccess",
+                    "Effect": "Allow",
+                    "Action": "secretsmanager:GetSecretValue",
+                    "Resource": f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*",
+                }
+            ],
+        }
+    )
 
-    atn_secrets_policy = aws.iam.Policy(
+    atn_exec_secrets_policy = aws.iam.Policy(
         f"{project.name_prefix}-atn-secrets-policy",
         name=f"{project.name_prefix}-atn-secrets",
-        description="Allows Fargate tasks to access atn/stage/* secrets",
-        policy=atn_secrets_policy_doc,
+        description=f"Allows ECS execution role to access atn/{project.stack}/* secrets",
+        policy=atn_exec_secrets_policy_doc,
         tags=project.common_tags,
     )
 
@@ -465,13 +595,15 @@ def main():
             aws.iam.RolePolicyAttachment(
                 f"{project.name_prefix}-{service_name}-atn-secrets",
                 role=task_role.name,
-                policy_arn=atn_secrets_policy.arn,
+                policy_arn=atn_exec_secrets_policy.arn,
             )
 
     # =========================================================================
     # ElastiCache - Redis
     # =========================================================================
-    elasticache_configs = resources.get("tb:elasticache:ElastiCacheReplicationGroup", {})
+    elasticache_configs = resources.get(
+        "tb:elasticache:ElastiCacheReplicationGroup", {}
+    )
     elasticache_clusters = {}
 
     for cluster_name, cluster_config in elasticache_configs.items():
@@ -480,11 +612,13 @@ def main():
             if "source_cidrs" not in cluster_config:
                 cluster_config["source_cidrs"] = ["10.100.0.0/16"]  # VPC CIDR
 
-            elasticache_clusters[cluster_name] = tb_pulumi.elasticache.ElastiCacheReplicationGroup(
-                name=f"{project.name_prefix}-{cluster_name}",
-                project=project,
-                subnets=private_subnets,
-                **cluster_config,
+            elasticache_clusters[cluster_name] = (
+                tb_pulumi.elasticache.ElastiCacheReplicationGroup(
+                    name=f"{project.name_prefix}-{cluster_name}",
+                    project=project,
+                    subnets=private_subnets,
+                    **cluster_config,
+                )
             )
 
     # =========================================================================
@@ -499,14 +633,18 @@ def main():
         # ---------------------------------------------------------------------
         # Task Execution Role (ECS to pull images and write logs)
         # ---------------------------------------------------------------------
-        task_execution_assume_role = json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Effect": "Allow",
-                "Principal": {"Service": "ecs-tasks.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-            }]
-        })
+        task_execution_assume_role = json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                        "Action": "sts:AssumeRole",
+                    }
+                ],
+            }
+        )
 
         cron_execution_role = aws.iam.Role(
             f"{project.name_prefix}-cron-execution-role",
@@ -523,16 +661,20 @@ def main():
         )
 
         # Additional policy for Secrets Manager access
-        cron_secrets_policy_doc = json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Effect": "Allow",
-                "Action": ["secretsmanager:GetSecretValue"],
-                "Resource": [
-                    f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/stage/*"
-                ]
-            }]
-        })
+        cron_secrets_policy_doc = json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": ["secretsmanager:GetSecretValue"],
+                        "Resource": [
+                            f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*"
+                        ],
+                    }
+                ],
+            }
+        )
 
         cron_secrets_policy = aws.iam.Policy(
             f"{project.name_prefix}-cron-secrets-policy",
@@ -570,7 +712,7 @@ def main():
         # ---------------------------------------------------------------------
         # CloudWatch Log Group for cron tasks
         # ---------------------------------------------------------------------
-        cron_log_group = aws.cloudwatch.LogGroup(
+        aws.cloudwatch.LogGroup(
             f"{project.name_prefix}-cron-logs",
             name=f"/ecs/{project.name_prefix}-cron",
             retention_in_days=30,
@@ -583,30 +725,37 @@ def main():
         # Lightweight task definition for management commands
         # Command here is overridden per schedule via container overrides
         cron_container_def = addons_ecr_repo.repository_url.apply(
-            lambda url: json.dumps([{
-                "name": "cron",
-                "image": f"{url}:stage-latest",
-                "essential": True,
-                "command": ["manage", "help"],  # Default; again overridden per schedule
-                "environment": [
-                    {"name": "DJANGO_SETTINGS_MODULE", "value": "settings"}
-                ],
-                "logConfiguration": {
-                    "logDriver": "awslogs",
-                    "options": {
-                        "awslogs-group": f"/ecs/{project.name_prefix}-cron",
-                        "awslogs-region": project.aws_region,
-                        "awslogs-stream-prefix": "cron"
+            lambda url: json.dumps(
+                [
+                    {
+                        "name": "cron",
+                        "image": f"{url}:stage-latest",
+                        "essential": True,
+                        "command": [
+                            "manage",
+                            "help",
+                        ],  # Default; again overridden per schedule
+                        "environment": [
+                            {"name": "DJANGO_SETTINGS_MODULE", "value": "settings"}
+                        ],
+                        "logConfiguration": {
+                            "logDriver": "awslogs",
+                            "options": {
+                                "awslogs-group": f"/ecs/{project.name_prefix}-cron",
+                                "awslogs-region": project.aws_region,
+                                "awslogs-stream-prefix": "cron",
+                            },
+                        },
                     }
-                }
-            }])
+                ]
+            )
         )
 
         cron_task_definition = aws.ecs.TaskDefinition(
             f"{project.name_prefix}-cron",
             family=f"{project.name_prefix}-cron",
-            cpu="512",       # 0.5 vCPU - probably sufficient for management commands
-            memory="1024",   # 1 GB
+            cpu="512",  # 0.5 vCPU - probably sufficient for management commands
+            memory="1024",  # 1 GB
             network_mode="awsvpc",
             requires_compatibilities=["FARGATE"],
             execution_role_arn=cron_execution_role.arn,
@@ -618,14 +767,18 @@ def main():
         # ---------------------------------------------------------------------
         # EventBridge Scheduler IAM Role
         # ---------------------------------------------------------------------
-        scheduler_assume_role_policy = json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Effect": "Allow",
-                "Principal": {"Service": "scheduler.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-            }]
-        })
+        scheduler_assume_role_policy = json.dumps(
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"Service": "scheduler.amazonaws.com"},
+                        "Action": "sts:AssumeRole",
+                    }
+                ],
+            }
+        )
 
         scheduler_role = aws.iam.Role(
             f"{project.name_prefix}-scheduler-role",
@@ -636,31 +789,37 @@ def main():
 
         # Policy for Scheduler to run ECS tasks and pass roles
         # TODO Evalulate PB policy on PassRole action
-        scheduler_policy_doc = cron_task_definition.arn.apply(lambda task_arn: json.dumps({
-            "Version": "2012-10-17",
-            "Statement": [
+        scheduler_policy_doc = cron_task_definition.arn.apply(
+            lambda task_arn: json.dumps(
                 {
-                    "Sid": "RunTask",
-                    "Effect": "Allow",
-                    "Action": ["ecs:RunTask"],
-                    "Resource": [task_arn],
-                    "Condition": {
-                        "ArnLike": {
-                            "ecs:cluster": f"arn:aws:ecs:{project.aws_region}:{project.aws_account_id}:cluster/{project.name_prefix}-worker-cluster"
-                        }
-                    }
-                },
-                {
-                    "Sid": "PassRole",
-                    "Effect": "Allow",
-                    "Action": ["iam:PassRole"],
-                    "Resource": ["*"],
-                    "Condition": {
-                        "StringLike": {"iam:PassedToService": "ecs-tasks.amazonaws.com"}
-                    }
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "RunTask",
+                            "Effect": "Allow",
+                            "Action": ["ecs:RunTask"],
+                            "Resource": [task_arn],
+                            "Condition": {
+                                "ArnLike": {
+                                    "ecs:cluster": f"arn:aws:ecs:{project.aws_region}:{project.aws_account_id}:cluster/{project.name_prefix}-worker-cluster"
+                                }
+                            },
+                        },
+                        {
+                            "Sid": "PassRole",
+                            "Effect": "Allow",
+                            "Action": ["iam:PassRole"],
+                            "Resource": ["*"],
+                            "Condition": {
+                                "StringLike": {
+                                    "iam:PassedToService": "ecs-tasks.amazonaws.com"
+                                }
+                            },
+                        },
+                    ],
                 }
-            ]
-        }))
+            )
+        )
 
         scheduler_policy = aws.iam.Policy(
             f"{project.name_prefix}-scheduler-policy",
@@ -724,17 +883,14 @@ def main():
                             assign_public_ip=False,
                         ),
                     ),
-                    input=json.dumps({
-                        "containerOverrides": [{
-                            "name": "cron",
-                            "command": command
-                        }]
-                    }),
+                    input=json.dumps(
+                        {"containerOverrides": [{"name": "cron", "command": command}]}
+                    ),
                 ),
                 state="ENABLED",
                 opts=pulumi.ResourceOptions(
                     parent=schedule_group,
-                    depends_on=[cron_task_definition, scheduler_role]
+                    depends_on=[cron_task_definition, scheduler_role],
                 ),
             )
 
