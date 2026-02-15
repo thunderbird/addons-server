@@ -93,31 +93,47 @@ class Command(BaseCommand):
             sys.exit(1)
 
     def _check_database(self):
-        """Connect to MySQL and run a read-only query via ORM"""
+        """Connect to MySQL and run a read-only query via ORM.
+
+        Sets session to transaction_read_only BEFORE any ORM work,
+        and fails fast if read-only mode cannot just be enforced
+        """
         try:
             from django.db import connections
 
             start = time.time()
             conn = connections["default"]
+            conn.ensure_connection()
             cursor = conn.cursor()
 
-            # Force read-only session to guarantee no writes
+            # Force read-only session BEFORE any ORM work
             cursor.execute("SET SESSION transaction_read_only = 1;")
 
-            # Run a real ORM-level query: count addons
+            # Verify read-only mode is actually active
+            cursor.execute("SELECT @@session.transaction_read_only;")
+            ro_flag = cursor.fetchone()[0]
+            if ro_flag != 1:
+                cursor.close()
+                return {
+                    "description": "MySQL database (read-only enforcement)",
+                    "status": "FAIL",
+                    "message": "Could not enforce read-only session",
+                }
+
+            # Now safe to run ORM queries -- writes would be rejected by MySQL
             from olympia.addons.models import Addon
 
             count = Addon.objects.count()
             latency_ms = (time.time() - start) * 1000
 
-            # Reset session
+            # Clean up
             cursor.execute("SET SESSION transaction_read_only = 0;")
             cursor.close()
 
             return {
                 "description": "MySQL database (read-only ORM query)",
                 "status": "PASS",
-                "message": f"Connected, {count} addons in DB ({latency_ms:.0f}ms)",
+                "message": f"Connected, {count} addons ({latency_ms:.0f}ms)",
             }
         except Exception as e:
             return {
@@ -155,7 +171,10 @@ class Command(BaseCommand):
             }
 
     def _check_celery_broker(self):
-        """Verify Celery can connect to the broker (RabbitMQ)"""
+        """Verify Celery can connect to the broker (RabbitMQ).
+
+        Uses ensure_connection with a short timeout
+        """
         try:
             from olympia.amo.celery import app as celery_app
 
@@ -165,51 +184,47 @@ class Command(BaseCommand):
             conn.close()
             latency_ms = (time.time() - start) * 1000
 
-            broker_url = celery_app.conf.broker_url or "not configured"
-            # Mask credentials if present
-            if "@" in str(broker_url):
-                broker_display = (
-                    broker_url.split("@")[-1] if "@" in str(broker_url) else broker_url
-                )
-            else:
-                broker_display = broker_url
-
             return {
                 "description": "Celery broker (RabbitMQ)",
                 "status": "PASS",
-                "message": f"Connected to {broker_display} ({latency_ms:.0f}ms)",
+                "message": f"Connected ({latency_ms:.0f}ms)",
             }
         except Exception as e:
+            # Strip any connection details from the error
+            error_msg = str(e).split("@")[-1] if "@" in str(e) else str(e)
             return {
                 "description": "Celery broker (RabbitMQ)",
                 "status": "FAIL",
-                "message": str(e),
+                "message": error_msg,
             }
 
     def _check_elasticsearch(self):
-        """Verify Elasticsearch/OpenSearch client can connect"""
+        """Verify Elasticsearch/OpenSearch client can connect.
+
+        Calls es.info() which is a read-only cluster metadata endpoint
+        """
         try:
             from olympia.lib.es.utils import get_es
 
             start = time.time()
             es = get_es()
-            info = es.info()
+            info = es.info(request_timeout=5)
             latency_ms = (time.time() - start) * 1000
 
             version = info.get("version", {}).get("number", "unknown")
-            cluster = info.get("cluster_name", "unknown")
 
             return {
                 "description": "Elasticsearch / OpenSearch",
                 "status": "PASS",
-                "message": f"Cluster: {cluster}, version: {version} ({latency_ms:.0f}ms)",
+                "message": f"Reachable, version: {version} ({latency_ms:.0f}ms)",
             }
         except Exception as e:
             # ES may require SigV4 auth or be unavailable; degrade gracefully
+            error_type = type(e).__name__
             return {
                 "description": "Elasticsearch / OpenSearch",
                 "status": "FAIL",
-                "message": str(e),
+                "message": f"{error_type}: {e}",
             }
 
     def _print_results(self, results):
