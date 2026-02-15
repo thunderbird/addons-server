@@ -1,0 +1,85 @@
+---
+name: validate
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - stage
+      - master
+  pull_request:
+    branches:
+      - stage
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      iac-changed: ${{ steps.check.outputs.iac-changed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: check
+        with:
+          filters: |
+            iac-changed:
+              - 'infra/pulumi/**'
+              - 'infra/tests/**'
+              - 'infra/scripts/**'
+
+  validate-iac:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.iac-changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ruff format check
+        uses: chartboost/ruff-action@v1
+        with:
+          src: "infra/pulumi"
+          args: "format --check"
+
+      - name: Ruff lint check
+        uses: chartboost/ruff-action@v1
+        with:
+          src: "infra/pulumi"
+
+      - name: Validate YAML config
+        run: |
+          pip install --quiet pyyaml
+          python3 -c "
+          import yaml, sys
+          for f in ['infra/pulumi/config.stage.yaml']:
+              try:
+                  yaml.safe_load(open(f))
+                  print(f'  [OK] {f}')
+              except Exception as e:
+                  print(f'  [FAIL] {f}: {e}')
+                  sys.exit(1)
+          "
+
+      - name: Validate Python syntax
+        run: |
+          python3 -c "
+          import ast, sys
+          for f in ['infra/pulumi/__main__.py', 'infra/tests/smoke_test.py']:
+              try:
+                  ast.parse(open(f).read())
+                  print(f'  [OK] {f}')
+              except SyntaxError as e:
+                  print(f'  [FAIL] {f}: {e}')
+                  sys.exit(1)
+          "

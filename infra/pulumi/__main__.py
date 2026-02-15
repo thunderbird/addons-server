@@ -24,6 +24,7 @@ import json
 import pulumi
 import pulumi_aws as aws
 import tb_pulumi
+import tb_pulumi.autoscale
 import tb_pulumi.elasticache
 import tb_pulumi.fargate
 import tb_pulumi.network
@@ -596,6 +597,34 @@ def main():
                 f"{project.name_prefix}-{service_name}-atn-secrets",
                 role=task_role.name,
                 policy_arn=atn_exec_secrets_policy.arn,
+            )
+
+    # =========================================================================
+    # ECS Service Autoscaling
+    # =========================================================================
+    # Target-tracking policies for CPU and memory. Thresholds are sensible
+    # defaults based on the thunderbird-accounts pattern; to be tuned after
+    # observing real workload performance
+    #
+    # Config-driven: each service can optionally have an "autoscaling" key in
+    # config.stage.yaml. If absent, no autoscaler is created for that service
+    autoscaling_configs = resources.get("tb:autoscale:EcsServiceAutoscaler", {})
+
+    for service_name, scaling_config in autoscaling_configs.items():
+        fargate_svc = fargate_services.get(service_name)
+        if not fargate_svc:
+            pulumi.log.warn(
+                f"Autoscaling config for '{service_name}' but no matching Fargate service"
+            )
+            continue
+
+        ecs_service = fargate_svc.resources.get("service")
+        if ecs_service:
+            tb_pulumi.autoscale.EcsServiceAutoscaler(
+                name=f"{project.name_prefix}-{service_name}-autoscaler",
+                project=project,
+                service=ecs_service,
+                **scaling_config,
             )
 
     # =========================================================================

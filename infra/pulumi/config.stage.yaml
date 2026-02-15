@@ -132,7 +132,10 @@ resources:
   # Image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
   tb:fargate:FargateClusterWithLogging:
     web:
-      desired_count: 4  # Match current 4 web servers
+      # desired_count intentionally omitted: autoscaling owns the count.
+      # tb_pulumi sets ignore_changes on desired_count when not specified,
+      # preventing Pulumi from fighting the autoscaler. min_capacity in
+      # the autoscaling config acts as the effective baseline
       assign_public_ip: false
       internal: false  # Public-facing ALB
       enable_container_insights: true
@@ -190,7 +193,7 @@ resources:
     # t3a.large has 8GB RAM - needed for addons-linter memory requirements
     # Multiple queue groups for different workloads
     worker:
-      desired_count: 2  # Match current 2 celery servers
+      # desired_count omitted: autoscaling owns the count (see web comment above)
       assign_public_ip: false
       internal: true
       build_load_balancer: false  # Workers don't need ALB
@@ -228,7 +231,7 @@ resources:
     # Separate ALB endpoint for version checking API (versioncheck.addons.thunderbird.net)
     # Lightweight service - c7a.medium equivalent
     versioncheck:
-      desired_count: 2
+      # desired_count omitted: autoscaling owns the count (see web comment)
       assign_public_ip: false
       internal: false
       enable_container_insights: true
@@ -293,6 +296,35 @@ resources:
       num_cache_nodes: 1
       port: 6379
       # source_cidrs will be populated from VPC CIDR
+
+  # =============================================================================
+  # ECS Service Autoscaling
+  # =============================================================================
+  # Target-tracking policies for CPU and memory utilisation
+  # Thresholds are here also sensible defaults; to be tuned
+  # after observing real workload performance
+  # Workers have higher memory threshold (addons-linter is memory-intensive)
+  tb:autoscale:EcsServiceAutoscaler:
+    web:
+      cpu_threshold: 70
+      ram_threshold: 70
+      min_capacity: 2
+      max_capacity: 8
+      cooldown: 300
+
+    worker:
+      cpu_threshold: 70
+      ram_threshold: 80      # Higher: addons-linter memory spikes are normal
+      min_capacity: 2
+      max_capacity: 6
+      cooldown: 300
+
+    versioncheck:
+      cpu_threshold: 70
+      ram_threshold: 70
+      min_capacity: 1
+      max_capacity: 4
+      cooldown: 300
 
   # =============================================================================
   # ElastiCache - Memcached (intended to replace current Memcached setup)
