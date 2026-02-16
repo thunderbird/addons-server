@@ -136,10 +136,17 @@ class Command(BaseCommand):
                 "message": f"Connected, {count} addons ({latency_ms:.0f}ms)",
             }
         except Exception as e:
+            # Include configured host for diagnostics
+            try:
+                db_host = settings.DATABASES.get("default", {}).get("HOST", "not set")
+                db_engine = settings.DATABASES.get("default", {}).get("ENGINE", "not set")
+                diag = f" [configured: engine={db_engine}, host={db_host}]"
+            except Exception:
+                diag = ""
             return {
                 "description": "MySQL database (read-only ORM query)",
                 "status": "FAIL",
-                "message": str(e),
+                "message": f"{e}{diag}",
             }
 
     def _check_cache(self):
@@ -204,7 +211,10 @@ class Command(BaseCommand):
         Calls es.info() which is a read-only cluster metadata endpoint
         """
         try:
-            from olympia.lib.es.utils import get_es
+            # olympia.lib.es.utils provides helper functions for reindexing,
+            # but the canonical ES client factory lives in olympia.amo.search
+            # We'd import from there to avoid ImportError and ensure consistency
+            from olympia.amo.search import get_es
 
             start = time.time()
             es = get_es()
