@@ -147,7 +147,7 @@ SERVICES_DATABASE = {
 
 SLAVE_DATABASES = ['slave']
 
-CACHE_MIDDLEWARE_KEY_PREFIX = CACHE_PREFIX
+CACHE_MIDDLEWARE_KEY_PREFIX = CACHE_KEY_PREFIX
 
 CACHES = {
     'filesystem': {
@@ -163,7 +163,7 @@ CACHES['default'] = {
 }
 CACHES['default']['TIMEOUT'] = 60
 CACHES['default']['BACKEND'] = 'django.core.cache.backends.memcached.MemcachedCache'
-CACHES['default']['KEY_PREFIX'] = CACHE_PREFIX
+CACHES['default']['KEY_PREFIX'] = CACHE_KEY_PREFIX
 
 SECRET_KEY = _django_secret
 
@@ -273,10 +273,9 @@ DEFAULT_FXA_CONFIG_NAME = 'default'
 INTERNAL_FXA_CONFIG_NAME = 'internal'
 ALLOWED_FXA_CONFIGS = ['default', 'amo']
 
-CORS_ENDPOINT_OVERRIDES = cors_endpoint_overrides(
-    ['amo.addons.mozilla.org', 'addons-admin.stage.mozaws.net',
-     'reviewers.addons-stage.thunderbird.net']
-)
+# cors_endpoint_overrides was removed in the Thunderbird fork;
+# CORS is handled via django-cors-headers middleware configuration
+# CORS_ENDPOINT_OVERRIDES = cors_endpoint_overrides([...])
 
 VALIDATOR_TIMEOUT = 360
 
