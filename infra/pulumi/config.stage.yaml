@@ -126,6 +126,24 @@ resources:
       # See __main__.py for peering connection, routes, and SG rules.
 
   # =============================================================================
+  # Default VPC ingress (peering) rules
+  # =============================================================================
+  # These control which existing default VPC security groups accept inbound
+  # connections from the ATN stage VPC (10.100.0.0/16) for legacy backends
+  #
+  # If Secrets Manager points at a different RDS / ElastiCache than expected,
+  # we would add the relevant SG IDs here so ECS tasks can reach them
+  tb:network:DefaultVpcIngressRules:
+    stage_vpc_cidr: 10.100.0.0/16
+    default_vpc_route_table_id: rtb-0657e07f
+    # Redis / Memcached / ES/OpenSearch / EFS
+    services_sg_ids:
+      - sg-d5539ea9
+    # RDS MySQL / RabbitMQ
+    default_sg_ids:
+      - sg-5133b52c
+
+  # =============================================================================
   # Web Service - Fargate (intended to replace current web tier)
   # =============================================================================
   # uwsgi with 4 processes, 4 threads per process
@@ -177,7 +195,7 @@ resources:
               protocol: tcp
             environment:
             - name: DJANGO_SETTINGS_MODULE
-              value: settings
+              value: settings_local_stage
             - name: UWSGI_PROCESSES
               value: '4'
             - name: UWSGI_THREADS
@@ -215,7 +233,7 @@ resources:
             - worker
             environment:
             - name: DJANGO_SETTINGS_MODULE
-              value: settings
+              value: settings_local_stage
             - name: CELERY_CONCURRENCY
               value: '4'
             - name: CELERY_QUEUES
@@ -273,7 +291,7 @@ resources:
               protocol: tcp
             environment:
             - name: DJANGO_SETTINGS_MODULE
-              value: settings
+              value: settings_local_stage
             - name: UWSGI_PROCESSES
               value: '4'
             - name: UWSGI_THREADS

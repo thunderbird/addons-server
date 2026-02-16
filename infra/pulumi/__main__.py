@@ -144,7 +144,11 @@ def main():
         # Return route: default VPC -> our VPC via peering
         aws.ec2.Route(
             f"{project.name_prefix}-default-vpc-return-route",
-            route_table_id="rtb-0657e07f",  # Default VPC's sole route table
+            # Default VPC's sole route table (overrideable via config below)
+            route_table_id=resources.get("tb:network:DefaultVpcIngressRules", {}).get(
+                "default_vpc_route_table_id",
+                "rtb-0657e07f",
+            ),
             destination_cidr_block="10.100.0.0/16",
             vpc_peering_connection_id=default_vpc_peer.id,
             opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
@@ -161,7 +165,15 @@ def main():
         # We add our VPC CIDR to both SGs for the relevant ports
 
         # --- sg-d5539ea9: services SG (Redis, Memcached, ES, EFS) ---
-        services_sg_id = "sg-d5539ea9"
+        default_vpc_ingress_cfg = resources.get(
+            "tb:network:DefaultVpcIngressRules", {}
+        )
+        stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", "10.100.0.0/16")
+
+        services_sg_ids = default_vpc_ingress_cfg.get(
+            "services_sg_ids",
+            ["sg-d5539ea9"],
+        )
         services_sg_ports = {
             "redis": 6379,
             "memcached": 11211,
@@ -169,37 +181,42 @@ def main():
             "elasticsearch-https": 443,  # Managed AWS ES speaks HTTPS
             "efs": 2049,
         }
-        for svc_name, port in services_sg_ports.items():
-            aws.ec2.SecurityGroupRule(
-                f"{project.name_prefix}-default-vpc-sg-{svc_name}",
-                type="ingress",
-                security_group_id=services_sg_id,
-                from_port=port,
-                to_port=port,
-                protocol="tcp",
-                cidr_blocks=["10.100.0.0/16"],
-                description=f"Allow {svc_name} from ATN stage VPC",
-                opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
-            )
+        for sg_id in services_sg_ids:
+            for svc_name, port in services_sg_ports.items():
+                aws.ec2.SecurityGroupRule(
+                    f"{project.name_prefix}-default-vpc-sg-{svc_name}-{sg_id[-4:]}",
+                    type="ingress",
+                    security_group_id=sg_id,
+                    from_port=port,
+                    to_port=port,
+                    protocol="tcp",
+                    cidr_blocks=[stage_vpc_cidr],
+                    description=f"Allow {svc_name} from ATN stage VPC",
+                    opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
+                )
 
         # --- sg-5133b52c: default VPC SG (RDS, RabbitMQ) ---
-        default_sg_id = "sg-5133b52c"
+        default_sg_ids = default_vpc_ingress_cfg.get(
+            "default_sg_ids",
+            ["sg-5133b52c"],
+        )
         default_sg_ports = {
             "mysql": 3306,
             "rabbitmq": 5672,
         }
-        for svc_name, port in default_sg_ports.items():
-            aws.ec2.SecurityGroupRule(
-                f"{project.name_prefix}-default-vpc-defsg-{svc_name}",
-                type="ingress",
-                security_group_id=default_sg_id,
-                from_port=port,
-                to_port=port,
-                protocol="tcp",
-                cidr_blocks=["10.100.0.0/16"],
-                description=f"Allow {svc_name} from ATN stage VPC",
-                opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
-            )
+        for sg_id in default_sg_ids:
+            for svc_name, port in default_sg_ports.items():
+                aws.ec2.SecurityGroupRule(
+                    f"{project.name_prefix}-default-vpc-defsg-{svc_name}-{sg_id[-4:]}",
+                    type="ingress",
+                    security_group_id=sg_id,
+                    from_port=port,
+                    to_port=port,
+                    protocol="tcp",
+                    cidr_blocks=[stage_vpc_cidr],
+                    description=f"Allow {svc_name} from ATN stage VPC",
+                    opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
+                )
 
     else:
         private_subnets = []
