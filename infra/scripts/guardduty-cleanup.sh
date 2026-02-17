@@ -148,10 +148,37 @@ for ENDPOINT_ID in $ENDPOINT_IDS; do
     fi
 done
 
-# Wait for endpoints to be fully deleted (ENIs are released asynchronously)
+# Wait for ENIs to release with retry backoff (can take 15-60s)
 if [[ "$DRY_RUN" == false && -n "$ENI_IDS" ]]; then
-    echo "  Waiting 15s for endpoint deletion to release ENIs..."
-    sleep 15
+    MAX_RETRIES=4
+    WAIT_SECS=15
+    for ATTEMPT in $(seq 1 $MAX_RETRIES); do
+        echo "  Waiting ${WAIT_SECS}s for ENI release (attempt ${ATTEMPT}/${MAX_RETRIES})..."
+        sleep "$WAIT_SECS"
+
+        ALL_CLEAR=true
+        for ENI_ID in $ENI_IDS; do
+            ENI_STATUS=$(aws ec2 describe-network-interfaces \
+                --region "$REGION" \
+                --network-interface-ids "$ENI_ID" \
+                --query 'NetworkInterfaces[0].Status' \
+                --output text 2>/dev/null || echo "not-found")
+            if [[ "$ENI_STATUS" == "in-use" ]]; then
+                ALL_CLEAR=false
+                break
+            fi
+        done
+
+        if [[ "$ALL_CLEAR" == true ]]; then
+            echo "  All ENIs released."
+            break
+        fi
+
+        if [[ "$ATTEMPT" -eq "$MAX_RETRIES" ]]; then
+            echo "  Some ENIs still in-use after ${MAX_RETRIES} attempts. Proceeding with best effort"
+        fi
+        WAIT_SECS=$((WAIT_SECS + 10))
+    done
 fi
 echo ""
 
@@ -164,7 +191,6 @@ if [[ -z "$ENI_IDS" ]]; then
     echo "  No endpoint ENIs to clean up."
 else
     for ENI_ID in $ENI_IDS; do
-        # Check if the ENI still exists and is available
         ENI_STATUS=$(aws ec2 describe-network-interfaces \
             --region "$REGION" \
             --network-interface-ids "$ENI_ID" \
@@ -178,7 +204,7 @@ else
 
         if [[ "$ENI_STATUS" == "available" ]]; then
             if [[ "$DRY_RUN" == false ]]; then
-                echo "  Deleting ENI $ENI_ID (status: $ENI_STATUS)..."
+                echo "  Deleting ENI $ENI_ID..."
                 aws ec2 delete-network-interface \
                     --region "$REGION" \
                     --network-interface-id "$ENI_ID"
@@ -187,7 +213,7 @@ else
                 echo "  [DRY RUN] Would delete ENI $ENI_ID (status: $ENI_STATUS)"
             fi
         else
-            echo "  ENI $ENI_ID still in '$ENI_STATUS' state -- skipping (perhaps retry later)."
+            echo "  ENI $ENI_ID still in '$ENI_STATUS' state -- skipping"
         fi
     done
 fi
