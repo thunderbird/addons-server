@@ -127,7 +127,10 @@ DATABASES['slave'] = {
         'NAME': 'addons_mozilla_org',
         'USER': _mysql_secret['username'],
         'PASSWORD': _mysql_secret['password'],
-        'HOST': 'database.services.atn-stage',
+        # Use the same host as default; the old value 'database.services.atn-stage'
+        # is a private DNS name in a PHZ not resolvable from the ECS VPC
+        # For stage, reading from the primary is acceptable
+        'HOST': _mysql_secret['host'],
         'PORT': str(_mysql_secret['port']),
 }
 # Do not open a transaction for every view on the slave DB.
@@ -141,7 +144,8 @@ SERVICES_DATABASE = {
         'NAME': 'addons_mozilla_org',
         'USER': _mysql_secret['username'],
         'PASSWORD': _mysql_secret['password'],
-        'HOST': 'database.services.atn-stage',
+        # Same fix as slave above
+        'HOST': _mysql_secret['host'],
         'PORT': str(_mysql_secret['port']),
 }
 
@@ -198,7 +202,9 @@ NOBOT_RECAPTCHA_PUBLIC_KEY = _recaptcha_secret['public']
 NOBOT_RECAPTCHA_PRIVATE_KEY = _recaptcha_secret['private']
 
 ES_TIMEOUT = 60
-ES_HOSTS = ['https://vpc-amo-tb-stage-vtnz57x3chb6irhsworwy53i5u.us-west-2.es.amazonaws.com']
+# Note: there is no separate stage ES domain; amo-tb is shared.
+# The old value had 'stage' in the hostname which doesn't exist.
+ES_HOSTS = ['https://vpc-amo-tb-vtnz57x3chb6irhsworwy53i5u.us-west-2.es.amazonaws.com']
 ES_URLS = ['http://%s' % h for h in ES_HOSTS]
 ES_INDEXES = dict((k, '%s_%s' % (v, ENV)) for k, v in ES_INDEXES.items())
 
