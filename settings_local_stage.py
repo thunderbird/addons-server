@@ -43,6 +43,8 @@ _celery_broker_secret = get_secret('atn/stage/celery_broker')
 _recaptcha_secret = get_secret('atn/stage/recaptcha')
 _fxa_secret = get_secret('atn/stage/fxa')
 _cache_host_secret = get_secret('atn/stage/cache_host')
+_celery_result_backend_secret = get_secret('atn/stage/celery_result_backend')
+_es_host_secret = get_secret('atn/stage/elasticsearch_host')
 
 
 EMAIL_URL = env.email_url('EMAIL_URL', default=_email_url_secret)
@@ -174,7 +176,7 @@ SECRET_KEY = _django_secret
 
 # Celery
 AWS_STATS_S3_BUCKET = 'versioncheck-athena-results-stage'
-CELERY_RESULT_BACKEND = 'redis://atn-redis-stage.gch6aq.ng.0001.usw2.cache.amazonaws.com:6379'
+CELERY_RESULT_BACKEND = _celery_result_backend_secret
 CELERY_BROKER_URL = _celery_broker_secret
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_WORKER_DISABLE_RATE_LIMITS = True
@@ -203,8 +205,7 @@ NOBOT_RECAPTCHA_PRIVATE_KEY = _recaptcha_secret['private']
 
 ES_TIMEOUT = 60
 # Note: there is no separate stage ES domain; amo-tb is shared.
-# The old value had 'stage' in the hostname which doesn't exist.
-ES_HOSTS = ['https://vpc-amo-tb-vtnz57x3chb6irhsworwy53i5u.us-west-2.es.amazonaws.com']
+ES_HOSTS = [_es_host_secret]
 ES_URLS = ['http://%s' % h for h in ES_HOSTS]
 ES_INDEXES = dict((k, '%s_%s' % (v, ENV)) for k, v in ES_INDEXES.items())
 
