@@ -833,10 +833,15 @@ def main():
             tags=project.common_tags,
         )
 
-        # Policy for Scheduler to run ECS tasks and pass roles
-        # TODO Evalulate PB policy on PassRole action
-        scheduler_policy_doc = cron_task_definition.arn.apply(
-            lambda task_arn: json.dumps(
+        # Policy for Scheduler to run ECS tasks and pass roles.
+        # PassRole is scoped to only the cron execution and task roles
+        # (not Resource: * which would allow privilege escalation)
+        scheduler_policy_doc = pulumi.Output.all(
+            cron_task_definition.arn,
+            cron_execution_role.arn,
+            cron_task_role.arn,
+        ).apply(
+            lambda args: json.dumps(
                 {
                     "Version": "2012-10-17",
                     "Statement": [
@@ -844,7 +849,7 @@ def main():
                             "Sid": "RunTask",
                             "Effect": "Allow",
                             "Action": ["ecs:RunTask"],
-                            "Resource": [task_arn],
+                            "Resource": [args[0]],
                             "Condition": {
                                 "ArnLike": {
                                     "ecs:cluster": f"arn:aws:ecs:{project.aws_region}:{project.aws_account_id}:cluster/{project.name_prefix}-worker-cluster"
@@ -855,7 +860,7 @@ def main():
                             "Sid": "PassRole",
                             "Effect": "Allow",
                             "Action": ["iam:PassRole"],
-                            "Resource": ["*"],
+                            "Resource": [args[1], args[2]],
                             "Condition": {
                                 "StringLike": {
                                     "iam:PassedToService": "ecs-tasks.amazonaws.com"
