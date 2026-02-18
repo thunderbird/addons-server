@@ -165,9 +165,7 @@ def main():
         # We add our VPC CIDR to both SGs for the relevant ports
 
         # --- sg-d5539ea9: services SG (Redis, Memcached, ES, EFS) ---
-        default_vpc_ingress_cfg = resources.get(
-            "tb:network:DefaultVpcIngressRules", {}
-        )
+        default_vpc_ingress_cfg = resources.get("tb:network:DefaultVpcIngressRules", {})
         stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", "10.100.0.0/16")
 
         services_sg_ids = default_vpc_ingress_cfg.get(
