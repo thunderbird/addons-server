@@ -1,0 +1,157 @@
+---
+# Deploy to Stage
+#
+# Runs `pulumi up` against the stage stack after a successful image push to ECR
+# This requires manual approval via the _staging_ environment protection rule
+#
+# Trigger options
+#   - workflow_dispatch: manual trigger from GH Actions UI
+#   - workflow_run: automatically after build-and-push succeeds on stage
+#
+# Authentication: GH OIDC -> AWS IAM role
+# Required secrets: PULUMI_ACCESS_TOKEN, PULUMI_PASSPHRASE
+# Required variables: AWS_ROLE_ARN
+
+name: deploy-stage
+
+concurrency:
+  group: deploy-stage
+  cancel-in-progress: false  # To avoid cancelling in-progress deploys
+
+on:
+  workflow_dispatch:
+    inputs:
+      preview_only:
+        description: "Run pulumi preview only (no apply)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+  workflow_run:
+    workflows: ["Build and Push to ECR"]
+    types: [completed]
+    branches: [stage]
+
+permissions:
+  contents: read
+  id-token: write  # OIDC authn
+
+env:
+  AWS_REGION: us-west-2
+  PULUMI_STACK: thunderbird/thunderbird-addons/stage
+
+jobs:
+  # Gate: only proceed if the triggering workflow succeeded (or manual)
+  check-trigger:
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.result }}
+    steps:
+      - name: Evaluate trigger
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+            echo "Skipping: triggering workflow did not succeed"
+          fi
+
+  deploy:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging  # Would require approval if environment protection rules are set
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+        with:
+          command: version
+
+      - name: Install dependencies
+        working-directory: infra/pulumi
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Pulumi preview
+        working-directory: infra/pulumi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_PASSPHRASE }}
+        run: |
+          source .venv/bin/activate
+          pulumi stack select ${{ env.PULUMI_STACK }}
+          pulumi preview --diff
+
+      - name: Pulumi up
+        if: github.event.inputs.preview_only != 'true'
+        working-directory: infra/pulumi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_PASSPHRASE }}
+        run: |
+          source .venv/bin/activate
+          pulumi stack select ${{ env.PULUMI_STACK }}
+          pulumi up --yes --diff
+
+      - name: "Post-deploy: scale services to 0"
+        if: github.event.inputs.preview_only != 'true'
+        run: |
+          echo "Scaling ECS services to 0 (safety: prevents writes to shared stage DB)"
+          echo "Scale up manually after RO healthcheck validation"
+          for svc in web worker versioncheck; do
+            aws ecs update-service \
+              --cluster thunderbird-addons-stage-${svc} \
+              --service thunderbird-addons-stage-${svc} \
+              --desired-count 0 \
+              --region ${{ env.AWS_REGION }} \
+              --query 'service.[serviceName,desiredCount]' \
+              --output text
+          done
+
+      - name: Post-deploy summary
+        if: github.event.inputs.preview_only != 'true'
+        working-directory: infra/pulumi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_PASSPHRASE }}
+        run: |
+          source .venv/bin/activate
+          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Stack: ${{ env.PULUMI_STACK }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          pulumi stack output --json | python -c "
+          import sys, json
+          outputs = json.load(sys.stdin)
+          print('| Output | Value |')
+          print('|--------|-------|')
+          for k, v in sorted(outputs.items()):
+              if isinstance(v, list):
+                  v = ', '.join(str(i) for i in v)
+              print(f'| {k} | \`{v}\` |')
+          " >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Services scaled to 0. Run RO healthcheck before scaling up" >> $GITHUB_STEP_SUMMARY
