@@ -121,10 +121,24 @@ jobs:
         run: |
           echo "Scaling ECS services to 0 (safety: prevents writes to shared stage DB)"
           echo "Scale up manually after RO healthcheck validation"
+          PREFIX="thunderbird-addons-stage"
           for svc in web worker versioncheck; do
+            CLUSTER="${PREFIX}-${svc}"
+            SERVICE="${PREFIX}-${svc}"
+            RESOURCE_ID="service/${CLUSTER}/${SERVICE}"
+
+            echo "  Suspending autoscaling for ${svc}..."
+            aws application-autoscaling register-scalable-target \
+              --service-namespace ecs \
+              --scalable-dimension ecs:service:DesiredCount \
+              --resource-id "${RESOURCE_ID}" \
+              --suspended-state '{"DynamicScalingInSuspended":true,"DynamicScalingOutSuspended":true,"ScheduledScalingSuspended":true}' \
+              --region ${{ env.AWS_REGION }} 2>/dev/null || echo "  (no autoscaling target for ${svc}, skipping)"
+
+            echo "  Scaling ${svc} to 0..."
             aws ecs update-service \
-              --cluster thunderbird-addons-stage-${svc} \
-              --service thunderbird-addons-stage-${svc} \
+              --cluster "${CLUSTER}" \
+              --service "${SERVICE}" \
               --desired-count 0 \
               --region ${{ env.AWS_REGION }} \
               --query 'service.[serviceName,desiredCount]' \

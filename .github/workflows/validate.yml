@@ -36,6 +36,7 @@ jobs:
               - 'infra/pulumi/**'
               - 'infra/tests/**'
               - 'infra/scripts/**'
+              - '.github/workflows/*.yml'
 
   validate-iac:
     needs: detect-changes
