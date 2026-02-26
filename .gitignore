@@ -47,3 +47,9 @@ storage/shared_storage/*
 supervisord.pid
 tmp/*
 venv*
+
+# Pulumi local artefacts (outputs, notes, analysis)
+infra/pulumi/pulumi-*.txt
+infra/pulumi/preview-output-*.txt
+infra/pulumi/analysis.md
+infra/pulumi/infrastructure-inventory.md
