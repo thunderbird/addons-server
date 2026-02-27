@@ -20,17 +20,17 @@ resources:
     addons-server:
       name: atn-stage-addons-server
       image_tag_mutability: MUTABLE
-      force_delete: true  # Stage only: allows pulumi destroy with images present
+      force_delete: false  # Repo now holds CI-built images; protect from accidental destroy
       scan_on_push: true
       encryption_type: AES256
-      # Lifecycle policy keep last 50 tagged images (here any tag), expire untagged after 7 days
-      # This catches SHA tags, stage-latest, and any future tag patterns
+      # Lifecycle policy keep last 50 tagged images (stage-/sha- prefixes), expire untagged after 7 days
+      # Matches tags prefixed with stage- (e.g., stage-latest) and sha- (commit SHAs)
       lifecycle_policy: |
         {
           "rules": [
             {
               "rulePriority": 1,
-              "description": "Keep last 50 tagged images (any tag)",
+              "description": "Keep last 50 tagged images (stage-/sha- prefixes)",
               "selection": {
                 "tagStatus": "tagged",
                 "tagPrefixList": ["stage-", "sha-"],
@@ -150,10 +150,7 @@ resources:
   # Image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
   tb:fargate:FargateClusterWithLogging:
     web:
-      # desired_count intentionally omitted: autoscaling owns the count.
-      # tb_pulumi sets ignore_changes on desired_count when not specified,
-      # preventing Pulumi from fighting the autoscaler. min_capacity in
-      # the autoscaling config acts as the effective baseline
+      desired_count: 0        # Start cold; scale up manually after validation
       assign_public_ip: false
       internal: false  # Public-facing ALB
       enable_container_insights: true
@@ -196,6 +193,8 @@ resources:
             environment:
             - name: DJANGO_SETTINGS_MODULE
               value: settings_local_stage
+            - name: BOOTSTRAP_SAFE
+              value: 'true'
             - name: UWSGI_PROCESSES
               value: '4'
             - name: UWSGI_THREADS
@@ -211,7 +210,7 @@ resources:
     # t3a.large has 8GB RAM - needed for addons-linter memory requirements
     # Multiple queue groups for different workloads
     worker:
-      # desired_count omitted: autoscaling owns the count (see web comment above)
+      desired_count: 0        # Start cold; scale up manually after validation
       assign_public_ip: false
       internal: true
       build_load_balancer: false  # Workers don't need ALB
@@ -234,6 +233,8 @@ resources:
             environment:
             - name: DJANGO_SETTINGS_MODULE
               value: settings_local_stage
+            - name: BOOTSTRAP_SAFE
+              value: 'true'
             - name: CELERY_CONCURRENCY
               value: '4'
             - name: CELERY_QUEUES
@@ -249,7 +250,7 @@ resources:
     # Separate ALB endpoint for version checking API (versioncheck.addons.thunderbird.net)
     # Lightweight service - c7a.medium equivalent
     versioncheck:
-      # desired_count omitted: autoscaling owns the count (see web comment)
+      desired_count: 0        # Start cold; scale up manually after validation
       assign_public_ip: false
       internal: false
       enable_container_insights: true
@@ -292,6 +293,8 @@ resources:
             environment:
             - name: DJANGO_SETTINGS_MODULE
               value: settings_local_stage
+            - name: BOOTSTRAP_SAFE
+              value: 'true'
             - name: UWSGI_PROCESSES
               value: '4'
             - name: UWSGI_THREADS
@@ -326,23 +329,26 @@ resources:
     web:
       cpu_threshold: 70
       ram_threshold: 70
-      min_capacity: 2
+      min_capacity: 0        # Start at 0; scale up manually after validation
       max_capacity: 8
       cooldown: 300
+      suspend: true           # Suspended until services are validated
 
     worker:
       cpu_threshold: 70
       ram_threshold: 80      # Higher: addons-linter memory spikes are normal
-      min_capacity: 2
+      min_capacity: 0
       max_capacity: 6
       cooldown: 300
+      suspend: true
 
     versioncheck:
       cpu_threshold: 70
       ram_threshold: 70
-      min_capacity: 1
+      min_capacity: 0
       max_capacity: 4
       cooldown: 300
+      suspend: true
 
   # =============================================================================
   # ElastiCache - Memcached (intended to replace current Memcached setup)
