@@ -44,6 +44,7 @@ on:
     branches:
       - stage
       - master
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-west-2
