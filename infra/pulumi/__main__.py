@@ -780,7 +780,10 @@ def main():
                             "help",
                         ],  # Default; again overridden per schedule
                         "environment": [
-                            {"name": "DJANGO_SETTINGS_MODULE", "value": "settings_local_stage"},
+                            {
+                                "name": "DJANGO_SETTINGS_MODULE",
+                                "value": "settings_local_stage",
+                            },
                             {"name": "BOOTSTRAP_SAFE", "value": "true"},
                             {"name": "NETAPP_STORAGE_ROOT", "value": "/tmp/storage"},
                         ],
