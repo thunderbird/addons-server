@@ -34,9 +34,19 @@ def get_secret(secret_name, region_name="us-west-2"):
         raise Exception(f"Failed to retrieve secret {secret_name}: {e}")
 
 
+# -----------------------------------------------------------------------------
+# Bootstrap safety toggle
+# -----------------------------------------------------------------------------
+# When BOOTSTRAP_SAFE is true we deliberately use RO database credentials
+# (if present) so that even if something accidentally starts, MySQL itself
+# enforces read-only access
+BOOTSTRAP_SAFE = env.bool("BOOTSTRAP_SAFE", default=False)
+MYSQL_SECRET_NAME = "atn/stage/mysql_ro" if BOOTSTRAP_SAFE else "atn/stage/mysql"
+
+
 # Retrieve secrets from AWS Secrets Manager
 _email_url_secret = get_secret('atn/stage/email_url')
-_mysql_secret = get_secret('atn/stage/mysql')
+_mysql_secret = get_secret(MYSQL_SECRET_NAME)
 _inbound_email_secret = get_secret('atn/stage/inbound_email')
 _django_secret = get_secret('atn/stage/django_secret_key')
 _celery_broker_secret = get_secret('atn/stage/celery_broker')
@@ -288,7 +298,7 @@ VALIDATOR_TIMEOUT = 360
 
 ES_DEFAULT_NUM_SHARDS = 10
 
-READ_ONLY = env.bool('READ_ONLY', default=False)
+READ_ONLY = env.bool("READ_ONLY", default=BOOTSTRAP_SAFE)
 
 # TODO: Github user ?
 GITHUB_API_USER = ''

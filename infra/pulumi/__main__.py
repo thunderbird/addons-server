@@ -780,7 +780,12 @@ def main():
                             "help",
                         ],  # Default; again overridden per schedule
                         "environment": [
-                            {"name": "DJANGO_SETTINGS_MODULE", "value": "settings"}
+                            {
+                                "name": "DJANGO_SETTINGS_MODULE",
+                                "value": "settings_local_stage",
+                            },
+                            {"name": "BOOTSTRAP_SAFE", "value": "true"},
+                            {"name": "NETAPP_STORAGE_ROOT", "value": "/tmp/storage"},
                         ],
                         "logConfiguration": {
                             "logDriver": "awslogs",
@@ -936,7 +941,7 @@ def main():
                         {"containerOverrides": [{"name": "cron", "command": command}]}
                     ),
                 ),
-                state="ENABLED",
+                state=task_config.get("state", "DISABLED"),
                 opts=pulumi.ResourceOptions(
                     parent=schedule_group,
                     depends_on=[cron_task_definition, scheduler_role],

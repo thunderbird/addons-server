@@ -50,6 +50,6 @@ venv*
 
 # Pulumi local artefacts (outputs, notes, analysis)
 infra/pulumi/pulumi-*.txt
-infra/pulumi/preview-output-*.txt
+infra/pulumi/preview-*.txt
 infra/pulumi/analysis.md
 infra/pulumi/infrastructure-inventory.md
