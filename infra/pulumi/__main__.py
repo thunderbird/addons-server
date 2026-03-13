@@ -528,9 +528,15 @@ def main():
     fargate_services = {}
 
     for service_name, service_config in fargate_configs.items():
-        # Inject subnet IDs based on whether service is internal or external
         is_internal = service_config.get("internal", True)
+        # Internet-facing ALBs require public subnets and tb_pulumi uses a single
+        # subnet list for both ALB and tasks, so external services must land in
+        # public subnets. To compensate this we'd force assign_public_ip=True so
+        # tasks can reach ECR/internet via IGW (private subnet tasks use NAT)
+        # TODO: consider tb_pulumi proposal to support separate ALB/task subnets
         subnets = private_subnets if is_internal else public_subnets
+        if not is_internal:
+            service_config["assign_public_ip"] = True
 
         if subnets:
             # Get security groups for this service

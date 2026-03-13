@@ -1,6 +1,6 @@
 # Thunderbird Add-ons Infra (Pulumi)
 
-ECS Fargate infrastructure for addons-server
+ECS Fargate infrastructure for addons-server (stage environment)
 
 ## Prerequisites
 
@@ -16,34 +16,58 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pulumi login  # browser-based authn flow Pulumi Cloud
 
-# Select the staging stack (name may vary depending on org setup)
 pulumi stack select thunderbird/thunderbird-addons/stage
 ```
 
-## Preview Changes
+## Preview and Deploy
 
 ```bash
-pulumi preview
+# Preview (RO -- no AWS changes)
+pulumi preview --diff
+
+# Deploy (RW -- creates/updates AWS resources)
+pulumi up
 ```
+
+## Architecture
+
+| Component | Implementation |
+|-----------|---------------|
+| Web | Fargate service, ALB (HTTPS) |
+| Worker | Fargate service (internal, no ALB) |
+| Versioncheck | Fargate service, ALB (HTTPS) |
+| Cron | 16 EventBridge-scheduled ECS tasks |
+| Cache | ElastiCache Redis (private subnets) |
+| Networking | New VPC peered to existing default VPC |
+
+## Safety Layers
+
+Services deploy cold by default. Each layer is independently verifiable
+
+| Layer | Config key | Default |
+|-------|-----------|---------|
+| Desired count | `desired_count` | `0` |
+| Autoscaling | `suspend` | `true` |
+| EventBridge schedules | `state` | `DISABLED` |
+| DB credentials | `BOOTSTRAP_SAFE` env var | `true` (RO user) |
 
 ## CI/CD
 
-GitHub Actions workflow (`.github/workflows/build-and-push.yml`) handles image builds.
+### Build and Push (`build-and-push.yml`)
 
 - **Pull requests**: Build validation only (no AWS auth)
 - **Push to stage**: Build + push to ECR via OIDC
+- **Manual trigger**: `workflow_dispatch` (for re-builds without a code push)
 
 ### Enabling ECR Publishing
 
-1. Ensure AWS OIDC provider exists for `token.actions.githubusercontent.com`
-2. IAM role is created by Pulumi with trust policy scoped to `refs/heads/stage`
+1. AWS OIDC provider for `token.actions.githubusercontent.com` (already exists)
+2. IAM role created by Pulumi with trust policy scoped to `refs/heads/stage`
 3. Set repository variable: `AWS_ROLE_ARN` (from Pulumi output `gha_ecr_publish_role_arn`)
 
 ## Scheduled Tasks
 
-Scheduled tasks mirror the existing cron workload from the legacy environment and are executed as ECS tasks via EventBridge Scheduler.
-
-16 cron jobs run via EventBridge Scheduler:
+16 cron jobs run via EventBridge Scheduler (all `DISABLED` by default):
 
 | Task | Schedule | Command |
 |------|----------|---------|
@@ -66,7 +90,8 @@ Scheduled tasks mirror the existing cron workload from the legacy environment an
 
 ## Image Tagging
 
-- `atn-stage-addons-server:stage-latest` - current stage build
+- `stage-latest` -- current stage build
+- `sha-{commit}` -- per-commit builds
 - ECR lifecycle: keep 50 tagged images, expire untagged after 7 days
 
 ## Secrets
@@ -74,39 +99,28 @@ Scheduled tasks mirror the existing cron workload from the legacy environment an
 No secrets are stored in the repository.
 
 Application expects Secrets Manager paths under `atn/stage/*`:
-- Database credentials
+- Database credentials (RW and RO variants)
 - Django secret key
-- External service API keys
+- External service configuration
 
 See `settings_local_stage.py` for full mapping.
 
 ## Post-Deployment Verification
 
-All commands are read-only
-
-### ECR Repository
-
-```bash
-aws ecr describe-images \
-  --repository-name atn-stage-addons-server \
-  --region us-west-2 \
-  --query 'imageDetails[*].[imageTags,imagePushedAt]' \
-  --output table
-```
+All commands below are read-only
 
 ### ECS Services
 
 ```bash
-# List services
-aws ecs list-services --cluster atn-stage-web-cluster --region us-west-2
-aws ecs list-services --cluster atn-stage-worker-cluster --region us-west-2
-
-# Check service status
-aws ecs describe-services \
-  --cluster atn-stage-web-cluster \
-  --services atn-stage-web \
-  --region us-west-2 \
-  --query 'services[*].[serviceName,runningCount,desiredCount,status]'
+for svc in web worker versioncheck; do
+  echo "=== $svc ==="
+  aws ecs describe-services \
+    --cluster "thunderbird-addons-stage-${svc}" \
+    --services "thunderbird-addons-stage-${svc}" \
+    --region us-west-2 \
+    --query 'services[0].[desiredCount,runningCount,status]' \
+    --output text
+done
 ```
 
 ### Scheduled Tasks
@@ -119,38 +133,28 @@ aws scheduler list-schedules \
   --output table
 ```
 
-### CloudWatch Logs
+### RO Healthcheck
+
+The `ro_healthcheck` management command validates connectivity to all backends
+from within the ECS VPC. Run as a one-off Fargate task with `BOOTSTRAP_SAFE=true`.
 
 ```bash
-# Recent web logs
-aws logs tail /ecs/thunderbird-addons-stage-web --since 5m --region us-west-2
-
-# Recent cron logs
-aws logs tail /ecs/thunderbird-addons-stage-cron --since 5m --region us-west-2
-```
-
-### ALB Health Check
-
-```bash
-# Get ALB DNS (after deployment)
-pulumi stack output --json | jq -r '.web_alb_dns'
-
-# Test health endpoint
-curl -I https://{alb-dns}/services/monitor
+aws ecs run-task \
+  --cluster thunderbird-addons-stage-worker \
+  --task-definition thunderbird-addons-stage-ro-healthcheck \
+  --launch-type FARGATE \
+  --network-configuration "..." \
+  --region us-west-2
 ```
 
 ## Resources Created
 
-- New VPC with public/private subnets across 3 AZs (connectivity to existing RDS may require VPC peering - confirm with Andrei)
+- VPC with public/private subnets across 3 AZs peered to existing default VPC
 - ECR repository with lifecycle policy
-- ECS clusters (web, worker)
-- Fargate services (web, worker, versioncheck)
-- ElastiCache Redis cluster
+- 3 ECS Fargate services (web, worker, versioncheck) with ALBs where applicable
+- ElastiCache Redis replication group
 - 16 EventBridge scheduled tasks
-- ALB with HTTPS listener
-- IAM roles (task execution, task, scheduler, OIDC)
-- CloudWatch log groups
-
-## Workflow
-
-All infrastructure changes are proposed via pull requests and reviewed before deployment. Direct `pulumi up` execution is restricted to approved paths.
+- IAM roles (task execution, task, scheduler, OIDC for CI)
+- CloudWatch log groups with KMS encryption
+- VPC endpoints (ECR, SSM, Logs, Secrets Manager, S3)
+- Application autoscaling targets (suspended by default)

@@ -53,3 +53,7 @@ infra/pulumi/pulumi-*.txt
 infra/pulumi/preview-*.txt
 infra/pulumi/analysis.md
 infra/pulumi/infrastructure-inventory.md
+
+# Local ops artefacts (runbooks, ad hoc templates, design docs)
+infra/adhoc/
+infra/docs/

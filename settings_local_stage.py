@@ -320,6 +320,10 @@ ALLOWED_HOSTS = [
     '.mozaws.net',
 ]
 
+MIDDLEWARE = (
+    'olympia.amo.middleware_healthcheck.ALBHealthCheckMiddleware',
+) + MIDDLEWARE
+
 FLIGTAR = 'addons+fligtar-rip@thunderbird.net'
 THEMES_EMAIL = 'addons+theme-reviews@thunderbird.net'
 ABUSE_EMAIL = 'addons+abuse@thunderbird.net'

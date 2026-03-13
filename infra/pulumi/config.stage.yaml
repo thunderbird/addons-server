@@ -195,6 +195,8 @@ resources:
               value: settings_local_stage
             - name: BOOTSTRAP_SAFE
               value: 'true'
+            - name: NETAPP_STORAGE_ROOT
+              value: /tmp/storage
             - name: UWSGI_PROCESSES
               value: '4'
             - name: UWSGI_THREADS
@@ -235,6 +237,8 @@ resources:
               value: settings_local_stage
             - name: BOOTSTRAP_SAFE
               value: 'true'
+            - name: NETAPP_STORAGE_ROOT
+              value: /tmp/storage
             - name: CELERY_CONCURRENCY
               value: '4'
             - name: CELERY_QUEUES
@@ -295,6 +299,8 @@ resources:
               value: settings_local_stage
             - name: BOOTSTRAP_SAFE
               value: 'true'
+            - name: NETAPP_STORAGE_ROOT
+              value: /tmp/storage
             - name: UWSGI_PROCESSES
               value: '4'
             - name: UWSGI_THREADS
