@@ -98,19 +98,19 @@ jobs:
     name: Publish (skipped - AWS_ROLE_ARN not set)
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/stage' && vars.AWS_ROLE_ARN == ''
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/stage' && vars.AWS_ROLE_ARN == ''
     steps:
       - name: Publishing not configured
         run: |
           echo "::notice::Publish skipped: AWS_ROLE_ARN repo variable not set (OIDC role not configured yet)"
           echo "See workflow header comments for IAM role setup instructions"
 
-  # Publish job: only runs on push to stage when OIDC role is configured
+  # Publish job: runs on push to stage or manual dispatch when OIDC role is configured
   publish:
     name: Publish to ECR
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/stage' && vars.AWS_ROLE_ARN != ''
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/stage' && vars.AWS_ROLE_ARN != ''
     concurrency:
       group: ecr-stage-publish
       cancel-in-progress: true
