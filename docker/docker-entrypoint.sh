@@ -98,6 +98,8 @@ start_web() {
         --disable-write-exception \
         --log-5xx \
         --log-slow=1000 \
+        --static-map=/static=/data/olympia/site-static/ \
+        --static-map=/user-media=${NETAPP_STORAGE_ROOT:-/tmp/storage}/shared_storage/uploads/ \
         --stats=:9191 \
         --stats-http \
         "$@"
