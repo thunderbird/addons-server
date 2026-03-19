@@ -293,19 +293,10 @@ def main():
         github_org = gha_oidc_config.get("github_org", "thunderbird")
         github_repo = gha_oidc_config.get("github_repo", "addons-server")
         allowed_branches = gha_oidc_config.get("allowed_branches", ["stage"])
-        workflow_file = gha_oidc_config.get(
-            "workflow_file", ".github/workflows/build-and-push.yml"
-        )
 
         # Build the subject conditions for allowed branches
         sub_conditions = [
             f"repo:{github_org}/{github_repo}:ref:refs/heads/{branch}"
-            for branch in allowed_branches
-        ]
-
-        # Build workflow ref conditions (job_workflow_ref hardening)
-        workflow_ref_conditions = [
-            f"{github_org}/{github_repo}/{workflow_file}@refs/heads/{branch}"
             for branch in allowed_branches
         ]
 
@@ -322,15 +313,11 @@ def main():
                         "Condition": {
                             "StringEquals": {
                                 "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-                                "token.actions.githubusercontent.com:iss": "https://token.actions.githubusercontent.com",
                             },
                             "StringLike": {
                                 "token.actions.githubusercontent.com:sub": sub_conditions
                                 if len(sub_conditions) > 1
                                 else sub_conditions[0],
-                                "token.actions.githubusercontent.com:job_workflow_ref": workflow_ref_conditions
-                                if len(workflow_ref_conditions) > 1
-                                else workflow_ref_conditions[0],
                             },
                         },
                     }
