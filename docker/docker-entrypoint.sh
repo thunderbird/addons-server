@@ -100,6 +100,16 @@ start_web() {
         --log-slow=1000 \
         --static-map=/static=/data/olympia/site-static/ \
         --static-map=/user-media=${NETAPP_STORAGE_ROOT:-/tmp/storage}/shared_storage/uploads/ \
+        --static-safe=${NETAPP_STORAGE_ROOT:-/tmp/storage}/shared_storage/uploads/ \
+        --static-safe=${NETAPP_STORAGE_ROOT:-/tmp/storage}/files/ \
+        --static-expires=/* 7776000 \
+        --route-if="equal:\${HTTP_X_FORWARDED_PROTO};http redirect-permanent:https://addons-stage.thunderbird.net\${REQUEST_URI}" \
+        --route-uri="^/([a-z]{2,3})(-[A-Z]{2,3})?/(firefox|android)/(.*) redirect-302:https://addons.mozilla.org/\$1\$2/\$3/\$4" \
+        --route-uri="^/user-media/addons/_attachments/(.*) addheader:Content-Disposition: attachment" \
+        --collect-header="X-Accel-Redirect X_SENDFILE" \
+        --collect-header="Content-Disposition SENDFILE_CONTENT" \
+        --response-route-if-not="empty:\${X_SENDFILE} addheader:Content-Disposition:\${SENDFILE_CONTENT}" \
+        --response-route-if-not="empty:\${X_SENDFILE} static:\${X_SENDFILE}" \
         --stats=:9191 \
         --stats-http \
         "$@"
