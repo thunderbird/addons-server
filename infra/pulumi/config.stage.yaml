@@ -144,6 +144,26 @@ resources:
       - sg-5133b52c
 
   # =============================================================================
+  # EFS Mount Targets (addons shared storage)
+  # =============================================================================
+  # Mount targets for the existing addons EFS filesystem in the ATN VPC
+  # private subnets. Allows Fargate tasks to mount EFS directly without
+  # routing NFS through VPC peering (EFS multi-VPC mount targets,
+  # supported since Sep 2024)
+  #
+  # The filesystem already has mount targets in the default VPC for the
+  # legacy EC2 instances. These additional targets in the ATN VPC give
+  # Fargate tasks a local-VPC ENI for NFS, eliminating peering latency
+  #
+  # NFS SG: allows TCP 2049 inbound only from the listed container SGs.
+  # Versioncheck is excluded (matches existing Ansible config: efs: false)
+  aws:efs:MountTargets:
+    efs_filesystem_id_secret_name: atn/stage/efs_filesystem_id
+    ingress_from_services:
+      - web
+      - worker
+
+  # =============================================================================
   # Web Service - Fargate (intended to replace current web tier)
   # =============================================================================
   # uwsgi with 4 processes, 4 threads per process
@@ -179,6 +199,12 @@ resources:
         requires_compatibilities:
         - FARGATE
 
+        volumes:
+        - name: addons-efs
+          efs_volume_configuration:
+            root_directory: /
+            transit_encryption: ENABLED
+
         container_definitions:
           web:
             # ECR image URL - updated by CI/CD pipeline
@@ -190,6 +216,10 @@ resources:
             portMappings:
             - containerPort: 8000
               protocol: tcp
+            mountPoints:
+            - sourceVolume: addons-efs
+              containerPath: /var/addons
+              readOnly: false
             environment:
             - name: DJANGO_SETTINGS_MODULE
               value: settings_local_stage
@@ -225,6 +255,12 @@ resources:
         requires_compatibilities:
         - FARGATE
 
+        volumes:
+        - name: addons-efs
+          efs_volume_configuration:
+            root_directory: /
+            transit_encryption: ENABLED
+
         container_definitions:
           worker:
             image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
@@ -232,6 +268,10 @@ resources:
             # Uses docker-entrypoint.sh worker mode
             command:
             - worker
+            mountPoints:
+            - sourceVolume: addons-efs
+              containerPath: /var/addons
+              readOnly: false
             environment:
             - name: DJANGO_SETTINGS_MODULE
               value: settings_local_stage

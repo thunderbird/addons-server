@@ -440,6 +440,75 @@ def main():
         )
 
     # =========================================================================
+    # EFS Mount Targets (addons shared storage)
+    # =========================================================================
+    # The addons EFS filesystem hosts add-on files, uploads, and media
+    # (legacy NFS share from the EC2 era). Mount targets in the ATN VPC
+    # private subnets give Fargate tasks a local-VPC ENI for NFS so they
+    # don't need to route through VPC peering for every file I/O
+    #
+    # The filesystem retains its existing mount targets in the default VPC
+    # for the EC2 fleet; multi-VPC mount targets (Sep 2024) allow both
+    # fleets to coexist during migration
+    #
+    # NFS SG: allows TCP 2049 inbound only from the container SGs that
+    # actually need filesystem access (web + worker; versioncheck excluded
+    # per existing Ansible config efs: false)
+    efs_config = resources.get("aws:efs:MountTargets", {})
+    efs_mount_targets = []
+    efs_filesystem_id = None
+
+    if efs_config and private_subnets and vpc_resource:
+        efs_secret_name = efs_config["efs_filesystem_id_secret_name"]
+        efs_secret = aws.secretsmanager.get_secret_version(
+            secret_id=efs_secret_name,
+        )
+        efs_filesystem_id = pulumi.Output.secret(efs_secret.secret_string)
+
+        # NFS security group for mount target ENIs
+        efs_sg = aws.ec2.SecurityGroup(
+            f"{project.name_prefix}-efs-mt-sg",
+            name=f"{project.name_prefix}-efs-mt",
+            description="NFS access to EFS mount targets from Fargate containers",
+            vpc_id=vpc_resource.id,
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-efs-mt",
+            },
+        )
+
+        # Allow NFS (TCP 2049) from each container SG that needs EFS
+        efs_ingress_services = efs_config.get(
+            "ingress_from_services", ["web", "worker"]
+        )
+        for svc_name in efs_ingress_services:
+            cont_sg = container_sgs.get(svc_name)
+            if cont_sg:
+                aws.ec2.SecurityGroupRule(
+                    f"{project.name_prefix}-efs-nfs-from-{svc_name}",
+                    type="ingress",
+                    security_group_id=efs_sg.id,
+                    from_port=2049,
+                    to_port=2049,
+                    protocol="tcp",
+                    source_security_group_id=cont_sg.resources["sg"].id,
+                    description=f"NFS from {svc_name} containers",
+                )
+
+        # Mount target in each private subnet
+        for i, subnet in enumerate(private_subnets):
+            mt = aws.efs.MountTarget(
+                f"{project.name_prefix}-efs-mt-{i}",
+                file_system_id=efs_filesystem_id,
+                subnet_id=subnet.id,
+                security_groups=[efs_sg.id],
+                opts=pulumi.ResourceOptions(depends_on=[efs_sg, subnet]),
+            )
+            efs_mount_targets.append(mt)
+
+        pulumi.export("efs_mount_target_ids", [mt.id for mt in efs_mount_targets])
+
+    # =========================================================================
     # Fargate App Task Role
     # =========================================================================
     # tb_pulumi creates a task_role per FargateClusterWithLogging but only
@@ -544,6 +613,15 @@ def main():
             if fargate_app_task_role and "task_role_arn" not in task_def:
                 task_def["task_role_arn"] = fargate_app_task_role.arn
 
+            # Inject EFS filesystem ID from Secrets Manager into any
+            # volume configs that declare an efs_volume_configuration
+            # The YAML carries the volume structure
+            if efs_filesystem_id is not None:
+                for vol in task_def.get("volumes", []):
+                    efs_vol_cfg = vol.get("efs_volume_configuration")
+                    if efs_vol_cfg and "file_system_id" not in efs_vol_cfg:
+                        efs_vol_cfg["file_system_id"] = efs_filesystem_id
+
             # Build depends_on list
             depends_on = [*subnets]
             if container_sg:
@@ -552,6 +630,11 @@ def main():
                 depends_on.append(lb_sg.resources["sg"])
             if fargate_app_task_role:
                 depends_on.append(fargate_app_task_role)
+            # EFS mount targets must exist before tasks that mount them
+            if efs_mount_targets and service_name in efs_config.get(
+                "ingress_from_services", []
+            ):
+                depends_on.extend(efs_mount_targets)
 
             fargate_services[service_name] = (
                 tb_pulumi.fargate.FargateClusterWithLogging(
@@ -772,6 +855,13 @@ def main():
                             "manage",
                             "help",
                         ],  # Default; again overridden per schedule
+                        "mountPoints": [
+                            {
+                                "sourceVolume": "addons-efs",
+                                "containerPath": "/var/addons",
+                                "readOnly": False,
+                            }
+                        ],
                         "environment": [
                             {
                                 "name": "DJANGO_SETTINGS_MODULE",
@@ -803,7 +893,20 @@ def main():
             execution_role_arn=cron_execution_role.arn,
             task_role_arn=cron_task_role.arn,
             container_definitions=cron_container_def,
+            volumes=[
+                aws.ecs.TaskDefinitionVolumeArgs(
+                    name="addons-efs",
+                    efs_volume_configuration=aws.ecs.TaskDefinitionVolumeEfsVolumeConfigurationArgs(
+                        file_system_id=efs_filesystem_id,
+                        root_directory="/",
+                        transit_encryption="ENABLED",
+                    ),
+                )
+            ],
             tags=project.common_tags,
+            opts=pulumi.ResourceOptions(
+                depends_on=efs_mount_targets if efs_mount_targets else None,
+            ),
         )
 
         # ---------------------------------------------------------------------
