@@ -75,7 +75,7 @@ def main():
         vpc_resource = vpc.resources.get("vpc")
 
         # -----------------------------------------------------------------
-        # VPC Peering to default VPC (RDS, Redis, RabbitMQ, ES, EFS)
+        # VPC Peering to default VPC (RDS, Redis, ES, EFS)
         # -----------------------------------------------------------------
         # We handle peering manually (not via MultiTierVpc config) because
         # MultiTierVpc places peering routes on vpc.default_route_table_id,
@@ -107,7 +107,7 @@ def main():
         )
 
         # Add peering route to the PRIVATE route table (ECS tasks need
-        # to reach RDS/Redis/RabbitMQ/ES/EFS in 172.31.0.0/16)
+        # to reach RDS/Redis/ES/EFS in 172.31.0.0/16)
         # Extract route table ID from the route table associations that
         # MultiTierVpc exposes (the actual RouteTable is a local variable
         # inside the component and not directly accessible)
@@ -160,7 +160,7 @@ def main():
         # sg-d5539ea9 (amo-services-prod-tb):
         #   Redis, Memcached, ES/OpenSearch, EFS
         # sg-5133b52c (default VPC SG):
-        #   RDS MySQL, RabbitMQ (and self-referencing for internal comms)
+        #   RDS MySQL (and self-referencing for internal comms)
         #
         # We add our VPC CIDR to both SGs for the relevant ports
 
@@ -193,14 +193,18 @@ def main():
                     opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
                 )
 
-        # --- sg-5133b52c: default VPC SG (RDS, RabbitMQ) ---
+        # --- sg-5133b52c: default VPC SG (RDS) ---
+        # Note: RabbitMQ (5672) was removed after the broker isolation
+        # incident (issue #375). The stage broker secret pointed elsewhere;
+        # the SG rule gave ECS tasks a clean path to it
+        # We should NOT re-add 5672 until a dedicated stage broker exists
+        # and the secret is verified to point to it via the preflight check
         default_sg_ids = default_vpc_ingress_cfg.get(
             "default_sg_ids",
             ["sg-5133b52c"],
         )
         default_sg_ports = {
             "mysql": 3306,
-            "rabbitmq": 5672,
         }
         for sg_id in default_sg_ids:
             for svc_name, port in default_sg_ports.items():
