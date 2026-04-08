@@ -746,6 +746,129 @@ def main():
             )
 
     # =========================================================================
+    # Amazon MQ - RabbitMQ (stage-only Celery broker)
+    # =========================================================================
+    # Dedicated stage broker replacing the production EC2 RabbitMQ that
+    # atn/stage/celery_broker previously pointed to (issue #375)
+    mq_config = resources.get("aws:mq:RabbitMQBroker", {})
+
+    if mq_config and private_subnets and vpc_resource:
+        mq_creds_secret_name = mq_config.get("credentials_secret_name")
+        mq_creds_raw = aws.secretsmanager.get_secret_version(
+            secret_id=mq_creds_secret_name,
+        )
+        mq_creds = json.loads(mq_creds_raw.secret_string)
+        mq_username = mq_creds["username"]
+        mq_password = pulumi.Output.secret(mq_creds["password"])
+
+        # SG for the broker: AMQPS (5671) from container SGs,
+        # management API (15671) from VPC CIDR for post-deploy bootstrap
+        mq_sg = aws.ec2.SecurityGroup(
+            f"{project.name_prefix}-mq-sg",
+            name=f"{project.name_prefix}-mq",
+            description="Amazon MQ RabbitMQ broker - AMQPS from Fargate containers",
+            vpc_id=vpc_resource.id,
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-mq",
+            },
+        )
+
+        mq_ingress_services = mq_config.get("ingress_from_services", ["web", "worker"])
+        for svc_name in mq_ingress_services:
+            cont_sg = container_sgs.get(svc_name)
+            if cont_sg:
+                aws.ec2.SecurityGroupRule(
+                    f"{project.name_prefix}-mq-amqps-from-{svc_name}",
+                    type="ingress",
+                    security_group_id=mq_sg.id,
+                    from_port=5671,
+                    to_port=5671,
+                    protocol="tcp",
+                    source_security_group_id=cont_sg.resources["sg"].id,
+                    description=f"AMQPS from {svc_name} containers",
+                )
+
+        aws.ec2.SecurityGroupRule(
+            f"{project.name_prefix}-mq-mgmt-from-vpc",
+            type="ingress",
+            security_group_id=mq_sg.id,
+            from_port=15671,
+            to_port=15671,
+            protocol="tcp",
+            cidr_blocks=[vpc_config.get("cidr_block", "10.100.0.0/16")],
+            description="RabbitMQ management API from VPC (post-deploy bootstrap)",
+        )
+
+        aws.ec2.SecurityGroupRule(
+            f"{project.name_prefix}-mq-egress",
+            type="egress",
+            security_group_id=mq_sg.id,
+            from_port=0,
+            to_port=0,
+            protocol="-1",
+            cidr_blocks=["0.0.0.0/0"],
+            description="Allow all outbound",
+        )
+
+        mq_broker = aws.mq.Broker(
+            f"{project.name_prefix}-mq-broker",
+            broker_name=mq_config.get("broker_name", f"{project.name_prefix}-rabbitmq"),
+            engine_type="RABBITMQ",
+            engine_version=mq_config.get("engine_version", "3.13"),
+            host_instance_type=mq_config.get("host_instance_type", "mq.t3.micro"),
+            deployment_mode=mq_config.get("deployment_mode", "SINGLE_INSTANCE"),
+            publicly_accessible=mq_config.get("publicly_accessible", False),
+            auto_minor_version_upgrade=mq_config.get(
+                "auto_minor_version_upgrade", True
+            ),
+            security_groups=[mq_sg.id],
+            subnet_ids=[private_subnets[0].id],
+            maintenance_window_start_time=aws.mq.BrokerMaintenanceWindowStartTimeArgs(
+                day_of_week=mq_config.get("maintenance_day", "SUNDAY"),
+                time_of_day=mq_config.get("maintenance_hour", "06:00"),
+                time_zone="UTC",
+            ),
+            users=[
+                aws.mq.BrokerUserArgs(
+                    username=mq_username,
+                    password=mq_password,
+                    console_access=True,
+                ),
+            ],
+            tags={
+                **project.common_tags,
+                "Name": mq_config.get("broker_name", f"{project.name_prefix}-rabbitmq"),
+            },
+            opts=pulumi.ResourceOptions(depends_on=[mq_sg]),
+        )
+
+        pulumi.export("mq_broker_id", mq_broker.id)
+        pulumi.export("mq_broker_arn", mq_broker.arn)
+        pulumi.export(
+            "mq_broker_amqps_endpoints",
+            mq_broker.instances.apply(
+                lambda instances: [
+                    ep
+                    for inst in (instances or [])
+                    for ep in (inst.endpoints or [])
+                    if "amqps" in ep
+                ]
+            ),
+        )
+        pulumi.export(
+            "mq_broker_console_url",
+            mq_broker.instances.apply(
+                lambda instances: [
+                    ep
+                    for inst in (instances or [])
+                    for ep in (inst.endpoints or [])
+                    if "https" in ep
+                ]
+            ),
+        )
+
+    # =========================================================================
     # ECS Scheduled Tasks (Cron Jobs)
     # =========================================================================
     # Uses EventBridge Scheduler to run management commands on schedule

@@ -302,6 +302,16 @@ def check_broker_isolation() -> CheckResult:
             details,
         )
 
+    mq_suffix = f".mq.{AWS_REGION}.amazonaws.com"
+    if host.endswith(mq_suffix):
+        details.append("Host is an Amazon MQ managed endpoint")
+        return CheckResult(
+            "broker_isolation",
+            Status.PASS,
+            "Broker points to Amazon MQ endpoint (dedicated managed broker)",
+            details,
+        )
+
     if host.endswith(".amazonaws.com") and "stage" in host:
         details.append("Host is an AWS-managed endpoint containing 'stage'")
         return CheckResult(
@@ -974,7 +984,14 @@ def check_sg_reachability() -> CheckResult:
 
     broker_raw = get_secret(f"{SECRET_PREFIX}/celery_broker")
     broker_host = parse_host_from_url(broker_raw) if broker_raw else None
-    if broker_host and is_private_ip(broker_host):
+    mq_suffix = f".mq.{AWS_REGION}.amazonaws.com"
+
+    if broker_host and broker_host.endswith(mq_suffix):
+        details.append(
+            "  broker_amqps (port 5671): OK -- broker is Amazon MQ "
+            "(SG managed by Pulumi, connectivity via container SG egress)"
+        )
+    elif broker_host and is_private_ip(broker_host):
         ec2_info = resolve_ec2_by_ip(broker_host)
         if ec2_info:
             try:
@@ -1002,7 +1019,8 @@ def check_sg_reachability() -> CheckResult:
                     failures += 1
                 else:
                     details.append(
-                        f"  {label} (port {port}): OK -- blocked (no inbound rule from {vpc_cidr})"
+                        f"  {label} (port {port}): OK -- blocked "
+                        f"(no inbound rule from {vpc_cidr})"
                     )
 
     has_known_unreachable = False

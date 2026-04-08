@@ -397,6 +397,25 @@ resources:
       suspend: true
 
   # =============================================================================
+  # Amazon MQ - RabbitMQ (stage-only Celery broker)
+  # =============================================================================
+  # Dedicated stage broker replacing the production RabbitMQ EC2 instance
+  # that atn/stage/celery_broker previously pointed to (issue #375)
+  aws:mq:RabbitMQBroker:
+    broker_name: atn-stage-rabbitmq
+    engine_version: '3.13'
+    host_instance_type: mq.t3.micro
+    deployment_mode: SINGLE_INSTANCE
+    publicly_accessible: false
+    credentials_secret_name: atn/stage/mq_credentials
+    auto_minor_version_upgrade: true
+    maintenance_day: SUNDAY
+    maintenance_hour: '06:00'
+    ingress_from_services:
+      - web
+      - worker
+
+  # =============================================================================
   # ElastiCache - Memcached (intended to replace current Memcached setup)
   # =============================================================================
   # Note: tb_pulumi has ElastiCacheReplicationGroup for Redis
@@ -597,15 +616,20 @@ resources:
 #
 # Required secrets (path: atn/stage/):
 #   - mysql (JSON with host, port, username, password)
-#   - celery_broker (connection string)
+#   - mysql_ro (JSON with host, port, username, password -- RO user)
+#   - celery_broker (AMQP connection string, updated post-MQ-deploy)
+#   - celery_result_backend (Redis connection string)
 #   - django_secret_key
 #   - fxa (JSON with client_id, client_secret)
-#   - cache_host
-#   - email_url
+#   - cache_host (Memcached endpoint:port)
+#   - email_url (SMTP connection string)
 #   - recaptcha (JSON with public, private)
 #   - inbound_email (JSON with secret_key, validation_key)
-#
-# See docs/environment-variables.md for full reference
+#   - server_email (email address -- currently unused by settings)
+#   - efs_filesystem_id (EFS filesystem ID for mount targets)
+#   - mq_credentials (JSON with username and password for the Amazon MQ
+#     broker; password >= 12 chars, no commas/colons/equals; used by
+#     Pulumi at deploy time, not by the application directly)
 
 # =============================================================================
 # Notes for implementation:
@@ -613,4 +637,4 @@ resources:
 # 1. RDS MySQL - Not yet in tb_pulumi, may need custom component
 # 2. OpenSearch - Not yet in tb_pulumi, may need custom component
 # 3. EFS - For shared add-on file storage, needs custom component
-# 4. Amazon MQ (RabbitMQ) - Decision pending: keep EC2 or migrate to Amazon MQ
+# 4. Amazon MQ (RabbitMQ) - Provisioned as stage broker (issue #375)
