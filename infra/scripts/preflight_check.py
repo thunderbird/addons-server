@@ -302,8 +302,11 @@ def check_broker_isolation() -> CheckResult:
             details,
         )
 
-    mq_suffix = f".mq.{AWS_REGION}.amazonaws.com"
-    if host.endswith(mq_suffix):
+    mq_suffixes = (
+        f".mq.{AWS_REGION}.amazonaws.com",
+        f".mq.{AWS_REGION}.on.aws",
+    )
+    if any(host.endswith(s) for s in mq_suffixes):
         details.append("Host is an Amazon MQ managed endpoint")
         return CheckResult(
             "broker_isolation",
@@ -445,7 +448,7 @@ def check_secret_endpoints() -> CheckResult:
                     resource_desc = (
                         f"EC2 {ec2['id']} name={ec2['name']!r} vpc={ec2['vpc']}"
                     )
-            elif host.endswith(".amazonaws.com"):
+            elif host.endswith(".amazonaws.com") or host.endswith(".on.aws"):
                 resolved = True
                 resource_desc = f"AWS-managed endpoint {host}"
 
@@ -984,9 +987,12 @@ def check_sg_reachability() -> CheckResult:
 
     broker_raw = get_secret(f"{SECRET_PREFIX}/celery_broker")
     broker_host = parse_host_from_url(broker_raw) if broker_raw else None
-    mq_suffix = f".mq.{AWS_REGION}.amazonaws.com"
+    mq_suffixes = (
+        f".mq.{AWS_REGION}.amazonaws.com",
+        f".mq.{AWS_REGION}.on.aws",
+    )
 
-    if broker_host and broker_host.endswith(mq_suffix):
+    if broker_host and any(broker_host.endswith(s) for s in mq_suffixes):
         details.append(
             "  broker_amqps (port 5671): OK -- broker is Amazon MQ "
             "(SG managed by Pulumi, connectivity via container SG egress)"

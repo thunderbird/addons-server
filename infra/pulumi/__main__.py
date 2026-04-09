@@ -9,12 +9,18 @@ Architecture:
     - VPC with public/private subnets
     - ECR repository for container images
     - Fargate services: web, worker, versioncheck
-    - ElastiCache Redis for Celery
-    - (Future) RDS MySQL, OpenSearch, EFS
+    - ElastiCache Redis for Celery result backend
+    - Amazon MQ RabbitMQ for Celery broker
+    - EFS for add-on storage (dedicated)
+    - (Future) RDS MySQL, OpenSearch
 
 Usage:
     pulumi preview  # See planned changes
     pulumi up       # Apply changes
+
+    The AWS region is pinned in Pulumi.stage.yaml (required by
+    pulumi-aws 6.65.0 to avoid a provider diff bug, pulumi/pulumi-aws#5652).
+    Ensure the correct stack is selected before running commands.
 
 Configuration is defined in config.{stack}.yaml files
 """
@@ -158,13 +164,15 @@ def main():
         # Smoke test revealed that different services use different SGs:
         #
         # sg-d5539ea9 (amo-services-prod-tb):
-        #   Redis, Memcached, ES/OpenSearch, EFS
+        #   Redis, Memcached, ES/OpenSearch
         # sg-5133b52c (default VPC SG):
         #   RDS MySQL (and self-referencing for internal comms)
         #
-        # We add our VPC CIDR to both SGs for the relevant ports
+        # We add our VPC CIDR to both SGs for the relevant ports.
+        # EFS was originally in this list but moved to a dedicated stage
+        # filesystem with its own SG in the ECS VPC (see aws:efs:FileSystem).
 
-        # --- sg-d5539ea9: services SG (Redis, Memcached, ES, EFS) ---
+        # --- sg-d5539ea9: services SG (Redis, Memcached, ES) ---
         default_vpc_ingress_cfg = resources.get("tb:network:DefaultVpcIngressRules", {})
         stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", "10.100.0.0/16")
 
@@ -177,7 +185,6 @@ def main():
             "memcached": 11211,
             "elasticsearch": 9200,
             "elasticsearch-https": 443,  # Managed AWS ES speaks HTTPS
-            "efs": 2049,
         }
         for sg_id in services_sg_ids:
             for svc_name, port in services_sg_ports.items():
@@ -444,30 +451,42 @@ def main():
         )
 
     # =========================================================================
-    # EFS Mount Targets (addons shared storage)
+    # EFS Filesystem (dedicated stage storage)
     # =========================================================================
-    # The addons EFS filesystem hosts add-on files, uploads, and media
-    # (legacy NFS share from the EC2 era). Mount targets in the ATN VPC
-    # private subnets give Fargate tasks a local-VPC ENI for NFS so they
-    # don't need to route through VPC peering for every file I/O
+    # Dedicated stage filesystem, replacing the original plan to mount the
+    # shared filesystem. AWS EFS restricts mount targets to a single VPC
+    # per filesystem, so sharing fs-55e85afc with Fargate tasks (ECS VPC)
+    # is actually not possible.
     #
-    # The filesystem retains its existing mount targets in the default VPC
-    # for the EC2 fleet; multi-VPC mount targets (Sep 2024) allow both
-    # fleets to coexist during migration
+    # This follows the isolation model from issue #375: stage gets dedicated
+    # resources rather than sharing infrastructure. Non-stage data is in fact
+    # available on demand via AWS DataSync (one-way, prod -> stage)
     #
     # NFS SG: allows TCP 2049 inbound only from the container SGs that
     # actually need filesystem access (web + worker; versioncheck excluded
     # per existing Ansible config efs: false)
-    efs_config = resources.get("aws:efs:MountTargets", {})
+    efs_config = resources.get("aws:efs:FileSystem", {})
     efs_mount_targets = []
     efs_filesystem_id = None
 
     if efs_config and private_subnets and vpc_resource:
-        efs_secret_name = efs_config["efs_filesystem_id_secret_name"]
-        efs_secret = aws.secretsmanager.get_secret_version(
-            secret_id=efs_secret_name,
+        efs_filesystem = aws.efs.FileSystem(
+            f"{project.name_prefix}-efs",
+            encrypted=efs_config.get("encrypted", True),
+            performance_mode=efs_config.get("performance_mode", "generalPurpose"),
+            throughput_mode=efs_config.get("throughput_mode", "bursting"),
+            lifecycle_policies=[
+                aws.efs.FileSystemLifecyclePolicyArgs(
+                    transition_to_ia=lp["transition_to_ia"],
+                )
+                for lp in efs_config.get("lifecycle_policies", [])
+            ],
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-efs",
+            },
         )
-        efs_filesystem_id = pulumi.Output.secret(efs_secret.secret_string)
+        efs_filesystem_id = efs_filesystem.id
 
         # NFS security group for mount target ENIs
         efs_sg = aws.ec2.SecurityGroup(
@@ -510,6 +529,7 @@ def main():
             )
             efs_mount_targets.append(mt)
 
+        pulumi.export("efs_filesystem_id", efs_filesystem_id)
         pulumi.export("efs_mount_target_ids", [mt.id for mt in efs_mount_targets])
 
     # =========================================================================
@@ -617,9 +637,8 @@ def main():
             if fargate_app_task_role and "task_role_arn" not in task_def:
                 task_def["task_role_arn"] = fargate_app_task_role.arn
 
-            # Inject EFS filesystem ID from Secrets Manager into any
-            # volume configs that declare an efs_volume_configuration
-            # The YAML carries the volume structure
+            # Inject EFS filesystem ID into any volume configs that declare
+            # an efs_volume_configuration without a file_system_id
             if efs_filesystem_id is not None:
                 for vol in task_def.get("volumes", []):
                     efs_vol_cfg = vol.get("efs_volume_configuration")
