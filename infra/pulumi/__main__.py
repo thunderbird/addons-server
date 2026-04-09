@@ -75,7 +75,7 @@ def main():
         vpc_resource = vpc.resources.get("vpc")
 
         # -----------------------------------------------------------------
-        # VPC Peering to default VPC (RDS, Redis, RabbitMQ, ES, EFS)
+        # VPC Peering to default VPC (RDS, Redis, ES, EFS)
         # -----------------------------------------------------------------
         # We handle peering manually (not via MultiTierVpc config) because
         # MultiTierVpc places peering routes on vpc.default_route_table_id,
@@ -107,7 +107,7 @@ def main():
         )
 
         # Add peering route to the PRIVATE route table (ECS tasks need
-        # to reach RDS/Redis/RabbitMQ/ES/EFS in 172.31.0.0/16)
+        # to reach RDS/Redis/ES/EFS in 172.31.0.0/16)
         # Extract route table ID from the route table associations that
         # MultiTierVpc exposes (the actual RouteTable is a local variable
         # inside the component and not directly accessible)
@@ -160,7 +160,7 @@ def main():
         # sg-d5539ea9 (amo-services-prod-tb):
         #   Redis, Memcached, ES/OpenSearch, EFS
         # sg-5133b52c (default VPC SG):
-        #   RDS MySQL, RabbitMQ (and self-referencing for internal comms)
+        #   RDS MySQL (and self-referencing for internal comms)
         #
         # We add our VPC CIDR to both SGs for the relevant ports
 
@@ -193,14 +193,18 @@ def main():
                     opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
                 )
 
-        # --- sg-5133b52c: default VPC SG (RDS, RabbitMQ) ---
+        # --- sg-5133b52c: default VPC SG (RDS) ---
+        # Note: RabbitMQ (5672) was removed after the broker isolation
+        # incident (issue #375). The stage broker secret pointed elsewhere;
+        # the SG rule gave ECS tasks a clean path to it
+        # We should NOT re-add 5672 until a dedicated stage broker exists
+        # and the secret is verified to point to it via the preflight check
         default_sg_ids = default_vpc_ingress_cfg.get(
             "default_sg_ids",
             ["sg-5133b52c"],
         )
         default_sg_ports = {
             "mysql": 3306,
-            "rabbitmq": 5672,
         }
         for sg_id in default_sg_ids:
             for svc_name, port in default_sg_ports.items():
@@ -440,6 +444,75 @@ def main():
         )
 
     # =========================================================================
+    # EFS Mount Targets (addons shared storage)
+    # =========================================================================
+    # The addons EFS filesystem hosts add-on files, uploads, and media
+    # (legacy NFS share from the EC2 era). Mount targets in the ATN VPC
+    # private subnets give Fargate tasks a local-VPC ENI for NFS so they
+    # don't need to route through VPC peering for every file I/O
+    #
+    # The filesystem retains its existing mount targets in the default VPC
+    # for the EC2 fleet; multi-VPC mount targets (Sep 2024) allow both
+    # fleets to coexist during migration
+    #
+    # NFS SG: allows TCP 2049 inbound only from the container SGs that
+    # actually need filesystem access (web + worker; versioncheck excluded
+    # per existing Ansible config efs: false)
+    efs_config = resources.get("aws:efs:MountTargets", {})
+    efs_mount_targets = []
+    efs_filesystem_id = None
+
+    if efs_config and private_subnets and vpc_resource:
+        efs_secret_name = efs_config["efs_filesystem_id_secret_name"]
+        efs_secret = aws.secretsmanager.get_secret_version(
+            secret_id=efs_secret_name,
+        )
+        efs_filesystem_id = pulumi.Output.secret(efs_secret.secret_string)
+
+        # NFS security group for mount target ENIs
+        efs_sg = aws.ec2.SecurityGroup(
+            f"{project.name_prefix}-efs-mt-sg",
+            name=f"{project.name_prefix}-efs-mt",
+            description="NFS access to EFS mount targets from Fargate containers",
+            vpc_id=vpc_resource.id,
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-efs-mt",
+            },
+        )
+
+        # Allow NFS (TCP 2049) from each container SG that needs EFS
+        efs_ingress_services = efs_config.get(
+            "ingress_from_services", ["web", "worker"]
+        )
+        for svc_name in efs_ingress_services:
+            cont_sg = container_sgs.get(svc_name)
+            if cont_sg:
+                aws.ec2.SecurityGroupRule(
+                    f"{project.name_prefix}-efs-nfs-from-{svc_name}",
+                    type="ingress",
+                    security_group_id=efs_sg.id,
+                    from_port=2049,
+                    to_port=2049,
+                    protocol="tcp",
+                    source_security_group_id=cont_sg.resources["sg"].id,
+                    description=f"NFS from {svc_name} containers",
+                )
+
+        # Mount target in each private subnet
+        for i, subnet in enumerate(private_subnets):
+            mt = aws.efs.MountTarget(
+                f"{project.name_prefix}-efs-mt-{i}",
+                file_system_id=efs_filesystem_id,
+                subnet_id=subnet.id,
+                security_groups=[efs_sg.id],
+                opts=pulumi.ResourceOptions(depends_on=[efs_sg, subnet]),
+            )
+            efs_mount_targets.append(mt)
+
+        pulumi.export("efs_mount_target_ids", [mt.id for mt in efs_mount_targets])
+
+    # =========================================================================
     # Fargate App Task Role
     # =========================================================================
     # tb_pulumi creates a task_role per FargateClusterWithLogging but only
@@ -544,6 +617,15 @@ def main():
             if fargate_app_task_role and "task_role_arn" not in task_def:
                 task_def["task_role_arn"] = fargate_app_task_role.arn
 
+            # Inject EFS filesystem ID from Secrets Manager into any
+            # volume configs that declare an efs_volume_configuration
+            # The YAML carries the volume structure
+            if efs_filesystem_id is not None:
+                for vol in task_def.get("volumes", []):
+                    efs_vol_cfg = vol.get("efs_volume_configuration")
+                    if efs_vol_cfg and "file_system_id" not in efs_vol_cfg:
+                        efs_vol_cfg["file_system_id"] = efs_filesystem_id
+
             # Build depends_on list
             depends_on = [*subnets]
             if container_sg:
@@ -552,6 +634,11 @@ def main():
                 depends_on.append(lb_sg.resources["sg"])
             if fargate_app_task_role:
                 depends_on.append(fargate_app_task_role)
+            # EFS mount targets must exist before tasks that mount them
+            if efs_mount_targets and service_name in efs_config.get(
+                "ingress_from_services", []
+            ):
+                depends_on.extend(efs_mount_targets)
 
             fargate_services[service_name] = (
                 tb_pulumi.fargate.FargateClusterWithLogging(
@@ -657,6 +744,129 @@ def main():
                     **cluster_config,
                 )
             )
+
+    # =========================================================================
+    # Amazon MQ - RabbitMQ (stage-only Celery broker)
+    # =========================================================================
+    # Dedicated stage broker replacing the production EC2 RabbitMQ that
+    # atn/stage/celery_broker previously pointed to (issue #375)
+    mq_config = resources.get("aws:mq:RabbitMQBroker", {})
+
+    if mq_config and private_subnets and vpc_resource:
+        mq_creds_secret_name = mq_config.get("credentials_secret_name")
+        mq_creds_raw = aws.secretsmanager.get_secret_version(
+            secret_id=mq_creds_secret_name,
+        )
+        mq_creds = json.loads(mq_creds_raw.secret_string)
+        mq_username = mq_creds["username"]
+        mq_password = pulumi.Output.secret(mq_creds["password"])
+
+        # SG for the broker: AMQPS (5671) from container SGs,
+        # management API (15671) from VPC CIDR for post-deploy bootstrap
+        mq_sg = aws.ec2.SecurityGroup(
+            f"{project.name_prefix}-mq-sg",
+            name=f"{project.name_prefix}-mq",
+            description="Amazon MQ RabbitMQ broker - AMQPS from Fargate containers",
+            vpc_id=vpc_resource.id,
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-mq",
+            },
+        )
+
+        mq_ingress_services = mq_config.get("ingress_from_services", ["web", "worker"])
+        for svc_name in mq_ingress_services:
+            cont_sg = container_sgs.get(svc_name)
+            if cont_sg:
+                aws.ec2.SecurityGroupRule(
+                    f"{project.name_prefix}-mq-amqps-from-{svc_name}",
+                    type="ingress",
+                    security_group_id=mq_sg.id,
+                    from_port=5671,
+                    to_port=5671,
+                    protocol="tcp",
+                    source_security_group_id=cont_sg.resources["sg"].id,
+                    description=f"AMQPS from {svc_name} containers",
+                )
+
+        aws.ec2.SecurityGroupRule(
+            f"{project.name_prefix}-mq-mgmt-from-vpc",
+            type="ingress",
+            security_group_id=mq_sg.id,
+            from_port=15671,
+            to_port=15671,
+            protocol="tcp",
+            cidr_blocks=[vpc_config.get("cidr_block", "10.100.0.0/16")],
+            description="RabbitMQ management API from VPC (post-deploy bootstrap)",
+        )
+
+        aws.ec2.SecurityGroupRule(
+            f"{project.name_prefix}-mq-egress",
+            type="egress",
+            security_group_id=mq_sg.id,
+            from_port=0,
+            to_port=0,
+            protocol="-1",
+            cidr_blocks=["0.0.0.0/0"],
+            description="Allow all outbound",
+        )
+
+        mq_broker = aws.mq.Broker(
+            f"{project.name_prefix}-mq-broker",
+            broker_name=mq_config.get("broker_name", f"{project.name_prefix}-rabbitmq"),
+            engine_type="RABBITMQ",
+            engine_version=mq_config.get("engine_version", "3.13"),
+            host_instance_type=mq_config.get("host_instance_type", "mq.t3.micro"),
+            deployment_mode=mq_config.get("deployment_mode", "SINGLE_INSTANCE"),
+            publicly_accessible=mq_config.get("publicly_accessible", False),
+            auto_minor_version_upgrade=mq_config.get(
+                "auto_minor_version_upgrade", True
+            ),
+            security_groups=[mq_sg.id],
+            subnet_ids=[private_subnets[0].id],
+            maintenance_window_start_time=aws.mq.BrokerMaintenanceWindowStartTimeArgs(
+                day_of_week=mq_config.get("maintenance_day", "SUNDAY"),
+                time_of_day=mq_config.get("maintenance_hour", "06:00"),
+                time_zone="UTC",
+            ),
+            users=[
+                aws.mq.BrokerUserArgs(
+                    username=mq_username,
+                    password=mq_password,
+                    console_access=True,
+                ),
+            ],
+            tags={
+                **project.common_tags,
+                "Name": mq_config.get("broker_name", f"{project.name_prefix}-rabbitmq"),
+            },
+            opts=pulumi.ResourceOptions(depends_on=[mq_sg]),
+        )
+
+        pulumi.export("mq_broker_id", mq_broker.id)
+        pulumi.export("mq_broker_arn", mq_broker.arn)
+        pulumi.export(
+            "mq_broker_amqps_endpoints",
+            mq_broker.instances.apply(
+                lambda instances: [
+                    ep
+                    for inst in (instances or [])
+                    for ep in (inst.endpoints or [])
+                    if "amqps" in ep
+                ]
+            ),
+        )
+        pulumi.export(
+            "mq_broker_console_url",
+            mq_broker.instances.apply(
+                lambda instances: [
+                    ep
+                    for inst in (instances or [])
+                    for ep in (inst.endpoints or [])
+                    if "https" in ep
+                ]
+            ),
+        )
 
     # =========================================================================
     # ECS Scheduled Tasks (Cron Jobs)
@@ -772,6 +982,13 @@ def main():
                             "manage",
                             "help",
                         ],  # Default; again overridden per schedule
+                        "mountPoints": [
+                            {
+                                "sourceVolume": "addons-efs",
+                                "containerPath": "/var/addons",
+                                "readOnly": False,
+                            }
+                        ],
                         "environment": [
                             {
                                 "name": "DJANGO_SETTINGS_MODULE",
@@ -803,7 +1020,20 @@ def main():
             execution_role_arn=cron_execution_role.arn,
             task_role_arn=cron_task_role.arn,
             container_definitions=cron_container_def,
+            volumes=[
+                aws.ecs.TaskDefinitionVolumeArgs(
+                    name="addons-efs",
+                    efs_volume_configuration=aws.ecs.TaskDefinitionVolumeEfsVolumeConfigurationArgs(
+                        file_system_id=efs_filesystem_id,
+                        root_directory="/",
+                        transit_encryption="ENABLED",
+                    ),
+                )
+            ],
             tags=project.common_tags,
+            opts=pulumi.ResourceOptions(
+                depends_on=efs_mount_targets if efs_mount_targets else None,
+            ),
         )
 
         # ---------------------------------------------------------------------

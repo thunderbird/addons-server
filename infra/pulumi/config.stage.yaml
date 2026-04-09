@@ -144,6 +144,26 @@ resources:
       - sg-5133b52c
 
   # =============================================================================
+  # EFS Mount Targets (addons shared storage)
+  # =============================================================================
+  # Mount targets for the existing addons EFS filesystem in the ATN VPC
+  # private subnets. Allows Fargate tasks to mount EFS directly without
+  # routing NFS through VPC peering (EFS multi-VPC mount targets,
+  # supported since Sep 2024)
+  #
+  # The filesystem already has mount targets in the default VPC for the
+  # legacy EC2 instances. These additional targets in the ATN VPC give
+  # Fargate tasks a local-VPC ENI for NFS, eliminating peering latency
+  #
+  # NFS SG: allows TCP 2049 inbound only from the listed container SGs.
+  # Versioncheck is excluded (matches existing Ansible config: efs: false)
+  aws:efs:MountTargets:
+    efs_filesystem_id_secret_name: atn/stage/efs_filesystem_id
+    ingress_from_services:
+      - web
+      - worker
+
+  # =============================================================================
   # Web Service - Fargate (intended to replace current web tier)
   # =============================================================================
   # uwsgi with 4 processes, 4 threads per process
@@ -179,6 +199,12 @@ resources:
         requires_compatibilities:
         - FARGATE
 
+        volumes:
+        - name: addons-efs
+          efs_volume_configuration:
+            root_directory: /
+            transit_encryption: ENABLED
+
         container_definitions:
           web:
             # ECR image URL - updated by CI/CD pipeline
@@ -190,6 +216,10 @@ resources:
             portMappings:
             - containerPort: 8000
               protocol: tcp
+            mountPoints:
+            - sourceVolume: addons-efs
+              containerPath: /var/addons
+              readOnly: false
             environment:
             - name: DJANGO_SETTINGS_MODULE
               value: settings_local_stage
@@ -225,6 +255,12 @@ resources:
         requires_compatibilities:
         - FARGATE
 
+        volumes:
+        - name: addons-efs
+          efs_volume_configuration:
+            root_directory: /
+            transit_encryption: ENABLED
+
         container_definitions:
           worker:
             image: 768512802988.dkr.ecr.us-west-2.amazonaws.com/atn-stage-addons-server:stage-latest
@@ -232,6 +268,10 @@ resources:
             # Uses docker-entrypoint.sh worker mode
             command:
             - worker
+            mountPoints:
+            - sourceVolume: addons-efs
+              containerPath: /var/addons
+              readOnly: false
             environment:
             - name: DJANGO_SETTINGS_MODULE
               value: settings_local_stage
@@ -355,6 +395,25 @@ resources:
       max_capacity: 4
       cooldown: 300
       suspend: true
+
+  # =============================================================================
+  # Amazon MQ - RabbitMQ (stage-only Celery broker)
+  # =============================================================================
+  # Dedicated stage broker replacing the production RabbitMQ EC2 instance
+  # that atn/stage/celery_broker previously pointed to (issue #375)
+  aws:mq:RabbitMQBroker:
+    broker_name: atn-stage-rabbitmq
+    engine_version: '3.13'
+    host_instance_type: mq.t3.micro
+    deployment_mode: SINGLE_INSTANCE
+    publicly_accessible: false
+    credentials_secret_name: atn/stage/mq_credentials
+    auto_minor_version_upgrade: true
+    maintenance_day: SUNDAY
+    maintenance_hour: '06:00'
+    ingress_from_services:
+      - web
+      - worker
 
   # =============================================================================
   # ElastiCache - Memcached (intended to replace current Memcached setup)
@@ -557,15 +616,20 @@ resources:
 #
 # Required secrets (path: atn/stage/):
 #   - mysql (JSON with host, port, username, password)
-#   - celery_broker (connection string)
+#   - mysql_ro (JSON with host, port, username, password -- RO user)
+#   - celery_broker (AMQP connection string, updated post-MQ-deploy)
+#   - celery_result_backend (Redis connection string)
 #   - django_secret_key
 #   - fxa (JSON with client_id, client_secret)
-#   - cache_host
-#   - email_url
+#   - cache_host (Memcached endpoint:port)
+#   - email_url (SMTP connection string)
 #   - recaptcha (JSON with public, private)
 #   - inbound_email (JSON with secret_key, validation_key)
-#
-# See docs/environment-variables.md for full reference
+#   - server_email (email address -- currently unused by settings)
+#   - efs_filesystem_id (EFS filesystem ID for mount targets)
+#   - mq_credentials (JSON with username and password for the Amazon MQ
+#     broker; password >= 12 chars, no commas/colons/equals; used by
+#     Pulumi at deploy time, not by the application directly)
 
 # =============================================================================
 # Notes for implementation:
@@ -573,4 +637,4 @@ resources:
 # 1. RDS MySQL - Not yet in tb_pulumi, may need custom component
 # 2. OpenSearch - Not yet in tb_pulumi, may need custom component
 # 3. EFS - For shared add-on file storage, needs custom component
-# 4. Amazon MQ (RabbitMQ) - Decision pending: keep EC2 or migrate to Amazon MQ
+# 4. Amazon MQ (RabbitMQ) - Provisioned as stage broker (issue #375)
