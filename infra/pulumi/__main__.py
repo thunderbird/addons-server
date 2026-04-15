@@ -164,15 +164,15 @@ def main():
         # Smoke test revealed that different services use different SGs:
         #
         # sg-d5539ea9 (amo-services-prod-tb):
-        #   Redis, Memcached, ES/OpenSearch
+        #   Redis, ES/OpenSearch
         # sg-5133b52c (default VPC SG):
-        #   RDS MySQL (and self-referencing for internal comms)
+        #   RDS MySQL, Memcached (ENI lookup confirmed cluster uses this SG)
         #
         # We add our VPC CIDR to both SGs for the relevant ports.
         # EFS was originally in this list but moved to a dedicated stage
         # filesystem with its own SG in the ECS VPC (see aws:efs:FileSystem).
 
-        # --- sg-d5539ea9: services SG (Redis, Memcached, ES) ---
+        # --- sg-d5539ea9: services SG (Redis, ES) ---
         default_vpc_ingress_cfg = resources.get("tb:network:DefaultVpcIngressRules", {})
         stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", "10.100.0.0/16")
 
@@ -182,7 +182,6 @@ def main():
         )
         services_sg_ports = {
             "redis": 6379,
-            "memcached": 11211,
             "elasticsearch": 9200,
             "elasticsearch-https": 443,  # Managed AWS ES speaks HTTPS
         }
@@ -200,18 +199,17 @@ def main():
                     opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
                 )
 
-        # --- sg-5133b52c: default VPC SG (RDS) ---
+        # --- sg-5133b52c: default VPC SG (RDS, Memcached) ---
         # Note: RabbitMQ (5672) was removed after the broker isolation
-        # incident (issue #375). The stage broker secret pointed elsewhere;
-        # the SG rule gave ECS tasks a clean path to it
-        # We should NOT re-add 5672 until a dedicated stage broker exists
-        # and the secret is verified to point to it via the preflight check
+        # incident (issue #375). The stage broker is now a dedicated
+        # Amazon MQ instance in the ECS VPC with its own SG
         default_sg_ids = default_vpc_ingress_cfg.get(
             "default_sg_ids",
             ["sg-5133b52c"],
         )
         default_sg_ports = {
             "mysql": 3306,
+            "memcached": 11211,
         }
         for sg_id in default_sg_ids:
             for svc_name, port in default_sg_ports.items():
@@ -833,7 +831,7 @@ def main():
         mq_broker = aws.mq.Broker(
             f"{project.name_prefix}-mq-broker",
             broker_name=mq_config.get("broker_name", f"{project.name_prefix}-rabbitmq"),
-            engine_type="RABBITMQ",
+            engine_type="RabbitMQ",  # AWS here returns mixed case; must match to avoid perpetual diff
             engine_version=mq_config.get("engine_version", "3.13"),
             host_instance_type=mq_config.get("host_instance_type", "mq.t3.micro"),
             deployment_mode=mq_config.get("deployment_mode", "SINGLE_INSTANCE"),
