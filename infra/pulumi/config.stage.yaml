@@ -638,6 +638,52 @@ resources:
 #   - efs_filesystem_id -- replaced by Pulumi-managed aws:efs:FileSystem
 #   - mq_admin_password -- replaced by mq_credentials (JSON)
 
+  # =============================================================================
+  # Monitoring and Alarms (prod-gating baseline)
+  # =============================================================================
+  # Phase 1: ALB, target group, ECS service, Amazon MQ, Redis alarms
+  # with a single CloudWatch dashboard for is-stage-healthy? triage
+  # Phase 2 (future): EFS, log metric filters, deployment instability,
+  # external/shared resources (RDS, Memcached, OpenSearch)
+  monitoring:
+    notify_emails_secret_name: atn/stage/monitoring_notify_emails
+    alarms:
+      alb:
+        error_threshold: 10
+        error_period: 60
+        response_time_threshold: 1
+        response_time_period: 60
+        evaluation_periods: 2
+      target_group:
+        unhealthy_threshold: 1
+        period: 60
+        evaluation_periods: 2
+      ecs:
+        cpu_threshold: 80
+        memory_threshold: 80
+        period: 300
+        evaluation_periods: 2
+      mq:
+        message_ready_threshold: 1000
+        consumer_alarm_enabled: false  # worker desired_count is intentionally 0 in current stage posture
+        consumer_count_threshold: 1
+        cpu_threshold: 80
+        memory_bytes_threshold: 512000000  # ~512 MB (mq.t3.micro has 1 GB)
+        period: 300
+        evaluation_periods: 2
+        queue_name: olympia
+        virtual_host: /
+      redis:
+        memory_pct_threshold: 80
+        eviction_threshold: 100
+        cpu_threshold: 80
+        host_cpu_threshold: 90  # cache.t3.small has 2 vCPUs; AWS recommends monitoring host CPUUtilization alongside EngineCPUUtilization on nodes with <= 2 vCPUs
+        connection_threshold: 500
+        period: 300
+        evaluation_periods: 2
+    dashboard:
+      period: 300
+
 # =============================================================================
 # Notes for implementation:
 # =============================================================================
