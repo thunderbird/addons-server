@@ -486,6 +486,37 @@ def main():
         )
         efs_filesystem_id = efs_filesystem.id
 
+        # Access point exposes a POSIX-aware view so the application (which
+        # runs as olympia UID/GID 9500 per Dockerfile.ecs) can write to the
+        # filesystem without root permission. The access point creates and
+        # owns the /addons subtree on first use; containers would still
+        # mount it at /var/addons via mountPoints. Without this a flipping
+        # NETAPP_STORAGE_ROOT to /var/addons would fail with EACCES because
+        # an empty EFS root directory is owned by root:root with 0755
+        # permissions
+        efs_access_point = aws.efs.AccessPoint(
+            f"{project.name_prefix}-efs-ap-addons",
+            file_system_id=efs_filesystem.id,
+            posix_user=aws.efs.AccessPointPosixUserArgs(
+                uid=9500,
+                gid=9500,
+            ),
+            root_directory=aws.efs.AccessPointRootDirectoryArgs(
+                path="/addons",
+                creation_info=aws.efs.AccessPointRootDirectoryCreationInfoArgs(
+                    owner_uid=9500,
+                    owner_gid=9500,
+                    permissions="0755",
+                ),
+            ),
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-efs-ap-addons",
+            },
+            opts=pulumi.ResourceOptions(depends_on=[efs_filesystem]),
+        )
+        efs_access_point_id = efs_access_point.id
+
         # NFS security group for mount target ENIs
         efs_sg = aws.ec2.SecurityGroup(
             f"{project.name_prefix}-efs-mt-sg",
@@ -528,6 +559,7 @@ def main():
             efs_mount_targets.append(mt)
 
         pulumi.export("efs_filesystem_id", efs_filesystem_id)
+        pulumi.export("efs_access_point_id", efs_access_point_id)
         pulumi.export("efs_mount_target_ids", [mt.id for mt in efs_mount_targets])
 
     # =========================================================================
@@ -635,13 +667,26 @@ def main():
             if fargate_app_task_role and "task_role_arn" not in task_def:
                 task_def["task_role_arn"] = fargate_app_task_role.arn
 
-            # Inject EFS filesystem ID into any volume configs that declare
-            # an efs_volume_configuration without a file_system_id
+            # Inject filesystem ID and access-point authorisation into the
+            # `addons-efs` volume's efs_volume_configuration. The two checks
+            # are independent so a future config that hard-codes file_system_id
+            # still picks up the access point. Scoped by volume name so an
+            # unrelated future EFS volume does not silently inherit the
+            # add-ons access point
             if efs_filesystem_id is not None:
                 for vol in task_def.get("volumes", []):
+                    if vol.get("name") != "addons-efs":
+                        continue
                     efs_vol_cfg = vol.get("efs_volume_configuration")
-                    if efs_vol_cfg and "file_system_id" not in efs_vol_cfg:
+                    if not efs_vol_cfg:
+                        continue
+                    if "file_system_id" not in efs_vol_cfg:
                         efs_vol_cfg["file_system_id"] = efs_filesystem_id
+                    if "authorization_config" not in efs_vol_cfg:
+                        efs_vol_cfg["authorization_config"] = {
+                            "access_point_id": efs_access_point_id,
+                            "iam": "DISABLED",
+                        }
 
             # Build depends_on list
             depends_on = [*subnets]
@@ -1044,6 +1089,13 @@ def main():
                         file_system_id=efs_filesystem_id,
                         root_directory="/",
                         transit_encryption="ENABLED",
+                        # Same access point as the service tasks so cron
+                        # writes arrive as olympia (9500:9500) into /addons,
+                        # not as root into the EFS root directory
+                        authorization_config=aws.ecs.TaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfigArgs(
+                            access_point_id=efs_access_point_id,
+                            iam="DISABLED",
+                        ),
                     ),
                 )
             ],
