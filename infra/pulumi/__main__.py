@@ -47,7 +47,12 @@ import tb_pulumi.network
 
 
 def _alb_requests_widget(o, svc_name, region, period, x, y):
-    suffix = o[f"{svc_name}_alb_suffix"]
+    # Target side metrics use LoadBalancer, TargetGroup to match the alarm
+    # dimensions; ALB side metrics keep LoadBalancer only because that is
+    # the dimension AWS publishes them under
+    lb = o[f"{svc_name}_alb_suffix"]
+    tg = o.get(f"{svc_name}_tg_suffix")
+    target_dims = ["LoadBalancer", lb] + (["TargetGroup", tg] if tg else [])
     return {
         "type": "metric",
         "x": x,
@@ -63,28 +68,26 @@ def _alb_requests_widget(o, svc_name, region, period, x, y):
                     "AWS/ApplicationELB",
                     "RequestCount",
                     "LoadBalancer",
-                    suffix,
+                    lb,
                     {"stat": "Sum"},
                 ],
                 [
                     "AWS/ApplicationELB",
                     "HTTPCode_ELB_5XX_Count",
                     "LoadBalancer",
-                    suffix,
+                    lb,
                     {"stat": "Sum"},
                 ],
                 [
                     "AWS/ApplicationELB",
                     "HTTPCode_Target_5XX_Count",
-                    "LoadBalancer",
-                    suffix,
+                    *target_dims,
                     {"stat": "Sum"},
                 ],
                 [
                     "AWS/ApplicationELB",
                     "TargetResponseTime",
-                    "LoadBalancer",
-                    suffix,
+                    *target_dims,
                     {"stat": "Average", "yAxis": "right"},
                 ],
             ],
@@ -130,14 +133,14 @@ def _ecs_resources_widget(o, svc_name, region, period, x, y, width=8):
     }
 
 
-def _mq_widgets(o, region, period, queue, vhost):
+def _mq_widgets(o, region, period, queue, vhost, y):
     broker = o["mq_broker_name"]
     queue_dims = ["Broker", broker, "VirtualHost", vhost, "Queue", queue]
     return [
         {
             "type": "metric",
             "x": 0,
-            "y": 12,
+            "y": y,
             "width": 12,
             "height": 6,
             "properties": {
@@ -170,7 +173,7 @@ def _mq_widgets(o, region, period, queue, vhost):
         {
             "type": "metric",
             "x": 12,
-            "y": 12,
+            "y": y,
             "width": 12,
             "height": 6,
             "properties": {
@@ -199,13 +202,13 @@ def _mq_widgets(o, region, period, queue, vhost):
     ]
 
 
-def _redis_widgets(o, region, period):
+def _redis_widgets(o, region, period, y):
     cluster_id = o["redis_cluster_id"]
     return [
         {
             "type": "metric",
             "x": 0,
-            "y": 18,
+            "y": y,
             "width": 12,
             "height": 6,
             "properties": {
@@ -234,7 +237,7 @@ def _redis_widgets(o, region, period):
         {
             "type": "metric",
             "x": 12,
-            "y": 18,
+            "y": y,
             "width": 12,
             "height": 6,
             "properties": {
@@ -270,26 +273,140 @@ def _redis_widgets(o, region, period):
     ]
 
 
+def _availability_widgets(o, region, period, mq_queue, mq_vhost, y):
+    # "Is it alive?" panels rendered at the top of the dashboard so positive
+    # availability reads first. Each sub-widget is conditional on the keys
+    # for its source being present in `o`
+    widgets = []
+
+    alb_metrics = []
+    for svc_name in ("web", "versioncheck"):
+        lb = o.get(f"{svc_name}_alb_suffix")
+        tg = o.get(f"{svc_name}_tg_suffix")
+        if lb and tg:
+            alb_metrics.append(
+                [
+                    "AWS/ApplicationELB",
+                    "HealthyHostCount",
+                    "TargetGroup",
+                    tg,
+                    "LoadBalancer",
+                    lb,
+                    {"stat": "Minimum", "label": f"{svc_name} healthy"},
+                ]
+            )
+    if alb_metrics:
+        widgets.append(
+            {
+                "type": "metric",
+                "x": 0,
+                "y": y,
+                "width": 8,
+                "height": 6,
+                "properties": {
+                    "title": "ALB - Healthy Hosts",
+                    "region": region,
+                    "period": period,
+                    "stat": "Minimum",
+                    "metrics": alb_metrics,
+                },
+            }
+        )
+
+    ecs_metrics = []
+    for svc_name in ("web", "worker", "versioncheck"):
+        cluster = o.get(f"{svc_name}_cluster")
+        service = o.get(f"{svc_name}_svc_name")
+        if cluster and service:
+            ecs_metrics.append(
+                [
+                    "ECS/ContainerInsights",
+                    "RunningTaskCount",
+                    "ClusterName",
+                    cluster,
+                    "ServiceName",
+                    service,
+                    {"stat": "Minimum", "label": f"{svc_name} running"},
+                ]
+            )
+    if ecs_metrics:
+        widgets.append(
+            {
+                "type": "metric",
+                "x": 8,
+                "y": y,
+                "width": 8,
+                "height": 6,
+                "properties": {
+                    "title": "ECS - Running Tasks",
+                    "region": region,
+                    "period": period,
+                    "stat": "Minimum",
+                    "metrics": ecs_metrics,
+                },
+            }
+        )
+
+    if "mq_broker_name" in o:
+        broker = o["mq_broker_name"]
+        widgets.append(
+            {
+                "type": "metric",
+                "x": 16,
+                "y": y,
+                "width": 8,
+                "height": 6,
+                "properties": {
+                    "title": f"MQ - Consumers on '{mq_queue}'",
+                    "region": region,
+                    "period": period,
+                    "stat": "Minimum",
+                    "metrics": [
+                        [
+                            "AWS/AmazonMQ",
+                            "ConsumerCount",
+                            "Broker",
+                            broker,
+                            "VirtualHost",
+                            mq_vhost,
+                            "Queue",
+                            mq_queue,
+                            {"stat": "Minimum"},
+                        ],
+                    ],
+                },
+            }
+        )
+
+    return widgets
+
+
 def _build_dashboard_body(o, region, period, mq_queue, mq_vhost):
     widgets = []
+    # Row 0: availability - is it alive?
+    widgets.extend(_availability_widgets(o, region, period, mq_queue, mq_vhost, y=0))
+    # Row 1: ALB requests/errors per service
     if "web_alb_suffix" in o:
-        widgets.append(_alb_requests_widget(o, "web", region, period, x=0, y=0))
+        widgets.append(_alb_requests_widget(o, "web", region, period, x=0, y=6))
     if "versioncheck_alb_suffix" in o:
         widgets.append(
-            _alb_requests_widget(o, "versioncheck", region, period, x=12, y=0)
+            _alb_requests_widget(o, "versioncheck", region, period, x=12, y=6)
         )
+    # Row 2: ECS CPU/memory per service
     if "web_cluster" in o and "web_svc_name" in o:
-        widgets.append(_ecs_resources_widget(o, "web", region, period, x=0, y=6))
+        widgets.append(_ecs_resources_widget(o, "web", region, period, x=0, y=12))
     if "worker_cluster" in o and "worker_svc_name" in o:
-        widgets.append(_ecs_resources_widget(o, "worker", region, period, x=8, y=6))
+        widgets.append(_ecs_resources_widget(o, "worker", region, period, x=8, y=12))
     if "versioncheck_cluster" in o and "versioncheck_svc_name" in o:
         widgets.append(
-            _ecs_resources_widget(o, "versioncheck", region, period, x=16, y=6)
+            _ecs_resources_widget(o, "versioncheck", region, period, x=16, y=12)
         )
+    # Row 3: Amazon MQ
     if "mq_broker_name" in o:
-        widgets.extend(_mq_widgets(o, region, period, mq_queue, mq_vhost))
+        widgets.extend(_mq_widgets(o, region, period, mq_queue, mq_vhost, y=18))
+    # Row 4: Redis
     if "redis_cluster_id" in o:
-        widgets.extend(_redis_widgets(o, region, period))
+        widgets.extend(_redis_widgets(o, region, period, y=24))
     return json.dumps({"widgets": widgets})
 
 
@@ -1144,7 +1261,7 @@ def main():
         )
 
     # =========================================================================
-    # Monitoring and Alarms (prod-gating baseline)
+    # Monitoring and Alarms (stage env-gating baseline)
     # =========================================================================
     # Phase 1 observability: SNS notification path, CloudWatch alarms for
     # ALB/TG/ECS/MQ/Redis, and one operational dashboard
@@ -1405,7 +1522,8 @@ def main():
         ecs_mem_threshold = ecs_cfg.get("memory_threshold", 80)
         ecs_period = ecs_cfg.get("period", 300)
         ecs_eval_periods = ecs_cfg.get("evaluation_periods", 2)
-        ecs_min_tasks = ecs_cfg.get("min_tasks", 1)
+        ecs_min_tasks_default = ecs_cfg.get("min_tasks", 1)
+        ecs_min_tasks_per_svc = ecs_cfg.get("min_tasks_per_service", {})
 
         for svc_name, fargate_svc in fargate_services.items():
             ecs_service = fargate_svc.resources.get("service")
@@ -1470,10 +1588,19 @@ def main():
                 opts=pulumi.ResourceOptions(depends_on=[alarm_topic, ecs_service]),
             )
 
-            # Container Insights publishes RunningTaskCount per service in the
-            # ECS/ContainerInsights namespace. Operators draining a service
-            # intentionally should override `min_tasks` per service in config
-            # or temporarily disable this alarm
+            # RunningTaskCount lives in the ECS/ContainerInsights namespace,
+            # which is only populated when Container Insights is enabled on
+            # the cluster. tb_pulumi.fargate enables it via the
+            # `enable_container_insights: true` flag in config.stage.yaml. If
+            # that ever flips to false, this alarm goes immediately to ALARM
+            # because of the breaching missing-data treatment below - that
+            # surfaces the misconfiguration loudly and not silently
+            # disabling availability monitoring
+            #
+            # Operators intentionally draining a service should override
+            # `min_tasks_per_service` in config (e.g., `worker: 0`) or
+            # temporarily disable this alarm
+            min_tasks = ecs_min_tasks_per_svc.get(svc_name, ecs_min_tasks_default)
             aws.cloudwatch.MetricAlarm(
                 f"{project.name_prefix}-{svc_name}-running-tasks",
                 name=f"{project.name_prefix}-{svc_name}-running-tasks",
@@ -1487,14 +1614,14 @@ def main():
                 metric_name="RunningTaskCount",
                 namespace="ECS/ContainerInsights",
                 statistic="Minimum",
-                threshold=ecs_min_tasks,
+                threshold=min_tasks,
                 period=ecs_period,
                 evaluation_periods=ecs_eval_periods,
                 # Container Insights stops emitting when a service is fully
                 # drained; that is exactly the failure we want to catch
                 treat_missing_data="breaching",
                 alarm_description=(
-                    f"Running task count below {ecs_min_tasks} on {svc_name}. "
+                    f"Running task count below {min_tasks} on {svc_name}. "
                     "Check: deployment status, service events for stop "
                     "reasons, scheduled actions, task health"
                 ),
@@ -1646,13 +1773,14 @@ def main():
             redis_eval_periods = redis_cfg.get("evaluation_periods", 2)
 
             replication_group = redis_cluster.resources["replication_group"]
-            # ElastiCache publishes per-node metrics under the cache cluster ID,
-            # which for a single-node replication group is `<rg-id>-001`. Verify
-            # at first deploy by reading one CloudWatch datapoint for the
-            # alarms below; if the dimension value does not match an emitted
-            # series, switch to `replication_group.member_clusters[0]` (a list
-            # output that holds the actual cache cluster IDs)
-            cache_cluster_id = replication_group.id.apply(lambda rg_id: f"{rg_id}-001")
+            # ElastiCache publishes per-node metrics under the cache cluster ID.
+            # Use the provider's actual member_clusters output rather than
+            # reconstructing the AWS naming convention (`<rg-id>-001`); for our
+            # single-node replication group this resolves to the same value but
+            # is robust against multi-node setups and AWS naming changes
+            cache_cluster_id = replication_group.member_clusters.apply(
+                lambda clusters: clusters[0]
+            )
 
             aws.cloudwatch.MetricAlarm(
                 f"{project.name_prefix}-redis-memory",
@@ -1794,8 +1922,11 @@ def main():
                 svc_alb = fargate_svc.resources.get("fargate_service_alb")
                 if svc_alb:
                     alb = svc_alb.resources["albs"].get(svc_name)
+                    tg = svc_alb.resources["target_groups"].get(svc_name)
                     if alb:
                         dashboard_outputs[f"{svc_name}_alb_suffix"] = alb.arn_suffix
+                    if tg:
+                        dashboard_outputs[f"{svc_name}_tg_suffix"] = tg.arn_suffix
                 svc_res = fargate_svc.resources.get("service")
                 cluster_res = fargate_svc.resources.get("cluster")
                 if svc_res:
@@ -1824,7 +1955,7 @@ def main():
         if redis_cluster:
             dashboard_outputs["redis_cluster_id"] = redis_cluster.resources[
                 "replication_group"
-            ].id.apply(lambda rg_id: f"{rg_id}-001")
+            ].member_clusters.apply(lambda clusters: clusters[0])
 
         mq_queue = alarm_cfg.get("mq", {}).get("queue_name", "olympia")
         mq_vhost_dash = alarm_cfg.get("mq", {}).get("virtual_host", "/")
