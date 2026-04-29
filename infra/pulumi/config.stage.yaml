@@ -144,21 +144,25 @@ resources:
       - sg-5133b52c
 
   # =============================================================================
-  # EFS Mount Targets (addons shared storage)
+  # EFS Filesystem (dedicated stage storage)
   # =============================================================================
-  # Mount targets for the existing addons EFS filesystem in the ATN VPC
-  # private subnets. Allows Fargate tasks to mount EFS directly without
-  # routing NFS through VPC peering (EFS multi-VPC mount targets,
-  # supported since Sep 2024)
+  # Dedicated stage filesystem in the ECS VPC. Replaces the original plan
+  # to mount the shared filesystem, which would fail because AWS EFS restricts
+  # mount targets to a single VPC per filesystem
   #
-  # The filesystem already has mount targets in the default VPC for the
-  # legacy EC2 instances. These additional targets in the ATN VPC give
-  # Fargate tasks a local-VPC ENI for NFS, eliminating peering latency
+  # This follows the isolation model for stage to get dedicated resources
+  # (broker, Redis, cache, and now storage) rather than sharing infrastructure
+  # Non-stage add-on data can be synced on demand via one-way without coupling
+  # the storage layers
   #
-  # NFS SG: allows TCP 2049 inbound only from the listed container SGs.
+  # NFS SG: allows inbound only from the listed container SGs.
   # Versioncheck is excluded (matches existing Ansible config: efs: false)
-  aws:efs:MountTargets:
-    efs_filesystem_id_secret_name: atn/stage/efs_filesystem_id
+  aws:efs:FileSystem:
+    encrypted: true
+    performance_mode: generalPurpose
+    throughput_mode: bursting
+    lifecycle_policies:
+      - transition_to_ia: AFTER_30_DAYS
     ingress_from_services:
       - web
       - worker
@@ -626,15 +630,18 @@ resources:
 #   - recaptcha (JSON with public, private)
 #   - inbound_email (JSON with secret_key, validation_key)
 #   - server_email (email address -- currently unused by settings)
-#   - efs_filesystem_id (EFS filesystem ID for mount targets)
 #   - mq_credentials (JSON with username and password for the Amazon MQ
 #     broker; password >= 12 chars, no commas/colons/equals; used by
 #     Pulumi at deploy time, not by the application directly)
+#
+# Superseded secrets (housekeeping deletion candidates):
+#   - efs_filesystem_id -- replaced by Pulumi-managed aws:efs:FileSystem
+#   - mq_admin_password -- replaced by mq_credentials (JSON)
 
 # =============================================================================
 # Notes for implementation:
 # =============================================================================
 # 1. RDS MySQL - Not yet in tb_pulumi, may need custom component
 # 2. OpenSearch - Not yet in tb_pulumi, may need custom component
-# 3. EFS - For shared add-on file storage, needs custom component
+# 3. EFS - Dedicated filesystem (custom, not in tb_pulumi)
 # 4. Amazon MQ (RabbitMQ) - Provisioned as stage broker (issue #375)

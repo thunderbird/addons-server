@@ -9,12 +9,18 @@ Architecture:
     - VPC with public/private subnets
     - ECR repository for container images
     - Fargate services: web, worker, versioncheck
-    - ElastiCache Redis for Celery
-    - (Future) RDS MySQL, OpenSearch, EFS
+    - ElastiCache Redis for Celery result backend
+    - Amazon MQ RabbitMQ for Celery broker
+    - EFS for add-on storage (dedicated)
+    - (Future) RDS MySQL, OpenSearch
 
 Usage:
     pulumi preview  # See planned changes
     pulumi up       # Apply changes
+
+    The AWS region is pinned in Pulumi.stage.yaml (required by
+    pulumi-aws 6.65.0 to avoid a provider diff bug, pulumi/pulumi-aws#5652).
+    Ensure the correct stack is selected before running commands.
 
 Configuration is defined in config.{stack}.yaml files
 """
@@ -158,13 +164,15 @@ def main():
         # Smoke test revealed that different services use different SGs:
         #
         # sg-d5539ea9 (amo-services-prod-tb):
-        #   Redis, Memcached, ES/OpenSearch, EFS
+        #   Redis, ES/OpenSearch
         # sg-5133b52c (default VPC SG):
-        #   RDS MySQL (and self-referencing for internal comms)
+        #   RDS MySQL, Memcached (ENI lookup confirmed cluster uses this SG)
         #
-        # We add our VPC CIDR to both SGs for the relevant ports
+        # We add our VPC CIDR to both SGs for the relevant ports.
+        # EFS was originally in this list but moved to a dedicated stage
+        # filesystem with its own SG in the ECS VPC (see aws:efs:FileSystem).
 
-        # --- sg-d5539ea9: services SG (Redis, Memcached, ES, EFS) ---
+        # --- sg-d5539ea9: services SG (Redis, ES) ---
         default_vpc_ingress_cfg = resources.get("tb:network:DefaultVpcIngressRules", {})
         stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", "10.100.0.0/16")
 
@@ -174,10 +182,8 @@ def main():
         )
         services_sg_ports = {
             "redis": 6379,
-            "memcached": 11211,
             "elasticsearch": 9200,
             "elasticsearch-https": 443,  # Managed AWS ES speaks HTTPS
-            "efs": 2049,
         }
         for sg_id in services_sg_ids:
             for svc_name, port in services_sg_ports.items():
@@ -193,18 +199,17 @@ def main():
                     opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
                 )
 
-        # --- sg-5133b52c: default VPC SG (RDS) ---
+        # --- sg-5133b52c: default VPC SG (RDS, Memcached) ---
         # Note: RabbitMQ (5672) was removed after the broker isolation
-        # incident (issue #375). The stage broker secret pointed elsewhere;
-        # the SG rule gave ECS tasks a clean path to it
-        # We should NOT re-add 5672 until a dedicated stage broker exists
-        # and the secret is verified to point to it via the preflight check
+        # incident (issue #375). The stage broker is now a dedicated
+        # Amazon MQ instance in the ECS VPC with its own SG
         default_sg_ids = default_vpc_ingress_cfg.get(
             "default_sg_ids",
             ["sg-5133b52c"],
         )
         default_sg_ports = {
             "mysql": 3306,
+            "memcached": 11211,
         }
         for sg_id in default_sg_ids:
             for svc_name, port in default_sg_ports.items():
@@ -444,30 +449,73 @@ def main():
         )
 
     # =========================================================================
-    # EFS Mount Targets (addons shared storage)
+    # EFS Filesystem (dedicated stage storage)
     # =========================================================================
-    # The addons EFS filesystem hosts add-on files, uploads, and media
-    # (legacy NFS share from the EC2 era). Mount targets in the ATN VPC
-    # private subnets give Fargate tasks a local-VPC ENI for NFS so they
-    # don't need to route through VPC peering for every file I/O
+    # Dedicated stage filesystem, replacing the original plan to mount the
+    # shared filesystem. AWS EFS restricts mount targets to a single VPC
+    # per filesystem, so sharing fs-55e85afc with Fargate tasks (ECS VPC)
+    # is actually not possible.
     #
-    # The filesystem retains its existing mount targets in the default VPC
-    # for the EC2 fleet; multi-VPC mount targets (Sep 2024) allow both
-    # fleets to coexist during migration
+    # This follows the isolation model from issue #375: stage gets dedicated
+    # resources rather than sharing infrastructure. Non-stage data is in fact
+    # available on demand via AWS DataSync (one-way, prod -> stage)
     #
     # NFS SG: allows TCP 2049 inbound only from the container SGs that
     # actually need filesystem access (web + worker; versioncheck excluded
     # per existing Ansible config efs: false)
-    efs_config = resources.get("aws:efs:MountTargets", {})
+    efs_config = resources.get("aws:efs:FileSystem", {})
     efs_mount_targets = []
     efs_filesystem_id = None
 
     if efs_config and private_subnets and vpc_resource:
-        efs_secret_name = efs_config["efs_filesystem_id_secret_name"]
-        efs_secret = aws.secretsmanager.get_secret_version(
-            secret_id=efs_secret_name,
+        efs_filesystem = aws.efs.FileSystem(
+            f"{project.name_prefix}-efs",
+            encrypted=efs_config.get("encrypted", True),
+            performance_mode=efs_config.get("performance_mode", "generalPurpose"),
+            throughput_mode=efs_config.get("throughput_mode", "bursting"),
+            lifecycle_policies=[
+                aws.efs.FileSystemLifecyclePolicyArgs(
+                    transition_to_ia=lp["transition_to_ia"],
+                )
+                for lp in efs_config.get("lifecycle_policies", [])
+            ],
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-efs",
+            },
         )
-        efs_filesystem_id = pulumi.Output.secret(efs_secret.secret_string)
+        efs_filesystem_id = efs_filesystem.id
+
+        # Access point exposes a POSIX-aware view so the application (which
+        # runs as olympia UID/GID 9500 per Dockerfile.ecs) can write to the
+        # filesystem without root permission. The access point creates and
+        # owns the /addons subtree on first use; containers would still
+        # mount it at /var/addons via mountPoints. Without this a flipping
+        # NETAPP_STORAGE_ROOT to /var/addons would fail with EACCES because
+        # an empty EFS root directory is owned by root:root with 0755
+        # permissions
+        efs_access_point = aws.efs.AccessPoint(
+            f"{project.name_prefix}-efs-ap-addons",
+            file_system_id=efs_filesystem.id,
+            posix_user=aws.efs.AccessPointPosixUserArgs(
+                uid=9500,
+                gid=9500,
+            ),
+            root_directory=aws.efs.AccessPointRootDirectoryArgs(
+                path="/addons",
+                creation_info=aws.efs.AccessPointRootDirectoryCreationInfoArgs(
+                    owner_uid=9500,
+                    owner_gid=9500,
+                    permissions="0755",
+                ),
+            ),
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-efs-ap-addons",
+            },
+            opts=pulumi.ResourceOptions(depends_on=[efs_filesystem]),
+        )
+        efs_access_point_id = efs_access_point.id
 
         # NFS security group for mount target ENIs
         efs_sg = aws.ec2.SecurityGroup(
@@ -510,6 +558,8 @@ def main():
             )
             efs_mount_targets.append(mt)
 
+        pulumi.export("efs_filesystem_id", efs_filesystem_id)
+        pulumi.export("efs_access_point_id", efs_access_point_id)
         pulumi.export("efs_mount_target_ids", [mt.id for mt in efs_mount_targets])
 
     # =========================================================================
@@ -617,14 +667,26 @@ def main():
             if fargate_app_task_role and "task_role_arn" not in task_def:
                 task_def["task_role_arn"] = fargate_app_task_role.arn
 
-            # Inject EFS filesystem ID from Secrets Manager into any
-            # volume configs that declare an efs_volume_configuration
-            # The YAML carries the volume structure
+            # Inject filesystem ID and access-point authorisation into the
+            # `addons-efs` volume's efs_volume_configuration. The two checks
+            # are independent so a future config that hard-codes file_system_id
+            # still picks up the access point. Scoped by volume name so an
+            # unrelated future EFS volume does not silently inherit the
+            # add-ons access point
             if efs_filesystem_id is not None:
                 for vol in task_def.get("volumes", []):
+                    if vol.get("name") != "addons-efs":
+                        continue
                     efs_vol_cfg = vol.get("efs_volume_configuration")
-                    if efs_vol_cfg and "file_system_id" not in efs_vol_cfg:
+                    if not efs_vol_cfg:
+                        continue
+                    if "file_system_id" not in efs_vol_cfg:
                         efs_vol_cfg["file_system_id"] = efs_filesystem_id
+                    if "authorization_config" not in efs_vol_cfg:
+                        efs_vol_cfg["authorization_config"] = {
+                            "access_point_id": efs_access_point_id,
+                            "iam": "DISABLED",
+                        }
 
             # Build depends_on list
             depends_on = [*subnets]
@@ -814,7 +876,7 @@ def main():
         mq_broker = aws.mq.Broker(
             f"{project.name_prefix}-mq-broker",
             broker_name=mq_config.get("broker_name", f"{project.name_prefix}-rabbitmq"),
-            engine_type="RABBITMQ",
+            engine_type="RabbitMQ",  # AWS here returns mixed case; must match to avoid perpetual diff
             engine_version=mq_config.get("engine_version", "3.13"),
             host_instance_type=mq_config.get("host_instance_type", "mq.t3.micro"),
             deployment_mode=mq_config.get("deployment_mode", "SINGLE_INSTANCE"),
@@ -1027,6 +1089,13 @@ def main():
                         file_system_id=efs_filesystem_id,
                         root_directory="/",
                         transit_encryption="ENABLED",
+                        # Same access point as the service tasks so cron
+                        # writes arrive as olympia (9500:9500) into /addons,
+                        # not as root into the EFS root directory
+                        authorization_config=aws.ecs.TaskDefinitionVolumeEfsVolumeConfigurationAuthorizationConfigArgs(
+                            access_point_id=efs_access_point_id,
+                            iam="DISABLED",
+                        ),
                     ),
                 )
             ],
