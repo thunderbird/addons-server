@@ -36,6 +36,263 @@ import tb_pulumi.fargate
 import tb_pulumi.network
 
 
+# ---------------------------------------------------------------------------
+# CloudWatch dashboard widget builders
+#
+# Each builder takes the resolved-output dict `o` (string values produced by
+# pulumi.Output.all().apply) plus pure-Python layout config, and returns the
+# CloudWatch dashboard widget shape as a dict (or list of dicts)
+# They have no Pulumi deps and can be unit tested in isolation
+# ---------------------------------------------------------------------------
+
+
+def _alb_requests_widget(o, svc_name, region, period, x, y):
+    suffix = o[f"{svc_name}_alb_suffix"]
+    return {
+        "type": "metric",
+        "x": x,
+        "y": y,
+        "width": 12,
+        "height": 6,
+        "properties": {
+            "title": f"{svc_name.capitalize()} ALB - Requests and Errors",
+            "region": region,
+            "period": period,
+            "metrics": [
+                [
+                    "AWS/ApplicationELB",
+                    "RequestCount",
+                    "LoadBalancer",
+                    suffix,
+                    {"stat": "Sum"},
+                ],
+                [
+                    "AWS/ApplicationELB",
+                    "HTTPCode_ELB_5XX_Count",
+                    "LoadBalancer",
+                    suffix,
+                    {"stat": "Sum"},
+                ],
+                [
+                    "AWS/ApplicationELB",
+                    "HTTPCode_Target_5XX_Count",
+                    "LoadBalancer",
+                    suffix,
+                    {"stat": "Sum"},
+                ],
+                [
+                    "AWS/ApplicationELB",
+                    "TargetResponseTime",
+                    "LoadBalancer",
+                    suffix,
+                    {"stat": "Average", "yAxis": "right"},
+                ],
+            ],
+            "yAxis": {"right": {"label": "Seconds", "showUnits": False}},
+        },
+    }
+
+
+def _ecs_resources_widget(o, svc_name, region, period, x, y, width=8):
+    cluster = o[f"{svc_name}_cluster"]
+    service = o[f"{svc_name}_svc_name"]
+    return {
+        "type": "metric",
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": 6,
+        "properties": {
+            "title": f"{svc_name.capitalize()} ECS - CPU and Memory",
+            "region": region,
+            "period": period,
+            "metrics": [
+                [
+                    "AWS/ECS",
+                    "CPUUtilization",
+                    "ClusterName",
+                    cluster,
+                    "ServiceName",
+                    service,
+                    {"stat": "Average"},
+                ],
+                [
+                    "AWS/ECS",
+                    "MemoryUtilization",
+                    "ClusterName",
+                    cluster,
+                    "ServiceName",
+                    service,
+                    {"stat": "Average"},
+                ],
+            ],
+        },
+    }
+
+
+def _mq_widgets(o, region, period, queue, vhost):
+    broker = o["mq_broker_name"]
+    queue_dims = ["Broker", broker, "VirtualHost", vhost, "Queue", queue]
+    return [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 12,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Amazon MQ - Queue Health",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/AmazonMQ",
+                        "MessageReadyCount",
+                        *queue_dims,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/AmazonMQ",
+                        "MessageUnacknowledgedCount",
+                        *queue_dims,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/AmazonMQ",
+                        "ConsumerCount",
+                        *queue_dims,
+                        {"stat": "Minimum", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Consumers", "showUnits": False}},
+            },
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 12,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Amazon MQ - Broker Resources",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/AmazonMQ",
+                        "SystemCpuUtilization",
+                        "Broker",
+                        broker,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/AmazonMQ",
+                        "RabbitMQMemUsed",
+                        "Broker",
+                        broker,
+                        {"stat": "Average", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Bytes", "showUnits": False}},
+            },
+        },
+    ]
+
+
+def _redis_widgets(o, region, period):
+    cluster_id = o["redis_cluster_id"]
+    return [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 18,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Redis - Memory and Evictions",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/ElastiCache",
+                        "DatabaseMemoryUsagePercentage",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/ElastiCache",
+                        "Evictions",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Sum", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Count", "showUnits": False}},
+            },
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 18,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Redis - CPU and Connections",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/ElastiCache",
+                        "EngineCPUUtilization",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/ElastiCache",
+                        "CPUUtilization",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/ElastiCache",
+                        "CurrConnections",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Connections", "showUnits": False}},
+            },
+        },
+    ]
+
+
+def _build_dashboard_body(o, region, period, mq_queue, mq_vhost):
+    widgets = []
+    if "web_alb_suffix" in o:
+        widgets.append(_alb_requests_widget(o, "web", region, period, x=0, y=0))
+    if "versioncheck_alb_suffix" in o:
+        widgets.append(
+            _alb_requests_widget(o, "versioncheck", region, period, x=12, y=0)
+        )
+    if "web_cluster" in o and "web_svc_name" in o:
+        widgets.append(_ecs_resources_widget(o, "web", region, period, x=0, y=6))
+    if "worker_cluster" in o and "worker_svc_name" in o:
+        widgets.append(_ecs_resources_widget(o, "worker", region, period, x=8, y=6))
+    if "versioncheck_cluster" in o and "versioncheck_svc_name" in o:
+        widgets.append(
+            _ecs_resources_widget(o, "versioncheck", region, period, x=16, y=6)
+        )
+    if "mq_broker_name" in o:
+        widgets.extend(_mq_widgets(o, region, period, mq_queue, mq_vhost))
+    if "redis_cluster_id" in o:
+        widgets.extend(_redis_widgets(o, region, period))
+    return json.dumps({"widgets": widgets})
+
+
 def main():
     # Create a ThunderbirdPulumiProject to aggregate resources
     # This loads config.{stack}.yaml automatically
@@ -1575,423 +1832,8 @@ def main():
 
         if dashboard_outputs:
             dashboard_body = pulumi.Output.all(**dashboard_outputs).apply(
-                lambda o: json.dumps(
-                    {
-                        "widgets": [
-                            *(
-                                [
-                                    {
-                                        "type": "metric",
-                                        "x": 0,
-                                        "y": 0,
-                                        "width": 12,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Web ALB - Requests and Errors",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "RequestCount",
-                                                    "LoadBalancer",
-                                                    o["web_alb_suffix"],
-                                                    {"stat": "Sum"},
-                                                ],
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "HTTPCode_ELB_5XX_Count",
-                                                    "LoadBalancer",
-                                                    o["web_alb_suffix"],
-                                                    {"stat": "Sum"},
-                                                ],
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "HTTPCode_Target_5XX_Count",
-                                                    "LoadBalancer",
-                                                    o["web_alb_suffix"],
-                                                    {"stat": "Sum"},
-                                                ],
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "TargetResponseTime",
-                                                    "LoadBalancer",
-                                                    o["web_alb_suffix"],
-                                                    {
-                                                        "stat": "Average",
-                                                        "yAxis": "right",
-                                                    },
-                                                ],
-                                            ],
-                                            "yAxis": {
-                                                "right": {
-                                                    "label": "Seconds",
-                                                    "showUnits": False,
-                                                }
-                                            },
-                                        },
-                                    }
-                                ]
-                                if "web_alb_suffix" in o
-                                else []
-                            ),
-                            *(
-                                [
-                                    {
-                                        "type": "metric",
-                                        "x": 12,
-                                        "y": 0,
-                                        "width": 12,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Versioncheck ALB - Requests and Errors",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "RequestCount",
-                                                    "LoadBalancer",
-                                                    o["versioncheck_alb_suffix"],
-                                                    {"stat": "Sum"},
-                                                ],
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "HTTPCode_ELB_5XX_Count",
-                                                    "LoadBalancer",
-                                                    o["versioncheck_alb_suffix"],
-                                                    {"stat": "Sum"},
-                                                ],
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "HTTPCode_Target_5XX_Count",
-                                                    "LoadBalancer",
-                                                    o["versioncheck_alb_suffix"],
-                                                    {"stat": "Sum"},
-                                                ],
-                                                [
-                                                    "AWS/ApplicationELB",
-                                                    "TargetResponseTime",
-                                                    "LoadBalancer",
-                                                    o["versioncheck_alb_suffix"],
-                                                    {
-                                                        "stat": "Average",
-                                                        "yAxis": "right",
-                                                    },
-                                                ],
-                                            ],
-                                            "yAxis": {
-                                                "right": {
-                                                    "label": "Seconds",
-                                                    "showUnits": False,
-                                                }
-                                            },
-                                        },
-                                    }
-                                ]
-                                if "versioncheck_alb_suffix" in o
-                                else []
-                            ),
-                            *(
-                                [
-                                    {
-                                        "type": "metric",
-                                        "x": 0,
-                                        "y": 6,
-                                        "width": 8,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Web ECS - CPU and Memory",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/ECS",
-                                                    "CPUUtilization",
-                                                    "ClusterName",
-                                                    o["web_cluster"],
-                                                    "ServiceName",
-                                                    o["web_svc_name"],
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/ECS",
-                                                    "MemoryUtilization",
-                                                    "ClusterName",
-                                                    o["web_cluster"],
-                                                    "ServiceName",
-                                                    o["web_svc_name"],
-                                                    {"stat": "Average"},
-                                                ],
-                                            ],
-                                        },
-                                    }
-                                ]
-                                if "web_cluster" in o and "web_svc_name" in o
-                                else []
-                            ),
-                            *(
-                                [
-                                    {
-                                        "type": "metric",
-                                        "x": 8,
-                                        "y": 6,
-                                        "width": 8,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Worker ECS - CPU and Memory",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/ECS",
-                                                    "CPUUtilization",
-                                                    "ClusterName",
-                                                    o["worker_cluster"],
-                                                    "ServiceName",
-                                                    o["worker_svc_name"],
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/ECS",
-                                                    "MemoryUtilization",
-                                                    "ClusterName",
-                                                    o["worker_cluster"],
-                                                    "ServiceName",
-                                                    o["worker_svc_name"],
-                                                    {"stat": "Average"},
-                                                ],
-                                            ],
-                                        },
-                                    }
-                                ]
-                                if "worker_cluster" in o and "worker_svc_name" in o
-                                else []
-                            ),
-                            *(
-                                [
-                                    {
-                                        "type": "metric",
-                                        "x": 16,
-                                        "y": 6,
-                                        "width": 8,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Versioncheck ECS - CPU and Memory",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/ECS",
-                                                    "CPUUtilization",
-                                                    "ClusterName",
-                                                    o["versioncheck_cluster"],
-                                                    "ServiceName",
-                                                    o["versioncheck_svc_name"],
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/ECS",
-                                                    "MemoryUtilization",
-                                                    "ClusterName",
-                                                    o["versioncheck_cluster"],
-                                                    "ServiceName",
-                                                    o["versioncheck_svc_name"],
-                                                    {"stat": "Average"},
-                                                ],
-                                            ],
-                                        },
-                                    }
-                                ]
-                                if "versioncheck_cluster" in o
-                                and "versioncheck_svc_name" in o
-                                else []
-                            ),
-                            *(
-                                [
-                                    {
-                                        "type": "metric",
-                                        "x": 0,
-                                        "y": 12,
-                                        "width": 12,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Amazon MQ - Queue Health",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/AmazonMQ",
-                                                    "MessageReadyCount",
-                                                    "Broker",
-                                                    o["mq_broker_name"],
-                                                    "VirtualHost",
-                                                    mq_vhost_dash,
-                                                    "Queue",
-                                                    mq_queue,
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/AmazonMQ",
-                                                    "MessageUnacknowledgedCount",
-                                                    "Broker",
-                                                    o["mq_broker_name"],
-                                                    "VirtualHost",
-                                                    mq_vhost_dash,
-                                                    "Queue",
-                                                    mq_queue,
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/AmazonMQ",
-                                                    "ConsumerCount",
-                                                    "Broker",
-                                                    o["mq_broker_name"],
-                                                    "VirtualHost",
-                                                    mq_vhost_dash,
-                                                    "Queue",
-                                                    mq_queue,
-                                                    {
-                                                        "stat": "Minimum",
-                                                        "yAxis": "right",
-                                                    },
-                                                ],
-                                            ],
-                                            "yAxis": {
-                                                "right": {
-                                                    "label": "Consumers",
-                                                    "showUnits": False,
-                                                }
-                                            },
-                                        },
-                                    },
-                                    {
-                                        "type": "metric",
-                                        "x": 12,
-                                        "y": 12,
-                                        "width": 12,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Amazon MQ - Broker Resources",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/AmazonMQ",
-                                                    "SystemCpuUtilization",
-                                                    "Broker",
-                                                    o["mq_broker_name"],
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/AmazonMQ",
-                                                    "RabbitMQMemUsed",
-                                                    "Broker",
-                                                    o["mq_broker_name"],
-                                                    {
-                                                        "stat": "Average",
-                                                        "yAxis": "right",
-                                                    },
-                                                ],
-                                            ],
-                                            "yAxis": {
-                                                "right": {
-                                                    "label": "Bytes",
-                                                    "showUnits": False,
-                                                }
-                                            },
-                                        },
-                                    },
-                                ]
-                                if "mq_broker_name" in o
-                                else []
-                            ),
-                            *(
-                                [
-                                    {
-                                        "type": "metric",
-                                        "x": 0,
-                                        "y": 18,
-                                        "width": 12,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Redis - Memory and Evictions",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/ElastiCache",
-                                                    "DatabaseMemoryUsagePercentage",
-                                                    "CacheClusterId",
-                                                    o["redis_cluster_id"],
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/ElastiCache",
-                                                    "Evictions",
-                                                    "CacheClusterId",
-                                                    o["redis_cluster_id"],
-                                                    {"stat": "Sum", "yAxis": "right"},
-                                                ],
-                                            ],
-                                            "yAxis": {
-                                                "right": {
-                                                    "label": "Count",
-                                                    "showUnits": False,
-                                                }
-                                            },
-                                        },
-                                    },
-                                    {
-                                        "type": "metric",
-                                        "x": 12,
-                                        "y": 18,
-                                        "width": 12,
-                                        "height": 6,
-                                        "properties": {
-                                            "title": "Redis - CPU and Connections",
-                                            "region": region,
-                                            "period": dash_period,
-                                            "metrics": [
-                                                [
-                                                    "AWS/ElastiCache",
-                                                    "EngineCPUUtilization",
-                                                    "CacheClusterId",
-                                                    o["redis_cluster_id"],
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/ElastiCache",
-                                                    "CPUUtilization",
-                                                    "CacheClusterId",
-                                                    o["redis_cluster_id"],
-                                                    {"stat": "Average"},
-                                                ],
-                                                [
-                                                    "AWS/ElastiCache",
-                                                    "CurrConnections",
-                                                    "CacheClusterId",
-                                                    o["redis_cluster_id"],
-                                                    {
-                                                        "stat": "Average",
-                                                        "yAxis": "right",
-                                                    },
-                                                ],
-                                            ],
-                                            "yAxis": {
-                                                "right": {
-                                                    "label": "Connections",
-                                                    "showUnits": False,
-                                                }
-                                            },
-                                        },
-                                    },
-                                ]
-                                if "redis_cluster_id" in o
-                                else []
-                            ),
-                        ],
-                    }
+                lambda o: _build_dashboard_body(
+                    o, region, dash_period, mq_queue, mq_vhost_dash
                 )
             )
 
