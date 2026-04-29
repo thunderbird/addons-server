@@ -36,6 +36,380 @@ import tb_pulumi.fargate
 import tb_pulumi.network
 
 
+# ---------------------------------------------------------------------------
+# CloudWatch dashboard widget builders
+#
+# Each builder takes the resolved-output dict `o` (string values produced by
+# pulumi.Output.all().apply) plus pure-Python layout config, and returns the
+# CloudWatch dashboard widget shape as a dict (or list of dicts)
+# They have no Pulumi deps and can be unit tested in isolation
+# ---------------------------------------------------------------------------
+
+
+def _alb_requests_widget(o, svc_name, region, period, x, y):
+    # Target side metrics use LoadBalancer, TargetGroup to match the alarm
+    # dimensions; ALB side metrics keep LoadBalancer only because that is
+    # the dimension AWS publishes them under
+    lb = o[f"{svc_name}_alb_suffix"]
+    tg = o.get(f"{svc_name}_tg_suffix")
+    target_dims = ["LoadBalancer", lb] + (["TargetGroup", tg] if tg else [])
+    return {
+        "type": "metric",
+        "x": x,
+        "y": y,
+        "width": 12,
+        "height": 6,
+        "properties": {
+            "title": f"{svc_name.capitalize()} ALB - Requests and Errors",
+            "region": region,
+            "period": period,
+            "metrics": [
+                [
+                    "AWS/ApplicationELB",
+                    "RequestCount",
+                    "LoadBalancer",
+                    lb,
+                    {"stat": "Sum"},
+                ],
+                [
+                    "AWS/ApplicationELB",
+                    "HTTPCode_ELB_5XX_Count",
+                    "LoadBalancer",
+                    lb,
+                    {"stat": "Sum"},
+                ],
+                [
+                    "AWS/ApplicationELB",
+                    "HTTPCode_Target_5XX_Count",
+                    *target_dims,
+                    {"stat": "Sum"},
+                ],
+                [
+                    "AWS/ApplicationELB",
+                    "TargetResponseTime",
+                    *target_dims,
+                    {"stat": "Average", "yAxis": "right"},
+                ],
+            ],
+            "yAxis": {"right": {"label": "Seconds", "showUnits": False}},
+        },
+    }
+
+
+def _ecs_resources_widget(o, svc_name, region, period, x, y, width=8):
+    cluster = o[f"{svc_name}_cluster"]
+    service = o[f"{svc_name}_svc_name"]
+    return {
+        "type": "metric",
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": 6,
+        "properties": {
+            "title": f"{svc_name.capitalize()} ECS - CPU and Memory",
+            "region": region,
+            "period": period,
+            "metrics": [
+                [
+                    "AWS/ECS",
+                    "CPUUtilization",
+                    "ClusterName",
+                    cluster,
+                    "ServiceName",
+                    service,
+                    {"stat": "Average"},
+                ],
+                [
+                    "AWS/ECS",
+                    "MemoryUtilization",
+                    "ClusterName",
+                    cluster,
+                    "ServiceName",
+                    service,
+                    {"stat": "Average"},
+                ],
+            ],
+        },
+    }
+
+
+def _mq_widgets(o, region, period, queue, vhost, y):
+    broker = o["mq_broker_name"]
+    queue_dims = ["Broker", broker, "VirtualHost", vhost, "Queue", queue]
+    return [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": y,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Amazon MQ - Queue Health",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/AmazonMQ",
+                        "MessageReadyCount",
+                        *queue_dims,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/AmazonMQ",
+                        "MessageUnacknowledgedCount",
+                        *queue_dims,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/AmazonMQ",
+                        "ConsumerCount",
+                        *queue_dims,
+                        {"stat": "Minimum", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Consumers", "showUnits": False}},
+            },
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": y,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Amazon MQ - Broker Resources",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/AmazonMQ",
+                        "SystemCpuUtilization",
+                        "Broker",
+                        broker,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/AmazonMQ",
+                        "RabbitMQMemUsed",
+                        "Broker",
+                        broker,
+                        {"stat": "Average", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Bytes", "showUnits": False}},
+            },
+        },
+    ]
+
+
+def _redis_widgets(o, region, period, y):
+    cluster_id = o["redis_cluster_id"]
+    return [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": y,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Redis - Memory and Evictions",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/ElastiCache",
+                        "DatabaseMemoryUsagePercentage",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/ElastiCache",
+                        "Evictions",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Sum", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Count", "showUnits": False}},
+            },
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": y,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "title": "Redis - CPU and Connections",
+                "region": region,
+                "period": period,
+                "metrics": [
+                    [
+                        "AWS/ElastiCache",
+                        "EngineCPUUtilization",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/ElastiCache",
+                        "CPUUtilization",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average"},
+                    ],
+                    [
+                        "AWS/ElastiCache",
+                        "CurrConnections",
+                        "CacheClusterId",
+                        cluster_id,
+                        {"stat": "Average", "yAxis": "right"},
+                    ],
+                ],
+                "yAxis": {"right": {"label": "Connections", "showUnits": False}},
+            },
+        },
+    ]
+
+
+def _availability_widgets(o, region, period, mq_queue, mq_vhost, y):
+    # "Is it alive?" panels rendered at the top of the dashboard so positive
+    # availability reads first. Each sub-widget is conditional on the keys
+    # for its source being present in `o`
+    widgets = []
+
+    alb_metrics = []
+    for svc_name in ("web", "versioncheck"):
+        lb = o.get(f"{svc_name}_alb_suffix")
+        tg = o.get(f"{svc_name}_tg_suffix")
+        if lb and tg:
+            alb_metrics.append(
+                [
+                    "AWS/ApplicationELB",
+                    "HealthyHostCount",
+                    "TargetGroup",
+                    tg,
+                    "LoadBalancer",
+                    lb,
+                    {"stat": "Minimum", "label": f"{svc_name} healthy"},
+                ]
+            )
+    if alb_metrics:
+        widgets.append(
+            {
+                "type": "metric",
+                "x": 0,
+                "y": y,
+                "width": 8,
+                "height": 6,
+                "properties": {
+                    "title": "ALB - Healthy Hosts",
+                    "region": region,
+                    "period": period,
+                    "stat": "Minimum",
+                    "metrics": alb_metrics,
+                },
+            }
+        )
+
+    ecs_metrics = []
+    for svc_name in ("web", "worker", "versioncheck"):
+        cluster = o.get(f"{svc_name}_cluster")
+        service = o.get(f"{svc_name}_svc_name")
+        if cluster and service:
+            ecs_metrics.append(
+                [
+                    "ECS/ContainerInsights",
+                    "RunningTaskCount",
+                    "ClusterName",
+                    cluster,
+                    "ServiceName",
+                    service,
+                    {"stat": "Minimum", "label": f"{svc_name} running"},
+                ]
+            )
+    if ecs_metrics:
+        widgets.append(
+            {
+                "type": "metric",
+                "x": 8,
+                "y": y,
+                "width": 8,
+                "height": 6,
+                "properties": {
+                    "title": "ECS - Running Tasks",
+                    "region": region,
+                    "period": period,
+                    "stat": "Minimum",
+                    "metrics": ecs_metrics,
+                },
+            }
+        )
+
+    if "mq_broker_name" in o:
+        broker = o["mq_broker_name"]
+        widgets.append(
+            {
+                "type": "metric",
+                "x": 16,
+                "y": y,
+                "width": 8,
+                "height": 6,
+                "properties": {
+                    "title": f"MQ - Consumers on '{mq_queue}'",
+                    "region": region,
+                    "period": period,
+                    "stat": "Minimum",
+                    "metrics": [
+                        [
+                            "AWS/AmazonMQ",
+                            "ConsumerCount",
+                            "Broker",
+                            broker,
+                            "VirtualHost",
+                            mq_vhost,
+                            "Queue",
+                            mq_queue,
+                            {"stat": "Minimum"},
+                        ],
+                    ],
+                },
+            }
+        )
+
+    return widgets
+
+
+def _build_dashboard_body(o, region, period, mq_queue, mq_vhost):
+    widgets = []
+    # Row 0: availability - is it alive?
+    widgets.extend(_availability_widgets(o, region, period, mq_queue, mq_vhost, y=0))
+    # Row 1: ALB requests/errors per service
+    if "web_alb_suffix" in o:
+        widgets.append(_alb_requests_widget(o, "web", region, period, x=0, y=6))
+    if "versioncheck_alb_suffix" in o:
+        widgets.append(
+            _alb_requests_widget(o, "versioncheck", region, period, x=12, y=6)
+        )
+    # Row 2: ECS CPU/memory per service
+    if "web_cluster" in o and "web_svc_name" in o:
+        widgets.append(_ecs_resources_widget(o, "web", region, period, x=0, y=12))
+    if "worker_cluster" in o and "worker_svc_name" in o:
+        widgets.append(_ecs_resources_widget(o, "worker", region, period, x=8, y=12))
+    if "versioncheck_cluster" in o and "versioncheck_svc_name" in o:
+        widgets.append(
+            _ecs_resources_widget(o, "versioncheck", region, period, x=16, y=12)
+        )
+    # Row 3: Amazon MQ
+    if "mq_broker_name" in o:
+        widgets.extend(_mq_widgets(o, region, period, mq_queue, mq_vhost, y=18))
+    # Row 4: Redis
+    if "redis_cluster_id" in o:
+        widgets.extend(_redis_widgets(o, region, period, y=24))
+    return json.dumps({"widgets": widgets})
+
+
 def main():
     # Create a ThunderbirdPulumiProject to aggregate resources
     # This loads config.{stack}.yaml automatically
@@ -813,6 +1187,7 @@ def main():
     # Dedicated stage broker replacing the production EC2 RabbitMQ that
     # atn/stage/celery_broker previously pointed to (issue #375)
     mq_config = resources.get("aws:mq:RabbitMQBroker", {})
+    mq_broker = None
 
     if mq_config and private_subnets and vpc_resource:
         mq_creds_secret_name = mq_config.get("credentials_secret_name")
@@ -928,6 +1303,730 @@ def main():
                     if "https" in ep
                 ]
             ),
+        )
+
+    # =========================================================================
+    # Monitoring and Alarms (stage env-gating baseline)
+    # =========================================================================
+    # Phase 1 observability: SNS notification path, CloudWatch alarms for
+    # ALB/TG/ECS/MQ/Redis, and one operational dashboard
+    #
+    # All alarms are written explicitly (not via CloudWatchMonitoringGroup)
+    # for a single SNS topic, full control over alarm descriptions, and
+    # correct metric names (upstream tb_pulumi has a target_5xx metric bug)
+    #
+    # Thresholds live in config.stage.yaml under resources.monitoring.alarms
+    monitoring_cfg = resources.get("monitoring", {})
+    alarm_cfg = monitoring_cfg.get("alarms", {})
+
+    if monitoring_cfg and fargate_services:
+        notify_secret_name = monitoring_cfg.get("notify_emails_secret_name")
+        notify_emails = []
+        if notify_secret_name:
+            notify_emails_raw = aws.secretsmanager.get_secret_version(
+                secret_id=notify_secret_name,
+            )
+            notify_emails = [
+                e.strip()
+                for e in notify_emails_raw.secret_string.split(",")
+                if e.strip()
+            ]
+
+        # -----------------------------------------------------------------
+        # SNS topic + email subscriptions
+        # -----------------------------------------------------------------
+        alarm_topic = aws.sns.Topic(
+            f"{project.name_prefix}-alarm-topic",
+            name=f"{project.name_prefix}-alarms",
+            tags={
+                **project.common_tags,
+                "Name": f"{project.name_prefix}-alarms",
+            },
+        )
+
+        for idx, email in enumerate(notify_emails):
+            aws.sns.TopicSubscription(
+                f"{project.name_prefix}-alarm-sub-{idx}",
+                protocol="email",
+                endpoint=email,
+                topic=alarm_topic.arn,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic]),
+            )
+
+        # If notifications fail to deliver, every other alarm in this stack is
+        # also silently undelivered. We publish this alarm to the same topic
+        # for CloudWatch-console visibility; for Phase 2 a secondary channel
+        # (SMS, Slack, separate topic) should provide an independent path
+        aws.cloudwatch.MetricAlarm(
+            f"{project.name_prefix}-alarm-topic-delivery-failures",
+            name=f"{project.name_prefix}-alarm-topic-delivery-failures",
+            alarm_actions=[alarm_topic.arn],
+            ok_actions=[alarm_topic.arn],
+            comparison_operator="GreaterThanOrEqualToThreshold",
+            dimensions={"TopicName": alarm_topic.name},
+            metric_name="NumberOfNotificationsFailed",
+            namespace="AWS/SNS",
+            statistic="Sum",
+            threshold=1,
+            period=300,
+            evaluation_periods=1,
+            treat_missing_data="notBreaching",
+            alarm_description=(
+                "One or more alarm notifications failed delivery from the "
+                "stage alarm topic. Check: SNS subscription confirmations, "
+                "recipient email validity, topic policy"
+            ),
+            tags=project.common_tags,
+            opts=pulumi.ResourceOptions(depends_on=[alarm_topic]),
+        )
+
+        # -----------------------------------------------------------------
+        # ALB alarms (web, versioncheck)
+        # -----------------------------------------------------------------
+        alb_cfg = alarm_cfg.get("alb", {})
+        alb_error_threshold = alb_cfg.get("error_threshold", 10)
+        alb_error_period = alb_cfg.get("error_period", 60)
+        alb_rt_threshold = alb_cfg.get("response_time_threshold", 1)
+        alb_rt_period = alb_cfg.get("response_time_period", 60)
+        alb_eval_periods = alb_cfg.get("evaluation_periods", 2)
+
+        for svc_name in ["web", "versioncheck"]:
+            fargate_svc = fargate_services.get(svc_name)
+            if not fargate_svc:
+                continue
+            svc_alb = fargate_svc.resources.get("fargate_service_alb")
+            if not svc_alb:
+                continue
+            alb = svc_alb.resources["albs"].get(svc_name)
+            tg = svc_alb.resources["target_groups"].get(svc_name)
+            if not alb or not tg:
+                continue
+
+            lb_suffix = alb.arn_suffix
+            tg_suffix = tg.arn_suffix
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-alb-5xx",
+                name=f"{project.name_prefix}-{svc_name}-alb-5xx",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"LoadBalancer": lb_suffix},
+                metric_name="HTTPCode_ELB_5XX_Count",
+                namespace="AWS/ApplicationELB",
+                statistic="Sum",
+                threshold=alb_error_threshold,
+                period=alb_error_period,
+                evaluation_periods=alb_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Elevated 5xx errors on the {svc_name} ALB. "
+                    "Check: ECS task health in console, then "
+                    "application logs in CloudWatch for stack traces."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, alb]),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-target-5xx",
+                name=f"{project.name_prefix}-{svc_name}-target-5xx",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={
+                    "LoadBalancer": lb_suffix,
+                    "TargetGroup": tg_suffix,
+                },
+                metric_name="HTTPCode_Target_5XX_Count",
+                namespace="AWS/ApplicationELB",
+                statistic="Sum",
+                threshold=alb_error_threshold,
+                period=alb_error_period,
+                evaluation_periods=alb_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Elevated 5xx errors from {svc_name} application targets. "
+                    "Check: application logs for exceptions, database "
+                    "connectivity, and upstream dependency health."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, alb]),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-response-time",
+                name=f"{project.name_prefix}-{svc_name}-response-time",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={
+                    "LoadBalancer": lb_suffix,
+                    "TargetGroup": tg_suffix,
+                },
+                metric_name="TargetResponseTime",
+                namespace="AWS/ApplicationELB",
+                statistic="Average",
+                threshold=alb_rt_threshold,
+                period=alb_rt_period,
+                evaluation_periods=alb_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Average response time above {alb_rt_threshold}s on {svc_name}. "
+                    "Check: is traffic elevated? Are database queries slow? "
+                    "Is Memcached reachable?"
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, alb]),
+            )
+
+        # -----------------------------------------------------------------
+        # Target group alarms (web, versioncheck)
+        # -----------------------------------------------------------------
+        tg_cfg = alarm_cfg.get("target_group", {})
+        tg_unhealthy_threshold = tg_cfg.get("unhealthy_threshold", 1)
+        tg_period = tg_cfg.get("period", 60)
+        tg_eval_periods = tg_cfg.get("evaluation_periods", 2)
+
+        for svc_name in ["web", "versioncheck"]:
+            fargate_svc = fargate_services.get(svc_name)
+            if not fargate_svc:
+                continue
+            svc_alb = fargate_svc.resources.get("fargate_service_alb")
+            if not svc_alb:
+                continue
+            alb = svc_alb.resources["albs"].get(svc_name)
+            tg = svc_alb.resources["target_groups"].get(svc_name)
+            if not alb or not tg:
+                continue
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-unhealthy-hosts",
+                name=f"{project.name_prefix}-{svc_name}-unhealthy-hosts",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={
+                    "TargetGroup": tg.arn_suffix,
+                    "LoadBalancer": alb.arn_suffix,
+                },
+                metric_name="UnHealthyHostCount",
+                namespace="AWS/ApplicationELB",
+                statistic="Average",
+                threshold=tg_unhealthy_threshold,
+                period=tg_period,
+                evaluation_periods=tg_eval_periods,
+                # Positive availability is covered by the healthy-hosts alarm
+                # below; here we want elevated unhealthy hosts even when at
+                # least one single healthy host remains
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Unhealthy hosts detected in {svc_name} target group. "
+                    "Check: ECS task status, health check endpoint "
+                    "(/services/monitor.json), container logs."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, tg]),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-healthy-hosts",
+                name=f"{project.name_prefix}-{svc_name}-healthy-hosts",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="LessThanThreshold",
+                dimensions={
+                    "TargetGroup": tg.arn_suffix,
+                    "LoadBalancer": alb.arn_suffix,
+                },
+                metric_name="HealthyHostCount",
+                namespace="AWS/ApplicationELB",
+                statistic="Minimum",
+                threshold=tg_cfg.get("healthy_threshold", 1),
+                period=tg_period,
+                evaluation_periods=tg_eval_periods,
+                # Missing data on this metric means the target group has no
+                # registered targets -- operationally indistinguishable from
+                # zero healthy hosts and therefore treated as breaching
+                treat_missing_data="breaching",
+                alarm_description=(
+                    f"No healthy hosts in {svc_name} target group. "
+                    "Check: is the ECS service running, is the container "
+                    "health-check responding (/services/monitor.json), is "
+                    "the SG allowing traffic from the ALB?"
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, tg]),
+            )
+
+        # -----------------------------------------------------------------
+        # ECS service alarms (web, worker, versioncheck)
+        # -----------------------------------------------------------------
+        ecs_cfg = alarm_cfg.get("ecs", {})
+        ecs_cpu_threshold = ecs_cfg.get("cpu_threshold", 80)
+        ecs_mem_threshold = ecs_cfg.get("memory_threshold", 80)
+        ecs_period = ecs_cfg.get("period", 300)
+        ecs_eval_periods = ecs_cfg.get("evaluation_periods", 2)
+        ecs_min_tasks_default = ecs_cfg.get("min_tasks", 1)
+        ecs_min_tasks_per_svc = ecs_cfg.get("min_tasks_per_service", {})
+
+        for svc_name, fargate_svc in fargate_services.items():
+            ecs_service = fargate_svc.resources.get("service")
+            ecs_cluster = fargate_svc.resources.get("cluster")
+            if not ecs_service or not ecs_cluster:
+                continue
+
+            cluster_name = ecs_cluster.arn.apply(lambda arn: arn.split("/")[-1])
+            service_name = ecs_service.name
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-ecs-cpu",
+                name=f"{project.name_prefix}-{svc_name}-ecs-cpu",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={
+                    "ClusterName": cluster_name,
+                    "ServiceName": service_name,
+                },
+                metric_name="CPUUtilization",
+                namespace="AWS/ECS",
+                statistic="Average",
+                threshold=ecs_cpu_threshold,
+                period=ecs_period,
+                evaluation_periods=ecs_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"CPU utilisation above {ecs_cpu_threshold}% on {svc_name} service. "
+                    "Check: is traffic elevated? Are tasks stuck? "
+                    "Consider scaling if sustained."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, ecs_service]),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-ecs-memory",
+                name=f"{project.name_prefix}-{svc_name}-ecs-memory",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={
+                    "ClusterName": cluster_name,
+                    "ServiceName": service_name,
+                },
+                metric_name="MemoryUtilization",
+                namespace="AWS/ECS",
+                statistic="Average",
+                threshold=ecs_mem_threshold,
+                period=ecs_period,
+                evaluation_periods=ecs_eval_periods,
+                # Positive availability is covered by the running-tasks alarm
+                # below; CPU/memory only matter while tasks exist
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Memory utilisation above {ecs_mem_threshold}% on {svc_name} service. "
+                    "Check: application memory leaks, task resource limits, "
+                    "consider scaling."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, ecs_service]),
+            )
+
+            # RunningTaskCount lives in the ECS/ContainerInsights namespace,
+            # which is only populated when Container Insights is enabled on
+            # the cluster. tb_pulumi.fargate enables it via the
+            # `enable_container_insights: true` flag in config.stage.yaml. If
+            # that ever flips to false, this alarm goes immediately to ALARM
+            # because of the breaching missing-data treatment below - that
+            # surfaces the misconfiguration loudly and not silently
+            # disabling availability monitoring
+            #
+            # Operators intentionally draining a service should override
+            # `min_tasks_per_service` in config (e.g., `worker: 0`) or
+            # temporarily disable this alarm
+            min_tasks = ecs_min_tasks_per_svc.get(svc_name, ecs_min_tasks_default)
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-{svc_name}-running-tasks",
+                name=f"{project.name_prefix}-{svc_name}-running-tasks",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="LessThanThreshold",
+                dimensions={
+                    "ClusterName": cluster_name,
+                    "ServiceName": service_name,
+                },
+                metric_name="RunningTaskCount",
+                namespace="ECS/ContainerInsights",
+                statistic="Minimum",
+                threshold=min_tasks,
+                period=ecs_period,
+                evaluation_periods=ecs_eval_periods,
+                # Container Insights stops emitting when a service is fully
+                # drained; that is exactly the failure we want to catch
+                treat_missing_data="breaching",
+                alarm_description=(
+                    f"Running task count below {min_tasks} on {svc_name}. "
+                    "Check: deployment status, service events for stop "
+                    "reasons, scheduled actions, task health"
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, ecs_service]),
+            )
+
+        # -----------------------------------------------------------------
+        # Amazon MQ alarms
+        # -----------------------------------------------------------------
+        mq_cfg = alarm_cfg.get("mq", {})
+
+        if mq_broker is not None:
+            mq_queue_name = mq_cfg.get("queue_name", "olympia")
+            mq_vhost = mq_cfg.get("virtual_host", "/")
+            mq_msg_threshold = mq_cfg.get("message_ready_threshold", 1000)
+            mq_consumer_alarm_enabled = mq_cfg.get("consumer_alarm_enabled", False)
+            mq_consumer_threshold = mq_cfg.get("consumer_count_threshold", 1)
+            mq_cpu_threshold = mq_cfg.get("cpu_threshold", 80)
+            mq_mem_threshold = mq_cfg.get("memory_bytes_threshold", 512000000)
+            mq_period = mq_cfg.get("period", 300)
+            mq_eval_periods = mq_cfg.get("evaluation_periods", 2)
+
+            # AWS publishes Amazon MQ for RabbitMQ metrics with the `Broker`
+            # dimension set to the broker name, not the broker ID. The Pulumi
+            # `aws.mq.Broker.id` output is the AWS broker UUID (e.g.
+            # b-xxxxxxxx-...) which would point at a non-existent metric
+            # series
+            broker_name = mq_broker.broker_name
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-mq-message-ready",
+                name=f"{project.name_prefix}-mq-message-ready",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={
+                    "Broker": broker_name,
+                    "VirtualHost": mq_vhost,
+                    "Queue": mq_queue_name,
+                },
+                metric_name="MessageReadyCount",
+                namespace="AWS/AmazonMQ",
+                statistic="Average",
+                threshold=mq_msg_threshold,
+                period=mq_period,
+                evaluation_periods=mq_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Queue '{mq_queue_name}' has over {mq_msg_threshold} "
+                    "ready messages. Check: is the worker consuming? "
+                    "Are tasks backing up? Check worker logs."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, mq_broker]),
+            )
+
+            if mq_consumer_alarm_enabled:
+                aws.cloudwatch.MetricAlarm(
+                    f"{project.name_prefix}-mq-consumer-count",
+                    name=f"{project.name_prefix}-mq-consumer-count",
+                    alarm_actions=[alarm_topic.arn],
+                    ok_actions=[alarm_topic.arn],
+                    comparison_operator="LessThanThreshold",
+                    dimensions={
+                        "Broker": broker_name,
+                        "VirtualHost": mq_vhost,
+                        "Queue": mq_queue_name,
+                    },
+                    metric_name="ConsumerCount",
+                    namespace="AWS/AmazonMQ",
+                    statistic="Minimum",
+                    threshold=mq_consumer_threshold,
+                    period=mq_period,
+                    evaluation_periods=mq_eval_periods,
+                    treat_missing_data="breaching",
+                    alarm_description=(
+                        f"No consumers connected to the '{mq_queue_name}' queue. "
+                        "Check: is the worker service running? "
+                        "Check worker logs for connection errors."
+                    ),
+                    tags=project.common_tags,
+                    opts=pulumi.ResourceOptions(depends_on=[alarm_topic, mq_broker]),
+                )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-mq-cpu",
+                name=f"{project.name_prefix}-mq-cpu",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"Broker": broker_name},
+                metric_name="SystemCpuUtilization",
+                namespace="AWS/AmazonMQ",
+                statistic="Average",
+                threshold=mq_cpu_threshold,
+                period=mq_period,
+                evaluation_periods=mq_eval_periods,
+                # Managed broker emits resource metrics whenever it is RUNNING;
+                # absence of data indicates the broker itself is in trouble.
+                treat_missing_data="breaching",
+                alarm_description=(
+                    f"Broker CPU above {mq_cpu_threshold}%. Check: "
+                    "queue depth, message throughput, consider "
+                    "upgrading instance type if sustained."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, mq_broker]),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-mq-memory",
+                name=f"{project.name_prefix}-mq-memory",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"Broker": broker_name},
+                metric_name="RabbitMQMemUsed",
+                namespace="AWS/AmazonMQ",
+                statistic="Average",
+                threshold=mq_mem_threshold,
+                period=mq_period,
+                evaluation_periods=mq_eval_periods,
+                # Same rationale as mq-cpu: missing data on a managed broker
+                # is itself a failure signal.
+                treat_missing_data="breaching",
+                alarm_description=(
+                    f"Broker memory above {mq_mem_threshold} bytes. "
+                    "Check: queue depth and message sizes, consider "
+                    "purging stale queues or upgrading instance."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic, mq_broker]),
+            )
+
+        # -----------------------------------------------------------------
+        # Redis alarms
+        # -----------------------------------------------------------------
+        redis_cfg = alarm_cfg.get("redis", {})
+        redis_cluster = elasticache_clusters.get("redis")
+
+        if redis_cluster:
+            redis_mem_threshold = redis_cfg.get("memory_pct_threshold", 80)
+            redis_eviction_threshold = redis_cfg.get("eviction_threshold", 100)
+            redis_cpu_threshold = redis_cfg.get("cpu_threshold", 80)
+            redis_host_cpu_threshold = redis_cfg.get("host_cpu_threshold", 90)
+            redis_conn_threshold = redis_cfg.get("connection_threshold", 500)
+            redis_period = redis_cfg.get("period", 300)
+            redis_eval_periods = redis_cfg.get("evaluation_periods", 2)
+
+            replication_group = redis_cluster.resources["replication_group"]
+            # ElastiCache publishes per-node metrics under the cache cluster ID.
+            # Use the provider's actual member_clusters output rather than
+            # reconstructing the AWS naming convention (`<rg-id>-001`); for our
+            # single-node replication group this resolves to the same value but
+            # is robust against multi-node setups and AWS naming changes
+            cache_cluster_id = replication_group.member_clusters.apply(
+                lambda clusters: clusters[0]
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-redis-memory",
+                name=f"{project.name_prefix}-redis-memory",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"CacheClusterId": cache_cluster_id},
+                metric_name="DatabaseMemoryUsagePercentage",
+                namespace="AWS/ElastiCache",
+                statistic="Average",
+                threshold=redis_mem_threshold,
+                period=redis_period,
+                evaluation_periods=redis_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Redis memory usage above {redis_mem_threshold}%. "
+                    "Check: eviction count, key count growth, "
+                    "potential memory leak in application cache usage."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(
+                    depends_on=[alarm_topic, replication_group]
+                ),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-redis-evictions",
+                name=f"{project.name_prefix}-redis-evictions",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"CacheClusterId": cache_cluster_id},
+                metric_name="Evictions",
+                namespace="AWS/ElastiCache",
+                statistic="Sum",
+                threshold=redis_eviction_threshold,
+                period=redis_period,
+                evaluation_periods=redis_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Redis evictions above {redis_eviction_threshold} "
+                    "per period. Check: memory usage, maxmemory-policy, "
+                    "whether the application is over-caching."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(
+                    depends_on=[alarm_topic, replication_group]
+                ),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-redis-cpu",
+                name=f"{project.name_prefix}-redis-cpu",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"CacheClusterId": cache_cluster_id},
+                metric_name="EngineCPUUtilization",
+                namespace="AWS/ElastiCache",
+                statistic="Average",
+                threshold=redis_cpu_threshold,
+                period=redis_period,
+                evaluation_periods=redis_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Redis engine CPU above {redis_cpu_threshold}%. "
+                    "Check: command complexity (KEYS, SORT), "
+                    "connection count, consider node upgrade."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(
+                    depends_on=[alarm_topic, replication_group]
+                ),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-redis-connections",
+                name=f"{project.name_prefix}-redis-connections",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"CacheClusterId": cache_cluster_id},
+                metric_name="CurrConnections",
+                namespace="AWS/ElastiCache",
+                statistic="Average",
+                threshold=redis_conn_threshold,
+                period=redis_period,
+                evaluation_periods=redis_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Redis connections above {redis_conn_threshold}. "
+                    "Check: connection pool settings, task/service "
+                    "count, potential connection leaks."
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(
+                    depends_on=[alarm_topic, replication_group]
+                ),
+            )
+
+            aws.cloudwatch.MetricAlarm(
+                f"{project.name_prefix}-redis-host-cpu",
+                name=f"{project.name_prefix}-redis-host-cpu",
+                alarm_actions=[alarm_topic.arn],
+                ok_actions=[alarm_topic.arn],
+                comparison_operator="GreaterThanOrEqualToThreshold",
+                dimensions={"CacheClusterId": cache_cluster_id},
+                metric_name="CPUUtilization",
+                namespace="AWS/ElastiCache",
+                statistic="Average",
+                threshold=redis_host_cpu_threshold,
+                period=redis_period,
+                evaluation_periods=redis_eval_periods,
+                treat_missing_data="notBreaching",
+                alarm_description=(
+                    f"Redis host CPU above {redis_host_cpu_threshold}%. "
+                    "This monitors the underlying host, not just the Redis "
+                    "engine. On nodes with <= 2 vCPUs, EngineCPUUtilization "
+                    "alone can miss host overload. Check: background processes, "
+                    "node type, consider upgrading"
+                ),
+                tags=project.common_tags,
+                opts=pulumi.ResourceOptions(
+                    depends_on=[alarm_topic, replication_group]
+                ),
+            )
+
+        # -----------------------------------------------------------------
+        # CloudWatch Dashboard
+        # -----------------------------------------------------------------
+        dash_cfg = monitoring_cfg.get("dashboard", {})
+        dash_period = dash_cfg.get("period", 300)
+
+        dashboard_outputs = {}
+        for svc_name in ["web", "versioncheck"]:
+            fargate_svc = fargate_services.get(svc_name)
+            if fargate_svc:
+                svc_alb = fargate_svc.resources.get("fargate_service_alb")
+                if svc_alb:
+                    alb = svc_alb.resources["albs"].get(svc_name)
+                    tg = svc_alb.resources["target_groups"].get(svc_name)
+                    if alb:
+                        dashboard_outputs[f"{svc_name}_alb_suffix"] = alb.arn_suffix
+                    if tg:
+                        dashboard_outputs[f"{svc_name}_tg_suffix"] = tg.arn_suffix
+                svc_res = fargate_svc.resources.get("service")
+                cluster_res = fargate_svc.resources.get("cluster")
+                if svc_res:
+                    dashboard_outputs[f"{svc_name}_svc_name"] = svc_res.name
+                if cluster_res:
+                    dashboard_outputs[f"{svc_name}_cluster"] = cluster_res.arn.apply(
+                        lambda arn: arn.split("/")[-1]
+                    )
+
+        worker_svc = fargate_services.get("worker")
+        if worker_svc:
+            svc_res = worker_svc.resources.get("service")
+            cluster_res = worker_svc.resources.get("cluster")
+            if svc_res:
+                dashboard_outputs["worker_svc_name"] = svc_res.name
+            if cluster_res:
+                dashboard_outputs["worker_cluster"] = cluster_res.arn.apply(
+                    lambda arn: arn.split("/")[-1]
+                )
+
+        if mq_broker is not None:
+            # Dashboard widgets feed this value into the `Broker` CloudWatch
+            # dimension, which AWS keys by broker name (not the b-... UUID)
+            dashboard_outputs["mq_broker_name"] = mq_broker.broker_name
+
+        if redis_cluster:
+            dashboard_outputs["redis_cluster_id"] = redis_cluster.resources[
+                "replication_group"
+            ].member_clusters.apply(lambda clusters: clusters[0])
+
+        mq_queue = alarm_cfg.get("mq", {}).get("queue_name", "olympia")
+        mq_vhost_dash = alarm_cfg.get("mq", {}).get("virtual_host", "/")
+        region = project.aws_region
+
+        if dashboard_outputs:
+            dashboard_body = pulumi.Output.all(**dashboard_outputs).apply(
+                lambda o: _build_dashboard_body(
+                    o, region, dash_period, mq_queue, mq_vhost_dash
+                )
+            )
+
+            aws.cloudwatch.Dashboard(
+                f"{project.name_prefix}-dashboard",
+                dashboard_name=f"{project.name_prefix}-health",
+                dashboard_body=dashboard_body,
+                opts=pulumi.ResourceOptions(depends_on=[alarm_topic]),
+            )
+
+        # -----------------------------------------------------------------
+        # Monitoring exports
+        # -----------------------------------------------------------------
+        pulumi.export("monitoring_sns_topic_arn", alarm_topic.arn)
+        pulumi.export(
+            "monitoring_dashboard_name",
+            f"{project.name_prefix}-health",
         )
 
     # =========================================================================
