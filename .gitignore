@@ -57,3 +57,6 @@ infra/pulumi/infrastructure-inventory.md
 # Local ops artefacts (runbooks, ad hoc templates, design docs)
 infra/adhoc/
 infra/docs/
+
+# pytest junit output from CI
+src/test_report*.xml

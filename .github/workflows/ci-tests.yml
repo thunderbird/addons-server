@@ -1,12 +1,13 @@
-# This workflow will install backend's requirements and run tests
+# Runs the Python test suite against the docker compose stack.
+# Not a required check yet: the suite is still red (see thunderbird/addons-server#391).
 
 name: Run Tests
 
 on:
   push:
-    branches: [json420/master]
+    branches: [stage-eks]
   pull_request:
-    branches: [json420/master]
+    branches: [stage-eks]
   workflow_dispatch:
 
 permissions:
@@ -14,12 +15,23 @@ permissions:
   checks: write
   pull-requests: write
 
+concurrency:
+  group: ci-tests-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    timeout-minutes: 240
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Runner resources
+        run: |
+          echo "cpus: $(nproc)"
+          free -h
+          df -h /
 
       - name: Build Docker Compose
         run: docker compose build
@@ -27,34 +39,70 @@ jobs:
       - name: Run Docker Compose
         run: docker compose up -d
 
-      - name: Wait a bit for MySQL to boot
-        run: sleep 10
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 60); do
+            if docker compose exec -T mysqld mysqladmin --protocol=TCP -h 127.0.0.1 -u root ping --silent; then
+              echo "mysqld is up after ${i} attempts"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "mysqld did not come up"
+          docker compose logs mysqld
+          exit 1
+
+      - name: Wait for Elasticsearch
+        run: |
+          for i in $(seq 1 60); do
+            if docker compose exec -T web curl -fsS http://elasticsearch:9200/_cluster/health >/dev/null; then
+              echo "elasticsearch is up after ${i} attempts"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "elasticsearch did not come up"
+          docker compose logs elasticsearch
+          exit 1
 
       - name: Install deps
-        run: docker compose exec web bash -c "make -f Makefile-docker update_deps"
+        run: docker compose exec -T web bash -c "make -f Makefile-docker update_deps"
 
+      # Django 1.11 reads @@TX_ISOLATION, which MySQL 8.0 renamed to
+      # @@transaction_isolation. Drop this once Django is upgraded.
       - name: Patch Django
-        run: docker compose exec web bash -c "sed -i 's/TX_ISOLATION = /transaction_isolation = /' /usr/local/lib/python3.6/site-packages/django/db/backends/mysql/base.py"
+        run: docker compose exec -T web bash -c "sed -i 's/TX_ISOLATION = /transaction_isolation = /' /usr/local/lib/python3.6/site-packages/django/db/backends/mysql/base.py"
 
       - name: Compile mo files
-        run: docker compose exec web /code/locale/compile-mo.sh locale
+        run: docker compose exec -T web /code/locale/compile-mo.sh locale
 
-      - name: Run ratings tests in isolation
-        run: docker compose exec web bash -c 'python -m pytest --junitxml=src/test_report37.xml src/olympia/ratings'
-
-      - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
-        with:
-          check_name: "Ratings Test Results"
-          files: src/test_report37.xml
-
+      # -q cancels the -vs in setup.cfg addopts, which would otherwise emit
+      # tens of MB of per-test output for the ~5,700 tests.
       - name: Run tests
-        run: docker compose exec web bash -c 'python -m pytest --junitxml=src/test_report36.xml src/olympia/'
+        run: docker compose exec -T web bash -c 'python -m pytest -q -n 4 --reuse-db --junitxml=src/test_report.xml src/olympia/'
+
+      - name: Stack resource usage
+        if: always()
+        run: |
+          free -h
+          df -h /
+          docker stats --no-stream || true
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-          check_name: "Python 3.6 Test Results"
-          files: src/test_report36.xml
+          check_name: "Python Test Results"
+          files: src/test_report.xml
+
+      - name: Upload junit xml
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-xml
+          path: src/test_report.xml
+          if-no-files-found: warn
+
+      - name: Compose logs
+        if: failure()
+        run: docker compose logs --tail 200

@@ -47,7 +47,10 @@ services:
     image: memcached:1.4
 
   mysqld:
-    image: mysql:5.7
+    image: mysql:8.0
+    # mysqlclient 1.3.14 links against the stretch-era libmysqlclient, which
+    # cannot speak caching_sha2_password (the MySQL 8.0 default).
+    command: --default-authentication-plugin=mysql_native_password
     ulimits:
       nproc: 65535
       nofile:
@@ -77,13 +80,13 @@ services:
       nofile:
         soft: 20000
         hard: 40000
-    mem_limit: 2g
+    mem_limit: 4g
 
   redis:
-    image: redis:2.8
+    image: redis:4.0
 
   rabbitmq:
-    image: rabbitmq:3
+    image: rabbitmq:3.7
     hostname: olympia
     expose:
       - "5672"
