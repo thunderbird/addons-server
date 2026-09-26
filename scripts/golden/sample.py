@@ -36,6 +36,7 @@ import os
 import re
 import subprocess
 import sys
+import functools
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import parse_qsl, unquote
 
@@ -199,7 +200,64 @@ def scan_key(profile, bucket, key, matchers):
     return found
 
 
-def main():
+class EndpointSample:
+    """Counts and bottom-k sample for one endpoint."""
+
+    def __init__(self, name):
+        self.name = name
+        self.sampler = BottomK(ENDPOINTS[name][2])
+        self.requests = 0
+        self.dropped = 0
+
+    def add(self, urls):
+        for url, count in urls.items():
+            self.requests += count
+            if is_sensitive(url):
+                self.dropped += count
+            else:
+                self.sampler.add(url, count)
+
+    def write(self, out):
+        rows = self.sampler.result()
+        path = os.path.join(out, '%s.tsv' % self.name)
+        with open(path, 'w') as fh:
+            fh.write('# hits\turl\n')
+            for _, count, url in rows:
+                fh.write('%d\t%s\n' % (count, url))
+        print('%s: %d distinct urls from %d requests -> %s' % (
+            self.name, len(rows), self.requests, path), file=sys.stderr)
+        return {'requests': self.requests, 'dropped_sensitive': self.dropped,
+                'distinct_sampled': len(rows),
+                'target': ENDPOINTS[self.name][2]}
+
+
+def scan_source(args, source, hours, samples):
+    """Read one distribution's logs into the samples; return keys read."""
+    matchers = {name: ENDPOINTS[name][1] for name in samples}
+    keys = pick_keys(args.profile, source, hours, args.files_per_hour,
+                     args.workers)
+    print('reading %d files' % len(keys), file=sys.stderr)
+    scan = functools.partial(scan_key, args.profile, source['bucket'],
+                             matchers=matchers)
+    with ThreadPoolExecutor(args.workers) as pool:
+        for i, found in enumerate(pool.map(scan, keys), 1):
+            for name, urls in found.items():
+                samples[name].add(urls)
+            if i % 50 == 0:
+                print('  %d/%d files' % (i, len(keys)), file=sys.stderr)
+    return keys
+
+
+def safe_path(path):
+    """Resolve a path given on the command line; it must be under the cwd."""
+    resolved = os.path.realpath(path)
+    base = os.path.realpath(os.getcwd())
+    if resolved != base and not resolved.startswith(base + os.sep):
+        sys.exit('%s is outside the current directory' % path)
+    return resolved
+
+
+def parse_args():
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     parser.add_argument('--profile', default='mzla-tb-legacy')
     parser.add_argument('--end', help='UTC date (YYYY-MM-DD), exclusive; '
@@ -210,17 +268,23 @@ def main():
                         help='comma-separated subset of %s'
                         % ','.join(ENDPOINTS))
     parser.add_argument('--workers', type=int, default=8)
-    parser.add_argument('--out', default=DEFAULT_OUT)
-    args = parser.parse_args()
+    parser.add_argument('--out', help='output directory under the current '
+                        'directory (default: the committed samples)')
+    return parser.parse_args()
 
-    end = (datetime.datetime.strptime(args.end, '%Y-%m-%d') if args.end
-           else datetime.datetime.utcnow().replace(
-               hour=0, minute=0, second=0, microsecond=0))
+
+def main():
+    args = parse_args()
+    out = safe_path(args.out) if args.out else DEFAULT_OUT
+    if args.end:
+        end = datetime.datetime.strptime(args.end, '%Y-%m-%d')
+    else:
+        end = datetime.datetime.now(datetime.timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
     start = end - datetime.timedelta(days=args.days)
     hours = [start + datetime.timedelta(hours=i)
              for i in range(args.days * 24)]
     wanted = [e.strip() for e in args.endpoints.split(',') if e.strip()]
-
     manifest = {
         'window_start': start.isoformat() + 'Z',
         'window_end': end.isoformat() + 'Z',
@@ -228,53 +292,21 @@ def main():
         'sources': {},
         'endpoints': {},
     }
-    samplers = {name: BottomK(ENDPOINTS[name][2]) for name in wanted}
-    seen = {name: {'requests': 0, 'dropped_sensitive': 0} for name in wanted}
 
     for source_name, source in SOURCES.items():
-        matchers = {n: ENDPOINTS[n][1] for n in wanted
-                    if ENDPOINTS[n][0] == source_name}
-        if not matchers:
+        samples = {name: EndpointSample(name) for name in wanted
+                   if ENDPOINTS[name][0] == source_name}
+        if not samples:
             continue
         print('listing %s logs %s .. %s' % (source_name, start, end),
               file=sys.stderr)
-        keys = pick_keys(args.profile, source, hours, args.files_per_hour,
-                         args.workers)
+        keys = scan_source(args, source, hours, samples)
         manifest['sources'][source_name] = dict(source, keys=keys)
-        print('reading %d files' % len(keys), file=sys.stderr)
-        with ThreadPoolExecutor(args.workers) as pool:
-            results = pool.map(
-                lambda k: scan_key(args.profile, source['bucket'], k,
-                                   matchers),
-                keys,
-            )
-            for i, found in enumerate(results, 1):
-                for name, urls in found.items():
-                    for url, count in urls.items():
-                        seen[name]['requests'] += count
-                        if is_sensitive(url):
-                            seen[name]['dropped_sensitive'] += count
-                            continue
-                        samplers[name].add(url, count)
-                if i % 50 == 0:
-                    print('  %d/%d files' % (i, len(keys)), file=sys.stderr)
+        os.makedirs(out, exist_ok=True)
+        for name, sample in samples.items():
+            manifest['endpoints'][name] = sample.write(out)
 
-    os.makedirs(args.out, exist_ok=True)
-    for name in wanted:
-        rows = samplers[name].result()
-        path = os.path.join(args.out, '%s.tsv' % name)
-        with open(path, 'w') as fh:
-            fh.write('# hits\turl\n')
-            for _, count, url in rows:
-                fh.write('%d\t%s\n' % (count, url))
-        manifest['endpoints'][name] = dict(
-            seen[name], distinct_sampled=len(rows),
-            target=ENDPOINTS[name][2],
-        )
-        print('%s: %d distinct urls from %d requests -> %s' % (
-            name, len(rows), seen[name]['requests'], path), file=sys.stderr)
-
-    with open(os.path.join(args.out, 'manifest.json'), 'w') as fh:
+    with open(os.path.join(out, 'manifest.json'), 'w') as fh:
         json.dump(manifest, fh, indent=2, sort_keys=True)
         fh.write('\n')
 

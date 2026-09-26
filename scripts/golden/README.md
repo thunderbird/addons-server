@@ -33,11 +33,24 @@ so it is sampled as well.
 
 ## Running it
 
+File paths given on the command line (`--out`, `--samples`, `--markdown`,
+`--json`, and the results files) must be under the current directory; the
+scripts refuse anything else. Run from a scratch directory and call the
+scripts by path. The committed sample is used by default wherever you run
+from:
+
+```sh
+REPO=~/work/thunderbird/addons-server   # your checkout
+mkdir -p /tmp/golden && cd /tmp/golden
+```
+
 ### 1. Sample (optional; the committed sample is the reference)
 
 ```sh
-python3 scripts/golden/sample.py --profile mzla-tb-legacy --end 2026-09-25 --days 7 --files-per-hour 3
+python3 $REPO/scripts/golden/sample.py --profile mzla-tb-legacy --end 2026-09-25 --days 7 --files-per-hour 3
 ```
+
+Without `--out` this rewrites `$REPO/scripts/golden/samples/`.
 
 This reads the logs with read-only S3 calls in the thunderbird-legacy account:
 `s3://versioncheck-logs/E1PQMC7BGJOP5E.*` and
@@ -69,7 +82,7 @@ ids show up in versioncheck traffic too, and this repo is public.
 ### 2. Replay
 
 ```sh
-python3 scripts/golden/replay.py --out /tmp/golden/prod-vs-stage.jsonl.gz
+python3 $REPO/scripts/golden/replay.py --out prod-vs-stage.jsonl.gz
 ```
 
 The defaults are target A = production (`versioncheck.addons.thunderbird.net`,
@@ -102,8 +115,8 @@ the same output file, skipping URLs already recorded.
 ### 3. Compare
 
 ```sh
-python3 scripts/golden/compare.py /tmp/golden/prod-vs-stage.jsonl.gz \
-    --markdown /tmp/golden/report.md --json /tmp/golden/report.json
+python3 $REPO/scripts/golden/compare.py prod-vs-stage.jsonl.gz \
+    --markdown report.md --json report.json
 ```
 
 `compare.py` makes no network calls, so you can tune it and rerun it on

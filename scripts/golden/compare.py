@@ -29,8 +29,8 @@ Normalization, applied to both sides before comparing:
     - response headers other than Content-Type and Location are ignored
 
 Example:
-    python3 scripts/golden/compare.py /tmp/golden/prod-vs-stage.jsonl.gz \\
-        --markdown /tmp/golden/report.md --json /tmp/golden/report.json
+    python3 scripts/golden/compare.py prod-vs-stage.jsonl.gz \\
+        --markdown report.md --json report.json
 
 See scripts/golden/README.md.
 """
@@ -38,6 +38,7 @@ import argparse
 import collections
 import gzip
 import json
+import os
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -116,43 +117,57 @@ def compare_values(a, b, path, findings):
     """
     if isinstance(a, dict) and isinstance(b, dict):
         if is_data_map(a, b):
-            for key in set(a) | set(b):
-                sub = path + '{}'
-                if key not in a or key not in b:
-                    findings.add('data', 'map key only in %s'
-                                 % ('A' if key in a else 'B'), sub)
-                else:
-                    compare_values(a[key], b[key], sub, findings)
-            return
-        for key in sorted(set(a) | set(b)):
-            sub = '%s.%s' % (path, key) if path else key
-            if key not in b:
-                findings.add('behavioral', 'field only in A', sub)
-            elif key not in a:
-                findings.add('behavioral', 'field only in B', sub)
-            else:
-                compare_values(a[key], b[key], sub, findings)
-        return
-    if isinstance(a, list) and isinstance(b, list):
-        sub = path + '[]'
-        if len(a) != len(b):
-            if not a or not b:
-                findings.add('data', 'list empty in %s' % ('A' if not a
-                                                           else 'B'), sub)
-            else:
-                findings.add('data', 'list length differs', sub)
-        for x, y in zip(a, b):
-            compare_values(x, y, sub, findings)
-        return
-    ta, tb = type_name(a), type_name(b)
-    if ta != tb:
-        if 'null' in (ta, tb):
-            findings.add('data', 'null in %s' % ('A' if ta == 'null'
-                                                 else 'B'), path)
+            compare_data_maps(a, b, path + '{}', findings)
         else:
-            findings.add('behavioral', 'type %s -> %s' % (ta, tb), path)
-    elif a != b:
-        findings.add('data', 'value differs', path)
+            compare_objects(a, b, path, findings)
+    elif isinstance(a, list) and isinstance(b, list):
+        compare_lists(a, b, path + '[]', findings)
+    else:
+        compare_scalars(a, b, path, findings)
+
+
+def compare_data_maps(a, b, path, findings):
+    for key in set(a) | set(b):
+        if key in a and key in b:
+            compare_values(a[key], b[key], path, findings)
+        else:
+            findings.add('data', 'map key only in %s'
+                         % ('A' if key in a else 'B'), path)
+
+
+def compare_objects(a, b, path, findings):
+    for key in sorted(set(a) | set(b)):
+        sub = '%s.%s' % (path, key) if path else key
+        if key not in b:
+            findings.add('behavioral', 'field only in A', sub)
+        elif key not in a:
+            findings.add('behavioral', 'field only in B', sub)
+        else:
+            compare_values(a[key], b[key], sub, findings)
+
+
+def compare_lists(a, b, path, findings):
+    if not a and b:
+        findings.add('data', 'list empty in A', path)
+    elif a and not b:
+        findings.add('data', 'list empty in B', path)
+    elif len(a) != len(b):
+        findings.add('data', 'list length differs', path)
+    for x, y in zip(a, b):
+        compare_values(x, y, path, findings)
+
+
+def compare_scalars(a, b, path, findings):
+    ta, tb = type_name(a), type_name(b)
+    if ta == tb:
+        if a != b:
+            findings.add('data', 'value differs', path)
+    elif ta == 'null':
+        findings.add('data', 'null in A', path)
+    elif tb == 'null':
+        findings.add('data', 'null in B', path)
+    else:
+        findings.add('behavioral', 'type %s -> %s' % (ta, tb), path)
 
 
 def xml_to_obj(element):
@@ -185,34 +200,27 @@ def parse_body(side, site_hosts):
     return ctype, 'text', body
 
 
-def classify(rec, site_hosts):
-    findings = Findings()
-    a, b = rec['a'], rec['b']
+def status_findings(a, b, findings):
+    """Record transport, 5xx and status differences; True if decided."""
     for label, side in (('A', a), ('B', b)):
         if 'error' in side:
             findings.add('error', 'transport error on %s' % label)
         elif side['status'] >= 500:
             findings.add('error', '%d on %s' % (side['status'], label))
     if findings.items:
-        return findings
+        return True
+    if a['status'] == b['status']:
+        return False
+    if {a['status'], b['status']} == {200, 404}:
+        findings.add('data', 'only %s has the object (200 vs 404)'
+                     % ('A' if a['status'] == 200 else 'B'))
+    else:
+        findings.add('behavioral', 'status %d -> %d'
+                     % (a['status'], b['status']))
+    return True
 
-    if a['status'] != b['status']:
-        pair = {a['status'], b['status']}
-        if pair == {200, 404}:
-            findings.add('data', 'only %s has the object (200 vs 404)'
-                         % ('A' if a['status'] == 200 else 'B'))
-        else:
-            findings.add('behavioral', 'status %d -> %d'
-                         % (a['status'], b['status']))
-        return findings
 
-    if 300 <= a['status'] < 400:
-        la = scrub(a.get('location') or '', site_hosts)
-        lb = scrub(b.get('location') or '', site_hosts)
-        if la != lb:
-            findings.add('behavioral', 'redirect location differs')
-        return findings
-
+def body_findings(a, b, site_hosts, findings):
     ca, fa, va = parse_body(a, site_hosts)
     cb, fb, vb = parse_body(b, site_hosts)
     if ca != cb:
@@ -224,7 +232,30 @@ def classify(rec, site_hosts):
     elif va != vb:
         findings.add('behavioral' if a['status'] < 400 else 'data',
                      '%s body differs' % fa)
+
+
+def classify(rec, site_hosts):
+    findings = Findings()
+    a, b = rec['a'], rec['b']
+    if status_findings(a, b, findings):
+        return findings
+    if 300 <= a['status'] < 400:
+        la = scrub(a.get('location') or '', site_hosts)
+        lb = scrub(b.get('location') or '', site_hosts)
+        if la != lb:
+            findings.add('behavioral', 'redirect location differs')
+        return findings
+    body_findings(a, b, site_hosts, findings)
     return findings
+
+
+def safe_path(path):
+    """Resolve a path given on the command line; it must be under the cwd."""
+    resolved = os.path.realpath(path)
+    base = os.path.realpath(os.getcwd())
+    if resolved != base and not resolved.startswith(base + os.sep):
+        sys.exit('%s is outside the current directory' % path)
+    return resolved
 
 
 def load(paths):
@@ -323,15 +354,16 @@ def main():
     # Longest first so a hostname is never partly replaced by a shorter one.
     hosts = sorted(args.site_host or DEFAULT_SITE_HOSTS, key=len,
                    reverse=True)
-    report = build_report(load(args.results), hosts, args.examples)
+    results = [safe_path(p) for p in args.results]
+    report = build_report(load(results), hosts, args.examples)
     text = markdown(report, args.max_rows)
     if args.markdown:
-        with open(args.markdown, 'w') as fh:
+        with open(safe_path(args.markdown), 'w') as fh:
             fh.write(text)
     else:
         sys.stdout.write(text)
     if args.json:
-        with open(args.json, 'w') as fh:
+        with open(safe_path(args.json), 'w') as fh:
             json.dump(report, fh, indent=2)
             fh.write('\n')
 

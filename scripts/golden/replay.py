@@ -16,7 +16,7 @@ Production safety (not configurable downwards):
     Use --resume to continue an interrupted run into the same output file.
 
 Standard library only. Example (the first run, prod vs Fargate stage):
-    python3 scripts/golden/replay.py --out /tmp/golden/prod-vs-stage.jsonl.gz
+    python3 scripts/golden/replay.py --out prod-vs-stage.jsonl.gz
 
 See scripts/golden/README.md.
 """
@@ -111,9 +111,17 @@ class TLSNameConnection(http.client.HTTPSConnection):
             sock, server_hostname=self.tls_name or self.host)
 
 
+def verified_context():
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    return context
+
+
 class TLSNameHandler(urllib.request.HTTPSHandler):
     def __init__(self, tls_names):
-        super().__init__(context=ssl.create_default_context())
+        super().__init__(context=verified_context())
         self.tls_names = tls_names
 
     def https_open(self, req):
@@ -176,6 +184,15 @@ class Target:
         }
 
 
+def safe_path(path):
+    """Resolve a path given on the command line; it must be under the cwd."""
+    resolved = os.path.realpath(path)
+    base = os.path.realpath(os.getcwd())
+    if resolved != base and not resolved.startswith(base + os.sep):
+        sys.exit('%s is outside the current directory' % path)
+    return resolved
+
+
 def load_sample(samples, endpoint, limit):
     path = os.path.join(samples, '%s.tsv' % endpoint)
     rows = []
@@ -202,7 +219,7 @@ def done_keys(path):
     return keys
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     for side in ('a', 'b'):
         for service in ('versioncheck', 'services'):
@@ -215,8 +232,8 @@ def main():
                         help='verify HOST against the certificate name NAME '
                         '(repeatable; adds to %s)' % ', '.join(
                             '%s=%s' % kv for kv in DEFAULT_TLS_NAMES.items()))
-    parser.add_argument('--samples', default=SAMPLES,
-                        help='directory holding <endpoint>.tsv')
+    parser.add_argument('--samples', help='directory holding <endpoint>.tsv '
+                        '(default: the committed samples)')
     parser.add_argument('--endpoints', default=','.join(ENDPOINT_SERVICE))
     parser.add_argument('--limit', type=int, default=0,
                         help='at most N urls per endpoint (0 = all)')
@@ -225,10 +242,13 @@ def main():
                         'production is always capped at %s' % PROD_MAX_RPS)
     parser.add_argument('--timeout', type=float, default=30.0)
     parser.add_argument('--out', required=True,
-                        help='output .jsonl.gz (appended with --resume)')
+                        help='output .jsonl.gz under the current directory '
+                        '(appended with --resume)')
     parser.add_argument('--resume', action='store_true')
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def build_targets(args):
     tls_names = dict(DEFAULT_TLS_NAMES)
     for item in args.tls_name:
         host, _, name = item.partition('=')
@@ -240,52 +260,74 @@ def main():
         targets[side] = Target(side.upper(), bases, tls_names, args.rps,
                                args.timeout)
         for service, base in bases.items():
-            print('target %s %-12s %s%s' % (
-                side.upper(), service, base,
-                '  [production: <= %s rps, stop on 5xx]' % PROD_MAX_RPS
-                if targets[side].prod[service] else ''), file=sys.stderr)
+            note = ('  [production: <= %s rps, stop on 5xx]' % PROD_MAX_RPS
+                    if targets[side].prod[service] else '')
+            print('target %s %-12s %s%s' % (side.upper(), service, base,
+                                            note), file=sys.stderr)
+    return targets
 
-    if os.path.exists(args.out) and not args.resume:
-        sys.exit('%s exists; pass --resume to continue it' % args.out)
-    skip = done_keys(args.out) if args.resume else set()
+
+class ProductionGuard:
+    """Stops the run on a production 5xx or repeated transport errors."""
+
+    def __init__(self, targets):
+        self.targets = targets
+        self.transport_errors = {side: 0 for side in targets}
+
+    def check(self, service, rec):
+        """Return a reason to stop, or None to carry on."""
+        for side, target in self.targets.items():
+            if not target.prod[service]:
+                continue
+            result = rec[side]
+            if 'error' not in result:
+                self.transport_errors[side] = 0
+                if result['status'] >= 500:
+                    return ('production target %s returned %d for %s'
+                            % (target.label, result['status'], rec['url']))
+                continue
+            self.transport_errors[side] += 1
+            if self.transport_errors[side] >= PROD_MAX_TRANSPORT_ERRORS:
+                return ('%d consecutive transport errors from production '
+                        'target %s (last: %s)' % (
+                            self.transport_errors[side], target.label,
+                            result['error']))
+        return None
+
+
+def replay_endpoint(endpoint, rows, targets, guard, out):
+    service = ENDPOINT_SERVICE[endpoint]
+    for i, (hits, url) in enumerate(rows, 1):
+        rec = {'endpoint': endpoint, 'url': url, 'hits': hits}
+        for side, target in targets.items():
+            rec[side] = target.fetch(service, url)
+        out.write(json.dumps(rec, sort_keys=True) + '\n')
+        reason = guard.check(service, rec)
+        if reason:
+            out.flush()
+            sys.exit('STOP: ' + reason)
+        if i % 250 == 0:
+            out.flush()
+            print('  %s %d/%d' % (endpoint, i, len(rows)), file=sys.stderr)
+
+
+def main():
+    args = parse_args()
+    samples = safe_path(args.samples) if args.samples else SAMPLES
+    out_path = safe_path(args.out)
+    targets = build_targets(args)
+    if os.path.exists(out_path) and not args.resume:
+        sys.exit('%s exists; pass --resume to continue it' % out_path)
+    skip = done_keys(out_path) if args.resume else set()
+    guard = ProductionGuard(targets)
     endpoints = [e.strip() for e in args.endpoints.split(',') if e.strip()]
-    transport_errors = {'a': 0, 'b': 0}
-
-    with gzip.open(args.out, 'at') as out:
+    with gzip.open(out_path, 'at') as out:
         for endpoint in endpoints:
-            service = ENDPOINT_SERVICE[endpoint]
-            rows = load_sample(args.samples, endpoint, args.limit)
+            rows = load_sample(samples, endpoint, args.limit)
             todo = [r for r in rows if (endpoint, r[1]) not in skip]
             print('%s: %d urls (%d already done)' % (
                 endpoint, len(todo), len(rows) - len(todo)), file=sys.stderr)
-            for i, (hits, url) in enumerate(todo, 1):
-                rec = {'endpoint': endpoint, 'url': url, 'hits': hits}
-                for side in ('a', 'b'):
-                    rec[side] = targets[side].fetch(service, url)
-                out.write(json.dumps(rec, sort_keys=True) + '\n')
-                for side in ('a', 'b'):
-                    target, result = targets[side], rec[side]
-                    if not target.prod[service]:
-                        continue
-                    if 'error' in result:
-                        transport_errors[side] += 1
-                        if transport_errors[side] >= PROD_MAX_TRANSPORT_ERRORS:
-                            out.flush()
-                            sys.exit('STOP: %d consecutive transport errors '
-                                     'from production target %s (last: %s)'
-                                     % (transport_errors[side],
-                                        target.label, result['error']))
-                        continue
-                    transport_errors[side] = 0
-                    if result['status'] >= 500:
-                        out.flush()
-                        sys.exit('STOP: production target %s returned %d '
-                                 'for %s' % (target.label, result['status'],
-                                             url))
-                if i % 250 == 0:
-                    out.flush()
-                    print('  %s %d/%d' % (endpoint, i, len(todo)),
-                          file=sys.stderr)
+            replay_endpoint(endpoint, todo, targets, guard, out)
 
 
 if __name__ == '__main__':
