@@ -272,7 +272,7 @@ class ProductionGuard:
 
     def __init__(self, targets):
         self.targets = targets
-        self.transport_errors = {side: 0 for side in targets}
+        self.transport_errors = dict.fromkeys(targets, 0)
 
     def check(self, service, rec):
         """Return a reason to stop, or None to carry on."""
