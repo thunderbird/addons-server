@@ -1,13 +1,15 @@
 import threading
 import time
 
+from django.conf import settings as django_settings
 from django.core import management
 from django.db import connection
 from django.test.testcases import TransactionTestCase
 
 import six
 
-from olympia.amo.tests import ESTestCase, addon_factory, create_switch
+from olympia.amo.tests import (
+    ESTestCase, addon_factory, create_switch, get_es_index_prefix)
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import urlparams
 from olympia.lib.es.utils import is_reindexing_amo, unflag_reindexing_amo
@@ -77,9 +79,13 @@ class TestIndexCommand(ESTestCase):
     def get_indices_aliases(cls):
         """Return the test indices with an alias."""
         indices = cls.es.indices.get_alias()
+        # Under xdist the other workers own indices in the same cluster that
+        # also start with `test_`, so match our own prefix only.
+        own_prefix = '%s_' % get_es_index_prefix()
         items = [(index, list(aliases['aliases'].keys())[0])
                  for index, aliases in indices.items()
-                 if len(aliases['aliases']) > 0 and index.startswith('test_')]
+                 if len(aliases['aliases']) > 0 and
+                 index.startswith(own_prefix)]
         items.sort()
         return items
 
@@ -168,8 +174,12 @@ class TestIndexCommandClassicAlgorithm(TestIndexCommand):
 
         # We don't want to guess the index name. We are putting this here
         # explicitly to ensure that we actually run the test for the index
-        # setting instead of using an `if` and failing silently
-        amo_addons_settings = self.es.indices.get_settings('test_amo_addons')
+        # setting instead of using an `if` and failing silently. Read the
+        # alias from the settings rather than hard-coding it: under xdist it
+        # carries a per-worker prefix, and a hard-coded `test_amo_addons`
+        # 404s on every worker.
+        amo_addons_settings = self.es.indices.get_settings(
+            django_settings.ES_INDEXES['default'])
         settings = amo_addons_settings[list(amo_addons_settings.keys())[0]]
 
         assert settings['settings']['index']['similarity']['default'] == {
