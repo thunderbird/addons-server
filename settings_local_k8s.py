@@ -29,8 +29,13 @@ from django.core.exceptions import ImproperlyConfigured
 
 os.environ.setdefault('ATN_DOMAIN', 'addons-stage-eks.thunderbird.net')
 
-from settings_local_stage import *  # noqa: E402,F401,F403
+import settings_local_stage as stage  # noqa: E402
 from olympia.lib import settings_base  # noqa: E402
+
+# Django only reads UPPERCASE module attributes as settings, so inheriting
+# those is the whole of what a star import would do here.
+globals().update(
+    (name, value) for name, value in vars(stage).items() if name.isupper())
 
 
 ENV = os.environ.get('ATN_ENV', 'tbstageeks')
@@ -55,4 +60,4 @@ ES_INDEXES = {
 
 # The inherited list only covers the stock suffixes; accept whatever
 # ATN_DOMAIN names (and its services. and versioncheck. subdomains).
-ALLOWED_HOSTS = ALLOWED_HOSTS + ['.' + DOMAIN]
+ALLOWED_HOSTS = stage.ALLOWED_HOSTS + ['.' + stage.DOMAIN]
