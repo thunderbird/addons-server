@@ -77,11 +77,26 @@ SENSITIVE_PARAMS = {
 # Self-distributed add-ons sometimes use the author's personal address as
 # their id. Requests naming such an id are dropped so the public sample does
 # not carry anyone's email address.
+MAIL_PROVIDERS = (
+    'gmail googlemail yahoo ymail rocketmail hotmail outlook live msn '
+    'passport icloud me mac aol aim gmx web mail email inbox list bk rambler '
+    'yandex ya ukr bigmir proton protonmail pm posteo mailbox tutanota tuta '
+    'disroot riseup fastmail zoho hushmail qq foxmail 163 126 yeah sina '
+    'sohu aliyun naver daum hanmail nate rediffmail free orange wanadoo '
+    'laposte sfr neuf club-internet t-online freenet arcor seznam centrum '
+    'wp o2 onet interia libero virgilio tiscali alice tin telenet skynet '
+    'ziggo xs4all planet home kpnmail bluewin hispeed chello aon comcast '
+    'verizon att sbcglobal bellsouth cox charter earthlink juno shaw rogers '
+    'sympatico videotron bigpond optusnet iinet btinternet btopenworld sky '
+    'ntlworld blueyonder talktalk terra uol bol ig abv thundermail'
+).split()
+MAIL_DOMAINS = ('i.ua meta.ua mail.bg tb.pro mozmail.com relay.firefox.com '
+                'duck.com simplelogin.com anonaddy.me addy.io').split()
 PERSONAL_ADDRESS = re.compile(
-    r'@(gmail|googlemail|yahoo|ymail|hotmail|outlook|live|msn|icloud|me|mac|'
-    r'gmx|web|aol|mail|yandex|proton|protonmail|pm|posteo|mailbox|'
-    r'tutanota|qq|163|126|free|orange|t-online|seznam|wp|o2|libero|'
-    r'thundermail)\.[a-z.]{2,}', re.IGNORECASE)
+    r'@((%s)\.[a-z.]{2,}|(%s)\b)' % (
+        '|'.join(map(re.escape, MAIL_PROVIDERS)),
+        '|'.join(map(re.escape, MAIL_DOMAINS))),
+    re.IGNORECASE)
 
 # CloudFront standard log (v1.0) field positions.
 F_METHOD, F_STEM, F_QUERY = 5, 7, 11
@@ -126,11 +141,12 @@ def pick_keys(profile, source, hours, files_per_hour, workers):
 def url_from_log(fields):
     """Rebuild the request URL as the client sent it.
 
-    CloudFront percent-encodes the query once more when logging (a literal
-    '%' is logged as %25), so a single unquote gives back the original.
+    CloudFront percent-encodes the path and the query once more when logging
+    (a literal '%' is logged as %25), so a single unquote gives back the
+    original.
     """
     query = fields[F_QUERY]
-    url = fields[F_STEM]
+    url = unquote(fields[F_STEM])
     if query and query != '-':
         url += '?' + unquote(query)
     return url

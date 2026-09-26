@@ -7,7 +7,8 @@ content type or protocol). Built for
 [thunderbird/addons-server#398](https://github.com/thunderbird/addons-server/issues/398)
 and reused at each cutover step.
 
-Python 3 standard library only. `sample.py` also needs the `aws` CLI.
+Python 3.6+ standard library only (tested on 3.6 and 3.9). `sample.py` also
+needs the `aws` CLI.
 
 | file | purpose |
 |---|---|
@@ -110,7 +111,11 @@ Production safety is built in and can't be loosened from the command line:
 
 At 2 rps the full sample (14,000 URLs) takes about 2 hours.
 Use `--limit N` for a quick run. `--resume` continues an interrupted run in
-the same output file, skipping URLs already recorded.
+the same output file, skipping URLs already recorded. Every record carries
+the base URLs it was fetched from, so resuming against different targets is
+refused rather than mixing deployments. A record cut off by an interruption
+is dropped before new records are appended. After the sample is
+regenerated, `--resume` fetches only the URLs that are new to it.
 
 ### 3. Compare
 
@@ -120,7 +125,9 @@ python3 $REPO/scripts/golden/compare.py prod-vs-stage.jsonl.gz \
 ```
 
 `compare.py` makes no network calls, so you can tune it and rerun it on
-recorded results as many times as you like.
+recorded results as many times as you like. `--sample $REPO/scripts/golden/samples`
+limits the report to the URLs in that sample. Use it when a results file
+also holds URLs from an older sample.
 
 ## How differences are classified
 
@@ -145,7 +152,7 @@ data-keyed objects (locales, add-on guids, numeric ids, app names) become
 | kind | meaning | examples |
 |---|---|---|
 | `identical` | equal after normalization | |
-| `data` | same shape, different content: what you expect from a DB copied from prod in 2024 | `value differs`, `list length differs`, `list empty in B`, `null in B`, `map key only in A`, `only A has the object (200 vs 404)` |
+| `data` | same shape, different content: what you expect from a DB copied from prod in 2024 | `value differs`, `list length differs`, `list empty in B`, `null in B`, `map key only in A`, `optional field only in A`, `only A has the object (200 vs 404)` |
 | `behavioral` | different shape or protocol, which needs an explanation | `field only in A/B`, `type string -> number`, `status 200 -> 302`, `content-type ...`, `body format json -> text`, `redirect location differs` |
 | `error` | 5xx or transport error on either side | `502 on B`, `transport error on A` |
 
@@ -153,6 +160,14 @@ A pair counts under its most severe finding. Categories count pairs, and a
 pair usually has several. The JSON report has every category with example
 URLs. `hit_weighted_kinds` weights each pair by its hit count in the sample,
 which gives a rough idea of how much real traffic each kind covers.
+
+Fields that the server itself includes or leaves out depending on the row
+are listed in `OPTIONAL_PATHS` in `compare.py`. For versioncheck (see
+`services/update.py`) these are `update_info_url` (only when the version has
+release notes), `update_hash`, `strict_max_version` (only for strict
+compatibility), and the whole `addons` object, which is `{}` when the add-on
+is unknown. When one of these is present on one side only, it counts as
+data. Any other field present on one side only counts as behavioral.
 
 Known limits of the heuristics:
 

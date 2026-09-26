@@ -66,6 +66,17 @@ APP_KEYS = {'android', 'firefox', 'seamonkey', 'thunderbird'}
 SCHEMA_WORDS = {'alt', 'app', 'id', 'is', 'key', 'max', 'min', 'src', 'tag',
                 'url'}
 
+# Fields the server includes or omits depending on the row, so presence on
+# one side only is data drift. services/update.py: 'addons' is absent ({})
+# when the add-on is unknown; the rest depend on strict_compat, the file hash
+# and whether the version has release notes.
+OPTIONAL_PATHS = {
+    'addons',
+    'addons{}.updates[].applications.gecko.strict_max_version',
+    'addons{}.updates[].update_hash',
+    'addons{}.updates[].update_info_url',
+}
+
 SEVERITY = {'identical': 0, 'data': 1, 'behavioral': 2, 'error': 3}
 
 
@@ -138,12 +149,14 @@ def compare_data_maps(a, b, path, findings):
 def compare_objects(a, b, path, findings):
     for key in sorted(set(a) | set(b)):
         sub = '%s.%s' % (path, key) if path else key
-        if key not in b:
-            findings.add('behavioral', 'field only in A', sub)
-        elif key not in a:
-            findings.add('behavioral', 'field only in B', sub)
-        else:
+        if key in a and key in b:
             compare_values(a[key], b[key], sub, findings)
+            continue
+        side = 'A' if key in a else 'B'
+        if sub in OPTIONAL_PATHS:
+            findings.add('data', 'optional field only in %s' % side, sub)
+        else:
+            findings.add('behavioral', 'field only in %s' % side, sub)
 
 
 def compare_lists(a, b, path, findings):
@@ -262,11 +275,29 @@ def load(paths):
     for path in paths:
         with gzip.open(path, 'rt') as fh:
             try:
-                for line in fh:
-                    yield json.loads(line)
-            except (EOFError, ValueError):
-                print('warning: %s ends in a truncated record' % path,
-                      file=sys.stderr)
+                for number, line in enumerate(fh, 1):
+                    try:
+                        yield json.loads(line)
+                    except ValueError:
+                        print('warning: %s line %d is not valid JSON; '
+                              'skipped' % (path, number), file=sys.stderr)
+            except (EOFError, OSError):
+                print('warning: %s ends in an unfinished record; pairs after '
+                      'it are missing' % path, file=sys.stderr)
+
+
+def sample_urls(directory):
+    """(endpoint, url) pairs in a sample directory, to restrict a report."""
+    wanted = set()
+    for name in sorted(os.listdir(directory)):
+        if not name.endswith('.tsv'):
+            continue
+        with open(os.path.join(directory, name)) as fh:
+            for line in fh:
+                if line.startswith('#') or '\t' not in line:
+                    continue
+                wanted.add((name[:-4], line.rstrip('\n').split('\t', 1)[1]))
+    return wanted
 
 
 def build_report(records, site_hosts, examples):
@@ -345,6 +376,8 @@ def main():
     parser.add_argument('--site-host', action='append',
                         help='hostname replaced by <site> before comparing '
                         '(repeatable; default: the prod and stage hosts)')
+    parser.add_argument('--sample', help='only report URLs in this sample '
+                        'directory, e.g. scripts/golden/samples')
     parser.add_argument('--markdown', help='write the markdown report here')
     parser.add_argument('--json', help='write the full JSON report here')
     parser.add_argument('--examples', type=int, default=3)
@@ -354,8 +387,11 @@ def main():
     # Longest first so a hostname is never partly replaced by a shorter one.
     hosts = sorted(args.site_host or DEFAULT_SITE_HOSTS, key=len,
                    reverse=True)
-    results = [safe_path(p) for p in args.results]
-    report = build_report(load(results), hosts, args.examples)
+    records = load([safe_path(p) for p in args.results])
+    if args.sample:
+        wanted = sample_urls(safe_path(args.sample))
+        records = (r for r in records if (r['endpoint'], r['url']) in wanted)
+    report = build_report(records, hosts, args.examples)
     text = markdown(report, args.max_rows)
     if args.markdown:
         with open(safe_path(args.markdown), 'w') as fh:

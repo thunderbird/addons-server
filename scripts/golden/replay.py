@@ -111,9 +111,21 @@ class TLSNameConnection(http.client.HTTPSConnection):
             sock, server_hostname=self.tls_name or self.host)
 
 
+def decode_content(raw, encoding):
+    encoding = (encoding or '').lower()
+    if encoding == 'gzip':
+        return gzip.decompress(raw)
+    if encoding == 'deflate':
+        return zlib.decompress(raw)
+    return raw
+
+
 def verified_context():
     context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    if hasattr(ssl, 'TLSVersion'):
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+    else:  # Python 3.6
+        context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
     context.check_hostname = True
     context.verify_mode = ssl.CERT_REQUIRED
     return context
@@ -165,11 +177,10 @@ class Target:
         finally:
             resp.close()
         headers = resp.headers
-        encoding = (headers.get('Content-Encoding') or '').lower()
-        if encoding == 'gzip':
-            raw = gzip.decompress(raw)
-        elif encoding == 'deflate':
-            raw = zlib.decompress(raw)
+        try:
+            raw = decode_content(raw, headers.get('Content-Encoding'))
+        except (OSError, EOFError, zlib.error) as err:
+            return {'error': 'bad Content-Encoding: %s' % err}
         try:
             body, body_encoding = raw.decode('utf-8'), 'utf-8'
         except UnicodeDecodeError:
@@ -205,18 +216,47 @@ def load_sample(samples, endpoint, limit):
     return rows[:limit] if limit else rows
 
 
-def done_keys(path):
-    keys = set()
-    if not os.path.exists(path):
-        return keys
+def read_records(path):
+    """Return (records, clean) for a results file; clean is False when the
+    file ends in an unfinished record or gzip member."""
+    records = []
     with gzip.open(path, 'rt') as fh:
         try:
             for line in fh:
-                rec = json.loads(line)
-                keys.add((rec['endpoint'], rec['url']))
-        except (EOFError, ValueError):
-            pass  # a truncated final record is simply fetched again
-    return keys
+                records.append(json.loads(line))
+        except (EOFError, OSError, ValueError):
+            return records, False
+    return records, True
+
+
+def target_bases(targets, service):
+    return {side: target.bases[service] for side, target in targets.items()}
+
+
+def done_keys(path, targets):
+    """URLs already recorded against these targets, for --resume.
+
+    A damaged tail (an interrupted write) is dropped by rewriting the file
+    from its readable records, so new records are not appended after it.
+    Resuming against different targets is refused rather than mixing them.
+    """
+    if not os.path.exists(path):
+        return set()
+    records, clean = read_records(path)
+    for rec in records:
+        expected = target_bases(targets, ENDPOINT_SERVICE[rec['endpoint']])
+        if rec.get('targets') != expected:
+            sys.exit('%s was recorded against %s, not %s; use a new --out'
+                     % (path, rec.get('targets'), expected))
+    if not clean:
+        print('dropping a damaged record at the end of %s' % path,
+              file=sys.stderr)
+        tmp = path + '.tmp'
+        with gzip.open(tmp, 'wt') as fh:
+            for rec in records:
+                fh.write(json.dumps(rec, sort_keys=True) + '\n')
+        os.replace(tmp, path)
+    return {(rec['endpoint'], rec['url']) for rec in records}
 
 
 def parse_args():
@@ -297,8 +337,10 @@ class ProductionGuard:
 
 def replay_endpoint(endpoint, rows, targets, guard, out):
     service = ENDPOINT_SERVICE[endpoint]
+    bases = target_bases(targets, service)
     for i, (hits, url) in enumerate(rows, 1):
-        rec = {'endpoint': endpoint, 'url': url, 'hits': hits}
+        rec = {'endpoint': endpoint, 'url': url, 'hits': hits,
+               'targets': bases}
         for side, target in targets.items():
             rec[side] = target.fetch(service, url)
         out.write(json.dumps(rec, sort_keys=True) + '\n')
@@ -318,7 +360,7 @@ def main():
     targets = build_targets(args)
     if os.path.exists(out_path) and not args.resume:
         sys.exit('%s exists; pass --resume to continue it' % out_path)
-    skip = done_keys(out_path) if args.resume else set()
+    skip = done_keys(out_path, targets) if args.resume else set()
     guard = ProductionGuard(targets)
     endpoints = [e.strip() for e in args.endpoints.split(',') if e.strip()]
     with gzip.open(out_path, 'at') as out:
