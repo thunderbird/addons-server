@@ -15,6 +15,8 @@ import pytest
 
 from mock import patch
 
+from olympia.lib import settings_base
+
 
 FAKE_SECRETS = {
     'email_url': 'smtp://user:pass@mail.example:587',
@@ -44,6 +46,13 @@ class FakeSecretsManager(object):
         self.calls.append((self.region_name, SecretId))
         name = SecretId.rsplit('/', 1)[1]
         return {'SecretString': json.dumps(FAKE_SECRETS[name])}
+
+
+def suffixed_indexes(suffix):
+    # Derived from settings_base at call time: conftest prefixes the base
+    # index names per test worker.
+    return {k: '%s_%s' % (v, suffix)
+            for k, v in settings_base.ES_INDEXES.items()}
 
 
 def load(module_name, **environ):
@@ -91,8 +100,8 @@ def test_stage_defaults_unchanged():
     assert stage.ENV == 'tbstage'
     assert stage.DEBUG is True
     assert stage.SEND_REAL_EMAIL is False
-    assert stage.ES_INDEXES == {
-        'default': 'addons_tbstage', 'stats': 'addons_stats_tbstage'}
+    assert stage.ES_INDEXES == suffixed_indexes('tbstage')
+    assert set(stage.ES_INDEXES) == {'default', 'stats'}
     assert ('us-west-2', 'atn/stage/mysql') in calls
     assert all(region == 'us-west-2' and sid.startswith('atn/stage/')
                for region, sid in calls)
@@ -121,8 +130,8 @@ def test_k8s_defaults():
     assert k8s.DEBUG_PROPAGATE_EXCEPTIONS is False
     assert k8s.SEND_REAL_EMAIL is False
     assert k8s.ENV == 'tbstageeks'
-    assert k8s.ES_INDEXES == {
-        'default': 'addons_tbstageeks', 'stats': 'addons_stats_tbstageeks'}
+    assert k8s.ES_INDEXES == suffixed_indexes('tbstageeks')
+    assert set(k8s.ES_INDEXES) == {'default', 'stats'}
     assert all(sid.startswith('atn/stage/') for _, sid in calls)
 
 
