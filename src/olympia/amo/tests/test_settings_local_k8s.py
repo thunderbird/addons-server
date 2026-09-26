@@ -57,16 +57,20 @@ def load(module_name, **environ):
         assert service_name == 'secretsmanager'
         return FakeSecretsManager(calls, region_name)
 
-    for name in ('settings_local_stage', 'settings_local_k8s'):
-        sys.modules.pop(name, None)
+    def forget():
+        for name in ('settings_local_stage', 'settings_local_k8s'):
+            sys.modules.pop(name, None)
+
+    forget()
     clean = {k: v for k, v in os.environ.items() if k not in ATN_VARS}
     clean['NETAPP_STORAGE_ROOT'] = '/tmp/storage'
     clean.update(environ)
-    with patch.dict(os.environ, clean, clear=True), \
-            patch('boto3.client', fake_client):
-        module = importlib.import_module(module_name)
-    for name in ('settings_local_stage', 'settings_local_k8s'):
-        sys.modules.pop(name, None)
+    try:
+        with patch.dict(os.environ, clean, clear=True), \
+                patch('boto3.client', fake_client):
+            module = importlib.import_module(module_name)
+    finally:
+        forget()
     return module, calls
 
 
@@ -112,6 +116,7 @@ def test_k8s_defaults():
     assert k8s.INBOUND_EMAIL_DOMAIN == 'addons-stage-eks.thunderbird.net'
     assert k8s.STATIC_URL == (
         'https://addons-stage-eks.thunderbird.net/static/')
+    assert k8s.SERVICES_DOMAIN == 'services.addons-stage-eks.thunderbird.net'
     assert k8s.DEBUG is False
     assert k8s.DEBUG_PROPAGATE_EXCEPTIONS is False
     assert k8s.SEND_REAL_EMAIL is False
@@ -136,6 +141,13 @@ def test_k8s_domain_and_secrets_from_env():
         'arn:aws:secretsmanager:eu-central-1:111122223333:secret:'
         'atn/stage-eks/django_secret_key') in calls
     assert all(region == 'eu-central-1' for region, _ in calls)
+
+
+def test_empty_domain_counts_as_unset():
+    stage, _ = load('settings_local_stage', ATN_DOMAIN='')
+    assert stage.SITE_URL == 'https://addons-stage.thunderbird.net'
+    k8s, _ = load('settings_local_k8s', ATN_DOMAIN='')
+    assert k8s.SITE_URL == 'https://addons-stage-eks.thunderbird.net'
 
 
 @pytest.mark.parametrize(

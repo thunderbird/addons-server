@@ -25,7 +25,8 @@ from olympia.lib.settings_base import * # noqa
 ATN_SECRETS_ENV = os.environ.get('ATN_SECRETS_ENV', 'stage')
 ATN_SECRETS_REGION = os.environ.get('ATN_SECRETS_REGION', 'us-west-2')
 ATN_SECRETS_ACCOUNT = os.environ.get('ATN_SECRETS_ACCOUNT', '')
-ATN_DOMAIN = os.environ.get('ATN_DOMAIN', 'addons-stage.thunderbird.net')
+# An empty ATN_DOMAIN counts as unset, as in docker/docker-entrypoint.sh.
+ATN_DOMAIN = os.environ.get('ATN_DOMAIN') or 'addons-stage.thunderbird.net'
 
 
 # AWS Secrets Manager helper

@@ -27,7 +27,9 @@ import re
 
 from django.core.exceptions import ImproperlyConfigured
 
-os.environ.setdefault('ATN_DOMAIN', 'addons-stage-eks.thunderbird.net')
+# An empty ATN_DOMAIN counts as unset, as in docker/docker-entrypoint.sh.
+if not os.environ.get('ATN_DOMAIN'):
+    os.environ['ATN_DOMAIN'] = 'addons-stage-eks.thunderbird.net'
 
 import settings_local_stage as stage  # noqa: E402
 from olympia.lib import settings_base  # noqa: E402
@@ -57,6 +59,10 @@ if ENV in _RESERVED_ES_SUFFIXES:
         'environment' % ENV)
 ES_INDEXES = {
     k: '%s_%s' % (v, ENV) for k, v in settings_base.ES_INDEXES.items()}
+
+# settings_base derives SERVICES_DOMAIN from the container hostname; the
+# services robots.txt policy (amo.views.robots) matches requests against it.
+SERVICES_DOMAIN = 'services.' + stage.DOMAIN
 
 # The inherited list only covers the stock suffixes; accept whatever
 # ATN_DOMAIN names (and its services. and versioncheck. subdomains).
