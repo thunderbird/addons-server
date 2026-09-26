@@ -11,10 +11,38 @@ from botocore.exceptions import ClientError
 from olympia.lib.settings_base import * # noqa
 
 
+# -----------------------------------------------------------------------------
+# Environment parameters
+# -----------------------------------------------------------------------------
+# The defaults reproduce the Fargate stage exactly; settings_local_k8s.py sets
+# different defaults for the EKS stage before importing this module.
+#
+# ATN_SECRETS_ENV     -- secrets are read from atn/<ATN_SECRETS_ENV>/*
+# ATN_SECRETS_REGION  -- Secrets Manager region
+# ATN_SECRETS_ACCOUNT -- when set, secrets are addressed by (partial) ARN in
+#                        this account instead of by name in the caller's own
+# ATN_DOMAIN          -- public hostname; every site URL below derives from it
+ATN_SECRETS_ENV = os.environ.get('ATN_SECRETS_ENV', 'stage')
+ATN_SECRETS_REGION = os.environ.get('ATN_SECRETS_REGION', 'us-west-2')
+ATN_SECRETS_ACCOUNT = os.environ.get('ATN_SECRETS_ACCOUNT', '')
+# An empty ATN_DOMAIN counts as unset, as in docker/docker-entrypoint.sh.
+ATN_DOMAIN = os.environ.get('ATN_DOMAIN') or 'addons-stage.thunderbird.net'
+
+
 # AWS Secrets Manager helper
 _secrets_cache = {}
 
-def get_secret(secret_name, region_name="us-west-2"):
+
+def secret_id(name):
+    """Return the SecretId for atn/<ATN_SECRETS_ENV>/<name>."""
+    secret_name = 'atn/%s/%s' % (ATN_SECRETS_ENV, name)
+    if ATN_SECRETS_ACCOUNT:
+        return 'arn:aws:secretsmanager:%s:%s:secret:%s' % (
+            ATN_SECRETS_REGION, ATN_SECRETS_ACCOUNT, secret_name)
+    return secret_name
+
+
+def get_secret(secret_name, region_name=ATN_SECRETS_REGION):
     """Retrieve a secret from AWS Secrets Manager with caching."""
     if secret_name in _secrets_cache:
         return _secrets_cache[secret_name]
@@ -41,20 +69,20 @@ def get_secret(secret_name, region_name="us-west-2"):
 # (if present) so that even if something accidentally starts, MySQL itself
 # enforces read-only access
 BOOTSTRAP_SAFE = env.bool("BOOTSTRAP_SAFE", default=False)
-MYSQL_SECRET_NAME = "atn/stage/mysql_ro" if BOOTSTRAP_SAFE else "atn/stage/mysql"
+MYSQL_SECRET_NAME = secret_id("mysql_ro" if BOOTSTRAP_SAFE else "mysql")
 
 
 # Retrieve secrets from AWS Secrets Manager
-_email_url_secret = get_secret('atn/stage/email_url')
+_email_url_secret = get_secret(secret_id('email_url'))
 _mysql_secret = get_secret(MYSQL_SECRET_NAME)
-_inbound_email_secret = get_secret('atn/stage/inbound_email')
-_django_secret = get_secret('atn/stage/django_secret_key')
-_celery_broker_secret = get_secret('atn/stage/celery_broker')
-_recaptcha_secret = get_secret('atn/stage/recaptcha')
-_fxa_secret = get_secret('atn/stage/fxa')
-_cache_host_secret = get_secret('atn/stage/cache_host')
-_celery_result_backend_secret = get_secret('atn/stage/celery_result_backend')
-_es_host_secret = get_secret('atn/stage/elasticsearch_host')
+_inbound_email_secret = get_secret(secret_id('inbound_email'))
+_django_secret = get_secret(secret_id('django_secret_key'))
+_celery_broker_secret = get_secret(secret_id('celery_broker'))
+_recaptcha_secret = get_secret(secret_id('recaptcha'))
+_fxa_secret = get_secret(secret_id('fxa'))
+_cache_host_secret = get_secret(secret_id('cache_host'))
+_celery_result_backend_secret = get_secret(secret_id('celery_result_backend'))
+_es_host_secret = get_secret(secret_id('elasticsearch_host'))
 
 
 EMAIL_URL = env.email_url('EMAIL_URL', default=_email_url_secret)
@@ -76,12 +104,12 @@ ENABLE_ADDON_SIGNING = False
 
 API_THROTTLE = False
 
-CDN_HOST = 'https://addons-stage.thunderbird.net'
-DOMAIN = 'addons-stage.thunderbird.net'
+DOMAIN = ATN_DOMAIN
+CDN_HOST = 'https://' + DOMAIN
 
 SERVER_EMAIL = 'thunderbird-seamonkey-ops@mozilla.com'
 SITE_URL = 'https://' + DOMAIN
-SERVICES_URL = 'https://services.addons-stage.thunderbird.net'
+SERVICES_URL = 'https://services.' + DOMAIN
 STATIC_URL = '%s/static/' % CDN_HOST
 MEDIA_URL = '%s/user-media/' % CDN_HOST
 
@@ -95,7 +123,7 @@ INBOUND_EMAIL_SECRET_KEY = _inbound_email_secret['secret_key']
 # Validation key we need to send in POST response.
 INBOUND_EMAIL_VALIDATION_KEY = _inbound_email_secret['validation_key']
 # Domain emails should be sent to.
-INBOUND_EMAIL_DOMAIN = 'addons-stage.thunderbird.net'
+INBOUND_EMAIL_DOMAIN = DOMAIN
 
 NETAPP_STORAGE_ROOT = env('NETAPP_STORAGE_ROOT')
 NETAPP_STORAGE = NETAPP_STORAGE_ROOT + '/shared_storage'
@@ -249,7 +277,7 @@ SIGNING_SERVER = '' # TODO SIGNING SERVER?
 
 SENTRY_DSN = '' # TODO SENTRY
 
-GOOGLE_ANALYTICS_DOMAIN = 'addons-stage.thunderbird.net'
+GOOGLE_ANALYTICS_DOMAIN = DOMAIN
 
 NEWRELIC_ENABLE = False
 
@@ -281,7 +309,7 @@ FXA_CONFIG = {
         'oauth_host': 'https://oauth.accounts.firefox.com/v1',
         'profile_host': 'https://profile.accounts.firefox.com/v1',
         'redirect_url':
-            'https://addons-stage.thunderbird.net/api/v3/accounts/authenticate/',
+            'https://%s/api/v3/accounts/authenticate/' % DOMAIN,
         'scope': 'profile',
         'skip_register_redirect': True,
     },
@@ -333,7 +361,7 @@ DEFAULT_APP = 'thunderbird'
 
 # URL paths
 # paths for images, e.g. mozcdn.com/amo or '/static'
-VAMO_URL = 'https://versioncheck.addons-stage.thunderbird.net'
+VAMO_URL = 'https://versioncheck.' + DOMAIN
 NEW_PERSONAS_UPDATE_URL = VAMO_URL + '/%(locale)s/themes/update-check/%(id)d'
 
 # TODO Outgoing URL bouncer
@@ -341,7 +369,7 @@ REDIRECT_URL = ''
 REDIRECT_SECRET_KEY = ''
 
 # Allow URLs from these servers. Use full domain names.
-REDIRECT_URL_ALLOW_LIST = ['addons-stage.thunderbird.net']
+REDIRECT_URL_ALLOW_LIST = [DOMAIN]
 
 # Email settings
 ADDONS_EMAIL = "Thunderbird Add-ons <nobody@thunderbird.net>"
@@ -357,13 +385,13 @@ VALIDATION_FAQ_URL = ('https://wiki.mozilla.org/Add-ons/Reviewers/Guide/'
                       'AddonReviews#Step_2:_Automatic_validation')
 
 # CSP Settings
-PROD_CDN_HOST = 'https://addons-stage.thunderbird.net/'
+PROD_CDN_HOST = CDN_HOST + '/'
 ANALYTICS_HOST = 'https://ssl.google-analytics.com'
 
 CSP_BASE_URI = (
     "'self'",
     # Required for the legacy discovery pane.
-    'https://addons-stage.thunderbird.net',
+    CDN_HOST,
 )
 CSP_CONNECT_SRC = (
     "'self'",
