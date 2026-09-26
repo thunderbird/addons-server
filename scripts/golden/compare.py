@@ -187,9 +187,10 @@ def compare_scalars(a, b, path, findings):
         findings.add('behavioral', 'type %s -> %s' % (ta, tb), path)
 
 
+# Namespace URIs without their scheme; they are identifiers, not endpoints.
 XML_PREFIXES = {
-    'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'RDF',
-    'http://www.mozilla.org/2004/em-rdf#': 'em',
+    'www.w3.org/1999/02/22-rdf-syntax-ns#': 'RDF',
+    'www.mozilla.org/2004/em-rdf#': 'em',
 }
 
 
@@ -198,8 +199,9 @@ def local_name(tag):
     so a namespace change still shows up as a different field."""
     if tag.startswith('{'):
         uri, _, name = tag[1:].partition('}')
-        if uri in XML_PREFIXES:
-            return '%s:%s' % (XML_PREFIXES[uri], name)
+        scheme, sep, rest = uri.partition('://')
+        if sep and scheme == 'http' and rest in XML_PREFIXES:
+            return '%s:%s' % (XML_PREFIXES[rest], name)
     return tag
 
 
