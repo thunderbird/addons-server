@@ -2,9 +2,12 @@ from django.core import exceptions
 from django.db import connection, DataError
 from django.test.utils import override_settings
 
-from olympia.access.models import Group
 from olympia.amo.fields import HttpHttpsOnlyURLField
 from olympia.amo.tests import TestCase
+# Aliased: pytest would otherwise try to collect the imported model as a test
+# class because of its name.
+from olympia.core.tests.db_tests_testapp.models import (
+    TestPositiveAutoFieldModel as PositiveAutoFieldModel)
 
 
 class HttpHttpsOnlyURLFieldTestCase(TestCase):
@@ -60,8 +63,10 @@ class HttpHttpsOnlyURLFieldTestCase(TestCase):
 
 
 class TestPositiveAutoField(TestCase):
-    # Just using Group because it's a known user of PositiveAutoField
-    ClassUsingPositiveAutoField = Group
+    # A table of our own: test_unsigned_int_limits leaves the AUTO_INCREMENT
+    # counter clamped at the unsigned-int maximum, which rollback does not
+    # undo, so it must not be a table other tests insert into.
+    ClassUsingPositiveAutoField = PositiveAutoFieldModel
 
     def test_sql_generated_for_field(self):
         schema_editor = connection.schema_editor(atomic=False)
@@ -81,7 +86,8 @@ class TestPositiveAutoField(TestCase):
                 table_schema=DATABASE();
             """ % table_name)
             (column_type, column_key, extra), = cursor.fetchall()
-            assert column_type == 'int(10) unsigned'
+            # MySQL 8.0 dropped display widths from integer column types.
+            assert column_type in ('int unsigned', 'int(10) unsigned')
             assert column_key == 'PRI'
             assert extra == 'auto_increment'
 
