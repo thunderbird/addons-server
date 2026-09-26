@@ -79,7 +79,7 @@ OPTIONAL_PATHS = {
     'addons{}.updates[].update_info_url',
 }
 # The same optional fields in reqVersion=1 RDF responses, by element name.
-OPTIONAL_XML_TAGS = {'updateHash', 'updateInfoURL'}
+OPTIONAL_XML_TAGS = {'em:updateHash', 'em:updateInfoURL'}
 
 SEVERITY = {'identical': 0, 'data': 1, 'behavioral': 2, 'error': 3}
 
@@ -187,12 +187,24 @@ def compare_scalars(a, b, path, findings):
         findings.add('behavioral', 'type %s -> %s' % (ta, tb), path)
 
 
+XML_PREFIXES = {
+    'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'RDF',
+    'http://www.mozilla.org/2004/em-rdf#': 'em',
+}
+
+
 def local_name(tag):
-    return tag.rsplit('}', 1)[-1]
+    """'{uri}name' as 'prefix:name' for known namespaces; others unchanged,
+    so a namespace change still shows up as a different field."""
+    if tag.startswith('{'):
+        uri, _, name = tag[1:].partition('}')
+        if uri in XML_PREFIXES:
+            return '%s:%s' % (XML_PREFIXES[uri], name)
+    return tag
 
 
 def xml_to_obj(element):
-    """Element tree to dicts, dropping namespace URIs from names."""
+    """Element tree to dicts, with short prefixes for known namespaces."""
     obj = {'@' + local_name(k): v for k, v in element.attrib.items()}
     text = (element.text or '').strip()
     if text:
@@ -386,9 +398,10 @@ def main():
     parser.add_argument('--site-host', action='append',
                         help='hostname replaced by <site> before comparing '
                         '(repeatable; default: the prod and stage hosts)')
-    parser.add_argument('--sample', nargs='?', const=SAMPLES,
-                        help='only report URLs in a sample directory; with '
-                        'no value, the committed sample')
+    parser.add_argument('--committed-sample', action='store_true',
+                        help='only report URLs in the committed sample')
+    parser.add_argument('--sample', metavar='DIR',
+                        help='only report URLs in this sample directory')
     parser.add_argument('--markdown', help='write the markdown report here')
     parser.add_argument('--json', help='write the full JSON report here')
     parser.add_argument('--examples', type=int, default=3)
@@ -399,10 +412,9 @@ def main():
     hosts = sorted(args.site_host or DEFAULT_SITE_HOSTS, key=len,
                    reverse=True)
     records = load([safe_path(p) for p in args.results])
-    if args.sample:
-        sample_dir = (SAMPLES if args.sample == SAMPLES
-                      else safe_path(args.sample))
-        wanted = sample_urls(sample_dir)
+    if args.committed_sample or args.sample:
+        wanted = sample_urls(SAMPLES if args.committed_sample
+                             else safe_path(args.sample))
         records = (r for r in records if (r['endpoint'], r['url']) in wanted)
     report = build_report(records, hosts, args.examples)
     text = markdown(report, args.max_rows)

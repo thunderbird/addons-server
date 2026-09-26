@@ -125,7 +125,7 @@ python3 $REPO/scripts/golden/compare.py prod-vs-stage.jsonl.gz \
 ```
 
 `compare.py` makes no network calls, so you can tune it and rerun it on
-recorded results as many times as you like. `--sample` on its own limits the
+recorded results as many times as you like. `--committed-sample` limits the
 report to the URLs in the committed sample, and `--sample DIR` to another
 sample directory under the current one. Use it when a results file also
 holds URLs from an older sample.
@@ -167,8 +167,10 @@ are listed in `OPTIONAL_PATHS` in `compare.py`. For versioncheck (see
 `services/update.py`) these are `update_info_url` (only when the version has
 release notes), `update_hash`, `strict_max_version` (only for strict
 compatibility), and the whole `addons` object, which is `{}` when the add-on
-is unknown. The `reqVersion=1` RDF equivalents, `updateHash` and
-`updateInfoURL`, are in `OPTIONAL_XML_TAGS`. When one of these is present on
+is unknown. The `reqVersion=1` RDF equivalents, `em:updateHash` and
+`em:updateInfoURL`, are in `OPTIONAL_XML_TAGS`. The RDF and `em` namespaces
+are shortened to those prefixes. Any other namespace is kept in full, so a
+namespace change still shows up. When one of these is present on
 one side only, it counts as data. Any other field present on one side only counts as behavioral.
 
 Known limits of the heuristics:
