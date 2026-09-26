@@ -1501,14 +1501,17 @@ class TestAutoApprovalSummary(TestCase):
 
         WebextPermission.objects.update(
             file=self.file, permissions=['foobar'])
-        del self.file.webext_permissions_list
+        # check_uses_native_messaging() reads version.all_files, a
+        # cached_property holding File instances of its own, so that is the
+        # cache to drop. Dropping self.file's own cached permissions list
+        # instead has no effect on what the check sees.
+        del self.version.all_files
         assert (
             AutoApprovalSummary.check_uses_native_messaging(self.version) == 0)
 
         WebextPermission.objects.update(
             file=self.file, permissions=['nativeMessaging', 'foobar'])
-        del self.file.webext_permissions_list
-        # FIXME: the above seems to be workig, but this still fails
+        del self.version.all_files
         assert (
             AutoApprovalSummary.check_uses_native_messaging(self.version) == 1)
 
