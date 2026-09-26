@@ -34,6 +34,8 @@ node_modules
 pip-log.txt
 settings_local.py*
 settings_local_*.py
+!settings_local_stage.py
+!settings_local_k8s.py
 shellng_local.py
 site-static/*
 src/olympia/discovery/strings.jinja2

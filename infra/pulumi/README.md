@@ -105,6 +105,13 @@ Application expects Secrets Manager paths under `atn/stage/*`:
 
 See `settings_local_stage.py` for full mapping.
 
+The secret prefix, region and account, and the public hostname, come from
+`ATN_SECRETS_ENV`, `ATN_SECRETS_REGION`, `ATN_SECRETS_ACCOUNT` and `ATN_DOMAIN`.
+This stack sets none of them, so the defaults (`atn/stage/*` in us-west-2,
+`addons-stage.thunderbird.net`) apply. The EKS stage uses
+`DJANGO_SETTINGS_MODULE=settings_local_k8s`, which defaults `ATN_DOMAIN` to
+`addons-stage-eks.thunderbird.net` and uses its own Elasticsearch index suffix.
+
 ## Post-Deployment Verification
 
 All commands below are read-only
