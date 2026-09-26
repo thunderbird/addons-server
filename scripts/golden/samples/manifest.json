@@ -2,19 +2,19 @@
   "endpoints": {
     "api-v3": {
       "distinct_sampled": 2000,
-      "dropped_sensitive": 340150,
+      "dropped_sensitive": 342157,
       "requests": 10210749,
       "target": 2000
     },
     "api-v4": {
       "distinct_sampled": 2000,
-      "dropped_sensitive": 88,
+      "dropped_sensitive": 95,
       "requests": 33752,
       "target": 2000
     },
     "versioncheck": {
       "distinct_sampled": 10000,
-      "dropped_sensitive": 160858,
+      "dropped_sensitive": 163143,
       "requests": 5645009,
       "target": 10000
     }
