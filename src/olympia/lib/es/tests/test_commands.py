@@ -1,6 +1,7 @@
 import threading
 import time
 
+from django.conf import settings as django_settings
 from django.core import management
 from django.db import connection
 from django.test.testcases import TransactionTestCase
@@ -173,8 +174,12 @@ class TestIndexCommandClassicAlgorithm(TestIndexCommand):
 
         # We don't want to guess the index name. We are putting this here
         # explicitly to ensure that we actually run the test for the index
-        # setting instead of using an `if` and failing silently
-        amo_addons_settings = self.es.indices.get_settings('test_amo_addons')
+        # setting instead of using an `if` and failing silently. Read the
+        # alias from the settings rather than hard-coding it: under xdist it
+        # carries a per-worker prefix, and a hard-coded `test_amo_addons`
+        # 404s on every worker.
+        amo_addons_settings = self.es.indices.get_settings(
+            django_settings.ES_INDEXES['default'])
         settings = amo_addons_settings[list(amo_addons_settings.keys())[0]]
 
         assert settings['settings']['index']['similarity']['default'] == {
