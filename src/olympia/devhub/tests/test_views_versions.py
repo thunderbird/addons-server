@@ -872,10 +872,17 @@ class TestVersionEditCompat(TestVersionEditBase):
 
     def setUp(self):
         super(TestVersionEditCompat, self).setUp()
-        self.android_32pre, _created = AppVersion.objects.get_or_create(
-            application=amo.ANDROID.id, version='3.2a1pre')
-        self.android_30, _created = AppVersion.objects.get_or_create(
-            application=amo.ANDROID.id, version='3.0')
+        # The compat formset builds one form per app in amo.APP_USAGE, with
+        # the apps the version already has first. a3615 has Firefox, so the
+        # second form is a Thunderbird one and that is the compatibility row
+        # these tests add. Upstream only had Firefox and Android, so there the
+        # second form was Android; posting Android data into it here fails
+        # validation because the form offers Thunderbird versions.
+        # test_unique_apps below relies on the same ordering.
+        self.thunderbird_60, _created = AppVersion.objects.get_or_create(
+            application=amo.THUNDERBIRD.id, version='60.0')
+        self.thunderbird_60_star, _created = AppVersion.objects.get_or_create(
+            application=amo.THUNDERBIRD.id, version='60.*')
 
     def get_form(self, url=None):
         if not url:
@@ -896,13 +903,14 @@ class TestVersionEditCompat(TestVersionEditBase):
             self.url).context['compat_form'].initial_forms[0]
         data = self.formset(
             initial(form),
-            {'application': amo.ANDROID.id, 'min': self.android_30.id,
-             'max': self.android_32pre.id},
+            {'application': amo.THUNDERBIRD.id,
+             'min': self.thunderbird_60.id,
+             'max': self.thunderbird_60_star.id},
             initial_count=1)
         response = self.client.post(self.url, data)
         assert response.status_code == 302
         apps = [app.id for app in self.get_version().compatible_apps.keys()]
-        assert sorted(apps) == sorted([amo.FIREFOX.id, amo.ANDROID.id])
+        assert sorted(apps) == sorted([amo.FIREFOX.id, amo.THUNDERBIRD.id])
         assert list(ActivityLog.objects.all().values_list('action')) == (
             [(amo.LOG.MAX_APPVERSION_UPDATED.id,)])
 
@@ -941,7 +949,7 @@ class TestVersionEditCompat(TestVersionEditBase):
         assert response.status_code == 404
 
     def test_delete_appversion(self):
-        # Add android compat so we can delete firefox.
+        # Add thunderbird compat so we can delete firefox.
         self.test_add_appversion()
         form = self.client.get(self.url).context['compat_form']
         data = list(map(initial, form.initial_forms))
@@ -950,7 +958,7 @@ class TestVersionEditCompat(TestVersionEditBase):
             self.url, self.formset(*data, initial_count=2))
         assert response.status_code == 302
         apps = [app.id for app in self.get_version().compatible_apps.keys()]
-        assert apps == [amo.ANDROID.id]
+        assert apps == [amo.THUNDERBIRD.id]
         assert list(ActivityLog.objects.all().values_list('action')) == (
             [(amo.LOG.MAX_APPVERSION_UPDATED.id,)])
 
