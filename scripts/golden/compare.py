@@ -111,7 +111,14 @@ def is_data_key(key):
 
 def is_data_map(a, b):
     keys = set(a) | set(b)
-    return bool(keys) and all(is_data_key(k) for k in keys)
+    if not keys:
+        return False
+    if all(is_data_key(k) for k in keys):
+        return True
+    # A translations object may include locales that are also schema words
+    # ('id' is Indonesian); a region-qualified key marks it as locales.
+    return (all(LOCALE_KEY.match(k) for k in keys)
+            and any('-' in k or '_' in k for k in keys))
 
 
 def type_name(value):
