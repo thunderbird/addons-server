@@ -7,7 +7,8 @@ from django.test.testcases import TransactionTestCase
 
 import six
 
-from olympia.amo.tests import ESTestCase, addon_factory, create_switch
+from olympia.amo.tests import (
+    ESTestCase, addon_factory, create_switch, get_es_index_prefix)
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import urlparams
 from olympia.lib.es.utils import is_reindexing_amo, unflag_reindexing_amo
@@ -77,9 +78,13 @@ class TestIndexCommand(ESTestCase):
     def get_indices_aliases(cls):
         """Return the test indices with an alias."""
         indices = cls.es.indices.get_alias()
+        # Under xdist the other workers own indices in the same cluster that
+        # also start with `test_`, so match our own prefix only.
+        own_prefix = '%s_' % get_es_index_prefix()
         items = [(index, list(aliases['aliases'].keys())[0])
                  for index, aliases in indices.items()
-                 if len(aliases['aliases']) > 0 and index.startswith('test_')]
+                 if len(aliases['aliases']) > 0 and
+                 index.startswith(own_prefix)]
         items.sort()
         return items
 
