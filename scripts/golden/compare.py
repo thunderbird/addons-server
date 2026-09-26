@@ -43,6 +43,8 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+SAMPLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'samples')
+
 DEFAULT_SITE_HOSTS = [
     'versioncheck.addons-stage.thunderbird.net',
     'addons-stage.thunderbird.net',
@@ -76,6 +78,8 @@ OPTIONAL_PATHS = {
     'addons{}.updates[].update_hash',
     'addons{}.updates[].update_info_url',
 }
+# The same optional fields in reqVersion=1 RDF responses, by element name.
+OPTIONAL_XML_TAGS = {'updateHash', 'updateInfoURL'}
 
 SEVERITY = {'identical': 0, 'data': 1, 'behavioral': 2, 'error': 3}
 
@@ -153,7 +157,7 @@ def compare_objects(a, b, path, findings):
             compare_values(a[key], b[key], sub, findings)
             continue
         side = 'A' if key in a else 'B'
-        if sub in OPTIONAL_PATHS:
+        if sub in OPTIONAL_PATHS or key in OPTIONAL_XML_TAGS:
             findings.add('data', 'optional field only in %s' % side, sub)
         else:
             findings.add('behavioral', 'field only in %s' % side, sub)
@@ -183,14 +187,20 @@ def compare_scalars(a, b, path, findings):
         findings.add('behavioral', 'type %s -> %s' % (ta, tb), path)
 
 
+def local_name(tag):
+    return tag.rsplit('}', 1)[-1]
+
+
 def xml_to_obj(element):
-    obj = {'@' + k: v for k, v in element.attrib.items()}
+    """Element tree to dicts, dropping namespace URIs from names."""
+    obj = {'@' + local_name(k): v for k, v in element.attrib.items()}
     text = (element.text or '').strip()
     if text:
         obj['#text'] = text
     children = collections.OrderedDict()
     for child in element:
-        children.setdefault(child.tag, []).append(xml_to_obj(child))
+        children.setdefault(local_name(child.tag), []).append(
+            xml_to_obj(child))
     obj.update(children)
     return obj
 
@@ -376,8 +386,9 @@ def main():
     parser.add_argument('--site-host', action='append',
                         help='hostname replaced by <site> before comparing '
                         '(repeatable; default: the prod and stage hosts)')
-    parser.add_argument('--sample', help='only report URLs in this sample '
-                        'directory, e.g. scripts/golden/samples')
+    parser.add_argument('--sample', nargs='?', const=SAMPLES,
+                        help='only report URLs in a sample directory; with '
+                        'no value, the committed sample')
     parser.add_argument('--markdown', help='write the markdown report here')
     parser.add_argument('--json', help='write the full JSON report here')
     parser.add_argument('--examples', type=int, default=3)
@@ -389,7 +400,9 @@ def main():
                    reverse=True)
     records = load([safe_path(p) for p in args.results])
     if args.sample:
-        wanted = sample_urls(safe_path(args.sample))
+        sample_dir = (SAMPLES if args.sample == SAMPLES
+                      else safe_path(args.sample))
+        wanted = sample_urls(sample_dir)
         records = (r for r in records if (r['endpoint'], r['url']) in wanted)
     report = build_report(records, hosts, args.examples)
     text = markdown(report, args.max_rows)
