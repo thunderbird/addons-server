@@ -507,9 +507,20 @@ class TestParseXpi(TestCase):
         AppVersion.objects.all().delete()
         assert self.parse()['apps'] == []
 
-    @mock.patch.object(amo.FIREFOX, 'guid', 'iamabadguid')
+    @mock.patch.object(amo.THUNDERBIRD, 'guid', 'iamabadguid')
     def test_parse_apps_bad_guid(self):
-        assert self.parse()['apps'] == []
+        # Application compatibility must not depend on the application GUID:
+        # the webextension parser picks its apps from constants and resolves
+        # AppVersions by application id, so breaking the GUID of the app it
+        # targets changes nothing. Upstream expected no apps here because it
+        # matched manifest GUIDs against amo.APP_GUIDS; this fork does not,
+        # and breaking Firefox's GUID as upstream did would not exercise
+        # anything at all now that ATN only ever targets Thunderbird.
+        expected = [Extractor.App(
+            amo.THUNDERBIRD, amo.THUNDERBIRD.id,
+            AppVersion.objects.get(version='60.0'),
+            AppVersion.objects.get(version='*'))]
+        assert self.parse()['apps'] == expected
 
     def test_guid_match(self):
         addon = Addon.objects.create(guid='@webextension-guid', type=1)
