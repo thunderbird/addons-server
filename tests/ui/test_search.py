@@ -37,7 +37,9 @@ def test_legacy_extensions_do_not_load(base_url, selenium):
         assert term not in item.name
 
 
-@pytest.mark.xfail(strict=False)
+@pytest.mark.xfail(
+    strict=False,
+    reason='Xfailed upstream for mozilla/addons-server#10150')
 @pytest.mark.parametrize('category, sort_attr', [
     ['Most Users', 'users'],
     ['Top Rated', 'rating']])
@@ -78,7 +80,7 @@ def test_search_suggestion_term_loads_correct_suggestions(base_url, selenium):
     page = Home(selenium, base_url).open()
     term = 'Ui-Addon'
     suggestions = page.search.search_for(term, execute=False)
-    assert term == suggestions[0].name
+    assert suggestions[0].name == term
     term = '-Install'
     suggestions = page.search.search_for(term, execute=False)
     # Sleep to let autocomplete update.
@@ -92,7 +94,7 @@ def test_special_chars_dont_break_suggestions(base_url, selenium):
     term = 'Ui-Addon-Install'
     special_chars = u'%ç√®å'
     suggestions = page.search.search_for(term, execute=False)
-    assert term == suggestions[0].name
+    assert suggestions[0].name == term
     suggestions = page.search.search_for(special_chars, execute=False)
     assert term in suggestions[0].name
 
@@ -102,16 +104,16 @@ def test_capitalization_has_same_suggestions(base_url, selenium):
     page = Home(selenium, base_url).open()
     term = 'Ui-Addon-Install'
     suggestions = page.search.search_for(term, execute=False)
-    assert term == suggestions[0].name
+    assert suggestions[0].name == term
     suggestions = page.search.search_for(term.capitalize(), execute=False)
     # Sleep to let autocomplete update.
     time.sleep(2)
-    assert term == suggestions[0].name
+    assert suggestions[0].name == term
     page = Home(selenium, base_url).open()
     suggestions = page.search.search_for(term.lower(), execute=False)
     # Sleep to let autocomplete update.
     time.sleep(2)
-    assert term == suggestions[0].name
+    assert suggestions[0].name == term
 
 
 @pytest.mark.nondestructive
