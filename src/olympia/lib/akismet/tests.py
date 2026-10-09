@@ -180,19 +180,19 @@ class TestAkismetReportsRating(BaseAkismetReportsModelTest, TestCase):
         }
 
     def _create_report(self, kws=None):
-        defaults = dict(
-            comment_type='user-review',
-            user_ip='9.8.7.6.5',
-            user_agent='Agent Bond',
-            referrer='á4565',
-            user_name='steve',
-            user_email='steve@steve.com',
-            user_homepage='http://spam.spam',
-            content_link='https://addons.mozilla.org',
-            content_modified=datetime.now(),
-            comment='spammy McSpam?',
-            comment_modified=datetime.now(),
-        )
+        defaults = {
+            'comment_type': 'user-review',
+            'user_ip': '9.8.7.6.5',
+            'user_agent': 'Agent Bond',
+            'referrer': 'á4565',
+            'user_name': 'steve',
+            'user_email': 'steve@steve.com',
+            'user_homepage': 'http://spam.spam',
+            'content_link': 'https://addons.mozilla.org',
+            'content_modified': datetime.now(),
+            'comment': 'spammy McSpam?',
+            'comment_modified': datetime.now(),
+        }
         if kws:
             defaults.update(**kws)
         instance = AkismetReport.objects.create(**defaults)
@@ -232,17 +232,17 @@ class TestAkismetReportsAddon(BaseAkismetReportsModelTest, TestCase):
         }
 
     def _create_report(self, kws=None):
-        defaults = dict(
-            comment_type='product-summary',
-            user_ip='9.8.7.6.5',
-            user_agent='Agent Bond',
-            referrer='á4565',
-            user_name='steve',
-            user_email='steve@steve.com',
-            user_homepage='http://spam.spam',
-            comment='spammy McSpam?',
-            comment_modified=datetime.now(),
-        )
+        defaults = {
+            'comment_type': 'product-summary',
+            'user_ip': '9.8.7.6.5',
+            'user_agent': 'Agent Bond',
+            'referrer': 'á4565',
+            'user_name': 'steve',
+            'user_email': 'steve@steve.com',
+            'user_homepage': 'http://spam.spam',
+            'comment': 'spammy McSpam?',
+            'comment_modified': datetime.now(),
+        }
         if kws:
             defaults.update(**kws)
         instance = AkismetReport.objects.create(**defaults)

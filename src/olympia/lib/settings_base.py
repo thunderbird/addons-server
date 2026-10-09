@@ -12,6 +12,30 @@ from kombu import Queue
 
 import olympia.core.logger
 
+# Values repeated below. Lowercase so Django does not load them as settings.
+_csp_self = "'self'"
+_css_common_invisible_upload_less = 'css/common/invisible-upload.less'
+_css_impala_formset_less = 'css/impala/formset.less'
+_css_legacy_jquery_lightbox_css = 'css/legacy/jquery-lightbox.css'
+_css_zamboni_reviewers_less = 'css/zamboni/reviewers.less'
+_js_impala_capabilities_js = 'js/impala/capabilities.js'
+_js_impala_promos_js = 'js/impala/promos.js'
+_js_lib_format_js = 'js/lib/format.js'
+_js_lib_jquery_hoverintent_js = 'js/lib/jquery.hoverIntent.js'
+_js_lib_truncate_js = 'js/lib/truncate.js'
+_js_lib_ui_lightbox_js = 'js/lib/ui.lightbox.js'
+_js_node_lib_jquery_cookie_js = 'js/node_lib/jquery.cookie.js'
+_js_node_lib_underscore_js = 'js/node_lib/underscore.js'
+_js_zamboni_browser_js = 'js/zamboni/browser.js'
+_js_zamboni_buttons_js = 'js/zamboni/buttons.js'
+_js_zamboni_init_js = 'js/zamboni/init.js'
+_js_zamboni_personas_js = 'js/zamboni/personas.js'
+_js_zamboni_personas_core_js = 'js/zamboni/personas_core.js'
+_js_zamboni_storage_js = 'js/zamboni/storage.js'
+_js_zamboni_truncation_js = 'js/zamboni/truncation.js'
+_addons_cron = 'olympia.addons.cron'
+_amo_cron = 'olympia.amo.cron'
+
 
 env = environ.Env()
 
@@ -570,12 +594,12 @@ MINIFY_BUNDLES = {
         'zamboni/css': (
             'css/legacy/main.css',
             'css/legacy/main-mozilla.css',
-            'css/legacy/jquery-lightbox.css',
+            _css_legacy_jquery_lightbox_css,
             'css/zamboni/zamboni.css',
             'css/zamboni/tags.css',
             'css/zamboni/tabs.css',
             'css/impala/buttons.less',
-            'css/impala/formset.less',
+            _css_impala_formset_less,
             'css/impala/suggestions.less',
             'css/impala/header.less',
             'css/impala/moz-tab.css',
@@ -585,11 +609,11 @@ MINIFY_BUNDLES = {
         ),
         'zamboni/impala': (
             'css/impala/base.css',
-            'css/legacy/jquery-lightbox.css',
+            _css_legacy_jquery_lightbox_css,
             'css/impala/site.less',
             'css/impala/typography.less',
             'css/impala/forms.less',
-            'css/common/invisible-upload.less',
+            _css_common_invisible_upload_less,
             'css/impala/header.less',
             'css/impala/footer.less',
             'css/impala/moz-tab.css',
@@ -620,7 +644,7 @@ MINIFY_BUNDLES = {
             'css/impala/login.less',
             'css/impala/dictionaries.less',
             'css/impala/apps.less',
-            'css/impala/formset.less',
+            _css_impala_formset_less,
             'css/impala/tables.less',
             'css/impala/compat.less',
         ),
@@ -630,7 +654,7 @@ MINIFY_BUNDLES = {
         'zamboni/discovery-pane': (
             'css/zamboni/discovery-pane.css',
             'css/impala/promos.less',
-            'css/legacy/jquery-lightbox.css',
+            _css_legacy_jquery_lightbox_css,
         ),
         'zamboni/devhub': (
             'css/impala/tooltips.less',
@@ -641,9 +665,9 @@ MINIFY_BUNDLES = {
             'css/devhub/listing.less',
             'css/devhub/popups.less',
             'css/devhub/compat.less',
-            'css/impala/formset.less',
+            _css_impala_formset_less,
             'css/devhub/forms.less',
-            'css/common/invisible-upload.less',
+            _css_common_invisible_upload_less,
             'css/devhub/submission.less',
             'css/devhub/refunds.less',
             'css/devhub/buttons.less',
@@ -658,20 +682,20 @@ MINIFY_BUNDLES = {
             'css/devhub/compat.less',
             'css/devhub/dashboard.less',
             'css/devhub/forms.less',
-            'css/common/invisible-upload.less',
+            _css_common_invisible_upload_less,
             'css/devhub/submission.less',
             'css/devhub/search.less',
             'css/devhub/refunds.less',
             'css/impala/devhub-api.less',
         ),
         'zamboni/reviewers': (
-            'css/zamboni/reviewers.less',
+            _css_zamboni_reviewers_less,
             'css/zamboni/unlisted.less',
-            'css/zamboni/reviewers.less',
+            _css_zamboni_reviewers_less,
         ),
         'zamboni/themes_review': (
             'css/zamboni/developers.css',
-            'css/zamboni/reviewers.less',
+            _css_zamboni_reviewers_less,
             'css/zamboni/themes_review.less',
         ),
         'zamboni/files': (
@@ -687,15 +711,15 @@ MINIFY_BUNDLES = {
     'js': {
         # JS files common to the entire site (pre-impala).
         'common': (
-            'js/node_lib/underscore.js',
-            'js/zamboni/browser.js',
+            _js_node_lib_underscore_js,
+            _js_zamboni_browser_js,
             'js/amo2009/addons.js',
-            'js/zamboni/init.js',
-            'js/impala/capabilities.js',
-            'js/lib/format.js',
-            'js/node_lib/jquery.cookie.js',
-            'js/zamboni/storage.js',
-            'js/zamboni/buttons.js',
+            _js_zamboni_init_js,
+            _js_impala_capabilities_js,
+            _js_lib_format_js,
+            _js_node_lib_jquery_cookie_js,
+            _js_zamboni_storage_js,
+            _js_zamboni_buttons_js,
             'js/zamboni/tabs.js',
             'js/common/keys.js',
 
@@ -733,19 +757,19 @@ MINIFY_BUNDLES = {
             'js/zamboni/debouncer.js',
 
             # Homepage
-            'js/impala/promos.js',
+            _js_impala_promos_js,
             'js/zamboni/homepage.js',
 
             # Add-ons details page
-            'js/lib/ui.lightbox.js',
+            _js_lib_ui_lightbox_js,
             'js/zamboni/addon_details.js',
             'js/impala/abuse.js',
             'js/zamboni/ratings.js',
 
             # Personas
-            'js/lib/jquery.hoverIntent.js',
-            'js/zamboni/personas_core.js',
-            'js/zamboni/personas.js',
+            _js_lib_jquery_hoverintent_js,
+            _js_zamboni_personas_core_js,
+            _js_zamboni_personas_js,
 
             # Unicode: needs to be loaded after collections.js which listens to
             # an event fired in this file.
@@ -774,16 +798,16 @@ MINIFY_BUNDLES = {
         # Impala: Things to be loaded at the bottom
         'impala': (
             'js/lib/ngettext-overload.js',
-            'js/node_lib/underscore.js',
+            _js_node_lib_underscore_js,
             'js/impala/carousel.js',
-            'js/zamboni/browser.js',
+            _js_zamboni_browser_js,
             'js/amo2009/addons.js',
-            'js/zamboni/init.js',
-            'js/impala/capabilities.js',
-            'js/lib/format.js',
-            'js/node_lib/jquery.cookie.js',
-            'js/zamboni/storage.js',
-            'js/zamboni/buttons.js',
+            _js_zamboni_init_js,
+            _js_impala_capabilities_js,
+            _js_lib_format_js,
+            _js_node_lib_jquery_cookie_js,
+            _js_zamboni_storage_js,
+            _js_zamboni_buttons_js,
             'js/node_lib/jquery.pjax.js',
             # jquery.pjax.js is missing a semicolon at the end which breaks
             # our wonderful minification process... so add one.
@@ -815,8 +839,8 @@ MINIFY_BUNDLES = {
             'js/node_lib/ui/datepicker.js',
             'js/node_lib/ui/sortable.js',
 
-            'js/lib/truncate.js',
-            'js/zamboni/truncation.js',
+            _js_lib_truncate_js,
+            _js_zamboni_truncation_js,
             'js/impala/ajaxcache.js',
             'js/zamboni/helpers.js',
             'js/common/banners.js',
@@ -828,11 +852,11 @@ MINIFY_BUNDLES = {
             'js/impala/forms.js',
 
             # Homepage
-            'js/impala/promos.js',
+            _js_impala_promos_js,
             'js/impala/homepage.js',
 
             # Add-ons details page
-            'js/lib/ui.lightbox.js',
+            _js_lib_ui_lightbox_js,
             'js/impala/addon_details.js',
             'js/impala/abuse.js',
             'js/impala/ratings.js',
@@ -841,9 +865,9 @@ MINIFY_BUNDLES = {
             'js/impala/listing.js',
 
             # Personas
-            'js/lib/jquery.hoverIntent.js',
-            'js/zamboni/personas_core.js',
-            'js/zamboni/personas.js',
+            _js_lib_jquery_hoverintent_js,
+            _js_zamboni_personas_core_js,
+            _js_zamboni_personas_js,
 
             # Persona creation
             'js/common/upload-image.js',
@@ -874,30 +898,30 @@ MINIFY_BUNDLES = {
         'zamboni/discovery': (
             'js/node_lib/jquery.js',
             'js/node_lib/jquery.browser.js',
-            'js/node_lib/underscore.js',
-            'js/zamboni/browser.js',
-            'js/zamboni/init.js',
-            'js/impala/capabilities.js',
-            'js/lib/format.js',
+            _js_node_lib_underscore_js,
+            _js_zamboni_browser_js,
+            _js_zamboni_init_js,
+            _js_impala_capabilities_js,
+            _js_lib_format_js,
             'js/impala/carousel.js',
             'js/zamboni/analytics.js',
 
             # Add-ons details
-            'js/node_lib/jquery.cookie.js',
-            'js/zamboni/storage.js',
-            'js/zamboni/buttons.js',
-            'js/lib/ui.lightbox.js',
+            _js_node_lib_jquery_cookie_js,
+            _js_zamboni_storage_js,
+            _js_zamboni_buttons_js,
+            _js_lib_ui_lightbox_js,
 
             # Personas
-            'js/lib/jquery.hoverIntent.js',
-            'js/zamboni/personas_core.js',
-            'js/zamboni/personas.js',
+            _js_lib_jquery_hoverintent_js,
+            _js_zamboni_personas_core_js,
+            _js_zamboni_personas_js,
 
             'js/zamboni/debouncer.js',
-            'js/lib/truncate.js',
-            'js/zamboni/truncation.js',
+            _js_lib_truncate_js,
+            _js_zamboni_truncation_js,
 
-            'js/impala/promos.js',
+            _js_impala_promos_js,
             'js/zamboni/discovery_addons.js',
             'js/zamboni/discovery_pane.js',
         ),
@@ -906,8 +930,8 @@ MINIFY_BUNDLES = {
             'js/zamboni/discovery_video.js',
         ),
         'zamboni/devhub': (
-            'js/lib/truncate.js',
-            'js/zamboni/truncation.js',
+            _js_lib_truncate_js,
+            _js_zamboni_truncation_js,
             'js/common/upload-base.js',
             'js/common/upload-addon.js',
             'js/common/upload-image.js',
@@ -921,7 +945,7 @@ MINIFY_BUNDLES = {
         ),
         'zamboni/reviewers': (
             'js/lib/highcharts.src.js',
-            'js/lib/jquery.hoverIntent.js',  # Used by jquery.zoomBox.
+            _js_lib_jquery_hoverintent_js,  # Used by jquery.zoomBox.
             'js/lib/jquery.zoomBox.js',  # Used by themes_review.
             'js/zamboni/reviewers.js',
             'js/zamboni/themes_review_templates.js',
@@ -936,7 +960,7 @@ MINIFY_BUNDLES = {
             'js/lib/syntaxhighlighter/shBrushJScript.js',
             'js/lib/syntaxhighlighter/shBrushPlain.js',
             'js/lib/syntaxhighlighter/shBrushXml.js',
-            'js/zamboni/storage.js',
+            _js_zamboni_storage_js,
             'js/zamboni/files_templates.js',
             'js/zamboni/files.js',
         ),
@@ -1356,33 +1380,33 @@ CSP_EXCLUDE_URL_PREFIXES = ()
 # NOTE: CSP_DEFAULT_SRC MUST be set otherwise things not set
 # will default to being open to anything.
 CSP_DEFAULT_SRC = (
-    "'self'",
+    _csp_self,
 )
 CSP_BASE_URI = (
-    "'self'",
+    _csp_self,
     # Required for the legacy discovery pane.
     'https://addons.mozilla.org',
 )
 CSP_CONNECT_SRC = (
-    "'self'",
+    _csp_self,
     'https://sentry.prod.mozaws.net',
     PROD_CDN_HOST,
 )
 CSP_FORM_ACTION = (
-    "'self'",
+    _csp_self,
     'https://developer.mozilla.org',
 )
 CSP_FONT_SRC = (
-    "'self'",
+    _csp_self,
     PROD_CDN_HOST,
 )
 CSP_CHILD_SRC = (
-    "'self'",
+    _csp_self,
     'https://www.google.com/recaptcha/',
 )
 CSP_FRAME_SRC = CSP_CHILD_SRC
 CSP_IMG_SRC = (
-    "'self'",
+    _csp_self,
     'data:',  # Used in inlined mobile css.
     'blob:',  # Needed for image uploads.
     ANALYTICS_HOST,
@@ -1402,7 +1426,7 @@ CSP_SCRIPT_SRC = (
     PROD_CDN_HOST,
 )
 CSP_STYLE_SRC = (
-    "'self'",
+    _csp_self,
     "'unsafe-inline'",
     PROD_CDN_HOST,
 )
@@ -1777,19 +1801,19 @@ ALLOWED_FXA_CONFIGS = ['default']
 # List all jobs that should be callable with cron here.
 # syntax is: job_and_method_name: full.package.path
 CRON_JOBS = {
-    'update_addon_average_daily_users': 'olympia.addons.cron',
-    'update_addon_download_totals': 'olympia.addons.cron',
-    'addon_last_updated': 'olympia.addons.cron',
-    'update_addon_appsupport': 'olympia.addons.cron',
-    'hide_disabled_files': 'olympia.addons.cron',
-    'unhide_disabled_files': 'olympia.addons.cron',
-    'deliver_hotness': 'olympia.addons.cron',
-    'cleanup_image_files': 'olympia.addons.cron',
+    'update_addon_average_daily_users': _addons_cron,
+    'update_addon_download_totals': _addons_cron,
+    'addon_last_updated': _addons_cron,
+    'update_addon_appsupport': _addons_cron,
+    'hide_disabled_files': _addons_cron,
+    'unhide_disabled_files': _addons_cron,
+    'deliver_hotness': _addons_cron,
+    'cleanup_image_files': _addons_cron,
 
-    'add_latest_appversion': 'olympia.amo.cron',
-    'gc': 'olympia.amo.cron',
-    'category_totals': 'olympia.amo.cron',
-    'weekly_downloads': 'olympia.amo.cron',
+    'add_latest_appversion': _amo_cron,
+    'gc': _amo_cron,
+    'category_totals': _amo_cron,
+    'weekly_downloads': _amo_cron,
 
     'update_blog_posts': 'olympia.devhub.cron',
 

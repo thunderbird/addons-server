@@ -214,7 +214,7 @@ class AddonQuerySet(BaseQuerySet):
 
         def q(*args, **kw):
             if prefix:
-                kw = dict((prefix + k, v) for k, v in kw.items())
+                kw = {prefix + k: v for k, v in kw.items()}
             return Q(*args, **kw)
 
         return q(q(_current_version__isnull=False),
@@ -495,15 +495,15 @@ class Addon(OnChangeMixin, ModelBase):
             # We're already done.
             return
 
-        id = self.id
+        addon_id = self.id
 
         # Fetch previews before deleting the addon instance, so that we can
         # pass the list of files to delete to the delete_preview_files task
         # after the addon is deleted.
-        previews = list(Preview.objects.filter(addon__id=id)
+        previews = list(Preview.objects.filter(addon__id=addon_id)
                         .values_list('id', flat=True))
         version_previews = list(
-            VersionPreview.objects.filter(version__addon__id=id)
+            VersionPreview.objects.filter(version__addon__id=addon_id)
             .values_list('id', flat=True))
 
         if soft_deletion:
@@ -704,12 +704,12 @@ class Addon(OnChangeMixin, ModelBase):
         return reverse('addons.ratings.list', args=[self.slug])
 
     @classmethod
-    def get_type_url(cls, type):
+    def get_type_url(cls, addon_type):
         try:
-            type = amo.ADDON_SLUGS[type]
+            addon_type = amo.ADDON_SLUGS[addon_type]
         except KeyError:
             return None
-        return reverse('browse.%s' % type)
+        return reverse('browse.%s' % addon_type)
 
     def type_url(self):
         """The url for this add-on's type."""
@@ -756,7 +756,7 @@ class Addon(OnChangeMixin, ModelBase):
             return
         try:
             statuses = self.valid_file_statuses
-            status_list = ','.join(map(str, statuses))
+            placeholders = ','.join(['%s'] * len(statuses))
             fltr = {
                 'channel': amo.RELEASE_CHANNEL_LISTED,
                 'files__status__in': statuses
@@ -767,12 +767,13 @@ class Addon(OnChangeMixin, ModelBase):
                         SELECT 1 FROM files AS f2
                         WHERE f2.version_id = versions.id AND
                               f2.status NOT IN (%s))
-                    """ % status_list])[0]
+                    """ % placeholders],
+                params=statuses)[0]
 
         except (IndexError, Version.DoesNotExist):
             return None
 
-    def find_latest_version(self, channel, exclude=((amo.STATUS_DISABLED,))):
+    def find_latest_version(self, channel, exclude=(amo.STATUS_DISABLED,)):
         """Retrieve the latest version of an add-on for the specified channel.
 
         If channel is None either channel is returned.
@@ -1319,9 +1320,11 @@ class Addon(OnChangeMixin, ModelBase):
         return out
 
     def has_full_profile(self):
+        # Legacy stub, intentionally unimplemented; kept for compatibility.
         pass
 
     def has_profile(self):
+        # Legacy stub, intentionally unimplemented; kept for compatibility.
         pass
 
     @cached_property
@@ -1370,6 +1373,7 @@ class Addon(OnChangeMixin, ModelBase):
 
     @property
     def takes_contributions(self):
+        # Legacy stub, intentionally unimplemented; kept for compatibility.
         pass
 
     @classmethod
@@ -1654,6 +1658,7 @@ class AddonReviewerFlags(ModelBase):
 class Persona(models.Model):
     """Personas-specific additions to the add-on model."""
     STATUS_CHOICES = amo.STATUS_CHOICES_PERSONA
+    _PREVIEW_FILENAME = 'preview.png'
 
     id = PositiveAutoField(primary_key=True)
     addon = models.OneToOneField(Addon, null=True, on_delete=models.CASCADE)
@@ -1710,7 +1715,7 @@ class Persona(models.Model):
         In modern days, we use the same image for big preview + thumb.
         """
         if self.is_new():
-            return self._image_url('preview.png')
+            return self._image_url(self._PREVIEW_FILENAME)
         else:
             return self._image_url('preview.jpg')
 
@@ -1722,7 +1727,7 @@ class Persona(models.Model):
         In modern days, we use the same image for big preview + thumb.
         """
         if self.is_new():
-            return self._image_path('preview.png')
+            return self._image_path(self._PREVIEW_FILENAME)
         else:
             return self._image_path('preview.jpg')
 
@@ -1746,7 +1751,7 @@ class Persona(models.Model):
     def preview_url(self):
         """URL to Persona's big, 680px, preview."""
         if self.is_new():
-            return self._image_url('preview.png')
+            return self._image_url(self._PREVIEW_FILENAME)
         else:
             return self._image_url('preview_large.jpg')
 
@@ -1754,7 +1759,7 @@ class Persona(models.Model):
     def preview_path(self):
         """Path to Persona's big, 680px, preview."""
         if self.is_new():
-            return self._image_path('preview.png')
+            return self._image_path(self._PREVIEW_FILENAME)
         else:
             return self._image_path('preview_large.jpg')
 
@@ -1943,7 +1948,7 @@ class AddonApprovalsCounter(ModelBase):
         """
         Reset the approval counter (but not the dates) for the specified addon.
         """
-        obj, created = cls.objects.update_or_create(
+        obj, _ = cls.objects.update_or_create(
             addon=addon, defaults={'counter': 0})
         return obj
 
@@ -1952,7 +1957,7 @@ class AddonApprovalsCounter(ModelBase):
         """
         Set last_content_review for this addon.
         """
-        obj, created = cls.objects.update_or_create(
+        obj, _ = cls.objects.update_or_create(
             addon=addon, defaults={'last_content_review': datetime.now()})
         return obj
 
@@ -2005,10 +2010,10 @@ class Category(OnChangeMixin, ModelBase):
 
     def get_url_path(self):
         try:
-            type = amo.ADDON_SLUGS[self.type]
+            addon_type = amo.ADDON_SLUGS[self.type]
         except KeyError:
-            type = amo.ADDON_SLUGS[amo.ADDON_EXTENSION]
-        return reverse('browse.%s' % type, args=[self.slug])
+            addon_type = amo.ADDON_SLUGS[amo.ADDON_EXTENSION]
+        return reverse('browse.%s' % addon_type, args=[self.slug])
 
     def to_static_category(self):
         """Return the corresponding StaticCategory instance from a Category."""
@@ -2260,7 +2265,7 @@ class IncompatibleVersions(ModelBase):
 def update_incompatible_versions(sender, instance, **kw):
     if not instance.compat.addon_id:
         return
-    if not instance.compat.addon.type == amo.ADDON_EXTENSION:
+    if instance.compat.addon.type != amo.ADDON_EXTENSION:
         return
 
     from . import tasks
