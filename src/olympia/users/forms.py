@@ -257,7 +257,7 @@ class AdminUserEditForm(UserEditForm):
     def changes(self):
         """A dictionary of changed fields, old, new."""
         details = {k: (self.initial[k], self.cleaned_data[k])
-                  for k in self.changed_fields()}
+                   for k in self.changed_fields()}
         return details
 
     def clean_anonymize(self):
