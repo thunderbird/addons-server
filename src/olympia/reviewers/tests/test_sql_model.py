@@ -145,11 +145,13 @@ class TestSQLModel(TestCase):
             Summary.objects.all().get()
 
     def test_slice1(self):
-        qs = Summary.objects.all()[0:1]
+        # MySQL 8.0 no longer sorts GROUP BY results implicitly, so a slice
+        # is only deterministic with an explicit ordering.
+        qs = Summary.objects.all().order_by('category')[0:1]
         assert [c.category for c in qs] == ['apparel']
 
     def test_slice2(self):
-        qs = Summary.objects.all()[1:2]
+        qs = Summary.objects.all().order_by('category')[1:2]
         assert [c.category for c in qs] == ['safety']
 
     def test_slice3(self):
@@ -202,7 +204,9 @@ class TestSQLModel(TestCase):
     def test_filter_raw_in(self):
         qs = Summary.objects.all().filter_raw('category IN',
                                               ['apparel', 'safety'])
-        assert [c.category for c in qs] == ['apparel', 'safety']
+        # No ORDER BY in this query, so compare as a set of rows, the way
+        # test_slice3 and test_slice4 do.
+        assert sorted([c.category for c in qs]) == ['apparel', 'safety']
 
     def test_filter_raw_non_ascii(self):
         uni = u'フォクすけといっしょ'
