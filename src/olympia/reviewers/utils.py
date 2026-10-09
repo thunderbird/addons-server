@@ -38,6 +38,9 @@ log = olympia.core.logger.getLogger('z.mailer')
 PENDING_STATUSES = (amo.STATUS_DISABLED, amo.STATUS_NULL,
                     amo.STATUS_PENDING, amo.STATUS_PUBLIC)
 
+NAME_LINK_FORMAT = u'<a href="%s">%s <em>%s</em></a>'
+SENDING_EMAIL_FOR_LOG_MESSAGE = u'Sending email for %s'
+
 
 class ItemStateTable(object):
 
@@ -64,7 +67,7 @@ class ReviewerQueueTable(tables.Table, ItemStateTable):
     def render_addon_name(self, record):
         url = reverse('reviewers.review', args=[record.addon_slug])
         self.increment_item()
-        return u'<a href="%s">%s <em>%s</em></a>' % (
+        return NAME_LINK_FORMAT % (
             url, jinja2.escape(record.addon_name),
             jinja2.escape(record.latest_version))
 
@@ -129,7 +132,7 @@ class ViewUnlistedAllListTable(tables.Table, ItemStateTable):
             record.addon_slug if record.addon_slug is not None else record.id,
         ])
         self.increment_item()
-        return safe_substitute(u'<a href="%s">%s <em>%s</em></a>',
+        return safe_substitute(NAME_LINK_FORMAT,
                                url, record.addon_name, record.latest_version)
 
     def render_guid(self, record):
@@ -205,7 +208,7 @@ class ModernAddonQueueTable(ReviewerQueueTable):
 
     def render_addon_name(self, record):
         url = self._get_addon_name_url(record)
-        return u'<a href="%s">%s <em>%s</em></a>' % (
+        return NAME_LINK_FORMAT % (
             url, jinja2.escape(record.name),
             jinja2.escape(record.current_version))
 
@@ -676,7 +679,7 @@ class ReviewBase(object):
         self.notify_email(template, subject)
 
         self.log_public_message()
-        log.info(u'Sending email for %s' % (self.addon))
+        log.info(SENDING_EMAIL_FOR_LOG_MESSAGE % (self.addon))
 
         # Assign reviewer incentive scores.
         if self.request:
@@ -707,7 +710,7 @@ class ReviewBase(object):
         self.notify_email(template, subject)
 
         self.log_sandbox_message()
-        log.info(u'Sending email for %s' % (self.addon))
+        log.info(SENDING_EMAIL_FOR_LOG_MESSAGE % (self.addon))
 
         # Assign reviewer incentive scores.
         if self.request:
@@ -810,7 +813,7 @@ class ReviewBase(object):
                 self.addon,
                 u', '.join(
                     six.text_type(v.pk) for v in self.data['versions'])))
-        log.info(u'Sending email for %s' % (self.addon))
+        log.info(SENDING_EMAIL_FOR_LOG_MESSAGE % (self.addon))
 
         # Assign reviewer incentive scores.
         if self.request:
@@ -861,4 +864,4 @@ class ReviewUnlisted(ReviewBase):
 
         log.info(u'Making %s files %s public' %
                  (self.addon, ', '.join([f.filename for f in self.files])))
-        log.info(u'Sending email for %s' % (self.addon))
+        log.info(SENDING_EMAIL_FOR_LOG_MESSAGE % (self.addon))

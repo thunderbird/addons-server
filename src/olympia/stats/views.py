@@ -426,7 +426,7 @@ def _site_query(period, start, end, field=None, request=None):
         cursor.execute(sql, [start, end] + _ALL_KEYS)
 
         # Process the results into a format that is friendly for render_*.
-        default = {k: 0 for k in _CACHED_KEYS}
+        default = dict.fromkeys(_CACHED_KEYS, 0)
         result = OrderedDict()
         for name, date_, count in cursor.fetchall():
             date_ = date_.strftime('%Y-%m-%d')
@@ -464,7 +464,7 @@ def site_series(request, format, group, start, end, field):
     start, end = get_daterange_or_404(start, end)
     group = 'date' if group == 'day' else group
     series = []
-    full_series, keys = _site_query(group, start, end, field, request)
+    full_series, _ = _site_query(group, start, end, field, request)
     for row in full_series:
         if field in row['data']:
             series.append({

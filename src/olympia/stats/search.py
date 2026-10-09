@@ -41,7 +41,7 @@ def es_dict(items):
 """
 
 
-def extract_update_count(update, all_apps=None):
+def extract_update_count(update):
     doc = {'addon': update.addon_id,
            'date': update.date,
            'count': update.count,
@@ -91,7 +91,7 @@ def extract_update_count(update, all_apps=None):
                     apps[app.guid][version] = int(count)
                 except ValueError:
                     pass
-        doc['apps'] = dict((app, es_dict(vals)) for app, vals in apps.items())
+        doc['apps'] = {app: es_dict(vals) for app, vals in apps.items()}
 
     if update.statuses:
         doc['status'] = es_dict((k, v) for k, v in update.statuses.items()
