@@ -10,13 +10,26 @@ html {
   -ms-text-size-adjust: 100%;
   /* 2 */
   -webkit-text-size-adjust: 100%;
-  /* 2 */ }
+  /* 2 */
+  box-sizing: border-box;
+  font-size: 62.5%; }
 
 /**
  * Remove default margin.
  */
 body {
-  margin: 0; }
+  margin: 0;
+  background: #fff;
+  color: #000;
+  box-sizing: border-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-flex-direction: column;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  font-family: 'Fira Sans', sans-serif;
+  font-size: 1.6rem; }
 
 /* HTML5 display definitions
    ========================================================================== */
@@ -76,7 +89,8 @@ template {
  * Remove the gray background color from active links in IE 10.
  */
 a {
-  background-color: transparent; }
+  background-color: transparent;
+  color: #0996f8; }
 
 /**
  * Improve readability of focused elements when they are also in an
@@ -177,7 +191,9 @@ hr {
  * Contain overflow in all browsers.
  */
 pre {
-  overflow: auto; }
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 20px; }
 
 /**
  * Address odd `em`-unit font size rendering in all browsers.
@@ -356,13 +372,6 @@ th {
 html[dir='rtl'] #tabzilla {
   float: left; }
 
-body {
-  background: #fff;
-  color: #000; }
-
-a {
-  color: #0996f8; }
-
 .blue {
   background-image: radial-gradient(circle #0996f8 70%, #0675d3 100%, #0568ba 110%);
   color: #fff; }
@@ -389,32 +398,13 @@ a {
       .blue .mozilla-logo {
         background-image: url("../../img/shield_study_1/moz@2x.png"); } }
 
-pre {
-  background: rgba(0, 0, 0, 0.1);
-  padding: 20px; }
-
 code {
   background: rgba(0, 0, 0, 0.1); }
-
-html {
-  box-sizing: border-box;
-  font-size: 62.5%; }
 
 *,
 *:before,
 *:after {
   box-sizing: inherit; }
-
-body {
-  box-sizing: border-box;
-  display: -webkit-flex;
-  display: -ms-flexbox;
-  display: flex;
-  -webkit-flex-direction: column;
-      -ms-flex-direction: column;
-          flex-direction: column;
-  font-family: 'Fira Sans', sans-serif;
-  font-size: 1.6rem; }
 
 h2 {
   font-size: 36px;
@@ -1479,10 +1469,6 @@ a.experiment-summary {
 .spin {
   -webkit-animation: spin 1000ms;
           animation: spin 1000ms; }
-
-.hover {
-  -webkit-animation: hover 1000ms infinite alternate ease-in-out;
-          animation: hover 1000ms infinite alternate ease-in-out; }
 
 .fly-down {
   -webkit-animation: fly-down 500ms forwards ease-out;
