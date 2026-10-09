@@ -66,7 +66,7 @@ class Test404(TestCase):
         res = self.client.get('/en-US/android/xxxxxxx')
         assert res.status_code == 404
         self.assertTemplateUsed(res, 'amo/404.html')
-        links = pq(res.content)('[role=main] ul a[href^="/en-US/android"]')
+        links = pq(res.content)('main ul a[href^="/en-US/android"]')
         assert links.length == 4
 
     def test_404_api_v3(self):
