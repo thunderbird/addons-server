@@ -58,7 +58,7 @@ function fileSizeFormat(bytes) {
                     $upload_field.parent().find('a').removeClass("disabled");
                 });
 
-                var exts = new RegExp("\\\.("+settings.filetypes.join('|')+")$", "i");
+                var exts = new RegExp("\\.("+settings.filetypes.join('|')+")$", "i");
 
                 if(!file.name.match(exts)) {
                     errors = [gettext("The filetype you uploaded isn't recognized.")];

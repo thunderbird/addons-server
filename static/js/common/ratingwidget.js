@@ -23,7 +23,7 @@ $.fn.ratingwidget = function(classes) {
         if ($('option[selected]', $el).length) {
             var temp_rating = $el.val();
             setStars(temp_rating);
-            rating = parseInt(temp_rating, 10);
+            rating = Number.parseInt(temp_rating, 10);
         }
         for (var i=1; i<=5; i++) {
             var checked = rating === i ? ' checked' : '';
@@ -33,7 +33,8 @@ $.fn.ratingwidget = function(classes) {
         $widget.click(function(evt) {
             var t = $(evt.target);
             if (t.is('input[type=radio]')) {
-                showStars(rating = t.val());
+                rating = t.val();
+                showStars(rating);
                 if (!t.val()) {
                     // If the user caused a radio button to become unchecked,
                     // re-check it because that shouldn't happen.
@@ -51,7 +52,7 @@ $.fn.ratingwidget = function(classes) {
             var wid = $widget.width();
             var left = $widget.offset().left;
             var r = (e.originalEvent.changedTouches[0].clientX - left) / wid * 5 + 1;
-            r = ~~Math.min(Math.max(r,1),5);
+            r = Math.trunc(Math.min(Math.max(r,1),5));
             setStars(r);
         });
         $widget.html(rs);
