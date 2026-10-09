@@ -55,12 +55,14 @@ def suffixed_indexes(suffix):
             for k, v in settings_base.ES_INDEXES.items()}
 
 
-def load(module_name, **environ):
+def load(module_name, calls=None, **environ):
     """Import module_name fresh with only the given ATN_* variables set.
 
-    Returns (module, [(region, SecretId), ...]).
+    Returns (module, [(region, SecretId), ...]). Pass calls to see the
+    secret reads even when the import raises.
     """
-    calls = []
+    if calls is None:
+        calls = []
 
     def fake_client(service_name, region_name):
         assert service_name == 'secretsmanager'
@@ -132,7 +134,27 @@ def test_k8s_defaults():
     assert k8s.ENV == 'tbstageeks'
     assert k8s.ES_INDEXES == suffixed_indexes('tbstageeks')
     assert set(k8s.ES_INDEXES) == {'default', 'stats'}
-    assert all(sid.startswith('atn/stage/') for _, sid in calls)
+    assert calls
+    assert all(sid.startswith('atn/stage-eks/') for _, sid in calls)
+
+
+@pytest.mark.parametrize('secrets_env', ['stage', ' stage '])
+def test_k8s_refuses_fargate_secrets(secrets_env):
+    calls = []
+    with pytest.raises(ImproperlyConfigured):
+        load('settings_local_k8s', calls=calls, ATN_SECRETS_ENV=secrets_env)
+    assert calls == []
+
+
+def test_k8s_empty_env_vars_count_as_unset():
+    k8s, calls = load('settings_local_k8s', ATN_SECRETS_ENV='', ATN_ENV='')
+    assert k8s.ENV == 'tbstageeks'
+    assert all(sid.startswith('atn/stage-eks/') for _, sid in calls)
+
+
+def test_k8s_accepts_prefixed_es_suffix():
+    k8s, _ = load('settings_local_k8s', ATN_ENV='tbstageeks_blue')
+    assert k8s.ES_INDEXES == suffixed_indexes('tbstageeks_blue')
 
 
 def test_k8s_domain_and_secrets_from_env():
@@ -160,7 +182,9 @@ def test_empty_domain_counts_as_unset():
 
 
 @pytest.mark.parametrize(
-    'env_name', ['tbstage', 'prod', 'TBSTAGE', 'TbStageEks', 'stage-eks', ''])
+    'env_name',
+    ['tbstage', 'prod', 'tbprod', 'dev', 'TBSTAGEEKS', 'TbStageEks',
+     'stage-eks', 'tbstageeks-blue', 'xtbstageeks'])
 def test_k8s_refuses_shared_es_suffix(env_name):
     with pytest.raises(ImproperlyConfigured):
         load('settings_local_k8s', ATN_ENV=env_name)
