@@ -258,9 +258,10 @@ def error_findings(a, b, findings):
 
 
 def status_findings(a, b, findings):
-    if {a['status'], b['status']} == {200, 404}:
+    pair = (a['status'], b['status'])
+    if pair in ((200, 404), (404, 200)):
         findings.add('data', 'only %s has the object (200 vs 404)'
-                     % ('A' if a['status'] == 200 else 'B'))
+                     % ('A' if pair[0] == 200 else 'B'))
     else:
         findings.add('behavioral', 'status %d -> %d'
                      % (a['status'], b['status']))
