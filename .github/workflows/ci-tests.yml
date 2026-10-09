@@ -60,7 +60,7 @@ jobs:
       # to a registry, with retries; every other run loads from the tarball.
       - name: Restore cached images
         id: imgcache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: /tmp/ci-images.tar
           key: ci-images-v1-${{ hashFiles('docker-compose.yml', 'docker-compose.ci.yml', 'Dockerfile.python3') }}
@@ -79,7 +79,8 @@ jobs:
           # ECR Public before Docker Hub itself; everything else goes direct.
           candidates() {
             case "$1" in
-              */*) echo "$1" ;;
+              *.*/*|localhost/*) echo "$1" ;;
+              */*) echo "mirror.gcr.io/$1 docker.io/$1" ;;
               *) echo "mirror.gcr.io/library/$1 public.ecr.aws/docker/library/$1 docker.io/library/$1" ;;
             esac
           }
@@ -102,6 +103,15 @@ jobs:
           for img in $images; do docker image inspect "$img" >/dev/null; done
           docker save -o /tmp/ci-images.tar $images
           ls -lh /tmp/ci-images.tar
+
+      # Save the tarball as soon as the fill succeeds, even if the tests fail
+      # later in this job, so a red run still seeds the cache for the next.
+      - name: Save cached images
+        if: steps.imgcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/ci-images.tar
+          key: ${{ steps.imgcache.outputs.cache-primary-key }}
 
       - name: Build Docker Compose
         run: docker compose build

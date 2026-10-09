@@ -1,13 +1,8 @@
 # CI-only overrides, selected by COMPOSE_FILE in .github/workflows/ci-tests.yml
 # (thunderbird/addons-server#506). Image names stay as in docker-compose.yml so
 # the workflow's pull step can try the GCR mirror, ECR Public and Docker Hub in
-# turn for each library image and retag; a registry pinned here would have no
-# fallback. Local development is unaffected.
-services:
-  # The test settings run with SIGNING_SERVER = '' (settings_test.py), nothing
-  # depends_on this service, and the signing tests mock the server, so the
-  # autograph container is not needed in CI. It is the one image that only
-  # exists on Docker Hub; putting it behind a profile keeps
-  # `docker compose up -d` from pulling it.
-  autograph:
-    profiles: ["signing"]
+# turn for each image and retag; a registry pinned here would have no fallback.
+# The autograph container must run: the signing tests talk to it over HTTP.
+# Nothing is overridden today; the file exists so the CI compose set is explicit
+# and can take CI-specific settings later. Local development is unaffected.
+services: {}
