@@ -28,8 +28,8 @@ log = olympia.core.logger.getLogger('z.reviewers.forms')
 ACTION_FILTERS = (('', ''), ('approved', _(u'Approved reviews')),
                   ('deleted', _(u'Deleted reviews')))
 
-ACTION_DICT = dict(approved=amo.LOG.APPROVE_RATING,
-                   deleted=amo.LOG.DELETE_RATING)
+ACTION_DICT = {'approved': amo.LOG.APPROVE_RATING,
+               'deleted': amo.LOG.DELETE_RATING}
 
 
 class RatingModerationLogForm(forms.Form):
@@ -267,7 +267,7 @@ class AllAddonSearchForm(forms.Form):
 class NonValidatingChoiceField(forms.ChoiceField):
     """A ChoiceField that doesn't validate."""
     def validate(self, value):
-        pass
+        pass  # Intentionally blank: this field skips validation entirely.
 
 
 class NumberInput(widgets.Input):
