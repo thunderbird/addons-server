@@ -120,7 +120,7 @@ h4.step {
     font-style: italic;
 }
 
-pre, code, kbd, tt, samp, tt {
+pre, code, kbd, tt, samp {
     font-family: "andale mono", monospace;
 }
 
@@ -502,9 +502,6 @@ button.link {
 .share-networks .email {
     background-position: 0 -1689px;
 }
-.share-email .emailerror p {
-    background-position: 0 -1798px;
-}
 
 span.new {
     padding: 0.2em 0.5em;
@@ -732,8 +729,6 @@ a:hover.significant img,
 a:focus.significant img,
 a:active.significant img,
 button.significant img {
-    /* padding:0 0.4em 0.2em 0.2em; */
-    /* margin-right: 0.4em; */
         margin-bottom:0.4em;
     margin-right:0.6em;
     padding:0.4em 0.6em 0.2em 0.2em;
@@ -872,25 +867,6 @@ form button.add-to-fav.loading-fav:active {
     color: #A4A5A5;
     background-image: url(../../img/icons/orange-loading.gif);
 }
-
-/*.favorite {
-    background-image: url(../../img/icons/icons.png);
-    background-repeat: no-repeat;
-    background-position: 0 -700px;
-    padding-left: 20px;
-    padding-bottom: 7px;
-    cursor: pointer;
-}
-.favorite-loading {
-    background-image: url(../../img/icons/orange-loading.gif);
-    background-position: 0 0;
-}
-
-.favorite-added {
-    background-image: url(../../img/icons/icons.png);
-    background-position: 0 -800px;
-    color: #D11F1F;
-} */
 
 form.favorite {
     margin: 0;
@@ -1219,11 +1195,6 @@ form.favorite {
     font-size: 1.5em;
 }
 
-.notification .suggestion {
-    float: right;
-    text-align: right;
-}
-
 .about .notification .suggestion {
     float: none;
 }
@@ -1254,6 +1225,8 @@ form.favorite {
     font-weight: bold;
 }
 .notification .suggestion {
+    float: right;
+    text-align: right;
     margin: 0;
     color: #666666;
     font-weight: bold;
@@ -1446,7 +1419,7 @@ form.favorite {
 
 .highlight.warning {
     /* @button-red-dark in impala/lib */
-    background-color: #bc2b1a;;
+    background-color: #bc2b1a;
     color: #fff;
 }
 
@@ -1779,7 +1752,6 @@ ol.pagination li a:hover,
 ol.pagination li a:focus,
 ol.pagination li a:active {
     background-color: #BDDDE8;
-    /*color: #223355;*/
     -webkit-border-radius: 3px;
     -moz-border-radius: 3px;
     border-radius: 3px;
@@ -1881,6 +1853,7 @@ ol.pagination li a:active {
     padding-right: .5em;
 }
 .share-email .emailerror p {
+    background-position: 0 -1798px;
     font-weight: bold;
     max-width: 25em;
 }
@@ -2177,10 +2150,6 @@ ol.pagination + .num-results {
 .item .downloads {
     margin-left: 1em;
 }
-.html-rtl .item .downloads {
-    margin-left: auto;
-    margin-right: 1em;
-}
 
 
 .item .updated {
@@ -2203,8 +2172,6 @@ ol.pagination + .num-results {
 
 .item .item-info {
     border-left: 1px dotted #B4DFEE;
-    /*margin-bottom: -50em;
-    padding-bottom: 50em;*/
 }
 .item-info ul {
     list-style-type: none;
@@ -2796,10 +2763,6 @@ background-position:left -303px;
     text-align: right;
 }
 
-.html-rtl .stars {
-    text-indent:-5000px;
-}
-
 /* @end */
 
 /* @end */
@@ -2857,6 +2820,7 @@ background-position:left -303px;
 /* @end */
 
 .html-rtl .stars {
+    text-indent:-5000px;
     float: right;
     margin-left: 0.5em;
     margin-right: 0;

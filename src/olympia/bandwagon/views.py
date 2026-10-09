@@ -94,9 +94,8 @@ def legacy_directory_redirects(request, page):
     loc = base = reverse('collections.list')
     if page in sorts:
         loc = urlparams(base, sort=sorts[page])
-    elif request.user.is_authenticated:
-        if page == 'mine':
-            loc = reverse('collections.user', args=[request.user.id])
+    elif request.user.is_authenticated and page == 'mine':
+        loc = reverse('collections.user', args=[request.user.id])
     return http.HttpResponseRedirect(loc)
 
 
@@ -106,7 +105,7 @@ def render_cat(request, template, data=None, extra=None):
         extra = {}
     if data is None:
         data = {}
-    data.update(dict(search_cat='collections'))
+    data.update({'search_cat': 'collections'})
     return render(request, template, data, **extra)
 
 
@@ -171,15 +170,16 @@ def collection_detail(request, user_id, slug):
             raise PermissionDenied
 
     base = Addon.objects.valid() & collection.addons.all()
-    filter = CollectionAddonFilter(request, base,
-                                   key='sort', default='popular')
+    addon_filter = CollectionAddonFilter(request, base,
+                                         key='sort', default='popular')
     notes = get_notes(collection)
     # Go directly to CollectionAddon for the count to avoid joins.
     count = CollectionAddon.objects.filter(
         Addon.objects.all().valid_q(
             amo.VALID_ADDON_STATUSES, prefix='addon__'),
         collection=collection.id)
-    addons = paginate(request, filter.qs, per_page=15, count=count.count())
+    addons = paginate(request, addon_filter.qs, per_page=15,
+                      count=count.count())
 
     # `perms` is defined in django.contrib.auth.context_processors. Gotcha!
     user_perms = {
@@ -188,7 +188,7 @@ def collection_detail(request, user_id, slug):
     }
 
     return render_cat(request, 'bandwagon/collection_detail.html',
-                      {'collection': collection, 'filter': filter,
+                      {'collection': collection, 'filter': addon_filter,
                        'addons': addons, 'notes': notes,
                        'user_perms': user_perms})
 
@@ -423,7 +423,7 @@ def delete(request, user_id, slug):
                  % (request.user, collection.id))
         raise PermissionDenied
 
-    data = dict(collection=collection, user_id=user_id, slug=slug)
+    data = {'collection': collection, 'user_id': user_id, 'slug': slug}
 
     if request.method == 'POST':
         if request.POST['sure'] == '1':

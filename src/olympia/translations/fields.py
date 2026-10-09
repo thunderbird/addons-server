@@ -73,7 +73,7 @@ class TranslationDescriptor(related.ForwardManyToOneDescriptor):
                 # already exist, because trans_id is set) or are looking to
                 # create one in a different language anyway.
                 translation = self.field.related_model.new(
-                    string, lang, id=trans_id)
+                    string, lang, translation_id=trans_id)
 
         # A new translation has been created and it might need to be saved.
         # This adds the translation to the queue of translation that need
