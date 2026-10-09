@@ -83,7 +83,7 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
         // Bail if the results are hidden or if we have a non-gesture key
         // or if we have a alt/ctrl/meta/shift keybinding.
         if (!$results.hasClass('visible') ||
-            gestureKeys.indexOf(e.which) < 0 ||
+            !gestureKeys.includes(e.which) ||
             e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
             $results.trigger('keyIgnored');
             return;
@@ -137,7 +137,7 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
         }
 
         if (((e.type === 'keyup' && e.which === undefined) ||
-            ignoreKeys.indexOf(e.which) >= 0) && !pasting) {
+            ignoreKeys.includes(e.which)) && !pasting) {
             $results.trigger('inputIgnored');
         } else {
             // XHR call and populate suggestions.
