@@ -312,5 +312,5 @@ class Command(BaseCommand):
         # Order by count (desc), for a dict like {'<locale>': <count>}.
         values = list(reversed(sorted(field.items(), key=lambda v: v[1])))
         while not fits(field):
-            key, count = values.pop()  # Remove the least used (the last).
+            key, _ = values.pop()  # Remove the least used (the last).
             del field[key]  # Remove this entry from the dict.
