@@ -774,21 +774,20 @@ class SafeZip(object):
         Runs some overall archive checks.
         """
         # Shortcut to avoid expensive check over and over again
-        if getattr(self, 'is_valid', False):
-            return True
+        if not getattr(self, 'is_valid', False):
+            if self.force_fsync:
+                zip_file = FSyncedZipFile(self.source, self.mode)
+            else:
+                zip_file = zipfile.ZipFile(self.source, self.mode)
 
-        if self.force_fsync:
-            zip_file = FSyncedZipFile(self.source, self.mode)
-        else:
-            zip_file = zipfile.ZipFile(self.source, self.mode)
+            info_list = zip_file.infolist()
 
-        info_list = zip_file.infolist()
+            for info in info_list:
+                archive_member_validator(self.source, info)
 
-        for info in info_list:
-            archive_member_validator(self.source, info)
-
-        self.info_list = info_list
-        self.zip_file = zip_file
+            self.info_list = info_list
+            self.zip_file = zip_file
+        # Invalid archives raise above, so reaching here means valid.
         return True
 
     def is_signed(self):
