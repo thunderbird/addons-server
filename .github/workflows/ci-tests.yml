@@ -54,6 +54,39 @@ jobs:
           sudo systemctl restart docker
           docker info --format '{{json .RegistryConfig.Mirrors}}'
 
+      # Even ECR Public and the GCR mirror throttle anonymous pulls under our
+      # parallel load, so keep the service images and the Python base image in
+      # the Actions cache, keyed on the compose files. Only a cache miss talks
+      # to a registry, with retries; every other run loads from the tarball.
+      - name: Restore cached images
+        id: imgcache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/ci-images.tar
+          key: ci-images-v1-${{ hashFiles('docker-compose.yml', 'docker-compose.ci.yml', 'Dockerfile') }}
+
+      - name: Load or pull images
+        run: |
+          set -e
+          if [ -f /tmp/ci-images.tar ]; then
+            docker load -i /tmp/ci-images.tar
+            exit 0
+          fi
+          base=$(sed -n 's/^FROM[[:space:]]\+\([^[:space:]]\+\).*/\1/p' Dockerfile | head -1)
+          images="$(docker compose config --images | grep -v '^atn\|^addons\|_web$\|_worker$' || true) $base"
+          for attempt in 1 2 3 4 5 6; do
+            ok=1
+            for img in $images; do
+              docker image inspect "$img" >/dev/null 2>&1 && continue
+              docker pull "$img" || ok=0
+            done
+            [ "$ok" = 1 ] && break
+            echo "pull attempt $attempt hit a registry limit; sleeping"; sleep $((attempt * 45))
+          done
+          for img in $images; do docker image inspect "$img" >/dev/null; done
+          docker save -o /tmp/ci-images.tar $images
+          ls -lh /tmp/ci-images.tar
+
       - name: Build Docker Compose
         run: docker compose build
 
