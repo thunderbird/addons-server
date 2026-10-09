@@ -139,7 +139,7 @@ function initReviewActions() {
                 title = format(gettext('{name} was viewing this page first.'),
                                        {name: d.current_name});
               }
-              $current_div = $current.filter('div');
+              var $current_div = $current.filter('div');
               $current_div.find('strong').remove();
               $current_div.prepend($('<strong>', {'text': title}));
             }
@@ -280,7 +280,7 @@ function initBackgroundImagesForTheme() {
         // load the image as a blob so we can treat it as a File
         xhr.onload = function() {
             var jsonResponse = xhr.response,
-                loop_len = Object.keys(jsonResponse).length;
+                loop_len = Object.keys(jsonResponse).length,
                 loop_count = 0;
             $.each(jsonResponse,
                 function(background_filename, background_b64) {

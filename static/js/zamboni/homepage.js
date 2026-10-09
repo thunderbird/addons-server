@@ -34,7 +34,7 @@ $(document).ready(function(){
     } else {
         // Add the current page to the history so we can get back.
         var selected = $('#homepage .listing-header .selected a')[0];
-        update(selected, true, true);
+        update(selected, true);
     }
 
     // Set up our history callback.
