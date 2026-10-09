@@ -118,7 +118,6 @@ def path():
 
         filepath_results.append((path, path_exists, path_perms, notes))
 
-    status = filepath_status
     status = ''
     if not filepath_status:
         status = 'check main status page for broken perms / values'

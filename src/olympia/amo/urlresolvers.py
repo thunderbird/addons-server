@@ -97,7 +97,7 @@ class Prefixer(object):
         second, _, rest = first_rest.partition('/')
 
         first_lower = first.lower()
-        lang, dash, territory = first_lower.partition('-')
+        lang, dash, _ = first_lower.partition('-')
 
         # Check language-territory first.
         if first_lower in settings.LANGUAGES_DICT:
@@ -252,7 +252,7 @@ def linkify_with_outgoing(text):
 
 def lang_from_accept_header(header):
     # Map all our lang codes and any prefixes to the locale code.
-    langs = dict((k.lower(), v) for k, v in settings.LANGUAGE_URL_MAP.items())
+    langs = {k.lower(): v for k, v in settings.LANGUAGE_URL_MAP.items()}
 
     # If we have a lang or a prefix of the lang, return the locale code.
     for lang, _ in parse_accept_lang_header(header.lower()):

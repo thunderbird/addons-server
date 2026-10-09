@@ -34,6 +34,8 @@ from .templatetags.jinja_helpers import urlparams
 
 auth_path = re.compile('%saccounts/authenticate/?$' % settings.DRF_API_REGEX)
 
+SCRUBBED_VALUE = '******'
+
 
 class LocaleAndAppURLMiddleware(MiddlewareMixin):
     """
@@ -294,14 +296,14 @@ class ScrubRequestOnException(MiddlewareMixin):
         request.POST = request.POST.copy()
         for key in request.POST:
             if 'password' in key.lower():
-                request.POST[key] = '******'
+                request.POST[key] = SCRUBBED_VALUE
 
         # Remove session id from cookies
         if settings.SESSION_COOKIE_NAME in request.COOKIES:
-            request.COOKIES[settings.SESSION_COOKIE_NAME] = '******'
+            request.COOKIES[settings.SESSION_COOKIE_NAME] = SCRUBBED_VALUE
             # Clearing out all cookies in request.META. They will already
             # be sent with request.COOKIES.
-            request.META['HTTP_COOKIE'] = '******'
+            request.META['HTTP_COOKIE'] = SCRUBBED_VALUE
 
 
 class RequestIdMiddleware(MiddlewareMixin):

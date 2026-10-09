@@ -90,10 +90,8 @@ class ESPaginator(Paginator):
 
         # Now that we have the count validate that the page number isn't higher
         # than the possible number of pages and adjust accordingly.
-        if number > self.num_pages:
-            if number == 1 and self.allow_empty_first_page:
-                pass
-            else:
-                raise EmptyPage('That page contains no results')
+        if number > self.num_pages and not (
+                number == 1 and self.allow_empty_first_page):
+            raise EmptyPage('That page contains no results')
 
         return page

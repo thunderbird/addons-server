@@ -15,6 +15,9 @@ import six
 from olympia.lib.jingo_minify_helpers import ensure_path_exists
 
 
+TMP_FILE_NAME = '%s.tmp'
+
+
 def run_command(command):
     """Run a command and correctly poll the output and write that to stdout"""
     process = subprocess.Popen(
@@ -94,7 +97,7 @@ class Command(BaseCommand):
                         files_all.append(processed)
 
                 # Concat all the files.
-                tmp_concatted = '%s.tmp' % concatted_file
+                tmp_concatted = TMP_FILE_NAME % concatted_file
                 if len(files_all) == 0:
                     raise CommandError(
                         'No input files specified in '
@@ -108,7 +111,7 @@ class Command(BaseCommand):
 
                 # Cache bust individual images in the CSS.
                 if ftype == 'css':
-                    bundle_hash = self._cachebust(tmp_concatted, name)
+                    bundle_hash = self._cachebust(tmp_concatted)
                     self.bundle_hashes['%s:%s' % (ftype, name)] = bundle_hash
 
                 # Compresses the concatenations.
@@ -148,7 +151,7 @@ class Command(BaseCommand):
         if self.force_compress:
             return True
 
-        tmp_concatted = '%s.tmp' % concatted_file
+        tmp_concatted = TMP_FILE_NAME % concatted_file
         file_exists = (
             os.path.exists(concatted_file) and
             os.path.getsize(concatted_file) == os.path.getsize(tmp_concatted))
@@ -160,12 +163,12 @@ class Command(BaseCommand):
 
     def _clean_tmp(self, concatted_file):
         """Replace the old file with the temp file."""
-        tmp_concatted = '%s.tmp' % concatted_file
+        tmp_concatted = TMP_FILE_NAME % concatted_file
         if os.path.exists(concatted_file):
             os.remove(concatted_file)
         os.rename(tmp_concatted, concatted_file)
 
-    def _cachebust(self, css_file, bundle_name):
+    def _cachebust(self, css_file):
         """Cache bust images.  Return a new bundle hash."""
         self.stdout.write(
             'Cache busting images in %s\n' % re.sub('.tmp$', '', css_file))
@@ -233,7 +236,7 @@ class Command(BaseCommand):
     def _cachebust_regex(self, img, parent):
         """Run over the regex; img is the structural regex object."""
         url = img.group(1).strip('"\'')
-        if url.startswith('data:') or url.startswith('http'):
+        if url.startswith(('data:', 'http')):
             return 'url(%s)' % url
 
         url = url.split('?')[0]

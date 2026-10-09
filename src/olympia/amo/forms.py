@@ -33,13 +33,13 @@ class AMOModelForm(forms.ModelForm):
         values. We need to dig deeper to assert whether there are indeed
         changes.
         """
-        Model = self._meta.model
+        model = self._meta.model
 
         # Get a copy of the data since we'll be modifying it
         changed_data = forms.ModelForm.changed_data.__get__(self)[:]
 
         changed_translation_fields = [
-            field.name for field in Model._meta.get_fields()
+            field.name for field in model._meta.get_fields()
             if isinstance(field, TranslatedField) and
             field.name in changed_data
         ]
@@ -48,8 +48,8 @@ class AMOModelForm(forms.ModelForm):
         # and do comparisons.
         if changed_translation_fields:
             try:
-                orig = Model.objects.get(pk=self.instance.pk)
-            except Model.DoesNotExist:
+                orig = model.objects.get(pk=self.instance.pk)
+            except model.DoesNotExist:
                 return changed_data
 
             for field in changed_translation_fields:

@@ -45,12 +45,12 @@ def render(s, context=None):
 
 def test_strip_controls():
     # We want control codes like \x0c to disappear.
-    assert 'I ove you' == jinja_helpers.strip_controls('I \x0cove you')
+    assert jinja_helpers.strip_controls('I \x0cove you') == 'I ove you'
 
 
 def test_finalize():
     """We want None to show up as ''.  We do this in JINJA_CONFIG."""
-    assert '' == render('{{ x }}', {'x': None})
+    assert render('{{ x }}', {'x': None}) == ''
 
 
 def test_slugify_spaces():
@@ -271,19 +271,13 @@ def test_locale_url():
     assert s == '/z/de/mobile'
 
 
-def test_external_url():
-    redirect_url = settings.REDIRECT_URL
-    secretkey = settings.REDIRECT_SECRET_KEY
+def test_external_url(settings):
     settings.REDIRECT_URL = 'http://example.net'
     settings.REDIRECT_SECRET_KEY = 'sekrit'
 
-    try:
-        myurl = 'http://example.com'
-        s = render('{{ "%s"|external_url }}' % myurl)
-        assert s == urlresolvers.get_outgoing_url(myurl)
-    finally:
-        settings.REDIRECT_URL = redirect_url
-        settings.REDIRECT_SECRET_KEY = secretkey
+    myurl = 'http://example.com'
+    s = render('{{ "%s"|external_url }}' % myurl)
+    assert s == urlresolvers.get_outgoing_url(myurl)
 
 
 @patch(
@@ -496,10 +490,11 @@ def test_format_unicode():
     assert render(u'{{ "foo {0}"|format_html("baré") }}') == u'foo baré'
 
 
-class TestStoragePath(TestCase):
+class TestStoragePath(object):
 
-    @override_settings(ADDONS_PATH=None, MEDIA_ROOT="/path/")
-    def test_without_settings(self):
+    def test_without_settings(self, settings):
+        settings.MEDIA_ROOT = "/path/"
+        settings.ADDONS_PATH = None
         del settings.ADDONS_PATH
         path = jinja_helpers.user_media_path('addons')
         assert path == '/path/addons'
@@ -510,10 +505,10 @@ class TestStoragePath(TestCase):
         assert path == '/another/path/'
 
 
-class TestMediaUrl(TestCase):
+class TestMediaUrl(object):
 
-    @override_settings(USERPICS_URL=None)
-    def test_without_settings(self):
+    def test_without_settings(self, settings):
+        settings.USERPICS_URL = None
         del settings.USERPICS_URL
         settings.MEDIA_URL = '/mediapath/'
         url = jinja_helpers.user_media_url('userpics')

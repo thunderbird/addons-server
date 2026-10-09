@@ -43,14 +43,14 @@ def global_settings(request):
     if getattr(request, 'user', AnonymousUser()).is_authenticated:
         is_reviewer = acl.is_user_any_kind_of_reviewer(request.user)
 
-        account_links.append({'text': gettext('My Profile'),
-                              'href': request.user.get_url_path()})
-
-        account_links.append({'text': gettext('Account Settings'),
-                              'href': reverse('users.edit')})
-        account_links.append({
-            'text': gettext('My Collections'),
-            'href': reverse('collections.list')})
+        account_links.extend([
+            {'text': gettext('My Profile'),
+             'href': request.user.get_url_path()},
+            {'text': gettext('Account Settings'),
+             'href': reverse('users.edit')},
+            {'text': gettext('My Collections'),
+             'href': reverse('collections.list')},
+        ])
 
         if request.user.favorite_addons:
             account_links.append(
@@ -66,19 +66,16 @@ def global_settings(request):
         if request.user.is_developer:
             tools_links.append({'text': gettext('Manage My Submissions'),
                                 'href': reverse('devhub.addons')})
-        tools_links.append(
+        tools_links.extend([
             {'text': gettext('Submit a New Add-on'),
-             'href': reverse('devhub.submit.agreement')})
-        tools_links.append(
+             'href': reverse('devhub.submit.agreement')},
             {'text': gettext('Submit a New Theme'),
-             'href': reverse('devhub.submit.agreement')})
-        tools_links.append(
+             'href': reverse('devhub.submit.agreement')},
             {'text': gettext('Developer Hub'),
-             'href': reverse('devhub.index')})
-        tools_links.append(
+             'href': reverse('devhub.index')},
             {'text': gettext('Manage API Keys'),
-             'href': reverse('devhub.api_key')}
-        )
+             'href': reverse('devhub.api_key')},
+        ])
 
         if is_reviewer:
             tools_links.append({'text': gettext('Reviewer Tools'),

@@ -243,7 +243,7 @@ def strip_controls(s):
     Strips control characters from a string.
     """
     # Translation table of control characters.
-    control_trans = dict((n, None) for n in range(32) if n not in [10, 13])
+    control_trans = {n: None for n in range(32) if n not in [10, 13]}
     rv = six.text_type(s).translate(control_trans)
     return jinja2.Markup(rv) if isinstance(s, jinja2.Markup) else rv
 
@@ -262,28 +262,28 @@ def shuffle(sequence):
 
 
 @library.global_function
-def license_link(license):
+def license_link(lic):
     """Link to a code license, including icon where applicable."""
     # If passed in an integer, try to look up the License.
     from olympia.versions.models import License
-    if isinstance(license, six.integer_types):
-        if license in PERSONA_LICENSES_IDS:
+    if isinstance(lic, six.integer_types):
+        if lic in PERSONA_LICENSES_IDS:
             # Grab built-in license.
-            license = PERSONA_LICENSES_IDS[license]
+            lic = PERSONA_LICENSES_IDS[lic]
         else:
             # Grab custom license.
-            license = License.objects.filter(id=license)
-            if not license.exists():
+            lic = License.objects.filter(id=lic)
+            if not lic.exists():
                 return ''
-            license = license[0]
-    elif not license:
+            lic = lic[0]
+    elif not lic:
         return ''
 
-    if not getattr(license, 'builtin', True):
+    if not getattr(lic, 'builtin', True):
         return gettext('Custom License')
 
     template = loader.get_template('amo/license_link.html')
-    return jinja2.Markup(template.render({'license': license}))
+    return jinja2.Markup(template.render({'license': lic}))
 
 
 @library.global_function
@@ -395,8 +395,8 @@ def _side_nav(context, addon_type, cat):
         base_url = cat.get_url_path()
     else:
         base_url = Addon.get_type_url(addon_type)
-    ctx = dict(request=request, base_url=base_url, categories=categories,
-               addon_type=addon_type, amo=amo)
+    ctx = {'request': request, 'base_url': base_url,
+           'categories': categories, 'addon_type': addon_type, 'amo': amo}
     template = loader.get_template('amo/side_nav.html')
     return jinja2.Markup(template.render(ctx))
 
@@ -421,9 +421,9 @@ def _site_nav(context):
         application=request.APP.id, weight__gte=0, type=amo.ADDON_EXTENSION)
     personas = Category.objects.filter(weight__gte=0, type=amo.ADDON_STATICTHEME)
 
-    ctx = dict(request=request, amo=amo,
-               extensions=sorted_cats(extensions),
-               personas=sorted_cats(personas))
+    ctx = {'request': request, 'amo': amo,
+           'extensions': sorted_cats(extensions),
+           'personas': sorted_cats(personas)}
     template = loader.get_template('amo/site_nav.html')
     return jinja2.Markup(template.render(ctx))
 

@@ -265,19 +265,19 @@ class TestOtherStuff(TestCase):
         def title_eq(url, alt, text):
             response = self.client.get(url, follow=True)
             doc = pq(response.content)
-            assert alt == doc('.site-title img').attr('alt')
-            assert text == doc('.site-title').text()
+            assert doc('.site-title img').attr('alt') == alt
+            assert doc('.site-title').text() == text
 
         title_eq('/firefox/', 'Firefox', 'Add-ons')
         title_eq('/android/', 'Firefox for Android', 'Android Add-ons')
 
     @patch('olympia.accounts.utils.default_fxa_login_url',
-           lambda request: 'https://login.com')
-    def test_login_link(self):
+           return_value='https://login.com')
+    def test_login_link(self, _default_fxa_login_url_mock):
         r = self.client.get(reverse('home'), follow=True)
         doc = pq(r.content)
-        assert 'https://login.com' == (
-            doc('.account.anonymous a')[1].attrib['href'])
+        assert doc('.account.anonymous a')[1].attrib['href'] == (
+            'https://login.com')
 
     def test_tools_loggedout(self):
         r = self.client.get(reverse('home'), follow=True)
