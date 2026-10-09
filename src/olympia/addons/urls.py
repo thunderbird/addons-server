@@ -8,10 +8,12 @@ from . import views
 
 ADDON_ID = r"""(?P<addon_id>[^/<>"']+)"""
 
+ADDONS_DETAIL = 'addons.detail'
+
 
 # These will all start with /addon/<addon_id>/
 detail_patterns = [
-    url(r'^$', views.addon_detail, name='addons.detail'),
+    url(r'^$', views.addon_detail, name=ADDONS_DETAIL),
     url(r'^more$', views.addon_detail, name='addons.detail_more'),
     url(r'^eula/(?P<file_id>\d+)?$', views.eula, name='addons.eula'),
     url(r'^license/(?P<version>[^/]+)?', views.license, name='addons.license'),
@@ -24,31 +26,31 @@ detail_patterns = [
 
     # Old contribution urls
     url(r'^developers$',
-        lambda r, addon_id: redirect('addons.detail',
+        lambda r, addon_id: redirect(ADDONS_DETAIL,
                                      addon_id, permanent=True),
         name='addons.meet'),
     url(r'^contribute/roadblock/',
-        lambda r, addon_id: redirect('addons.detail',
+        lambda r, addon_id: redirect(ADDONS_DETAIL,
                                      addon_id, permanent=True),
         name='addons.roadblock'),
     url(r'^contribute/installed/',
-        lambda r, addon_id: redirect('addons.detail',
+        lambda r, addon_id: redirect(ADDONS_DETAIL,
                                      addon_id, permanent=True),
         name='addons.installed'),
     url(r'^contribute/thanks',
-        lambda r, addon_id: redirect('addons.detail',
+        lambda r, addon_id: redirect(ADDONS_DETAIL,
                                      addon_id, permanent=True),
         name='addons.thanks'),
     url(r'^contribute/$',
-        lambda r, addon_id: redirect('addons.detail',
+        lambda r, addon_id: redirect(ADDONS_DETAIL,
                                      addon_id, permanent=True),
         name='addons.contribute'),
     url(r'^contribute/(?P<status>cancel|complete)$',
-        lambda r, addon_id, status: redirect('addons.detail',
+        lambda r, addon_id, status: redirect(ADDONS_DETAIL,
                                              addon_id, permanent=True),
         name='addons.contribute_status'),
     url(r'^about$',
-        lambda r, addon_id: redirect('addons.detail',
+        lambda r, addon_id: redirect(ADDONS_DETAIL,
                                      addon_id, permanent=True),
         name='addons.about'),
 ]

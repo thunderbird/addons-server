@@ -1,7 +1,7 @@
 z.capabilities = {
     'JSON': window.JSON && typeof JSON.parse == 'function',
-    'debug': (('' + document.location).indexOf('dbg') >= 0),
-    'debug_in_page': (('' + document.location).indexOf('dbginpage') >= 0),
+    'debug': (('' + document.location).includes('dbg')),
+    'debug_in_page': (('' + document.location).includes('dbginpage')),
     'console': window.console && (typeof window.console.log == 'function'),
     'replaceState': typeof history.replaceState === 'function',
     'chromeless': window.locationbar && !window.locationbar.visible,

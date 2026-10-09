@@ -4,7 +4,7 @@
 $(document).ajaxSend(function(event, xhr, ajaxSettings) {
     var csrf, $meta;
     // Block anything that starts with 'http:', 'https:', '://' or '//'.
-    if (!/^((https?:)|:?[/]{2})/.test(ajaxSettings.url)) {
+    if (!/^((https?:)|:?\/{2})/.test(ajaxSettings.url)) {
         // Only send the token to relative URLs i.e. locally.
         $meta = $('meta[name=csrf]');
         if (!z.anonymous && $meta.length) {
@@ -25,7 +25,7 @@ function b64toBlob(data) {
     var counter = b64str.length;
     var u8arr = new Uint8Array(counter);
     while(counter--){
-        u8arr[counter] = b64str.charCodeAt(counter);
+        u8arr[counter] = b64str.codePointAt(counter);
     }
     return new Blob([u8arr]);
 }

@@ -228,8 +228,9 @@ $(document).ready(function () {
                 field = $el.attr('data-name'),
                 label = $(format("label[data-for='{0}']",[field]));
             if (!$el.find(format("[lang='{0}']",[lang])).length) {
+                var $ni;
                 if ($el.children(".trans-init").length) {
-                    var $ni = $el.children(".trans-init").clone();
+                    $ni = $el.children(".trans-init").clone();
                     $ni.attr({
                         "class": "",
                         lang: lang,
@@ -239,7 +240,7 @@ $(document).ready(function () {
                     });
                     if (lang != dl) $ni.addClass("cloned");
                 } else {
-                    var $ni = $el.find(format("[lang='{0}']",dl)).clone();
+                    $ni = $el.find(format("[lang='{0}']",dl)).clone();
                     $ni.attr({
                         "class": "cloned",
                         lang: lang

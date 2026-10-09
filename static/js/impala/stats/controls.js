@@ -2,7 +2,6 @@
     "use strict";
 
     var $rangeSelector = $(".criteria.range ul"),
-        $customRangeForm = $("div.custom.criteria"),
         $groupSelector = $(".criteria.group ul"),
         minDate = Date.iso($('.primary').attr('data-min-date')),
         msDay = 24 * 60 * 60 * 1000; // One day in milliseconds.

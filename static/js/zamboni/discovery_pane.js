@@ -99,7 +99,7 @@ function initTrunc() {
 
 
 function initSidebar() {
-    var account_url = document.body.getAttribute("data-account-url");
+    var account_url = document.body.dataset.accountUrl;
     $.get(account_url, function(data) {
         var trimmed_data = data.trim();
         if ($(trimmed_data).find("#my-account").length) {
@@ -125,14 +125,14 @@ function hideInstalled() {
         if (numListed < minSpots) {
             var emptySpots = minSpots - numListed;
             $.get(url, function(data) {
-                if ($.trim(data)) {
+                if (data.trim()) {
                     $.each($(data).find('li'), function() {
                         var $el = $(this),
                             guid = $el.attr('data-guid');
                         // Ensure that the add-on isn't already in the list and
                         // that it's not already installed by the user.
                         if (!ul.find(format('li[data-guid="{0}"]', [guid])).length &&
-                            $.inArray(guid, z.guids) === -1) {
+                            !z.guids.includes(guid)) {
                             ul.append($el);
                             // We're done if all spots have been filled.
                             if (emptySpots-- == 1) {
@@ -147,7 +147,7 @@ function hideInstalled() {
     }
 
     fillSpots($('#featured-addons ul'), z.MAX_FEATURED,
-              document.body.getAttribute('data-featured-url'));
+              document.body.dataset.featuredUrl);
     fillSpots($('#up-and-coming ul'), z.MAX_UPANDCOMING,
-              document.body.getAttribute('data-upandcoming-url'));
+              document.body.dataset.upandcomingUrl);
 }

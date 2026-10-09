@@ -21,7 +21,6 @@
             url: settings['$results'].attr('data-src'),
             data: settings['$form'].serialize() + '&cat=' + settings.category,
             newItems: function(formdata, items) {
-                var eventName;
                 if (items !== undefined) {
                     var ul = '';
                     $.each(items, function(i, item) {

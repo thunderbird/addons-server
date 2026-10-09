@@ -3,7 +3,7 @@ $(function() {
         return;
     }
     $('.watch').click(_pd(function() {
-        var $widget = $(this),
+        const $widget = $(this),
             $parent = $widget.closest('.item');
         if ($widget.hasClass('ajax-loading')) return;
         $widget.addClass('ajax-loading');
