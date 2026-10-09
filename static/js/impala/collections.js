@@ -3,11 +3,11 @@ $(function() {
         return;
     }
     $('.watch').click(_pd(function() {
-        var $widget = $(this),
+        const $widget = $(this),
             $parent = $widget.closest('.item');
         if ($widget.hasClass('ajax-loading')) return;
         $widget.addClass('ajax-loading');
-        var follow_text = gettext('Follow this Collection');
+        let follow_text = gettext('Follow this Collection');
         $.ajax({
             url: $(this).attr('href'),
             type: 'POST',

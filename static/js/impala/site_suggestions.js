@@ -5,7 +5,7 @@
                                              processResults, 'AMO');
 
     function processResults(settings) {
-        if (!settings || !settings.category) {
+        if (!settings?.category) {
             return;
         }
 
@@ -21,7 +21,6 @@
             url: settings['$results'].attr('data-src'),
             data: settings['$form'].serialize() + '&cat=' + settings.category,
             newItems: function(formdata, items) {
-                var eventName;
                 if (items !== undefined) {
                     var ul = '';
                     $.each(items, function(i, item) {
@@ -31,7 +30,7 @@
                             cls: '',
                             subtitle: ''
                         };
-                        if (item.icons && item.icons['32']) {
+                        if (item.icons?.['32']) {
                             d.icon = format(
                                 'style="background-image:url({0})"',
                                 escape_(item.icons['32'])

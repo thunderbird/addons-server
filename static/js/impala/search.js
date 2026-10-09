@@ -6,8 +6,6 @@
         var $context = $(context || document.body);
 
         $('#search', $context).on('autofill', function(e) {
-            var $this = $(this);
-
             // Bail if search is present but not the appver input somehow.
             if (!appver_input.length) {
                 return;
@@ -18,7 +16,7 @@
 
             // Facets are either the ones defined in the URL, or the detected
             // browser version and platform.
-            if (!!(gv.appver)) { // Defined in URL parameter
+            if (gv.appver) { // Defined in URL parameter
                 appver_input.val(gv.appver);
             } else if (z.appMatchesUserAgent) { // Fallback to detected
                 // Only do this if firefox 57 or higher. Lower versions default
@@ -29,7 +27,7 @@
                 }
             }
 
-            if (!!(gv.platform)) { // Defined in URL parameter
+            if (gv.platform) { // Defined in URL parameter
                 platform_input.val(gv.platform);
             } else if (z.appMatchesUserAgent) { // Fallback to detected
                 platform_input.val(z.platform);
