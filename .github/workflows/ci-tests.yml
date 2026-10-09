@@ -75,14 +75,29 @@ jobs:
           dockerfile=$(docker compose config --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["services"]["web"]["build"].get("dockerfile","Dockerfile"))')
           base=$(sed -n 's/^FROM[[:space:]]\+\([^[:space:]]\+\).*/\1/p' "$dockerfile" | head -1)
           images="$(docker compose config --images | grep -vE '(-|_)(web|worker)$' || true) $base"
-          for attempt in 1 2 3 4 5 6; do
-            ok=1
+          # For a Docker Hub library image, try the GCR read-through mirror and
+          # ECR Public before Docker Hub itself; everything else goes direct.
+          candidates() {
+            case "$1" in
+              */*) echo "$1" ;;
+              *) echo "mirror.gcr.io/library/$1 public.ecr.aws/docker/library/$1 docker.io/library/$1" ;;
+            esac
+          }
+          for attempt in $(seq 1 12); do
+            missing=0
             for img in $images; do
               docker image inspect "$img" >/dev/null 2>&1 && continue
-              docker pull "$img" || ok=0
+              got=0
+              for cand in $(candidates "$img"); do
+                if docker pull "$cand" >/dev/null 2>&1; then
+                  [ "$cand" != "$img" ] && docker tag "$cand" "$img"
+                  got=1; echo "pulled $img from $cand"; break
+                fi
+              done
+              [ "$got" = 1 ] || { missing=1; echo "could not pull $img yet"; }
             done
-            [ "$ok" = 1 ] && break
-            echo "pull attempt $attempt hit a registry limit; sleeping"; sleep $((attempt * 45))
+            [ "$missing" = 0 ] && break
+            echo "attempt $attempt hit registry limits; sleeping $((attempt * 60))s"; sleep $((attempt * 60))
           done
           for img in $images; do docker image inspect "$img" >/dev/null; done
           docker save -o /tmp/ci-images.tar $images
