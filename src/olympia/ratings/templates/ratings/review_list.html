@@ -67,7 +67,7 @@
       {% endif %}
     </section>
   </div>
-  <div class="primary island hero c" id="reviews" role="main">
+  <main class="primary island hero c" id="reviews">
     {% block review_list %}
     {% if not reviews.object_list %}
       {% if addon.can_review(user) %}
@@ -90,6 +90,6 @@
     {% endblock review_list %}
     {{ edit_review_form() }}
     {{ edit_review_reply_form() }}
-  </div>
+  </main>
   {{ report_review_popup() }}
 {% endblock content %}
