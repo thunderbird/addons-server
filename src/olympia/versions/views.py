@@ -135,8 +135,11 @@ def download_latest(request, addon, type='xpi', platform=None):
     files = File.objects.filter(platform__in=platforms,
                                 version=version)
     try:
-        # If there's a file matching our platform, it'll float to the end.
-        file_ = sorted(files, key=lambda f: f.platform == platforms[-1])[-1]
+        # Prefer the last file matching our platform, falling back to the
+        # last file overall if none match.
+        files = list(files)
+        matches = [f for f in files if f.platform == platforms[-1]]
+        file_ = matches[-1] if matches else files[-1]
     except IndexError:
         raise http.Http404()
     return download_file(request, file_.id, type=type, file_=file_,
