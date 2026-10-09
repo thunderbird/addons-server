@@ -213,6 +213,12 @@ class TestIndexCommand(ESTestCase):
             self.check_results(self.expected)
 
         if len(self.expected) == old_addons_count:
+            # The thread has exited. If the command raised before reaching
+            # the hold, that is the real cause, so report it first.
+            if t.exception is not None:
+                raise AssertionError(
+                    'The reindex command raised in its thread: %r'
+                    % t.exception)
             raise AssertionError('Could not index objects in foreground while '
                                  'reindexing in the background.')
 
