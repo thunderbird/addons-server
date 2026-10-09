@@ -150,7 +150,7 @@ class TestPersonaRedirect(TestCase):
 
     @pytest.mark.xfail(
         reason='needs double check from Mel. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_persona_redirect(self):
         r"""`/persona/\d+` should go to `/addon/\d+`."""
         r = self.client.get('/persona/813', follow=True)

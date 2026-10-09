@@ -225,7 +225,7 @@ class TestAddStaticThemeFromLwt(TestCase):
 
     @pytest.mark.skip(
         reason='Personas are no longer supported. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_add_static_theme_from_lwt(self):
 
         author = user_factory()
@@ -262,7 +262,7 @@ class TestAddStaticThemeFromLwt(TestCase):
 
     @pytest.mark.skip(
         reason='Personas are no longer supported. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_add_static_theme_broken_lwt(self):
         """What if no author or license or category?"""
         persona = addon_factory(type=amo.ADDON_PERSONA)

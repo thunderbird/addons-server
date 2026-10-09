@@ -1153,7 +1153,7 @@ class TestUploadDetail(BaseUploadTest):
     @pytest.mark.xfail(
         reason='amo-validator giving `Unexpected error during validation: '
                'JSONDecodeError: Expecting value: line 1 column 1 (char 0)`. '
-               'See thunderbird/addons-server#397.')
+               'See thunderbird/addons-server#446.')
     def test_legacy_mozilla_signed_fx57_compat_allowed(self):
         """Legacy add-ons that are signed with the mozilla certificate
         should be allowed to be submitted ignoring most compatibility

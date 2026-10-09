@@ -473,7 +473,7 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
 
     @pytest.mark.skip(
         reason='old static theme wizard we removed a while ago. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_static_theme_submit_unlisted(self):
         assert Addon.unfiltered.count() == 0
         path = os.path.join(
@@ -494,7 +494,7 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
 
     @pytest.mark.skip(
         reason='old static theme wizard we removed a while ago. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_static_theme_wizard_listed(self):
         # Check we get the correct template.
         url = reverse('devhub.submit.wizard', args=['listed'])
@@ -527,7 +527,7 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
 
     @pytest.mark.skip(
         reason='old static theme wizard we removed a while ago. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_static_theme_wizard_unlisted(self):
         # Check we get the correct template.
         url = reverse('devhub.submit.wizard', args=['unlisted'])
@@ -1912,7 +1912,7 @@ class VersionSubmitUploadMixin(object):
         assert not doc('#wizardlink')
 
     @pytest.mark.skip(
-        reason='ATN disables the wizard. See thunderbird/addons-server#397.')
+        reason='ATN disables the wizard. See thunderbird/addons-server#446.')
     def test_static_theme_wizard_button_shown(self):
         channel = ('listed' if self.channel == amo.RELEASE_CHANNEL_LISTED else
                    'unlisted')
@@ -1926,7 +1926,7 @@ class VersionSubmitUploadMixin(object):
                     args=[self.addon.slug, channel]))
 
     @pytest.mark.skip(
-        reason='ATN disables the wizard. See thunderbird/addons-server#397.')
+        reason='ATN disables the wizard. See thunderbird/addons-server#446.')
     def test_static_theme_wizard(self):
         channel = ('listed' if self.channel == amo.RELEASE_CHANNEL_LISTED else
                    'unlisted')
@@ -1987,7 +1987,7 @@ class VersionSubmitUploadMixin(object):
             assert version.previews.all().count() == 0
 
     @pytest.mark.skip(
-        reason='ATN disables the wizard. See thunderbird/addons-server#397.')
+        reason='ATN disables the wizard. See thunderbird/addons-server#446.')
     def test_static_theme_wizard_unsupported_properties(self):
         channel = ('listed' if self.channel == amo.RELEASE_CHANNEL_LISTED else
                    'unlisted')
@@ -2084,7 +2084,7 @@ class TestVersionSubmitUploadListed(VersionSubmitUploadMixin, UploadTest):
         assert log_items.filter(action=amo.LOG.ADD_VERSION.id)
 
     @pytest.mark.skip(
-        reason="ATN doesn't sign addons. See thunderbird/addons-server#397.")
+        reason="ATN doesn't sign addons. See thunderbird/addons-server#446.")
     @mock.patch('olympia.devhub.views.sign_file')
     def test_experiments_inside_webext_are_auto_signed(self, mock_sign_file):
         """Experiment extensions (bug 1220097) are auto-signed."""
@@ -2131,7 +2131,7 @@ class TestVersionSubmitUploadListed(VersionSubmitUploadMixin, UploadTest):
         assert mock_sign_file.call_count == 0
 
     @pytest.mark.skip(
-        reason="ATN doesn't sign addons. See thunderbird/addons-server#397.")
+        reason="ATN doesn't sign addons. See thunderbird/addons-server#446.")
     @mock.patch('olympia.devhub.views.sign_file')
     def test_theme_experiment_inside_webext_upload_without_permission(
             self, mock_sign_file):

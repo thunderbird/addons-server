@@ -128,7 +128,7 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
 
     @pytest.mark.skip(
         reason='ATN requires extensions to include a GUID, making this test '
-               'incompatible. See thunderbird/addons-server#397.')
+               'incompatible. See thunderbird/addons-server#446.')
     def test_new_addon_random_slug_unlisted_channel(self):
         guid = '@create-webextension'
         qs = Addon.unfiltered.filter(guid=guid)
@@ -233,7 +233,7 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
     @pytest.mark.xfail(
         reason='amo-validator giving `Unexpected error during validation: '
                'JSONDecodeError: Expecting value: line 1 column 1 (char 0)`. '
-               'See thunderbird/addons-server#397.')
+               'See thunderbird/addons-server#446.')
     def test_version_added_is_experiment(self):
         self.grant_permission(self.user, 'Experiments:submit')
         guid = '@experiment-inside-webextension-guid'
@@ -258,7 +258,7 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
     @pytest.mark.xfail(
         reason='amo-validator giving `Unexpected error during validation: '
                'JSONDecodeError: Expecting value: line 1 column 1 (char 0)`. '
-               'See thunderbird/addons-server#397.')
+               'See thunderbird/addons-server#446.')
     def test_version_added_is_experiment_reject_no_perm(self):
         guid = '@experiment-inside-webextension-guid'
         qs = Addon.unfiltered.filter(guid=guid)
@@ -558,7 +558,7 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
 
     @pytest.mark.skip(
         reason='ATN requires extensions to include a GUID, making this test '
-               'incompatible. See thunderbird/addons-server#397.')
+               'incompatible. See thunderbird/addons-server#446.')
     def test_addon_does_not_exist_webextension(self):
         response = self.request(
             'POST',
@@ -587,7 +587,7 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
 
     @pytest.mark.skip(
         reason='ATN requires extensions to include a GUID, making this test '
-               'incompatible. See thunderbird/addons-server#397.')
+               'incompatible. See thunderbird/addons-server#446.')
     def test_addon_does_not_exist_webextension_with_guid_in_url(self):
         guid = '@custom-guid-provided'
         # Override the filename self.request() picks, we want that specific
@@ -618,7 +618,7 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
 
     @pytest.mark.skip(
         reason='ATN requires extensions to include a GUID, making this test '
-               'incompatible. See thunderbird/addons-server#397.')
+               'incompatible. See thunderbird/addons-server#446.')
     def test_addon_does_not_exist_webextension_with_invalid_guid_in_url(self):
         guid = 'custom-invalid-guid-provided'
         # Override the filename self.request() picks, we want that specific
@@ -707,7 +707,7 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
 
     @pytest.mark.skip(
         reason='ATN requires extensions to include a GUID, making this test '
-               'incompatible. See thunderbird/addons-server#397.')
+               'incompatible. See thunderbird/addons-server#446.')
     def test_too_long_guid_not_in_manifest_forbidden(self):
         fname = (
             'src/olympia/files/fixtures/files/webextension_with_id.xpi')

@@ -559,7 +559,7 @@ class TestParseXpi(TestCase):
 
     @pytest.mark.skip(
         reason='ATN does not support any extension without an id. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_guid_nomatch_webextension_supports_no_guid(self):
         # addon.guid is generated if none is set originally so it doesn't
         # really matter what we set here, we allow updates to an add-on
@@ -695,7 +695,7 @@ class TestParseXpi(TestCase):
     @pytest.mark.skip(
         reason="We don't support legacy extensions with this version upgrade, "
                'so it might not be needed. Might want to double check that. '
-               'See thunderbird/addons-server#397.')
+               'See thunderbird/addons-server#446.')
     def test_strict_compat_undefined(self):
         result = self.parse()
         # It's a legacy extension so it will always have strict compatibility

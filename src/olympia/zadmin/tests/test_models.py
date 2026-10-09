@@ -23,7 +23,7 @@ def test_set_config():
 # `pytest run src/olympia/zadmin`. Likely a problem with a mock or patch getting left
 # in place during some previous test.
 @pytest.mark.xfail(
-    reason='works in isolation FIXME. See thunderbird/addons-server#397.')
+    reason='works in isolation FIXME. See thunderbird/addons-server#446.')
 def test_assert_cache_requests_helper():
     with assert_cache_requests(1):
         cache.get('foobar')

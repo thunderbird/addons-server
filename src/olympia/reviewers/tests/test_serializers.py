@@ -37,7 +37,7 @@ class TestFileEntriesSerializer(TestCase):
 
     @pytest.mark.skip(
         reason='git storage backend is no longer used. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_basic(self):
         file = self.addon.current_version.current_file
 
@@ -95,7 +95,7 @@ class TestFileEntriesSerializer(TestCase):
 
     @pytest.mark.skip(
         reason='git storage backend is no longer used. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_requested_file(self):
         file = self.addon.current_version.current_file
 
@@ -119,7 +119,7 @@ class TestFileEntriesSerializer(TestCase):
 
     @pytest.mark.skip(
         reason='git storage backend is no longer used. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_get_entries_cached(self):
         file = self.addon.current_version.current_file
         serializer = FileEntriesSerializer(instance=file)
@@ -222,7 +222,7 @@ class TestAddonBrowseVersionSerializer(TestCase):
 
     @pytest.mark.skip(
         reason='git storage backend is no longer used. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_basic(self):
         # Overwritten partially to remove `files` related tests since we don't
         # include it in our simplified serializer version

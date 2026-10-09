@@ -42,7 +42,7 @@ class TestViews(TestCase):
 
     @pytest.mark.xfail(
         reason='Temporarily hidden, mozilla/addons-server#5431. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_version_source(self):
         self.addon.update(view_source=True)
         assert len(self.get_content()('a.source-code')) == 1

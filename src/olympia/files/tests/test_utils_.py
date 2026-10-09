@@ -185,7 +185,7 @@ class TestManifestJSONExtractor(TestCase):
 
     @pytest.mark.skip(
         reason='ATN requires a guid for each and every extension. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_name_for_guid_if_no_id(self):
         """Don't use the name for the guid if there is no id."""
         assert self.parse({'name': 'addon-name'})['guid'] is None
@@ -436,7 +436,7 @@ class TestManifestJSONExtractor(TestCase):
 
     @pytest.mark.skip(
         reason='ATN requires a guid for each and every extension. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_apps_use_default_versions_if_applications_is_omitted(self):
         """
         WebExtensions are allowed to omit `applications[/gecko]` and we
@@ -667,7 +667,7 @@ class TestManifestJSONExtractorStaticTheme(TestManifestJSONExtractor):
 
     @pytest.mark.skip(
         reason='ATN requires a guid and strict_max_version for each web '
-               'extension. See thunderbird/addons-server#397.')
+               'extension. See thunderbird/addons-server#446.')
     def test_apps_use_default_versions_if_none_provided(self):
         """Use the default min and max versions if none provided."""
         self.create_webext_default_versions()

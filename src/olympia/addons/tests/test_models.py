@@ -2476,7 +2476,7 @@ class TestAddonFromUpload(UploadTest):
 
     @pytest.mark.skip(
         reason='ATN does not support any extension without an id. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_webextension_generate_guid(self):
         self.upload = self.get_upload('webextension_no_id.xpi')
         parsed_data = parse_addon(self.upload, user=Mock())

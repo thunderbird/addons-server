@@ -332,7 +332,7 @@ class TestDetailPage(TestCase):
         reason="ETags currently don't work for add-on detail page. This is "
                'testing a legacy page which will be gone quite soon and we '
                "didn't win too much because of ETags anyway. See "
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_304(self):
         response = self.client.get(self.url)
         assert 'ETag' in response
@@ -396,7 +396,7 @@ class TestDetailPage(TestCase):
 
     @pytest.mark.skip(
         reason='Personas are no longer supported. See '
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_personas_context(self):
         response = self.client.get(reverse('addons.detail', args=['a15663']))
         assert 'review_form' in response.context
@@ -690,7 +690,7 @@ class TestDetailPage(TestCase):
 
     @pytest.mark.skip(
         reason="We don't show this warning on ATN. See "
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_fx57_label_is_webextension(self):
         """Test that the Firefox 57 label is being shown.
 
@@ -717,7 +717,7 @@ class TestDetailPage(TestCase):
 
     @pytest.mark.skip(
         reason="We don't show this warning on ATN. See "
-               'thunderbird/addons-server#397.')
+               'thunderbird/addons-server#446.')
     def test_fx57_label_is_mozilla_signed_extension(self):
         """Test that the Firefox 57 label is being shown.
 

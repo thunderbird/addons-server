@@ -744,7 +744,7 @@ class TestResponse(VersionCheckMixin, TestCase):
 
     @pytest.mark.skip(
         reason="legacy extensions aren't supported, so rdf manifests aren't "
-               'supported. See thunderbird/addons-server#397.')
+               'supported. See thunderbird/addons-server#446.')
     def test_seamonkey_serve_rdf(self):
         data = {
             'id': 'bettergmail2@ginatrapani.org',
