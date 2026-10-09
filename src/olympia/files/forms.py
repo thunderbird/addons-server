@@ -48,8 +48,8 @@ class FileSelectWidget(widgets.Select):
             if selected in files:
                 output.append(u' selected="true"')
 
-            status = set(u'status-%s' % amo.STATUS_CHOICES_API[f.status]
-                         for f in files)
+            status = {u'status-%s' % amo.STATUS_CHOICES_API[f.status]
+                      for f in files}
             if deleted:
                 status.update([u'status-deleted'])
             if channel:

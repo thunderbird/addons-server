@@ -28,8 +28,8 @@ def file_tree(files, selected):
         if v['depth'] > depth:
             output.append('<ul class="js-hidden">')
         elif v['depth'] < depth:
-            output.extend(['</ul>' for x in range(v['depth'], depth)])
+            output.extend(['</ul>' for _ in range(v['depth'], depth)])
         output.append(t.render({'value': v, 'selected': selected}))
         depth = v['depth']
-    output.extend(['</ul>' for x in range(depth, -1, -1)])
+    output.extend(['</ul>' for _ in range(depth, -1, -1)])
     return jinja2.Markup('\n'.join(output))

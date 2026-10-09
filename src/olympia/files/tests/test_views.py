@@ -532,7 +532,7 @@ class TestFileViewer(FilesBase, TestCase):
         PLATFORM_NAME = u'所有移动平台'
         f = self.files[0]
         with patch.object(File, 'get_platform_display',
-                          lambda self: PLATFORM_NAME):
+                          return_value=PLATFORM_NAME):
             assert f.get_platform_display() == PLATFORM_NAME
 
             res = self.client.get(self.file_url())

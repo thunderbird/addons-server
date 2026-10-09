@@ -315,7 +315,7 @@ class File(OnChangeMixin, ModelBase):
         self.move_file(
             src, dst, 'Moving undisabled file: {source} => {destination}')
 
-    _get_localepicker = re.compile(r'^locale browser ([\w\-_]+) (.*)$', re.M)
+    _get_localepicker = re.compile(r'^locale browser ([\w\-]+) (.*)$', re.M)
 
     @memoize(prefix='localepicker', timeout=None)
     def get_localepicker(self):
@@ -540,9 +540,8 @@ class FileUpload(ModelBase):
         return six.text_type(self.uuid.hex)
 
     def save(self, *args, **kw):
-        if self.validation:
-            if self.load_validation()['errors'] == 0:
-                self.valid = True
+        if self.validation and self.load_validation()['errors'] == 0:
+            self.valid = True
         super(FileUpload, self).save(*args, **kw)
 
     def add_file(self, chunks, filename, size):
@@ -551,7 +550,7 @@ class FileUpload(ModelBase):
 
         filename = force_text(u'{0}_{1}'.format(self.uuid.hex, filename))
         loc = os.path.join(user_media_path('addons'), 'temp', uuid.uuid4().hex)
-        base, ext = os.path.splitext(filename)
+        _, ext = os.path.splitext(filename)
         is_crx = False
 
         # Change a ZIP to an XPI, to maintain backward compatibility

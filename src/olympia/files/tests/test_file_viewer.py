@@ -474,12 +474,14 @@ class TestSafeZipFile(TestCase, amo.tests.AMOPaths):
     # is covered in the file viewer tests.
     @patch.object(settings, 'FILE_UNZIP_SIZE_LIMIT', 5)
     def test_unzip_limit(self):
+        path = self.xpi_path('langpack-localepicker')
         with pytest.raises(forms.ValidationError):
-            SafeZip(self.xpi_path('langpack-localepicker'))
+            SafeZip(path)
 
     def test_unzip_fatal(self):
+        path = self.xpi_path('search.xml')
         with pytest.raises(zipfile.BadZipfile):
-            SafeZip(self.xpi_path('search.xml'))
+            SafeZip(path)
 
     def test_read(self):
         zip_file = SafeZip(self.xpi_path('langpack-localepicker'))
@@ -490,8 +492,9 @@ class TestSafeZipFile(TestCase, amo.tests.AMOPaths):
         six.PY3,
         reason='Python 3 seems to handle filenames in that zip just fine.')
     def test_invalid_zip_encoding(self):
+        path = self.xpi_path('invalid-cp437-encoding.xpi')
         with pytest.raises(forms.ValidationError) as exc:
-            SafeZip(self.xpi_path('invalid-cp437-encoding.xpi'))
+            SafeZip(path)
 
         assert isinstance(exc.value, forms.ValidationError)
         assert exc.value.message.endswith(

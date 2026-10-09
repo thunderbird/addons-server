@@ -57,7 +57,7 @@ SYNTAX_HIGHLIGHTER_SUPPORTED_LANGUAGES = frozenset([
 ])
 
 
-def extract_file(viewer, **kw):
+def extract_file(viewer):
     # This message is for end users so they'll see a nice error.
     msg = Message('file-viewer:%s' % viewer)
     msg.delete()
@@ -181,7 +181,7 @@ class FileViewer(object):
                 return True
 
         if mimetype:
-            major, minor = mimetype.split('/')
+            major, _ = mimetype.split('/')
             if major == 'image':
                 return 'image'  # Mark that the file is binary, but an image.
 
@@ -250,7 +250,7 @@ class FileViewer(object):
         for manifest in ('install.rdf', 'manifest.json', 'package.json'):
             if manifest in files:
                 return manifest
-        return list(files.keys())[0] if files else None
+        return next(iter(files.keys())) if files else None
 
     def get_files(self):
         """
@@ -330,7 +330,7 @@ class FileViewer(object):
             path = force_text(path, errors='replace')
             filename = os.path.basename(path)
             short = path[len(self.dest) + 1:]
-            mime, encoding = mimetypes.guess_type(filename)
+            mime, _ = mimetypes.guess_type(filename)
             directory = os.path.isdir(path)
 
             if not directory:
@@ -365,7 +365,7 @@ class FileViewer(object):
         files_to_verify = get_all_files(self.dest)
 
         difference = (
-            set([name[dest_len:].strip('/') for name in files_to_verify]) -
+            {name[dest_len:].strip('/') for name in files_to_verify} -
             set(self._normalize_file_list(expected_files)))
 
         return difference
@@ -469,10 +469,10 @@ class DiffHelper(object):
             if key not in left_files:
                 # Make sure we have all the parent directories of
                 # deleted files.
-                dir = key
-                while os.path.dirname(dir):
-                    dir = os.path.dirname(dir)
-                    keep(dir)
+                parent = key
+                while os.path.dirname(parent):
+                    parent = os.path.dirname(parent)
+                    keep(parent)
 
                 keep(key)
 
