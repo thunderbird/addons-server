@@ -44,7 +44,6 @@ def firefox_notifications(notifications):
 
 
 @pytest.fixture(
-    scope='function',
     params=[DESKTOP, MOBILE],
     ids=['Resolution: 1080x1920', 'Resolution: 414x738'],
 )
