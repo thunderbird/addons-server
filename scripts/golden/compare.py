@@ -67,6 +67,9 @@ REQUEST_ID = re.compile(r'(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])')
 APP_KEYS = {'android', 'firefox', 'seamonkey', 'thunderbird'}
 ID_KEY = re.compile(r'^(\d+|\{[0-9A-Fa-f-]+\}|[^@\s]+@[^@\s]+)$')
 LOCALE_KEY = re.compile(r'^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
+# Objects keyed by add-on guid whatever the guid looks like ('@name' ids
+# exist, and ID_KEY rejects a leading '@' so XML attributes stay fields).
+GUID_MAP_PATHS = {'addons'}
 TRANSLATED_FIELDS = {
     'caption', 'description', 'developer_comments', 'eula', 'homepage',
     'name', 'notes', 'privacy_policy', 'release_notes', 'summary',
@@ -118,7 +121,9 @@ def is_data_map(path, a, b):
     keys = set(a) | set(b)
     if not keys:
         return False
-    if keys <= APP_KEYS or all(ID_KEY.match(k) for k in keys):
+    if path in GUID_MAP_PATHS or keys <= APP_KEYS:
+        return True
+    if all(ID_KEY.match(k) for k in keys):
         return True
     return (field_name(path) in TRANSLATED_FIELDS
             and all(LOCALE_KEY.match(k) for k in keys))
