@@ -144,13 +144,8 @@ var installButton = function() {
         var hasAddonManager = ("mozAddonManager" in navigator) && navigator.mozAddonManager !== null;
         var hasInstallTrigger = ("InstallTrigger" in window) && window.InstallTrigger !== null;
 
-        try {
-            if (!appSupported && !no_compat_necessary) return;
-            if (!hasAddonManager && !hasInstallTrigger) return;
-        } catch (e) {
-            // Probing the add-on manager failed, so leave the button alone.
-            return;
-        }
+        if (!appSupported && !no_compat_necessary) return;
+        if (!hasAddonManager && !hasInstallTrigger) return;
 
         $this.addClass('clickHijack'); // So we can disable pointer events
 
