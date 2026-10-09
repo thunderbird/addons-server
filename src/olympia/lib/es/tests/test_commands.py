@@ -40,9 +40,13 @@ class TestIndexCommand(ESTestCase):
         return TransactionTestCase._fixture_teardown(self)
 
     def tearDown(self):
+        # Delete only indices we created. Another xdist worker can create one
+        # of its own while these tests run, and anything missing from the
+        # setUp snapshot is not automatically ours.
+        own_prefix = '%s_' % get_es_index_prefix()
         current_indices = self.es.indices.stats()['indices'].keys()
         for index in current_indices:
-            if index not in self.indices:
+            if index not in self.indices and index.startswith(own_prefix):
                 self.es.indices.delete(index, ignore=404)
         super(TestIndexCommand, self).tearDown()
 
