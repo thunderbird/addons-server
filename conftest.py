@@ -14,7 +14,7 @@ import six
 
 
 @pytest.fixture(autouse=True)
-def unpin_db(request):
+def unpin_db():
     """Unpin the database from master in the current DB.
 
     The `multidb` middleware pins the current thread to master for 15 seconds
@@ -22,7 +22,8 @@ def unpin_db(request):
     of DB slave functionality."""
     from multidb import pinning
 
-    request.addfinalizer(pinning.unpin_this_thread)
+    yield
+    pinning.unpin_this_thread()
 
 
 @pytest.fixture(autouse=True)
@@ -129,7 +130,7 @@ def default_prefixer(settings):
     amo.urlresolvers.set_url_prefix(prefixer)
 
 
-@pytest.yield_fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def test_pre_setup(request, tmpdir, settings):
     from django.core.cache import caches
     from django.utils import translation
