@@ -93,7 +93,7 @@
   {# All this depends on the addon or version, and nothing needs the user,
      so we can cache it all against the addon. #}
   <section class="primary addon-description-header">
-    <div id="addon" class="island c" role="main" data-id="{{ addon.id }}">
+    <main id="addon" class="island c" data-id="{{ addon.id }}">
     {% if addon.type == 10 and addon.current_previews.count() > 0 %}
       <div id="theme-preview-details" style="background-image:url('{{ addon.current_previews[0].image_url }}')"></div>
     {% endif %}
@@ -118,7 +118,7 @@
           <div class="banner featured">{{ _('Featured') }}</div>
         </div>
       {% endif %}
-    </div>
+    </main>
 
     {% if addon.contributions %}
       <div class="notice c author">

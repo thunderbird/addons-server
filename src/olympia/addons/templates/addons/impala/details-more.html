@@ -5,7 +5,7 @@
 {% set version = addon.current_version %}
 {% set reviews = reviews[:3] %}
 
-<aside class="secondary addon-reviews c">
+<aside class="secondary addon-reviews c" aria-label="{{ _('Reviews') }}">
   {% if reviews %}
     <div>
       {{ addon.average_rating|stars }}
@@ -27,7 +27,7 @@
   {{ impala_review_list_box(addon=addon, reviews=reviews) }}
 </section>
 
-<aside id="related" class="secondary metadata c">
+<aside id="related" class="secondary metadata c" aria-label="{{ _('Related Categories') }}">
   {% with categories = addon.categories.filter(application=APP.id) %}
     {% if categories %}
       <h3>{{ _('Related Categories') }}</h3>

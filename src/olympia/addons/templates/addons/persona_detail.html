@@ -18,7 +18,7 @@
 
 {% include "addons/includes/persona_pending_notice.html" %}
 
-<div id="persona" class="primary" role="main" data-id="{{ addon.id }}">
+<main id="persona" class="primary" data-id="{{ addon.id }}">
   {% if not persona.addon.is_pending() or request.check_ownership(addon, require_owner=False) %}
     {# If theme is pending, only artist should see theme listing. #}
     {% include "addons/includes/persona.html" %}
@@ -62,9 +62,9 @@
   {% if abuse_form %}
     {{ addon_report_abuse(hide=True, addon=addon) }}
   {% endif %}
-</div>{# /primary #}
+</main>{# /primary #}
 
-<div id="persona-side" class="secondary" role="navigation">
+<nav id="persona-side" class="secondary">
   {% if categories %}
   <div class="category-list">
     <h3 class="compact-bottom">{{ _('Categories') }}</h3>
@@ -81,5 +81,5 @@
 
   {{ tags_box(addon=addon, tags=user_tags) }}
 
-</div>{# /secondary #}
+</nav>{# /secondary #}
 {% endblock content %}
