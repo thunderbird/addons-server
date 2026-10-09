@@ -131,7 +131,7 @@ def default_prefixer(settings):
 
 
 @pytest.fixture(autouse=True)
-def test_pre_setup(request, tmpdir, settings):
+def test_pre_setup(tmpdir, settings):
     from django.core.cache import caches
     from django.utils import translation
     from olympia import amo, core
@@ -193,15 +193,18 @@ def test_pre_setup(request, tmpdir, settings):
 
     _clear_urlconf()
 
-    request.addfinalizer(_clear_urlconf)
-
     yield
 
-    core.set_user(None)
-    clean_translations(None)  # Make sure queued translations are removed.
+    try:
+        core.set_user(None)
+        # Make sure queued translations are removed.
+        clean_translations(None)
 
-    # Make sure we revert everything we might have changed to prefixers.
-    amo.urlresolvers.clean_url_prefixes()
+        # Make sure we revert everything we might have changed to prefixers.
+        amo.urlresolvers.clean_url_prefixes()
+    finally:
+        # Runs last, as the request.addfinalizer() callback did.
+        _clear_urlconf()
 
 
 @pytest.fixture
