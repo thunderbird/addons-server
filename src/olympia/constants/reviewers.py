@@ -42,7 +42,7 @@ _REVIEWED_LP_PRELIM = 31  # Deprecated for new reviews - no more prelim.
 REVIEWED_LP_UPDATE = 32
 REVIEWED_PERSONA = 40
 REVIEWED_STATICTHEME = 41
-# TODO: Leaving room for persona points based on queue.
+# Leaving room for persona points based on queue.
 REVIEWED_SEARCH_FULL = 50
 _REVIEWED_SEARCH_PRELIM = 51  # Deprecated for new reviews - no more prelim.
 REVIEWED_SEARCH_UPDATE = 52

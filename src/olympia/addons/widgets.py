@@ -81,7 +81,7 @@ class CategoriesSelectMultiple(forms.CheckboxSelectMultiple):
         if other:
             groups.append([(choices_size, other)])
 
-        str_values = set([force_text(v) for v in value])
+        str_values = {force_text(v) for v in value}
 
         output = []
         for (k, group) in enumerate(groups):

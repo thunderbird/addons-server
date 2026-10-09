@@ -44,6 +44,7 @@
     position: relative;
     overflow: auto;
     font-size: 1em;
+    background-color: white;
 }
 .syntaxhighlighter.source {
     overflow: hidden;
@@ -63,6 +64,7 @@
 .syntaxhighlighter table caption {
   text-align: left;
     padding: .5em 0 0.5em 1em;
+    color: black;
 }
 .syntaxhighlighter table td.code {
     width: 100%;
@@ -107,6 +109,7 @@
 }
 .syntaxhighlighter.printing .line .content {
     color: black;
+    border: none;
 }
 .syntaxhighlighter.printing .toolbar {
     display: none;
@@ -158,13 +161,6 @@
     color: black;
 }
 
-.syntaxhighlighter {
-    background-color: white;
-}
-
-.syntaxhighlighter table caption {
-    color: black;
-}
 .syntaxhighlighter .gutter {
     color: #afafaf;
 }
@@ -174,9 +170,6 @@
 .syntaxhighlighter .gutter .line.highlighted {
     background-color: #6ce26c;
     color: white;
-}
-.syntaxhighlighter.printing .line .content {
-    border: none;
 }
 .syntaxhighlighter.collapsed {
     overflow: visible;
@@ -214,6 +207,7 @@
 }
 .syntaxhighlighter .keyword {
     color: #006699;
+    font-weight: bold;
 }
 .syntaxhighlighter .preprocessor {
     color: gray;
@@ -243,8 +237,4 @@
 }
 .syntaxhighlighter .color3, .syntaxhighlighter .color3 a {
     color: red;
-}
-
-.syntaxhighlighter .keyword {
-    font-weight: bold;
 }

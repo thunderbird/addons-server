@@ -9,9 +9,9 @@ group_date_re = r'(?P<group>' + '|'.join(views.SERIES_GROUPS_DATE) + ')'
 range_re = r'(?P<start>\d{8})-(?P<end>\d{8})'
 format_re = r'(?P<format>' + '|'.join(views.SERIES_FORMATS) + ')'
 series_re = r'%s-%s\.%s$' % (group_re, range_re, format_re)
-series = dict((type, r'%s-%s' % (type, series_re)) for type in views.SERIES)
-global_series = dict((type, r'%s-%s' % (type, series_re))
-                     for type in views.GLOBAL_SERIES)
+series = {type: r'%s-%s' % (type, series_re) for type in views.SERIES}
+global_series = {type: r'%s-%s' % (type, series_re)
+                 for type in views.GLOBAL_SERIES}
 
 
 urlpatterns = [

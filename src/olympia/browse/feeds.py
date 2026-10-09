@@ -193,8 +193,8 @@ class SearchToolsRss(AddonFeedMixin, BaseFeed):
         - when viewing categories or any other sorting, do not
           include extensions.
         """
-        addons, filter = addon_listing(self.request, self.TYPES,
-                                       SearchToolsFilter, default='popular')
+        addons, _ = addon_listing(self.request, self.TYPES,
+                                  SearchToolsFilter, default='popular')
         if self.category:
             addons = addons.filter(categories__id=self.category.id)
         return addons[:30]
