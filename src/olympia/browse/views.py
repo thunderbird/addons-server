@@ -25,6 +25,8 @@ PAGINATE_PERSONAS_BY = 30
 MIN_COUNT_FOR_LANDING = 4
 
 ADDONS_ID_PK_NAME = 'addons.id'
+SORT_BUTTON_SRC_FORMAT = 'cb-btn-%s'
+SORT_DL_SRC_FORMAT = 'cb-dl-%s'
 
 _SORT_OPT_TOP_RATED = _(u'Top Rated')
 _SORT_OPT_UP_AND_COMING = _(u'Up & Coming')
@@ -152,8 +154,8 @@ def themes(request, category=None):
     addons, addon_filter = addon_listing(request, [TYPE], default='users',
                                          filter_=ThemeFilter)
     sorting = addon_filter.field
-    src = 'cb-btn-%s' % sorting
-    dl_src = 'cb-dl-%s' % sorting
+    src = SORT_BUTTON_SRC_FORMAT % sorting
+    dl_src = SORT_DL_SRC_FORMAT % sorting
 
     if category is not None:
         addons = addons.filter(categories__id=category.id)
@@ -180,8 +182,8 @@ def extensions(request, category=None):
 
     addons, addon_filter = addon_listing(request, [TYPE])
     sorting = addon_filter.field
-    src = 'cb-btn-%s' % sorting
-    dl_src = 'cb-dl-%s' % sorting
+    src = SORT_BUTTON_SRC_FORMAT % sorting
+    dl_src = SORT_DL_SRC_FORMAT % sorting
 
     if category:
         addons = addons.filter(categories__id=category.id)
@@ -300,8 +302,8 @@ def staticthemes(request, category=None):
 
     addons, addon_filter = addon_listing(request, [TYPE])
     sorting = addon_filter.field
-    src = 'cb-btn-%s' % sorting
-    dl_src = 'cb-dl-%s' % sorting
+    src = SORT_BUTTON_SRC_FORMAT % sorting
+    dl_src = SORT_DL_SRC_FORMAT % sorting
 
     if category:
         addons = addons.filter(categories__id=category.id)
