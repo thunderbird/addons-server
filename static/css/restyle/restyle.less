@@ -227,10 +227,6 @@ button.link:active span {
     0 0;
 }
 
-.amo-header {
-  margin-bottom: 0;
-}
-
 .amo-header-wrapper {
   margin: 0 auto;
   max-width: @pageWidth;
@@ -252,6 +248,7 @@ button.link:active span {
 }
 
 .amo-header {
+  margin-bottom: 0;
   font-family: inherit;
 }
 
@@ -269,10 +266,6 @@ body:not(.home) .amo-header,
   margin-bottom: 0;
 }
 
-.menu-nav {
-  color: @link-on-color-bg;
-}
-
 .amo-header ul a {
   color: @link-on-color-bg;
   font-family: inherit;
@@ -280,13 +273,6 @@ body:not(.home) .amo-header,
   ul a {
     color: #fff;
   }
-}
-
-#masthead h1 {
-  font-size: 4.308rem; // 56px
-  line-height: 3.692rem; // 48px
-  letter-spacing: -1px;
-  text-transform: none;
 }
 
 .site-title {
@@ -406,6 +392,8 @@ body:not(.home) .amo-header,
 }
 
 .menu-nav {
+  color: @link-on-color-bg;
+
   a {
     color: #000;
   }
@@ -800,7 +788,7 @@ body:not(.home) .amo-header,
 #featured-addon .thumb,
 #monthly .blurb,
 #monthly .thumb {
-  display: inline-block;;
+  display: inline-block;
 }
 
 #featured-addon .thumb,
@@ -1218,15 +1206,6 @@ body:not(.developer-hub) section.secondary {
   margin-bottom: 0.5em;
 }
 
-.addon-details {
-  .primary,
-  .secondary {
-    background: none;
-    font-family: @primary-font;
-  }
-
-}
-
 .html-rtl {
    .extra .button.disabled.not-available {
     background-position: right 6px center;
@@ -1244,21 +1223,6 @@ body:not(.developer-hub) section.secondary {
   font-size: 0.5em;
 }
 
-// first block of details - icon, name, description...
-.addon-details {
-  .primary:first-of-type {
-    min-height: 257px;
-  }
-
-  .secondary.addon-vitals {
-    position: relative;
-    z-index: 1;
-  }
-
-  .install-wrapper .install-button a.button.download {
-    margin-bottom: 10px;
-  }
-}
 
 #addon-description.prose {
   font-family: @primary-font;
@@ -1270,6 +1234,10 @@ body:not(.developer-hub) section.secondary {
 }
 
 #masthead h1 {
+  font-size: 4.308rem; // 56px
+  line-height: 3.692rem; // 48px
+  letter-spacing: -1px;
+  text-transform: none;
   margin-top: -5px;
 
   &.site-title.amo {
@@ -1328,8 +1296,40 @@ body:not(.developer-hub) section.secondary {
   color: @link-on-white-bg;
 }
 
-/* Notice - underneath description (asking for contribution &/or showing dependencies )*/
+// Standard pages have the default
+// text color. This is overridden for details
+// pages below.
+h3.author a,
+h4.author a {
+  color: @default-font-color;
+  text-decoration: underline;
+}
+
+h3.author .transfer-ownership {
+  color: @link-on-color-bg;
+  text-decoration: none;
+}
+
+// font issues on addon-details
 .addon-details {
+  .primary,
+  .secondary {
+    background: none;
+    font-family: @primary-font;
+  }
+
+  .primary:first-of-type {
+    min-height: 257px;
+  }
+
+  .secondary.addon-vitals {
+    position: relative;
+    z-index: 1;
+  }
+
+  .install-wrapper .install-button a.button.download {
+    margin-bottom: 10px;
+  }
 
   .hovercard.addon:hover {
     .rating a {
@@ -1364,24 +1364,7 @@ body:not(.developer-hub) section.secondary {
       }
     }
   }
-}
 
-// Standard pages have the default
-// text color. This is overridden for details
-// pages below.
-h3.author a,
-h4.author a {
-  color: @default-font-color;
-  text-decoration: underline;
-}
-
-h3.author .transfer-ownership {
-  color: @link-on-color-bg;
-  text-decoration: none;
-}
-
-// font issues on addon-details
-.addon-details {
   .version-number,
   h4.author,
   h4.author a,
@@ -1524,7 +1507,7 @@ h3.author .transfer-ownership {
     &:after {
       color: rgba(0, 0, 0, 0.125);
       content: '\203a';
-      font-family: Georgia;
+      font-family: Georgia, serif;
       font-weight: normal;
       font-size: 18px;
       position: absolute;
@@ -1561,14 +1544,6 @@ h3.author .transfer-ownership {
       background-color: #57bd35;
       text-shadow: none;
     }
-  }
-}
-
-.secondary .submit-theme {
-  border: 0;
-
-  h3, p {
-    font-family: @primary-font;
   }
 }
 
@@ -2004,7 +1979,12 @@ h3.author .transfer-ownership {
 
 
 .secondary .submit-theme {
+  border: 0;
   padding: 0;
+
+  h3, p {
+    font-family: @primary-font;
+  }
 
   a.button {
     white-space: normal;
@@ -2126,10 +2106,6 @@ h3.author .transfer-ownership {
 .prettyform .listing-footer {
   background: none;
   border-top: 0;
-}
-
-.prettyform .listing-footer {
-  background: none;
 }
 
 // Theme detail page
@@ -2473,7 +2449,7 @@ body.reviewer-tools {
 
 /* Source/Diff viewer */
 body.file-viewer {
-  pre, code, kbd, tt, samp, tt {
+  pre, code, kbd, tt, samp {
     font-family: @mono-stack !important;
   }
 
