@@ -107,7 +107,7 @@ var escape_ = function(s){
 if (!('_' in window)) _ = {};
 /* is ``key`` in obj? */
 _.haskey = function(obj, key) {
-    return typeof obj[key] !== "undefined";
+    return obj[key] !== undefined;
 };
 
 

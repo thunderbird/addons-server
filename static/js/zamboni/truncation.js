@@ -23,10 +23,9 @@ $.fn.lineclamp = function(lines) {
     return this.each(function() {
         var $this = $(this),
             lh = $this.css('line-height');
-        if (typeof lh == 'string' && lh.substr(-2) == 'px') {
-            lh = parseFloat(lh.replace('px', ''));
-            var maxHeight = Math.ceil(lh) * lines,
-                truncated;
+        if (typeof lh == 'string' && lh.slice(-2) == 'px') {
+            lh = Number.parseFloat(lh.replace('px', ''));
+            var maxHeight = Math.ceil(lh) * lines;
             if ((this.scrollHeight - maxHeight) > 2) {
                 $this.css({'height': maxHeight + 2, 'overflow': 'hidden',
                            'text-overflow': 'ellipsis'});
@@ -45,8 +44,8 @@ $.fn.linefit = function(lines) {
     lines = lines || 1;
     return this.each(function() {
         var $this = $(this),
-            fs = parseFloat($this.css('font-size').replace('px', '')),
-            max_height = Math.ceil(parseFloat($this.css('line-height').replace('px', ''))) * lines,
+            fs = Number.parseFloat($this.css('font-size').replace('px', '')),
+            max_height = Math.ceil(Number.parseFloat($this.css('line-height').replace('px', ''))) * lines,
             height = $this.height();
         while (height > max_height && fs > min_font_size) {
             // Repeatedly shrink the text by 0.5px until all the text fits.

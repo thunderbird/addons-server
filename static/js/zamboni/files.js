@@ -15,7 +15,8 @@ var Highlighter = {
         // Creates a unified diff of the arbitrary strings `left` and
         // `right`, ignoring white-space changes within lines..
 
-        var differ = new diff_match_patch();
+        var DiffMatchPatch = diff_match_patch,
+            differ = new DiffMatchPatch();
 
         // Start by squashing the whitespace in both input strings,
         // and converting them to arrays of characters.
@@ -31,8 +32,9 @@ var Highlighter = {
 
         // If we have a brush, filter the left lines through the syntax
         // highlighter. Otherwise, just escape them.
+        var left_lines;
         if (brush) {
-            var left_lines = this.highlight_lines(left, brush);
+            left_lines = this.highlight_lines(left, brush);
         } else {
             left_lines = _.map(left.split('\n'), _.escape);
         }
@@ -92,7 +94,7 @@ var Highlighter = {
                     break;
 
                 default:
-                    throw 'an unexpected fit';
+                    throw new Error('an unexpected fit');
                 }
             }
         }
@@ -157,10 +159,11 @@ var Highlighter = {
         // to parse them as JSON if they start with `{` or `[`.
         var brush = $node.data('brush');
 
+        var lines;
         if ($node.is('[data-content]')) {
             var content = $node.attr('data-content');
 
-            var lines = _.map(this.highlight_lines(content, brush), function(line, idx) {
+            lines = _.map(this.highlight_lines(content, brush), function(line, idx) {
                 return {
                     number: idx + 1,
                     classes: '',
@@ -172,7 +175,7 @@ var Highlighter = {
             var left = $node.attr('data-left');
             var right = $node.attr('data-right');
 
-            var lines = this.diff(left, right, brush);
+            lines = this.diff(left, right, brush);
         }
 
         // Annotate the lines a bit.
@@ -286,8 +289,6 @@ jQuery.fn.numberInput = function(increment) {
         var $self = $(this);
         $self.addClass("number-combo-input");
 
-        var height = $self.outerHeight() / 2;
-
         var $dom = $('<span>', { 'class': 'number-combo' })
                      .append($('<a>', { 'class': 'number-combo-button-down',
                                         'href': '#', 'text': '↓' }))
@@ -392,8 +393,7 @@ function bind_viewer(nodes) {
         this.compute_messages = function(node) {
             var $diff = node.find('#diff'),
                 path = this.nodes.$files.find('a.file.selected').attr('data-short'),
-                messages = [],
-                self = this;
+                messages = [];
 
             if (this.messages) {
                 if (this.messages.hasOwnProperty(''))
@@ -404,7 +404,6 @@ function bind_viewer(nodes) {
 
             _.each(messages, function(message) {
                 var $line = $('#L' + message.line),
-                    title = $line.attr('title'),
                     html = ['<div>',
                             format('<strong>{0}{1}: {2}</strong>',
                                    message.type[0].toUpperCase(),
@@ -530,7 +529,6 @@ function bind_viewer(nodes) {
                             .find('span').text(metadata.jetpack_sdk_version);
                     }
 
-                    var identified_files = {};
                     (function process_files(prefix, metadata) {
                         if (metadata.identified_files) {
                             var files = metadata.identified_files;
@@ -542,7 +540,7 @@ function bind_viewer(nodes) {
                         }
 
                         if (metadata.sub_packages) {
-                            for (var prefix in metadata.sub_packages) {
+                            for (prefix in metadata.sub_packages) {
                                 process_files(prefix, metadata.sub_packages[prefix]);
                             }
                         }
@@ -626,10 +624,11 @@ function bind_viewer(nodes) {
              * the DOM so that we don't force unnecessary reflows. */
 
             var $viewport = this.$viewport,
-                changes = [];
+                changes = [],
+                height;
 
             if (resize) {
-                var height = $('#controls-inner').height() / $('#metadata').width();
+                height = $('#controls-inner').height() / $('#metadata').width();
                 changes.push([$('#files-inner'), { 'padding-bottom': height + 'em' }]);
             }
 
@@ -639,9 +638,9 @@ function bind_viewer(nodes) {
                 var $gutter = this.$gutter,
                     $diffbar = this.$diffbar,
                     gr = $gutter[0].getBoundingClientRect(),
-                    gh = gr.bottom - gr.top,
-                    height = Math.max(0, Math.min(gr.bottom, $(window).height())
-                                       - Math.max(gr.top, 0));
+                    gh = gr.bottom - gr.top;
+                height = Math.max(0, Math.min(gr.bottom, $(window).height())
+                                   - Math.max(gr.top, 0));
 
                 changes.push([$viewport,
                               { 'height': Math.min(height / gh * 100, 100) + '%',
@@ -951,7 +950,7 @@ function bind_viewer(nodes) {
         if (e.charCode && !(e.altKey || e.ctrlKey || e.metaKey) &&
                 ![HTMLInputElement, HTMLSelectElement, HTMLTextAreaElement]
                     .some(function (iface) { return e.target instanceof iface })) {
-            buffer += String.fromCharCode(e.charCode);
+            buffer += String.fromCodePoint(e.charCode);
             if (keys.hasOwnProperty(buffer)) {
                 e.preventDefault();
                 keys[buffer].click();
@@ -970,7 +969,7 @@ function bind_viewer(nodes) {
 
     $("#tab-stops-container").show();
 
-    var $tabstops = $('#tab-stops')
+    $('#tab-stops')
         .numberInput(4)
         .val(Number(storage.get(localTabstopsKey) || storage.get(tabstopsKey)) || 4)
         .change(function(event, global) {
