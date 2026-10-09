@@ -1,7 +1,7 @@
 $(document).ready(function() {
 
     // Modals
-    var $modalFile, $modalDelete, $modalDisable, $modalUnlist;
+    var $modalDelete, $modalDisable, $modalUnlist;
 
     // Edit Add-on
     $("#edit-addon").exists(initEditAddon);
@@ -239,8 +239,8 @@ $(document).ready(function() {
 })();
 
 function truncateFields() {
-    // TODO (potch) find a good fix for this later
-    // as per Bug 622030...
+    // Truncation is disabled pending a proper fix (Bug 622030, potch).
+    // Re-enabling or removing it is tracked in thunderbird/addons-server#464.
     return;
     // var els = [
     //         "#addon-description",
@@ -259,6 +259,11 @@ function truncateFields() {
     // });
 }
 
+
+function fadeOutSaveBadge(e) {
+    e.css('opacity', 0);
+    setTimeout(function(){ e.remove(); }, 200);
+}
 
 function addonFormSubmit() {
     var parent_div = $(this);
@@ -301,10 +306,7 @@ function addonFormSubmit() {
                     var e = $(format('<b class="save-badge">{0}</b>',
                                      [gettext('Changes Saved')]))
                               .appendTo(parent_div.find('h3').first());
-                    setTimeout(function(){
-                        e.css('opacity', 0);
-                        setTimeout(function(){ e.remove(); }, 200);
-                    }, 2000);
+                    setTimeout(function(){ fadeOutSaveBadge(e); }, 2000);
                 }
             });
         });
@@ -365,7 +367,7 @@ function create_new_preview_field() {
         });
     });
     $(last).after(last_clone);
-    $('#id_files-TOTAL_FORMS').val(parseInt(forms_count, 10) + 1);
+    $('#id_files-TOTAL_FORMS').val(Number.parseInt(forms_count, 10) + 1);
 
     return last;
 }
@@ -595,7 +597,7 @@ function initVersions() {
         json.forEach(function(note) {
             var clone = empty_note.clone(true, true);
             clone.attr('class', 'review-entry');
-            if (note["highlight"] == true) {
+            if (note["highlight"]) {
                 clone.addClass("new");
             }
             clone.find('span.action')[0].textContent = note["action_label"];
@@ -626,11 +628,12 @@ function initVersions() {
         var container = div.children('.history-container');
         container.children('.review-entry-loading').removeClass("hidden");
         container.children('.review-entry-failure').addClass("hidden");
+        var api_url;
         if (!nextLoad) {
             container.children('.review-entry').remove();
-            var api_url = div.data('api-url');
+            api_url = div.data('api-url');
         } else {
-            var api_url = div.data('next-url');
+            api_url = div.data('next-url');
         }
         var success = function (json) {
             addToReviewHistory(json["results"], container)
@@ -802,7 +805,7 @@ function initCatFields(delegate) {
         var $grand_parent = $(this).closest("[data-max-categories]"),
             $main = $parent.find(main_selector),
             $misc = $parent.find(misc_selector),
-            maxCats = parseInt($grand_parent.attr("data-max-categories"), 10);
+            maxCats = Number.parseInt($grand_parent.attr("data-max-categories"), 10);
         var checkMainDefault = function() {
             var checkedLength = $("input:checked", $main).length,
                 disabled = checkedLength >= maxCats;
@@ -853,9 +856,7 @@ function initAuthorFields() {
 
     if (z.noEdit) return;
 
-    var request = false,
-        timeout = false,
-        manager = $("#id_form-TOTAL_FORMS"),
+    var manager = $("#id_form-TOTAL_FORMS"),
         empty_form = template($("#user-form-template").html().replace(/__prefix__/g, "{0}")),
         author_list = $("#author_list");
     author_list.sortable({
@@ -1004,7 +1005,7 @@ function initCompatibility() {
     });
 }
 
-function imagePoller() {
+function ImagePoller() {
     this.start = function(override, delay) {
         if (override || !this.poll) {
             this.poll = window.setTimeout(this.check, delay || 1000);
@@ -1018,8 +1019,8 @@ function imagePoller() {
 
 var imageStatus = {
     start: function() {
-        this.icon = new imagePoller();
-        this.preview = new imagePoller();
+        this.icon = new ImagePoller();
+        this.preview = new ImagePoller();
         this.icon.check = function() {
             var self = imageStatus,
                 node = $('#edit-addon-media');
@@ -1080,7 +1081,7 @@ var imageStatus = {
         }
     },
     newurl: function(orig) {
-        var bst = new Date().getTime();
+        var bst = Date.now();
         orig += (orig.indexOf('?') > 1 ? '&' : '?') + bst;
         return orig;
     },
@@ -1101,7 +1102,7 @@ function hideSameSizedIcons() {
     var icon_sizes = [];
     $('#icon_preview_readonly img').show().each(function(){
         var size = $(this).width() + 'x' + $(this).height();
-        if($.inArray(size, icon_sizes) >= 0) {
+        if(icon_sizes.includes(size)) {
             $(this).hide();
         }
         icon_sizes.push(size);

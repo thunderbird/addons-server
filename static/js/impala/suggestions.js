@@ -69,13 +69,6 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
         $results.removeClass('sel');
         $results.find('a:first').addClass('sel');
     }
-    function pageDown() {
-        // Select the last element.
-        $results.find('.sel').removeClass('sel');
-        $results.removeClass('sel');
-        $results.find('a:last').addClass('sel');
-    }
-
     function dismissHandler() {
         $results.removeClass('visible sel');
         if (searchType == 'MKT') {
@@ -90,7 +83,7 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
         // Bail if the results are hidden or if we have a non-gesture key
         // or if we have a alt/ctrl/meta/shift keybinding.
         if (!$results.hasClass('visible') ||
-            $.inArray(e.which, gestureKeys) < 0 ||
+            gestureKeys.indexOf(e.which) < 0 ||
             e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
             $results.trigger('keyIgnored');
             return;
@@ -143,8 +136,8 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
             settings['category'] = cat;
         }
 
-        if (((e.type === 'keyup' && typeof e.which === 'undefined') ||
-            $.inArray(e.which, ignoreKeys) >= 0) && !pasting) {
+        if (((e.type === 'keyup' && e.which === undefined) ||
+            ignoreKeys.indexOf(e.which) >= 0) && !pasting) {
             $results.trigger('inputIgnored');
         } else {
             // XHR call and populate suggestions.
@@ -165,7 +158,6 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
             pollVal = setInterval(function() {
                 gestureHandler($self);
                 inputHandler($self);
-                return;
             }, 150);
         });
     } else {
