@@ -14,7 +14,7 @@
       <tr>
         <th>{{ _('Add-on') }}</th>
         <th>{{ _('Added') }}</th>
-        <th>{{ _('Comment') }}</th>
+        <th id="addons-list-comment">{{ _('Comment') }}</th>
         <th>{{ _('Remove') }}</th>
       </tr>
     </thead>
@@ -34,7 +34,7 @@
           <img src="{{ addon.get_icon_url(32) }}" alt="">
           <h3>{{ addon.name }}</h3>
           <p class="comments{% if comments[addon.id] %} hascomment{% endif %}">
-            <textarea name="addon_comment" aria-label="{{ _('Comment') }}">{{ comments[addon.id] }}</textarea>
+            <textarea name="addon_comment" aria-labelledby="addons-list-comment">{{ comments[addon.id] }}</textarea>
           </p>
         </td>
         {% if meta %}
