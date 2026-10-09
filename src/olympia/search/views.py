@@ -59,13 +59,13 @@ def _personas(request):
     search_opts['offset'] = (page - 1) * search_opts['limit']
 
     pager = amo.utils.paginate(request, results, per_page=search_opts['limit'])
-    categories, filter, base, category = personas_listing_view(request)
+    categories, addon_filter, _, _ = personas_listing_view(request)
     context = {
         'pager': pager,
         'form': form,
         'categories': categories,
         'query': form_data,
-        'filter': filter,
+        'filter': addon_filter,
         'search_placeholder': 'themes'}
     return render(request, 'search/results.html', context)
 
@@ -195,11 +195,11 @@ def ajax_search(request):
 @non_atomic_requests
 def ajax_search_suggestions(request):
     cat = request.GET.get('cat', 'all')
-    suggesterClass = {
+    suggester_class = {
         'all': AddonSuggestionsAjax,
         'themes': PersonaSuggestionsAjax,
     }.get(cat, AddonSuggestionsAjax)
-    suggester = suggesterClass(request, ratings=False)
+    suggester = suggester_class(request, ratings=False)
     return _build_suggestions(
         request,
         cat,
@@ -380,7 +380,7 @@ def search(request, tag_name=None):
         'form': form,
         'sort_opts': sort,
         'extra_sort_opts': extra_sort,
-        'sorting': sort_sidebar(request, form_data, form),
+        'sorting': sort_sidebar(form_data, form),
         'sort': form_data.get('sort'),
     }
     if not ctx['is_pjax']:
@@ -390,7 +390,7 @@ def search(request, tag_name=None):
             'categories': category_sidebar(request, form_data, aggregations),
             'platforms': platform_sidebar(request, form_data),
             'versions': version_sidebar(request, form_data, aggregations),
-            'tags': tag_sidebar(request, form_data, aggregations),
+            'tags': tag_sidebar(form_data, aggregations),
         })
     return render(request, 'search/results.html', ctx)
 
@@ -404,7 +404,7 @@ class FacetLink(object):
         self.children = children or []
 
 
-def sort_sidebar(request, form_data, form):
+def sort_sidebar(form_data, form):
     sort = form_data.get('sort')
     return [FacetLink(text, {'sort': key}, key == sort)
             for key, text in form.sort_choices]
@@ -476,8 +476,8 @@ def version_sidebar(request, form_data, aggregations):
         vs.append(av_dict)
 
     # Valid versions must be in the form of `major.minor`.
-    vs = set((v['major'], v['minor1'] if v['minor1'] not in (None, 99) else 0)
-             for v in vs)
+    vs = {(v['major'], v['minor1'] if v['minor1'] not in (None, 99) else 0)
+          for v in vs}
     versions = ['%s.%s' % v for v in sorted(vs, reverse=True)]
 
     for version, floated in zip(versions, map(float, versions)):
@@ -509,7 +509,7 @@ def platform_sidebar(request, form_data):
     return rv
 
 
-def tag_sidebar(request, form_data, aggregations):
+def tag_sidebar(form_data, aggregations):
     qtag = form_data.get('tag')
     tags = [facet['key'] for facet in aggregations['tags']]
     rv = [FacetLink(gettext('All Tags'), {'tag': None}, not qtag)]

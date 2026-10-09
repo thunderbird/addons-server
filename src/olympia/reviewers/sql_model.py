@@ -10,10 +10,10 @@ from django.utils.tree import Node
 from six import add_metaclass
 
 
-ORDER_PATTERN = re.compile(r'^[-+]?[a-zA-Z0-9_]+$')
+ORDER_PATTERN = re.compile(r'^[-+]?\w+$', re.ASCII)
 FIELD_PATTERN = re.compile(r'^[a-zA-Z0-9_\.]+$')
 RAW_FILTER_PATTERN = re.compile(
-    r'^(?P<field>[a-zA-Z0-9_\.]+)\s*(?P<op>=|>|<|>=|<=|!=|IN|LIKE|ILIKE)\s*$',
+    r'^(?P<field>[a-z0-9_\.]+)\s*(?P<op>=|>|<|>=|<=|!=|IN|LIKE|ILIKE)\s*$',
     re.I)
 
 
@@ -56,8 +56,7 @@ class RawSQLManager(object):
 
     def __iter__(self):
         self._build_cursor()
-        for row in self._iter_cursor_results():
-            yield row
+        yield from self._iter_cursor_results()
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -196,14 +195,15 @@ class RawSQLManager(object):
         if not ORDER_PATTERN.match(spec):
             raise ValueError('Invalid order by value: %r' % spec)
         if spec.startswith('-'):
-            dir = 'DESC'
+            direction = 'DESC'
             field = spec[1:]
         else:
-            dir = 'ASC'
+            direction = 'ASC'
             field = spec
         clone = self._clone()
         clone.base_query['order_by'].append('%s %s' %
-                                            (clone._resolve_alias(field), dir))
+                                            (clone._resolve_alias(field),
+                                             direction))
         return clone
 
     def as_sql(self):
@@ -224,7 +224,7 @@ class RawSQLManager(object):
         specs = []
         if stack is None:
             stack = [None]
-        # TODO(Kumar): construct NOT clause:
+        # Not yet implemented (Kumar): construct NOT clause:
         if q_object.negated:
             raise NotImplementedError('negated Q objects')
         connector = q_object.connector
