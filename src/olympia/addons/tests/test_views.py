@@ -467,7 +467,6 @@ class TestDetailPage(TestCase):
         """Check that external URLs are properly escaped."""
         # Can't test this if redirect url is empty
         if settings.REDIRECT_URL == '':
-            assert True
             return
 
         response = self.client.get(self.url)
@@ -652,7 +651,7 @@ class TestDetailPage(TestCase):
         response = self.client.get(reverse('addons.detail', args=['a59']))
         # We shouldn't show an avatar since this has no listed_authors.
         doc = pq(response.content)
-        assert 0 == len(doc('.avatar'))
+        assert len(doc('.avatar')) == 0
 
     def test_authors_xss(self):
         name = '<script>alert(1)</script>'
@@ -1161,7 +1160,7 @@ class TestTagsBox(TestCase):
         response = self.client.get_ajax(
             reverse('addons.detail_more', args=[8680]), follow=True)
         doc = pq(response.content)
-        assert 'SEO' == doc('#tagbox ul').children().text()
+        assert doc('#tagbox ul').children().text() == 'SEO'
 
 
 class TestEulaPolicyRedirects(TestCase):
