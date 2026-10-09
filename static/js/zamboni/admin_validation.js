@@ -44,7 +44,6 @@ function initAdminValidation(doc) {
         width: '600px',
         callback: function(obj) {
             var $ct = $(obj.click_target),
-                msg = '',
             // L10n: {0} is the number of add-ons, {1} is a version like 4.0
             msg = ngettext('Set {0} add-on to a max version of {1} and email the author.',
                            'Set {0} add-ons to a max version of {1} and email the authors.',
@@ -88,8 +87,8 @@ function initAdminValidation(doc) {
         $('tr.job-result').each(function(i, el) {
             var $el = $(el),
                 $td = $el.children('td.tests-finished'),
-                isComplete = parseInt($el.attr('data-is-complete'), 10),
-                jobId = parseInt($el.attr('data-job-id'), 10);
+                isComplete = Number.parseInt($el.attr('data-is-complete'), 10),
+                jobId = Number.parseInt($el.attr('data-job-id'), 10);
             if (!isComplete) {
                 incompleteJobIds.push(jobId);
                 incompleteJobs[jobId] = $td;
@@ -97,7 +96,7 @@ function initAdminValidation(doc) {
             }
         });
         if (incompleteJobIds.length) {
-            var checkStatus = function() {
+            checkStatus = function() {
                 $('#admin-validation').trigger('checkstats', [incompleteJobIds]);
             };
             checkStatus();
@@ -134,9 +133,8 @@ function initAdminValidation(doc) {
                     $.each(data, function(jobId, stats) {
                         if (incompleteJobs[jobId]) {
                             incompleteJobs[jobId].trigger('receivestats', [stats]);
-                        } else {
-                            if (typeof console !== 'undefined')
-                                console.log('checkstats: Job ID does not exist: ' + jobId);
+                        } else if (typeof console !== 'undefined') {
+                            console.log('checkstats: Job ID does not exist: ' + jobId);
                         }
                     });
                 },

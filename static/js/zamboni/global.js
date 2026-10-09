@@ -291,8 +291,6 @@ $.fn.modal = function(click_target, o) {
     };
 
     $modal.setPos = function(offset) {
-        offset = offset || $modal.o.offset;
-
         $modal.detach().appendTo("body");
         var toX = ($(window).width() - $modal.outerWidth(false)) / 2,
             toY = $(window).scrollTop() + 26; //distance from top of the window
@@ -339,7 +337,8 @@ $.fn.modal = function(click_target, o) {
                     $('.modal-overlay, .close').on('click modal', $modal.hider);
                 }, 0);
             } catch (err) {
-                // TODO(Kumar) handle this more gracefully. See bug 701221.
+                // Only logged for now (Kumar, bug 701221); a more graceful
+                // fallback is tracked in thunderbird/addons-server#464.
                 if (typeof console !== 'undefined') {
                     console.error('Could not close modal:', err);
                 }
@@ -431,7 +430,7 @@ function modalFromURL(url, settings) {
 function makeslug(s, delimiter) {
     if (!s) return "";
     var re = new RegExp("[^\\w" + z.unicode_letters + "\\s-]+","g");
-    s = $.trim(s.replace(re, ' '));
+    s = s.replace(re, ' ').trim();
     s = s.replace(/[-\s]+/g, delimiter || '-').toLowerCase();
     return s;
 }
@@ -457,29 +456,31 @@ function slugify() {
 }
 
 
+// Counts characters for initCharCount.
+function countChars(val, cc) {
+    var max = Number.parseInt(cc.attr('data-maxlength'), 10),
+        min = Number.parseInt(cc.attr('data-minlength'), 10) || 0,
+        // Count \r\n as one character, not two.
+        lineBreaks = val.split('\n').length - 1,
+        left = max - val.length - lineBreaks,
+        count = val.length - lineBreaks,
+        output = [];
+    if (min || !max) {
+        // L10n: {0} is the number of characters entered.
+        output.push(format(ngettext('<b>{0}</b> character',
+                                    '<b>{0}</b> characters', count), [count]));
+    }
+    if (max) {
+        // L10n: {0} is the number of characters left.
+        output.push(format(ngettext('<b>{0}</b> character left',
+                                    '<b>{0}</b> characters left', left), [left]));
+    }
+    cc.html((cc.attr('data-text-prefix') || '') + output.join('; ') + (cc.attr('data-text-postfix') || '.'))
+      .toggleClass('error', left < 0 || count < min);
+}
+
 // Initializes character counters for textareas.
 function initCharCount() {
-    var countChars = function(val, cc) {
-        var max = parseInt(cc.attr('data-maxlength'), 10),
-            min = parseInt(cc.attr('data-minlength'), 10) || 0,
-            // Count \r\n as one character, not two.
-            lineBreaks = val.split('\n').length - 1,
-            left = max - val.length - lineBreaks,
-            count = val.length - lineBreaks,
-            output = [];
-        if (min || !max) {
-            // L10n: {0} is the number of characters entered.
-            output.push(format(ngettext('<b>{0}</b> character',
-                                        '<b>{0}</b> characters', count), [count]));
-        }
-        if (max) {
-            // L10n: {0} is the number of characters left.
-            output.push(format(ngettext('<b>{0}</b> character left',
-                                        '<b>{0}</b> characters left', left), [left]));
-        }
-        cc.html((cc.attr('data-text-prefix') || '') + output.join('; ') + (cc.attr('data-text-postfix') || '.'))
-          .toggleClass('error', left < 0 || count < min);
-    };
     $('.char-count').each(function() {
         var $cc = $(this),
             $form = $(this).closest('form'),
@@ -533,7 +534,7 @@ function initCharCount() {
     z.FormData = function(){
         this.fields = {};
         this.xhr = new XMLHttpRequest();
-        this.boundary = "z" + (new Date().getTime()) + "" + Math.floor(Math.random() * 10000000);
+        this.boundary = "z" + Date.now() + "" + Math.floor(Math.random() * 10000000);
 
         if (hasFormData) {
             this.formData = new FormData();
@@ -544,26 +545,24 @@ function initCharCount() {
         this.append = function(name, val) {
             if (hasFormData) {
                 this.formData.append(name, val);
+            } else if(typeof val == "object" && "fileName" in val) {
+                this.output += "--" + this.boundary + "\r\n";
+                this.output += "Content-Disposition: form-data; name=\"" + name.replace(/[^\w]/g, "") + "\";";
+
+                // Encoding trick via ecmanaut (http://bit.ly/6p30c5)
+                this.output += " filename=\""+unescape(encodeURIComponent(val.fileName)) +"\";\r\n";
+                this.output += "Content-Type: " + val.type;
+
+                this.output += "\r\n\r\n";
+                this.output += val.getAsBinary();
+                this.output += "\r\n";
             } else {
-                if(typeof val == "object" && "fileName" in val) {
-                    this.output += "--" + this.boundary + "\r\n";
-                    this.output += "Content-Disposition: form-data; name=\"" + name.replace(/[^\w]/g, "") + "\";";
+                this.output += "--" + this.boundary + "\r\n";
+                this.output += "Content-Disposition: form-data; name=\""+name+"\";";
 
-                    // Encoding trick via ecmanaut (http://bit.ly/6p30c5)
-                    this.output += " filename=\""+unescape(encodeURIComponent(val.fileName)) +"\";\r\n";
-                    this.output += "Content-Type: " + val.type;
-
-                    this.output += "\r\n\r\n";
-                    this.output += val.getAsBinary();
-                    this.output += "\r\n";
-                } else {
-                    this.output += "--" + this.boundary + "\r\n";
-                    this.output += "Content-Disposition: form-data; name=\""+name+"\";";
-
-                    this.output += "\r\n\r\n";
-                    this.output += "" + val; // Force it into a string.
-                    this.output += "\r\n";
-                }
+                this.output += "\r\n\r\n";
+                this.output += "" + val; // Force it into a string.
+                this.output += "\r\n";
             }
         };
 

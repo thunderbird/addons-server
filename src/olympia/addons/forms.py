@@ -286,7 +286,7 @@ def icons():
     in the format (pseudo-mime-type, description).
     """
     icons = [('image/jpeg', 'jpeg'), ('image/png', 'png'), ('', 'default')]
-    dirs, files = storage.listdir(settings.ADDON_ICONS_DEFAULT_PATH)
+    _, files = storage.listdir(settings.ADDON_ICONS_DEFAULT_PATH)
     for fname in files:
         if b'32' in fname and b'default' not in fname:
             icon_name = force_text(fname.split(b'-')[0])
@@ -356,8 +356,7 @@ class AdditionalDetailsForm(AddonFormBase):
         # Make sure we have the required translations in the new locale.
         required = 'name', 'summary', 'description'
         if not self.errors and 'default_locale' in self.changed_data:
-            fields = dict((k, getattr(self.instance, k + '_id'))
-                          for k in required)
+            fields = {k: getattr(self.instance, k + '_id') for k in required}
             locale = self.cleaned_data['default_locale']
             ids = filter(None, fields.values())
             qs = (Translation.objects.filter(locale=locale, id__in=ids,

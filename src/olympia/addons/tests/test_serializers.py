@@ -1458,8 +1458,8 @@ class TestCompatOverrideSerializer(TestCase):
             compat=override, app=amo.FIREFOX.id)
         result = self.serialize(override)
 
-        assert ['addon_guid', 'addon_id', 'name', 'version_ranges'] == sorted(
-            result.keys())
+        assert sorted(result.keys()) == [
+            'addon_guid', 'addon_id', 'name', 'version_ranges']
         assert result['addon_guid'] == 'extrabad@thing'
         assert result['addon_id'] == addon.id
         assert result['name'] == 'override with addon'
@@ -1483,8 +1483,8 @@ class TestCompatOverrideSerializer(TestCase):
             compat=override, app=amo.FIREFOX.id)
         result = self.serialize(override)
 
-        assert ['addon_guid', 'addon_id', 'name', 'version_ranges'] == sorted(
-            result.keys())
+        assert sorted(result.keys()) == [
+            'addon_guid', 'addon_id', 'name', 'version_ranges']
         assert result['addon_guid'] == 'foo@baa'
         assert result['addon_id'] is None
         assert result['name'] == 'override'
@@ -1512,8 +1512,8 @@ class TestCompatOverrideSerializer(TestCase):
             max_app_version='90.*')
         result = self.serialize(override)
 
-        assert ['addon_guid', 'addon_id', 'name', 'version_ranges'] == sorted(
-            result.keys())
+        assert sorted(result.keys()) == [
+            'addon_guid', 'addon_id', 'name', 'version_ranges']
         assert result['addon_guid'] == 'foo@baa'
         assert result['addon_id'] is None
         assert result['name'] == 'override with multiple ranges'
@@ -1557,8 +1557,8 @@ class TestCompatOverrideSerializer(TestCase):
             min_app_version='1.35', max_app_version='90.*')
         result = self.serialize(override)
 
-        assert ['addon_guid', 'addon_id', 'name', 'version_ranges'] == sorted(
-            result.keys())
+        assert sorted(result.keys()) == [
+            'addon_guid', 'addon_id', 'name', 'version_ranges']
         assert result['addon_guid'] == 'foo@baa'
         assert result['addon_id'] is None
         assert result['name'] == 'override with single version range'

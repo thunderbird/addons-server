@@ -4,7 +4,7 @@
     // utility
     function pad2(n) {
         var str = n.toString();
-        return ('0' + str).substr(-2);
+        return ('0' + str).slice(-2);
     }
     var intervalRegex = /(-?\d+)\s*(\w)/,
         // ISO date format is used for internal representations.
@@ -65,7 +65,7 @@
             return this.isBefore(d) ? this : d;
         },
         clone : function() {
-            return new Date(this.getTime());
+            return new Date(this);
         }
     });
     _.extend(Date, {
@@ -107,7 +107,7 @@ function normalizeRange(range) {
         ret.start = new Date(range.start);
         ret.end = new Date(range.end);
     } else {
-        throw "Invalid range values found.";
+        throw new Error("Invalid range values found.");
     }
     return ret;
 }
