@@ -202,7 +202,8 @@
         }
 
         // Transform xAxis based on time grouping (day, week, month) and range.
-        var pointInterval = dayMsecs = 1 * 24 * 3600 * 1000;
+        var dayMsecs = 1 * 24 * 3600 * 1000;
+        var pointInterval = dayMsecs;
         var dateRangeDays = (end - start) / dayMsecs;
         baseConfig.xAxis.min = start - dayMsecs; // Fix chart truncation.
         baseConfig.xAxis.max = end;
@@ -237,7 +238,7 @@
 
         // Round the start time to the nearest day (truncate the time) and
         // account for time zone to line up ticks and points on datetime axis.
-        date = new Date(start);
+        var date = new Date(start);
         date.setHours(0, 0, 0);
         start = date.getTime() - (date.getTimezoneOffset() * 60000);
 
@@ -457,7 +458,7 @@
         }
 
         var pb = [], pl = [];
-        eventColors = ['#DDD','#DDD','#FDFFD0','#D0FFD8'];
+        var eventColors = ['#DDD','#DDD','#FDFFD0','#D0FFD8'];
         _.forEach(events, function(e) {
             pb.push({
                 color: eventColors[e.type],

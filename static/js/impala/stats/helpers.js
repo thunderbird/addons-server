@@ -29,7 +29,6 @@ function WorkerPool(size) {
                 worker.addEventListener('message', function(e) {
                     if (job.cb.call(job.ctx, e.data, worker)) {
                         worker.terminate();
-                        delete worker;
                         workers--;
                         nextJob();
                     };

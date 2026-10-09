@@ -103,7 +103,7 @@
             function render(data) {
                 var newBody = "<tbody>";
                 _.each(data, function(row) {
-                    var pct = Math.round(row[2]);
+                    var pct = Math.round(row[2]),
                         num = Highcharts.numberFormat(row[1], 0);
                     if (pct < 1) pct = "<1";
                     newBody += tableRow([row[0], num, pct]);
@@ -117,7 +117,7 @@
                 newConfig.chart.renderTo = $chart[0];
                 newConfig.series[0].data = _.map(data, function(r) { return r.slice(0,2); });
                 hChart = new Highcharts.Chart(newConfig);
-                for (i = 0; i < data.length; i++) {
+                for (var i = 0; i < data.length; i++) {
                    row = $table.find('tr').eq(i);
                    row.children().eq(0).append($("<b class='seriesdot' style='background:" + hChart.series[0].data[i].color + "'>&nbsp;</b>"));
                 }
