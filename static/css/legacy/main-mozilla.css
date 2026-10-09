@@ -503,22 +503,6 @@ h4.author a {
     margin-right: 5px;
 }
 
-#addon-summary .stats {
-    margin: 0;
-    float: none;
-    text-align: left;
-    color: #6FB727;
-    position: absolute;
-    left: -240px;
-    top: 180px;
-}
-
-.html-rtl #addon-summary .stats {
-    text-align: right;
-    left: auto;
-    right: -240px;
-}
-
 #addon-summary .stats em {
     font-style: normal;
     font-weight: bold;
@@ -566,6 +550,22 @@ h4.author a {
 .html-rtl #addon-summary .share-this {
     clear: right;
     float: right;
+    left: auto;
+    right: -240px;
+}
+
+#addon-summary .stats {
+    margin: 0;
+    float: none;
+    text-align: left;
+    color: #6FB727;
+    position: absolute;
+    left: -240px;
+    top: 180px;
+}
+
+.html-rtl #addon-summary .stats {
+    text-align: right;
     left: auto;
     right: -240px;
 }
@@ -1100,13 +1100,13 @@ html[xmlns] .clearfix {
     font-weight: normal;
 }
 
-.jqmOverlay {
-    background-color: #000;
-}
-
 /** END Modal collection box. */
 
 /*** =Dictionaries ***/
+#dictionaries tbody tr:nth-child(even),
+#dictionaries tbody tr.alt th, #dictionaries tbody tr.alt td {
+    background-color: #fff;
+}
 #dictionaries {
     background-color: #f7fafc;
     border: 1px solid #eef1f3;
@@ -1116,16 +1116,12 @@ html[xmlns] .clearfix {
     clear: both;
     padding: 10px 15px;
 }
+#dictionaries table {
+    width: 100%;
+}
 #dictionaries th, #dictionaries td {
     border-bottom: 1px solid #eee;
     padding: 6px 12px;
-}
-#dictionaries tbody tr:nth-child(even),
-#dictionaries tbody tr.alt th, #dictionaries tbody tr.alt td {
-    background-color: #fff;
-}
-#dictionaries table {
-    width: 100%;
 }
 #dictionaries td p {
     margin-bottom: 0;
@@ -1700,12 +1696,6 @@ html[xmlns] .clearfix {
     float: right;
 }
 
-.personas-feature p {
-    padding: 0;
-    font-size: 93%;
-    line-height: 1.3em;
-}
-
 .personas-feature strong {
     color: #6a6a6a;
 }
@@ -1745,6 +1735,12 @@ html[xmlns] .clearfix {
     color: #00a1e2;
     font-weight: bold;
     text-decoration: none;
+}
+
+.personas-feature p {
+    padding: 0;
+    font-size: 93%;
+    line-height: 1.3em;
 }
 
 .personas-feature .daily-users {
@@ -1964,6 +1960,9 @@ h2.compat-heading a {
     color: #333;
     border: 1px solid black;
     padding: 12px;
+}
+.jqmOverlay {
+    background-color: #000;
 }
 
 /* Background iframe styling for IE6. Prevents ActiveX bleed-through (<select> form elements, etc.) */

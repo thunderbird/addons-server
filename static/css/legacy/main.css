@@ -502,9 +502,6 @@ button.link {
 .share-networks .email {
     background-position: 0 -1689px;
 }
-.share-email .emailerror p {
-    background-position: 0 -1798px;
-}
 
 span.new {
     padding: 0.2em 0.5em;
@@ -1198,11 +1195,6 @@ form.favorite {
     font-size: 1.5em;
 }
 
-.notification .suggestion {
-    float: right;
-    text-align: right;
-}
-
 .about .notification .suggestion {
     float: none;
 }
@@ -1233,6 +1225,8 @@ form.favorite {
     font-weight: bold;
 }
 .notification .suggestion {
+    float: right;
+    text-align: right;
     margin: 0;
     color: #666666;
     font-weight: bold;
@@ -1859,6 +1853,7 @@ ol.pagination li a:active {
     padding-right: .5em;
 }
 .share-email .emailerror p {
+    background-position: 0 -1798px;
     font-weight: bold;
     max-width: 25em;
 }
@@ -2154,10 +2149,6 @@ ol.pagination + .num-results {
 
 .item .downloads {
     margin-left: 1em;
-}
-.html-rtl .item .downloads {
-    margin-left: auto;
-    margin-right: 1em;
 }
 
 
@@ -2772,10 +2763,6 @@ background-position:left -303px;
     text-align: right;
 }
 
-.html-rtl .stars {
-    text-indent:-5000px;
-}
-
 /* @end */
 
 /* @end */
@@ -2833,6 +2820,7 @@ background-position:left -303px;
 /* @end */
 
 .html-rtl .stars {
+    text-indent:-5000px;
     float: right;
     margin-left: 0.5em;
     margin-right: 0;
