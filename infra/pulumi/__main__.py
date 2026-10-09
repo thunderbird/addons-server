@@ -29,6 +29,12 @@ import tb_pulumi.elasticache
 import tb_pulumi.fargate
 import tb_pulumi.network
 
+# Values repeated in the resources below.
+STAGE_VPC_CIDR = "10.100.0.0/16"
+ECS_TASKS_SERVICE = "ecs-tasks.amazonaws.com"
+STS_ASSUME_ROLE = "sts:AssumeRole"
+SECRETS_GET_VALUE = "secretsmanager:GetSecretValue"
+
 
 def main():
     # Create a ThunderbirdPulumiProject to aggregate resources
@@ -149,7 +155,7 @@ def main():
                 "default_vpc_route_table_id",
                 "rtb-0657e07f",
             ),
-            destination_cidr_block="10.100.0.0/16",
+            destination_cidr_block=STAGE_VPC_CIDR,
             vpc_peering_connection_id=default_vpc_peer.id,
             opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
         )
@@ -166,7 +172,7 @@ def main():
 
         # --- sg-d5539ea9: services SG (Redis, Memcached, ES, EFS) ---
         default_vpc_ingress_cfg = resources.get("tb:network:DefaultVpcIngressRules", {})
-        stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", "10.100.0.0/16")
+        stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", STAGE_VPC_CIDR)
 
         services_sg_ids = default_vpc_ingress_cfg.get(
             "services_sg_ids",
@@ -533,8 +539,8 @@ def main():
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Principal": {"Service": "ecs-tasks.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
+                        "Principal": {"Service": ECS_TASKS_SERVICE},
+                        "Action": STS_ASSUME_ROLE,
                     }
                 ],
             }
@@ -560,7 +566,7 @@ def main():
                     {
                         "Sid": "AllowATNSecretsAccess",
                         "Effect": "Allow",
-                        "Action": "secretsmanager:GetSecretValue",
+                        "Action": SECRETS_GET_VALUE,
                         "Resource": f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*",
                     }
                 ],
@@ -670,7 +676,7 @@ def main():
                 {
                     "Sid": "AllowATNSecretsAccess",
                     "Effect": "Allow",
-                    "Action": "secretsmanager:GetSecretValue",
+                    "Action": SECRETS_GET_VALUE,
                     "Resource": f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*",
                 }
             ],
@@ -734,7 +740,7 @@ def main():
         if private_subnets:
             # Add source access from private subnets
             if "source_cidrs" not in cluster_config:
-                cluster_config["source_cidrs"] = ["10.100.0.0/16"]  # VPC CIDR
+                cluster_config["source_cidrs"] = [STAGE_VPC_CIDR]  # VPC CIDR
 
             elasticache_clusters[cluster_name] = (
                 tb_pulumi.elasticache.ElastiCacheReplicationGroup(
@@ -796,7 +802,7 @@ def main():
             from_port=15671,
             to_port=15671,
             protocol="tcp",
-            cidr_blocks=[vpc_config.get("cidr_block", "10.100.0.0/16")],
+            cidr_blocks=[vpc_config.get("cidr_block", STAGE_VPC_CIDR)],
             description="RabbitMQ management API from VPC (post-deploy bootstrap)",
         )
 
@@ -886,8 +892,8 @@ def main():
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Principal": {"Service": "ecs-tasks.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
+                        "Principal": {"Service": ECS_TASKS_SERVICE},
+                        "Action": STS_ASSUME_ROLE,
                     }
                 ],
             }
@@ -914,7 +920,7 @@ def main():
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Action": ["secretsmanager:GetSecretValue"],
+                        "Action": [SECRETS_GET_VALUE],
                         "Resource": [
                             f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*"
                         ],
@@ -1046,7 +1052,7 @@ def main():
                     {
                         "Effect": "Allow",
                         "Principal": {"Service": "scheduler.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
+                        "Action": STS_ASSUME_ROLE,
                     }
                 ],
             }
@@ -1088,9 +1094,7 @@ def main():
                             "Action": ["iam:PassRole"],
                             "Resource": [args[1], args[2]],
                             "Condition": {
-                                "StringLike": {
-                                    "iam:PassedToService": "ecs-tasks.amazonaws.com"
-                                }
+                                "StringLike": {"iam:PassedToService": ECS_TASKS_SERVICE}
                             },
                         },
                     ],
