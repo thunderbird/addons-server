@@ -1682,7 +1682,7 @@ class TestAddonSubmitFinish(TestSubmitBase):
         assert b'This version will be available after it passes review.' in (
             response.content)
         # Show the preview we started generating just after the upload step.
-        imgs = content('section.addon-submission-process img')
+        imgs = content('main.addon-submission-process img')
         assert imgs[0].attrib['src'] == (
             version.previews.first().image_url)
         assert len(imgs) == 1  # Just the one preview though.
