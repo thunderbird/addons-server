@@ -1,5 +1,9 @@
 // Popcorn Stuff
 
+function removeFlutter() {
+    $(this).removeClass('flutter');
+}
+
 function PopcornObj() {
     var $learn = $('#intro #learn-more'),
         $watch = $('#watch-video'),
@@ -209,9 +213,7 @@ function PopcornObj() {
                         }, 300 * Math.random());
 
                         setTimeout(function() {
-                            $this.animate({'top': 400, 'left': -400}, function() {
-                                $this.removeClass('flutter');
-                            });
+                            $this.animate({'top': 400, 'left': -400}, removeFlutter);
                         }, 3000 * Math.random());
                     });
                 }

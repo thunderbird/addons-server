@@ -63,6 +63,8 @@ from .utils import (
 
 
 log = olympia.core.logger.getLogger('z.addons')
+
+ADDONS_DETAIL_URL_NAME = 'addons.detail'
 addon_view = addon_view_factory(qs=Addon.objects.valid)
 addon_valid_disabled_pending_view = addon_view_factory(
     qs=Addon.objects.valid_and_disabled_and_pending)
@@ -98,7 +100,7 @@ def addon_detail(request, addon):
             prefixer = get_url_prefix()
             prefixer.app = new_app.short
             return http.HttpResponsePermanentRedirect(reverse(
-                'addons.detail', args=[addon.slug]))
+                ADDONS_DETAIL_URL_NAME, args=[addon.slug]))
 
 
 @vary_on_headers('X-Requested-With')
@@ -109,8 +111,8 @@ def extension_detail(request, addon):
     comp_apps = addon.compatible_apps
     if comp_apps and request.APP not in comp_apps:
         prefixer = get_url_prefix()
-        prefixer.app = list(comp_apps.keys())[0].short
-        return redirect('addons.detail', addon.slug, permanent=True)
+        prefixer.app = next(iter(comp_apps.keys())).short
+        return redirect(ADDONS_DETAIL_URL_NAME, addon.slug, permanent=True)
 
     # Popular collections this addon is part of.
     collections = Collection.objects.listed().filter(
@@ -195,7 +197,7 @@ class BaseFilter(object):
 
     def all(self):
         """Get a full mapping of {option: queryset}."""
-        return dict((field, self.filter(field)) for field in dict(self.opts))
+        return {field: self.filter(field) for field in dict(self.opts)}
 
     def filter(self, field):
         """Get the queryset for the given field."""
@@ -318,7 +320,7 @@ def license(request, addon, version=None):
     if not (version and version.license):
         raise http.Http404
     return render(request, 'addons/impala/license.html',
-                  dict(addon=addon, version=version))
+                  {'addon': addon, 'version': version})
 
 
 @non_atomic_requests
@@ -349,7 +351,7 @@ def persona_redirect(request, persona_id):
 
     persona = get_object_or_404(Persona.objects, persona_id=persona_id)
     try:
-        to = reverse('addons.detail', args=[persona.addon.slug])
+        to = reverse(ADDONS_DETAIL_URL_NAME, args=[persona.addon.slug])
     except Addon.DoesNotExist:
         # Would otherwise throw 500. Something funky happened during GP
         # migration which caused some Personas to be without Addons (problem

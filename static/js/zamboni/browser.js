@@ -116,9 +116,9 @@ var VersionCompare = {
         var pattern = /^([-\d]*)([^-\d]*)([-\d]*)(.*)$/,
             m = pattern.exec(p),
             r = {
-            'numA'  : parseInt(m[1], 10),
+            'numA'  : Number.parseInt(m[1], 10),
             'strB'   : m[2],
-            'numC'   : parseInt(m[3], 10),
+            'numC'   : Number.parseInt(m[3], 10),
             'extraD' : m[4]
             };
         if (r['strB'] == '+') {
@@ -132,8 +132,8 @@ var VersionCompare = {
      * helper function: compare numeric version parts
      */
     cmp: function(an,bn) {
-        if (isNaN(an)) an = 0;
-        if (isNaN(bn)) bn = 0;
+        if (Number.isNaN(an)) an = 0;
+        if (Number.isNaN(bn)) bn = 0;
         if (an < bn)
             return -1;
         if (an > bn)

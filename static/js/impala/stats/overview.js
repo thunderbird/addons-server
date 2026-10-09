@@ -27,16 +27,16 @@ $(function() {
                     downloadFormat,
                     userFormat;
                 if (typeof view.range == 'string') {
-                    downloadFormat  = csv_keys.aggregateLabel.downloads[0],
+                    downloadFormat  = csv_keys.aggregateLabel.downloads[0];
                     userFormat      = csv_keys.aggregateLabel.usage[0];
                     $("#downloads-in-range").html(format(downloadFormat,
                                                          totalDownloads,
-                                                         parseInt(view.range, 10)));
+                                                         Number.parseInt(view.range, 10)));
                     $("#users-in-range").html(format(userFormat,
                                                      totalUsers,
-                                                     parseInt(view.range, 10)));
+                                                     Number.parseInt(view.range, 10)));
                 } else {
-                    downloadFormat  = csv_keys.aggregateLabel.downloads[1],
+                    downloadFormat  = csv_keys.aggregateLabel.downloads[1];
                     userFormat      = csv_keys.aggregateLabel.usage[1];
                     $("#downloads-in-range").html(format(downloadFormat,
                                                          totalDownloads,

@@ -59,7 +59,7 @@ def truncate(s, length=255, killwords=True, end='...'):
 def l10n_menu(context, default_locale='en-us', remove_locale_url=''):
     """Generates the locale menu for zamboni l10n."""
     default_locale = default_locale.lower()
-    languages = dict((i.lower(), j) for i, j in settings.LANGUAGES_DICT.items())
+    languages = {i.lower(): j for i, j in settings.LANGUAGES_DICT.items()}
     c = dict(context.items())
     if 'addon' in c:
         remove_locale_url = c['addon'].get_dev_url('remove-locale')
@@ -75,8 +75,9 @@ def all_locales(addon, field_name, nl2br=False, prettify_empty=False):
         return
     trans = field.__class__.objects.filter(id=field.id,
                                            localized_string__isnull=False)
-    ctx = dict(addon=addon, field=field, field_name=field_name,
-               translations=trans, nl2br=nl2br, prettify_empty=prettify_empty)
+    ctx = {'addon': addon, 'field': field, 'field_name': field_name,
+           'translations': trans, 'nl2br': nl2br,
+           'prettify_empty': prettify_empty}
     t = loader.get_template('translations/all-locales.html')
     return jinja2.Markup(t.render(ctx))
 
