@@ -83,7 +83,7 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
         assert 'fxa_state' not in self.client.session
         state = 'somerandomstate'
         with mock.patch('olympia.accounts.views.generate_fxa_state',
-                        lambda: state):
+                        return_value=state):
             self.client.get(self.url)
         assert 'fxa_state' in self.client.session
         assert self.client.session['fxa_state'] == state
@@ -91,7 +91,7 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
     def test_redirect_url_is_correct(self):
         self.initialize_session({})
         with mock.patch('olympia.accounts.views.generate_fxa_state',
-                        lambda: 'arandomstring'):
+                        return_value='arandomstring'):
             response = self.client.get(self.url)
         assert response.status_code == 302
         url = urlparse(response['location'])
@@ -118,7 +118,7 @@ class TestLoginStartBaseView(WithDynamicEndpoints, TestCase):
         state = 'somenewstatestring'
         self.initialize_session({})
         with mock.patch('olympia.accounts.views.generate_fxa_state',
-                        lambda: state):
+                        return_value=state):
             response = self.client.get(self.url, data={'to': path})
         assert self.client.session['fxa_state'] == state
         url = urlparse(response['location'])
@@ -510,7 +510,8 @@ class TestWithUser(TestCase):
         assert self.render_error.return_value.set_cookie.call_count == 0
         assert generate_api_token_mock.call_count == 0
 
-    @mock.patch.object(views, 'generate_api_token', lambda u: 'fake-api-token')
+    @mock.patch.object(views, 'generate_api_token',
+                       new=mock.Mock(return_value='fake-api-token'))
     def test_already_logged_in_add_api_token_cookie_if_missing(self):
         self.request.data = {
             'code': 'foo',
@@ -954,7 +955,8 @@ class TestAccountViewSet(TestCase):
 
     def test_is_public_because_developer(self):
         addon_factory(users=[self.user])
-        assert self.user.is_developer and self.user.is_public
+        assert self.user.is_developer
+        assert self.user.is_public
         response = self.client.get(self.url)  # No auth.
         assert response.status_code == 200
         assert response.data['name'] == self.user.name
@@ -1265,7 +1267,8 @@ class TestAccountViewSetDelete(TestCase):
     def test_developers_cant_delete(self):
         self.client.login_api(self.user)
         addon = addon_factory(users=[self.user])
-        assert self.user.is_developer and self.user.is_addon_developer
+        assert self.user.is_developer
+        assert self.user.is_addon_developer
 
         # Also add api token and session cookies: they should be *not* cleared
         # when the account has not been deleted.
@@ -1289,7 +1292,8 @@ class TestAccountViewSetDelete(TestCase):
     def test_theme_developers_cant_delete(self):
         self.client.login_api(self.user)
         addon = addon_factory(users=[self.user], type=amo.ADDON_PERSONA)
-        assert self.user.is_developer and self.user.is_artist
+        assert self.user.is_developer
+        assert self.user.is_artist
 
         response = self.client.delete(self.url)
         assert response.status_code == 400
@@ -1460,7 +1464,7 @@ class TestSessionView(TestCase):
         self.initialize_session({'fxa_state': 'myfxastate'})
         with mock.patch(
                 'olympia.accounts.views.verify.fxa_identify',
-                lambda code, config: identity):
+                return_value=identity):
             response = self.client.get(
                 '{url}?code={code}&state={state}'.format(
                     url=reverse_ns('accounts.authenticate'),

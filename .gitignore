@@ -67,3 +67,6 @@ src/test_report*.xml
 # the fixtures dir. Tracked fixtures that match (jetpack.xpi, the NFD
 # jetpack copy) are unaffected; ASCII glob per repo conventions.
 src/olympia/files/fixtures/files/j*tpack.xpi
+
+# CI-only compose override is tracked on purpose (thunderbird/addons-server#506)
+!docker-compose.ci.yml
