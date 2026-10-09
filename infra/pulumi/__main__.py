@@ -30,7 +30,6 @@ import tb_pulumi.fargate
 import tb_pulumi.network
 
 # Values repeated in the resources below.
-STAGE_VPC_CIDR = "10.100.0.0/16"
 ECS_TASKS_SERVICE = "ecs-tasks.amazonaws.com"
 STS_ASSUME_ROLE = "sts:AssumeRole"
 SECRETS_GET_VALUE = "secretsmanager:GetSecretValue"
@@ -155,7 +154,7 @@ def main():
                 "default_vpc_route_table_id",
                 "rtb-0657e07f",
             ),
-            destination_cidr_block=STAGE_VPC_CIDR,
+            destination_cidr_block="10.100.0.0/16",
             vpc_peering_connection_id=default_vpc_peer.id,
             opts=pulumi.ResourceOptions(depends_on=[default_vpc_peer]),
         )
@@ -172,7 +171,7 @@ def main():
 
         # --- sg-d5539ea9: services SG (Redis, Memcached, ES, EFS) ---
         default_vpc_ingress_cfg = resources.get("tb:network:DefaultVpcIngressRules", {})
-        stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", STAGE_VPC_CIDR)
+        stage_vpc_cidr = default_vpc_ingress_cfg.get("stage_vpc_cidr", "10.100.0.0/16")
 
         services_sg_ids = default_vpc_ingress_cfg.get(
             "services_sg_ids",
@@ -740,7 +739,7 @@ def main():
         if private_subnets:
             # Add source access from private subnets
             if "source_cidrs" not in cluster_config:
-                cluster_config["source_cidrs"] = [STAGE_VPC_CIDR]  # VPC CIDR
+                cluster_config["source_cidrs"] = ["10.100.0.0/16"]  # VPC CIDR
 
             elasticache_clusters[cluster_name] = (
                 tb_pulumi.elasticache.ElastiCacheReplicationGroup(
@@ -802,7 +801,7 @@ def main():
             from_port=15671,
             to_port=15671,
             protocol="tcp",
-            cidr_blocks=[vpc_config.get("cidr_block", STAGE_VPC_CIDR)],
+            cidr_blocks=[vpc_config.get("cidr_block", "10.100.0.0/16")],
             description="RabbitMQ management API from VPC (post-deploy bootstrap)",
         )
 
