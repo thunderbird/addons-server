@@ -449,7 +449,7 @@ def ownership(request, addon_id, addon):
                             'site_url': settings.SITE_URL}),
                   None, recipients, use_deny_list=False)
 
-    if request.method == 'POST' and all(form.is_valid() for form in fs):
+    if request.method == 'POST' and all([form.is_valid() for form in fs]):
         # Authors.
         authors = user_form.save(commit=False)
         addon_authors_emails = list(
@@ -999,7 +999,7 @@ def version_edit(request, addon_id, addon, version_id):
         data['compat_form'] = compat_form
 
     if (request.method == 'POST' and
-            all(form.is_valid() for form in data.values())):
+            all([form.is_valid() for form in data.values()])):
         if 'compat_form' in data:
             for compat in data['compat_form'].save(commit=False):
                 compat.version = version
@@ -1223,12 +1223,12 @@ def submit_version_agreement(request, addon_id, addon):
 def _submit_distribution(request, addon, next_view):
     # Accept GET for the first load so we can preselect the channel.
     if request.method == 'POST':
-        initial = request.POST
+        data = request.POST
     elif request.GET.get('channel'):
-        initial = request.GET
+        data = request.GET
     else:
-        initial = None
-    form = forms.DistributionChoiceForm(initial)
+        data = None
+    form = forms.DistributionChoiceForm(data)
 
     if request.method == 'POST' and form.is_valid():
         data = form.cleaned_data
