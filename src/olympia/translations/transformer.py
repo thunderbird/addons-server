@@ -72,7 +72,7 @@ def get_trans(items):
     dbname = router.db_for_read(model)
     connection = connections[dbname]
     sql, params = build_query(model, connection)
-    item_dict = dict((item.pk, item) for item in items)
+    item_dict = {item.pk: item for item in items}
     ids = ','.join(map(str, item_dict.keys()))
 
     with connection.cursor() as cursor:
