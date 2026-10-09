@@ -2426,7 +2426,6 @@ class TestRatingViewSetPost(TestCase):
                 'score': 2, 'version': new_version.pk})
             assert response.status_code == 201, response.content
 
-    @pytest.mark.xfail(reason='works in issolation, issue with es mocks or similar')
     @override_settings(CACHES=locmem_cache)
     def test_rating_throttle_separated_from_abuse_throttle(self):
         with freeze_time('2017-11-01') as frozen_time:

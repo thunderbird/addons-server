@@ -23,9 +23,12 @@ u = u'Ελληνικά'
 def test_slug_validator():
     assert slug_validator(u.lower()) is None
     assert slug_validator('-'.join([u.lower(), u.lower()])) is None
-    pytest.raises(ValidationError, slug_validator, '234.add')
-    pytest.raises(ValidationError, slug_validator, 'a a a')
-    pytest.raises(ValidationError, slug_validator, 'tags/')
+    with pytest.raises(ValidationError):
+        slug_validator('234.add')
+    with pytest.raises(ValidationError):
+        slug_validator('a a a')
+    with pytest.raises(ValidationError):
+        slug_validator('tags/')
 
 
 @pytest.mark.parametrize("test_input,expected", [
@@ -48,7 +51,8 @@ def test_slugify(test_input, expected):
 
 def test_resize_image():
     # src and dst shouldn't be the same.
-    pytest.raises(Exception, resize_image, 't', 't', 'z')
+    with pytest.raises(Exception, match="can't be the same"):
+        resize_image('t', 't', 'z')
 
 
 def test_resize_transparency():

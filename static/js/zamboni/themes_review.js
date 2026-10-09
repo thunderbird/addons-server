@@ -122,7 +122,7 @@
 
                 $(themes[currentTheme].element).removeClass('active');
                 $(themes[i].element).addClass('active');
-                vertAlignSidebar(win, $('.theme.active'));
+                vertAlignSidebar(win);
                 currentTheme = i;
                 $('.rq-dropdown').hide();
             }

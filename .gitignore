@@ -62,3 +62,8 @@ infra/docs/
 
 # pytest junit output from CI
 src/test_report*.xml
+
+# Test-run artifact: a unicode-named (NFC) copy of jetpack.xpi written into
+# the fixtures dir. Tracked fixtures that match (jetpack.xpi, the NFD
+# jetpack copy) are unaffected; ASCII glob per repo conventions.
+src/olympia/files/fixtures/files/j*tpack.xpi

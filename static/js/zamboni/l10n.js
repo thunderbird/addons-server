@@ -36,7 +36,7 @@ $(document).ready(function () {
 
     function showExistingLocales() {
         discoverLocales();
-        $el = $("#existing_locales").empty();
+        var $el = $("#existing_locales").empty();
         $("#all_locales li").show();
         $.each(_.without(locales, dl), function() {
             var locale_row = $(format("#all_locales a[href='#{0}']",[this])).parent();
@@ -97,7 +97,7 @@ $(document).ready(function () {
 
     function switchLocale(e) {
         e.preventDefault();
-        $tgt = $(this);
+        var $tgt = $(this);
         var new_locale = $tgt.attr("data-lang") || $tgt.attr("href").substring(1);
         var unsaved = $("form .trans .unsaved");
 
@@ -251,7 +251,7 @@ $(document).ready(function () {
             if (label.length) {
                 label.children(".locale").remove();
                 label.append(format("<span class='locale'>{0}</span>",[$("#change-locale").text()]));
-                label_for = $el.children(format("[lang='{0}']",[lang])).attr('id');
+                var label_for = $el.children(format("[lang='{0}']",[lang])).attr('id');
                 label.attr('for', label_for);
             }
 

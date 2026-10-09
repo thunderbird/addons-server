@@ -201,7 +201,7 @@ $(document).ready(function() {
             // Clear popup when we click outside it.
             setTimeout(function(){
                 function cb(e) {
-                    _root = dropdown.get(0);
+                    var _root = dropdown.get(0);
                     // Bail if the click was somewhere on the popup.
                     if (e.type == 'click' &&
                         _root == e.target ||

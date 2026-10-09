@@ -70,7 +70,8 @@ def test_locale_display_name():
     check('el-XX', u'Greek', u'Ελληνικά')
     check('wo', u'Wolof', u'Wolof')
     check('es-MX', u'Spanish', u'Espa\xf1ol')
-    pytest.raises(KeyError, check, 'fake-lang', '', '')
+    with pytest.raises(KeyError):
+        check('fake-lang', '', '')
 
 
 class TestListing(TestCase):

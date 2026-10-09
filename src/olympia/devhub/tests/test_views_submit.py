@@ -471,7 +471,9 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
         assert storage.exists(previews[1].image_path)
         assert storage.exists(previews[2].image_path)
 
-    @pytest.mark.xfail(reason='old static theme wizard we removed a while ago')
+    @pytest.mark.skip(
+        reason='old static theme wizard we removed a while ago. See '
+               'thunderbird/addons-server#446.')
     def test_static_theme_submit_unlisted(self):
         assert Addon.unfiltered.count() == 0
         path = os.path.join(
@@ -490,7 +492,9 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
         # Only listed submissions need a preview generated.
         assert latest_version.previews.all().count() == 0
 
-    @pytest.mark.xfail(reason='old static theme wizard we removed a while ago')
+    @pytest.mark.skip(
+        reason='old static theme wizard we removed a while ago. See '
+               'thunderbird/addons-server#446.')
     def test_static_theme_wizard_listed(self):
         # Check we get the correct template.
         url = reverse('devhub.submit.wizard', args=['listed'])
@@ -521,7 +525,9 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
         assert storage.exists(previews[1].image_path)
         assert storage.exists(previews[2].image_path)
 
-    @pytest.mark.xfail(reason='old static theme wizard we removed a while ago')
+    @pytest.mark.skip(
+        reason='old static theme wizard we removed a while ago. See '
+               'thunderbird/addons-server#446.')
     def test_static_theme_wizard_unlisted(self):
         # Check we get the correct template.
         url = reverse('devhub.submit.wizard', args=['unlisted'])
@@ -971,7 +977,6 @@ class DetailsPageMixin(object):
         assert version.statuses == [
             (version.all_files[0].id, amo.STATUS_DISABLED)]
 
-    @pytest.mark.xfail(reason='akismet is not used')
     @override_switch('akismet-spam-check', active=False)
     @mock.patch('olympia.lib.akismet.tasks.AkismetReport.comment_check')
     def test_akismet_spam_check_waffle_off(self, comment_check_mock):
@@ -1003,7 +1008,6 @@ class DetailsPageMixin(object):
 
         comment_check_mock.assert_called_once()
 
-    @pytest.mark.xfail(reason='akismet is not used')
     @override_switch('akismet-spam-check', active=True)
     @override_switch('akismet-addon-action', active=False)
     @mock.patch('olympia.lib.akismet.tasks.AkismetReport.comment_check')
@@ -1023,7 +1027,6 @@ class DetailsPageMixin(object):
 
         comment_check_mock.assert_called_once()
 
-    @pytest.mark.xfail(reason='akismet is not used')
     @override_switch('akismet-spam-check', active=True)
     @mock.patch('olympia.lib.akismet.tasks.AkismetReport.comment_check')
     def test_akismet_spam_check_ham(self, comment_check_mock):
@@ -1040,7 +1043,6 @@ class DetailsPageMixin(object):
         assert report.comment == u'spám'
         assert b'spam' not in response.content
 
-    @pytest.mark.xfail(reason='akismet is not used')
     @override_switch('akismet-spam-check', active=True)
     @mock.patch('olympia.lib.akismet.tasks.AkismetReport.comment_check')
     def test_akismet_spam_check_no_changes(self, comment_check_mock):
@@ -1909,7 +1911,8 @@ class VersionSubmitUploadMixin(object):
         doc = pq(response.content)
         assert not doc('#wizardlink')
 
-    @pytest.mark.xfail(reason="ATN disables the wizard")
+    @pytest.mark.skip(
+        reason='ATN disables the wizard. See thunderbird/addons-server#446.')
     def test_static_theme_wizard_button_shown(self):
         channel = ('listed' if self.channel == amo.RELEASE_CHANNEL_LISTED else
                    'unlisted')
@@ -1922,7 +1925,8 @@ class VersionSubmitUploadMixin(object):
             reverse('devhub.submit.version.wizard',
                     args=[self.addon.slug, channel]))
 
-    @pytest.mark.xfail(reason="ATN disables the wizard")
+    @pytest.mark.skip(
+        reason='ATN disables the wizard. See thunderbird/addons-server#446.')
     def test_static_theme_wizard(self):
         channel = ('listed' if self.channel == amo.RELEASE_CHANNEL_LISTED else
                    'unlisted')
@@ -1982,7 +1986,8 @@ class VersionSubmitUploadMixin(object):
         else:
             assert version.previews.all().count() == 0
 
-    @pytest.mark.xfail(reason="ATN disables the wizard")
+    @pytest.mark.skip(
+        reason='ATN disables the wizard. See thunderbird/addons-server#446.')
     def test_static_theme_wizard_unsupported_properties(self):
         channel = ('listed' if self.channel == amo.RELEASE_CHANNEL_LISTED else
                    'unlisted')
@@ -2078,7 +2083,8 @@ class TestVersionSubmitUploadListed(VersionSubmitUploadMixin, UploadTest):
         log_items = ActivityLog.objects.for_addons(self.addon)
         assert log_items.filter(action=amo.LOG.ADD_VERSION.id)
 
-    @pytest.mark.xfail(reason="ATN doesn't sign addons")
+    @pytest.mark.skip(
+        reason="ATN doesn't sign addons. See thunderbird/addons-server#446.")
     @mock.patch('olympia.devhub.views.sign_file')
     def test_experiments_inside_webext_are_auto_signed(self, mock_sign_file):
         """Experiment extensions (bug 1220097) are auto-signed."""
@@ -2124,7 +2130,8 @@ class TestVersionSubmitUploadListed(VersionSubmitUploadMixin, UploadTest):
 
         assert mock_sign_file.call_count == 0
 
-    @pytest.mark.xfail(reason="ATN doesn't sign addons")
+    @pytest.mark.skip(
+        reason="ATN doesn't sign addons. See thunderbird/addons-server#446.")
     @mock.patch('olympia.devhub.views.sign_file')
     def test_theme_experiment_inside_webext_upload_without_permission(
             self, mock_sign_file):

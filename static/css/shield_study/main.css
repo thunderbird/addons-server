@@ -379,13 +379,13 @@ a {
   position: relative;
   top: -3px;
   width: 77px; }
-  @media (min--moz-device-pixel-ratio: 1.3), (-webkit-min-device-pixel-ratio: 1.3), (min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
+  @media (-webkit-min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
     .mozilla-logo {
       background-image: url("../../img/shield_study_1/moz-blue@2x.png"); } }
   .blue .mozilla-logo {
     background-image: url("../../img/shield_study_1/moz.png");
     background-size: 77px 20px; }
-    @media (min--moz-device-pixel-ratio: 1.3), (-webkit-min-device-pixel-ratio: 1.3), (min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
+    @media (-webkit-min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
       .blue .mozilla-logo {
         background-image: url("../../img/shield_study_1/moz@2x.png"); } }
 
@@ -608,8 +608,6 @@ li {
 
 .download-firefox {
   height: 92px;
-  padding-top: 8px;
-  padding-bottom: 8px;
   display: -webkit-flex;
   display: -ms-flexbox;
   display: flex;
@@ -729,7 +727,7 @@ li {
   height: 81px;
   position: relative;
   width: 105px; }
-  @media (min--moz-device-pixel-ratio: 1.3), (-webkit-min-device-pixel-ratio: 1.3), (min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
+  @media (-webkit-min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
     .copter {
       background-image: url("../../img/shield_study_1/copter@2x.png"); } }
 
@@ -791,7 +789,7 @@ li {
       padding-left: 60px;
       -webkit-transform: scale(0.8);
               transform: scale(0.8); }
-      @media (min--moz-device-pixel-ratio: 1.3), (-webkit-min-device-pixel-ratio: 1.3), (min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
+      @media (-webkit-min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
         #main-header h1 .firefox-logo {
           background-image: url("../../img/shield_study_1/small-firefox-logo@2x.png"); } }
 
@@ -1318,7 +1316,7 @@ a.experiment-summary {
       top: -26px;
       width: 56px;
       z-index: 2; }
-      @media (min--moz-device-pixel-ratio: 1.3), (-webkit-min-device-pixel-ratio: 1.3), (min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
+      @media (-webkit-min-device-pixel-ratio: 1.3), (min-resolution: 1.3dppx) {
         a.experiment-summary.active:after {
           background-image: url("../../img/shield_study_1/check@2x.png"); } }
 

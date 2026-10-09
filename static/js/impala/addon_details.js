@@ -120,7 +120,7 @@ $(function () {
     })();
 
     if ($('#more-webpage').exists()) {
-        var $moreEl = $('#more-webpage');
+        var $moreEl = $('#more-webpage'),
             url = $moreEl.attr('data-more-url');
         $.get(url, function(resp) {
             var $document = $(document);

@@ -12,7 +12,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.management.commands.createsuperuser import (
     Command as CreateSuperUserCommand)
 from django.core import exceptions
-from django.core.management.base import CommandError
+from django.core.management.base import BaseCommand, CommandError
 from django.utils.six.moves import input
 from django.utils.text import capfirst
 
@@ -20,7 +20,7 @@ from olympia.api.models import APIKey
 from olympia.users.models import Group, GroupUser
 
 
-class Command(CreateSuperUserCommand):
+class Command(CreateSuperUserCommand, BaseCommand):
     help = '''
 Used to create a superuser. This is similar to django's createsuperuser
 command but it doesn't support any arguments. This will prompt for a username
