@@ -31,17 +31,17 @@ def test_emaillink():
                  r'<span class="i">null</span>(.*)</span>', obfuscated)
     obfuscated = (''.join((m.group(1), m.group(2)))
                   .replace('&#x0040;', '@').replace('&#x002E;', '.'))[::-1]
-    assert email == obfuscated
+    assert obfuscated == email
 
     title = 'E-mail your question'
     obfuscated = six.text_type(emaillink(email, title))
     m = re.match(r'<a href="#">(.*)</a>'
                  r'<span class="emaillink js-hidden">(.*?)'
                  r'<span class="i">null</span>(.*)</span>', obfuscated)
-    assert title == m.group(1)
+    assert m.group(1) == title
     obfuscated = (''.join((m.group(2), m.group(3)))
                   .replace('&#x0040;', '@').replace('&#x002E;', '.'))[::-1]
-    assert email == obfuscated
+    assert obfuscated == email
 
 
 def test_user_link():

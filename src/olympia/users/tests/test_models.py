@@ -575,13 +575,15 @@ class TestUserEmailField(TestCase):
         assert UserEmailField().clean(user.email) == user
 
     def test_failure(self):
+        field = UserEmailField()
         with pytest.raises(forms.ValidationError):
-            UserEmailField().clean('xxx')
+            field.clean('xxx')
 
     def test_empty_email(self):
         UserProfile.objects.create(email='')
+        field = UserEmailField()
         with pytest.raises(forms.ValidationError) as exc_info:
-            UserEmailField().clean('')
+            field.clean('')
 
         assert exc_info.value.messages[0] == 'This field is required.'
 

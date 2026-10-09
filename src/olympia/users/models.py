@@ -152,7 +152,6 @@ class UserProfile(OnChangeMixin, ModelBase, AbstractBaseUser):
     # Is the profile page for this account publicly viewable?
     # Note: this is only used for API responses (thus addons-frontend) - all
     # users's profile pages are publicly viewable on legacy frontend.
-    # TODO: Remove this note once legacy profile pages are removed.
     is_public = models.BooleanField(default=False, db_column='public')
 
     fxa_id = models.CharField(blank=True, null=True, max_length=128)

@@ -15,7 +15,7 @@ def test_email_unsubscribe_code_parse():
     token, hash_ = UnsubscribeCode.create(email)
 
     r_email = UnsubscribeCode.parse(token, hash_)
-    assert email == r_email
+    assert r_email == email
 
     # A bad token or hash raises ValueError
     with pytest.raises(ValueError):
@@ -32,7 +32,8 @@ class TestAutoCreateUsername(TestCase):
 
     def test_empty_username_is_a_random_hash(self):
         un = autocreate_username('.+')  # this shouldn't happen but it could!
-        assert len(un) and not un.startswith('.+'), 'Unexpected: %s' % un
+        assert len(un), 'Unexpected: %s' % un
+        assert not un.startswith('.+'), 'Unexpected: %s' % un
 
     def test_denied(self):
         DeniedName.objects.create(name='firefox')
