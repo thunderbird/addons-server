@@ -128,44 +128,58 @@ def sign_addons(addon_ids, force=False, **kw):
         bumped_version_number = get_new_version_number(version.version)
         signed_at_least_a_file = False  # Did we sign at least one file?
         for file_obj in to_sign:
-            if not os.path.isfile(file_obj.file_path):
-                log.info(u'File {0} does not exist, skip'.format(file_obj.pk))
-                continue
-            # Save the original file, before bumping the version.
-            backup_path = u'{0}.backup_signature'.format(file_obj.file_path)
-            shutil.copy(file_obj.file_path, backup_path)
-            try:
-                # Need to bump the version (modify manifest file)
-                # before the file is signed.
-                update_version_number(file_obj, bumped_version_number)
-                signed = bool(sign_file(file_obj))
-                if signed:  # Bump the version number if at least one signed.
-                    signed_at_least_a_file = True
-                else:  # We didn't sign, so revert the version bump.
-                    shutil.move(backup_path, file_obj.file_path)
-            except Exception:
-                log.error(u'Failed signing file {0}'.format(file_obj.pk),
-                          exc_info=True)
-                # Revert the version bump, restore the backup.
-                shutil.move(backup_path, file_obj.file_path)
+            if _bump_and_sign_file(file_obj, bumped_version_number):
+                # Bump the version number if at least one signed.
+                signed_at_least_a_file = True
         # Now update the Version model, if we signed at least one file.
         if signed_at_least_a_file:
             version.update(version=bumped_version_number,
                            version_int=version_int(bumped_version_number))
             addon = version.addon
             if addon.pk not in addons_emailed:
-                # Send a mail to the owners/devs warning them we've
-                # automatically signed their addon.
-                qs = (AddonUser.objects
-                      .filter(role=amo.AUTHOR_ROLE_OWNER, addon=addon)
-                      .exclude(user__email__isnull=True))
-                emails = qs.values_list('user__email', flat=True)
-                subject = mail_subject.format(addon=addon.name)
-                message = mail_message.format(
-                    addon=addon.name,
-                    addon_url=amo.templatetags.jinja_helpers.absolutify(
-                        addon.get_dev_url(action='versions')))
-                amo.utils.send_mail(
-                    subject, message, recipient_list=emails,
-                    headers={'Reply-To': 'amo-admins@mozilla.org'})
+                _email_signed_addon_owners(addon, mail_subject, mail_message)
                 addons_emailed.add(addon.pk)
+
+
+def _bump_and_sign_file(file_obj, bumped_version_number):
+    """Bump the version in file_obj's manifest and sign it.
+
+    Returns True if the file was signed. On failure, or if the file was not
+    signed, the original file is restored."""
+    if not os.path.isfile(file_obj.file_path):
+        log.info(u'File {0} does not exist, skip'.format(file_obj.pk))
+        return False
+    # Save the original file, before bumping the version.
+    backup_path = u'{0}.backup_signature'.format(file_obj.file_path)
+    shutil.copy(file_obj.file_path, backup_path)
+    try:
+        # Need to bump the version (modify manifest file)
+        # before the file is signed.
+        update_version_number(file_obj, bumped_version_number)
+        signed = bool(sign_file(file_obj))
+        if not signed:  # We didn't sign, so revert the version bump.
+            shutil.move(backup_path, file_obj.file_path)
+        return signed
+    except Exception:
+        log.error(u'Failed signing file {0}'.format(file_obj.pk),
+                  exc_info=True)
+        # Revert the version bump, restore the backup.
+        shutil.move(backup_path, file_obj.file_path)
+        return False
+
+
+def _email_signed_addon_owners(addon, mail_subject, mail_message):
+    """Send a mail to the owners/devs warning them we've automatically
+    signed their addon."""
+    qs = (AddonUser.objects
+          .filter(role=amo.AUTHOR_ROLE_OWNER, addon=addon)
+          .exclude(user__email__isnull=True))
+    emails = qs.values_list('user__email', flat=True)
+    subject = mail_subject.format(addon=addon.name)
+    message = mail_message.format(
+        addon=addon.name,
+        addon_url=amo.templatetags.jinja_helpers.absolutify(
+            addon.get_dev_url(action='versions')))
+    amo.utils.send_mail(
+        subject, message, recipient_list=emails,
+        headers={'Reply-To': 'amo-admins@mozilla.org'})
