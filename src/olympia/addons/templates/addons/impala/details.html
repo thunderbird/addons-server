@@ -22,7 +22,7 @@
 {% block header_content %}
 <div itemscope itemtype="http://schema.org/WebApplication">
   <link itemprop="SoftwareApplicationCategory" href="http://schema.org/OtherApplication" />
-  <aside class="secondary addon-vitals" aria-label="{{ _('Add-on vitals') }}">
+  <aside class="secondary addon-vitals">
 
     {# This assumes we'll never charge for add-ons. Ha. #}
     <span itemprop="offers" itemscope itemtype="http://schema.org/Offer">
@@ -180,7 +180,7 @@
   {% endif %}
 {% endif %}
 
-<aside class="secondary metadata c" aria-label="{{ _('Add-on links') }}">
+<aside class="secondary metadata c">
   <ul class="links">
     {% if addon.homepage %}
       <li><a class="home" href="{{ addon.homepage|external_url }}">
