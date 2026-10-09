@@ -1,4 +1,3 @@
-import os
 import shutil
 import tempfile
 
@@ -16,14 +15,12 @@ from olympia.users.tasks import delete_photo, resize_photo
 pytestmark = pytest.mark.django_db
 
 
-def test_delete_photo(monkeypatch):
+def test_delete_photo():
     dst_path = tempfile.mktemp(suffix='.png',
                                dir=settings.TMP_PATH)
     dst = storage.open(dst_path, mode='wb')
     with dst:
         dst.write(b'test data\n')
-    path = os.path.dirname(dst_path)
-    monkeypatch.setattr(settings, 'USERPICS_PATH', path)
     delete_photo(dst_path)
 
     assert not storage.exists(dst_path)
