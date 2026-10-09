@@ -336,8 +336,8 @@ class TestButtonHtml(ButtonTest):
     def test_featured(self):
         self.addon.is_featured.return_value = True
         doc = self.render()
-        assert (doc('.install').attr('class').split() ==
-               ['install', 'featuredaddon'])
+        assert doc('.install').attr('class').split() == (
+            ['install', 'featuredaddon'])
         assert doc('.install strong:last-child').text() == 'Featured'
 
     def test_detailed_privacy_policy(self):

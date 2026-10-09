@@ -170,7 +170,8 @@ def test_approve_addons_approve_files_no_review_type():
 
 
 @pytest.mark.django_db
-@mock.patch('olympia.reviewers.utils.sign_file', new=mock.Mock(return_value=None))
+@mock.patch('olympia.reviewers.utils.sign_file',
+            new=mock.Mock(return_value=None))
 def test_approve_addons_approve_files(use_case, mozilla_user):
     """Files are approved using the correct review type.
 
