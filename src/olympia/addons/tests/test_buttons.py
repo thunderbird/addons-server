@@ -318,27 +318,27 @@ class TestButtonHtml(ButtonTest):
         assert doc('.button').length == 1
 
         install = doc('.install')
-        assert '12345' == install.attr('data-addon')
-        assert 'icon url' == install.attr('data-icon')
-        assert 'meet.dev' == install.attr('data-developers')
+        assert install.attr('data-addon') == '12345'
+        assert install.attr('data-icon') == 'icon url'
+        assert install.attr('data-developers') == 'meet.dev'
         assert reverse('addons.versions', args=[a.id]) == (
             install.attr('data-versions'))
-        assert 'addon name' == install.attr('data-name')
+        assert install.attr('data-name') == 'addon name'
         assert None is install.attr('data-min')
         assert None is install.attr('data-max')
 
         button = doc('.button')
-        assert ['button', 'download'] == button.attr('class').split()
-        assert 'file hash' == button.attr('data-hash')
+        assert button.attr('class').split() == ['button', 'download']
+        assert button.attr('data-hash') == 'file hash'
         assert button.attr('href') == (
             '/firefox/downloads/latest/a-slug/addon-42-latest')
 
     def test_featured(self):
         self.addon.is_featured.return_value = True
         doc = self.render()
-        assert ['install', 'featuredaddon'] == (
-            doc('.install').attr('class').split())
-        assert 'Featured' == doc('.install strong:last-child').text()
+        assert (doc('.install').attr('class').split() ==
+               ['install', 'featuredaddon'])
+        assert doc('.install strong:last-child').text() == 'Featured'
 
     def test_detailed_privacy_policy(self):
         policy = self.render(detailed=True)('.install-shell .privacy-policy')
@@ -374,8 +374,8 @@ class TestButtonHtml(ButtonTest):
         self.version.is_compatible_app.return_value = True
         self.version.created = datetime.now()
         install = self.render()('.install')
-        assert 'min version' == install.attr('data-min')
-        assert 'max version' == install.attr('data-max')
+        assert install.attr('data-min') == 'min version'
+        assert install.attr('data-max') == 'max version'
 
     @patch('olympia.addons.buttons.install_button')
     @patch('olympia.addons.templatetags.jinja_helpers.statusflags')

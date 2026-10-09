@@ -392,7 +392,7 @@ class TestDeliverHotness(TestCase):
                 for date, count in stats
             ])
 
-    @mock.patch('olympia.addons.cron.time.sleep', lambda *a, **kw: None)
+    @mock.patch('olympia.addons.cron.time.sleep', new=mock.Mock(return_value=None))
     def test_basic(self):
         cron.deliver_hotness()
 
@@ -405,7 +405,7 @@ class TestDeliverHotness(TestCase):
         # Only public add-ons get hotness calculated
         assert self.awaiting_review.reload().hotness == 0
 
-    @mock.patch('olympia.addons.cron.time.sleep', lambda *a, **kw: None)
+    @mock.patch('olympia.addons.cron.time.sleep', new=mock.Mock(return_value=None))
     def test_avoid_overwriting_values(self):
         cron.deliver_hotness()
 

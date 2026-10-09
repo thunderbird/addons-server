@@ -94,12 +94,12 @@ def _change_last_updated(next):
 
 @use_primary_db
 def addon_last_updated():
-    next = {}
+    next_updates = {}
     for q in Addon._last_updated_queries().values():
         for addon, last_updated in q.values_list('id', 'last_updated'):
-            next[addon] = last_updated
+            next_updates[addon] = last_updated
 
-    _change_last_updated(next)
+    _change_last_updated(next_updates)
 
     # Get anything that didn't match above.
     other = (Addon.objects.filter(last_updated__isnull=True)
@@ -149,7 +149,7 @@ def unhide_disabled_files():
     for filepath in walkfiles(settings.GUARDED_ADDONS_PATH):
         filepath = force_text(filepath)
         addon, filename = filepath.split('/')[-2:]
-        if tuple([int(addon), filename]) not in files:
+        if (int(addon), filename) not in files:
             log.warning(u'File that should not be guarded: %s.', filepath)
             try:
                 file_ = (File.objects.select_related('version__addon')
@@ -170,7 +170,7 @@ def deliver_hotness():
     b = avg(users three weeks before this week)
     hotness = (a-b) / b if a > 1000 and b > 1 else 0
     """
-    frozen = set(f.id for f in FrozenAddon.objects.all())
+    frozen = {f.id for f in FrozenAddon.objects.all()}
     all_ids = list((Addon.objects.exclude(type=amo.ADDON_PERSONA)
                    .filter(status__in=amo.REVIEWED_STATUSES)
                    .values_list('id', flat=True)))
