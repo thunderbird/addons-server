@@ -211,7 +211,6 @@ def create_persona_preview_images(src, full_dst, **kw):
             i.save(fp, 'png')
 
         _, icon_size = amo.PERSONA_IMAGE_SIZES['icon']
-        icon_w, icon_h = icon_size
 
         # Resize icon.
         i = i_orig
@@ -308,9 +307,8 @@ def update_incompatible_appversions(data, **kw):
                     except Version.DoesNotExist:
                         pass
 
-                if min_id and max_id:
-                    if min_id <= version.id <= max_id:
-                        app_ranges.extend(range.apps)
+                if min_id and max_id and min_id <= version.id <= max_id:
+                    app_ranges.extend(range.apps)
 
         for app_range in app_ranges:
             IncompatibleVersions.objects.create(version=version,
@@ -332,7 +330,7 @@ def make_checksum(header_path):
     return hashlib.sha224(raw_checksum).hexdigest()
 
 
-def theme_checksum(theme, **kw):
+def theme_checksum(theme):
     theme.checksum = make_checksum(theme.header_path)
     dupe_personas = Persona.objects.filter(checksum=theme.checksum)
     if dupe_personas.exists():
@@ -340,7 +338,7 @@ def theme_checksum(theme, **kw):
     theme.save()
 
 
-def rereviewqueuetheme_checksum(rqt, **kw):
+def rereviewqueuetheme_checksum(rqt):
     """Check for possible duplicate theme images."""
     dupe_personas = Persona.objects.filter(
         checksum=make_checksum(rqt.header_path or rqt.theme.header_path)
@@ -723,7 +721,8 @@ def migrate_lwts_to_static_themes(ids, **kw):
             mlog.info(
                 '[Success] Static theme %r created from LWT %r', static, lwt)
             if not static:
-                raise Exception('add_static_theme_from_lwt returned falsey')
+                raise RuntimeError(
+                    'add_static_theme_from_lwt returned falsey')
             MigratedLWT.objects.create(
                 lightweight_theme=lwt, getpersonas_id=lwt.persona.persona_id,
                 static_theme=static)
@@ -887,9 +886,9 @@ def migrate_webextensions_to_git_storage(ids, **kw):
             # simply the first file in the list. For WebExtensions there is
             # only a very very small number that have different files for
             # a single version.
-            unique_file_hashes = set([
+            unique_file_hashes = {
                 x.original_hash for x in version.all_files
-            ])
+            }
 
             if len(unique_file_hashes) > 1:
                 # Log actually different hashes so that we can clean them

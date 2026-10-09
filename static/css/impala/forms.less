@@ -375,6 +375,11 @@ textarea {
             border-top-color: #777;
         }
     }
+    input[readonly],
+    input[disabled] {
+        box-shadow: none;
+        background: #eee;
+    }
 }
 
 .prettyform form:only-child fieldset {
@@ -444,13 +449,5 @@ button.loading-submit:after {
     fieldset {
         margin: 1em 0 0;
         padding: 0;
-    }
-}
-
-.prettyform {
-    input[readonly],
-    input[disabled] {
-        box-shadow: none;
-        background: #eee;
     }
 }
