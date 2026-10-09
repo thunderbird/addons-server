@@ -36,6 +36,8 @@ from olympia.versions.models import Version
 
 log = olympia.core.logger.getLogger('z.amo.activity')
 
+LINK_FORMAT = u'<a href="{0}">{1}</a>'
+
 # Number of times a token can be used.
 MAX_TOKEN_USE_COUNT = 100
 
@@ -345,7 +347,7 @@ class ActivityLog(ModelBase):
 
             for item in activity.arguments_data:
                 # Each 'item' should have one key and one value only.
-                name, pk = list(item.items())[0]
+                name, pk = next(iter(item.items()))
                 if name not in ('str', 'int', 'null') and pk:
                     # Convert pk to int to have consistent data for when we
                     # call .in_bulk() later.
@@ -378,7 +380,7 @@ class ActivityLog(ModelBase):
             # We preloaded that property earlier
             for item in activity.arguments_data:
                 # As above, each 'item' should have one key and one value only.
-                name, pk = list(item.items())[0]
+                name, pk = next(iter(item.items()))
                 if name in ('str', 'int', 'null'):
                     # It's not actually a model reference, just return the
                     # value directly.
@@ -421,10 +423,10 @@ class ActivityLog(ModelBase):
                 # Instead of passing an addon instance you can pass a tuple:
                 # (Addon, 3) for Addon with pk=3
                 serialize_me.append(
-                    dict(((six.text_type(arg[0]._meta), arg[1]),)))
+                    {six.text_type(arg[0]._meta): arg[1]})
             else:
                 serialize_me.append(
-                    dict(((six.text_type(arg._meta), arg.pk),)))
+                    {six.text_type(arg._meta): arg.pk})
 
         self._arguments = json.dumps(serialize_me)
 
@@ -444,9 +446,9 @@ class ActivityLog(ModelBase):
     def to_string(self, type_=None):
         log_type = constants.activity.LOG_BY_ID[self.action]
         if type_ and hasattr(log_type, '%s_format' % type_):
-            format = getattr(log_type, '%s_format' % type_)
+            format_str = getattr(log_type, '%s_format' % type_)
         else:
-            format = log_type.format
+            format_str = log_type.format
 
         # We need to copy arguments so we can remove elements from it
         # while we loop over self.arguments.
@@ -463,13 +465,13 @@ class ActivityLog(ModelBase):
         for arg in self.arguments:
             if isinstance(arg, Addon) and not addon:
                 if arg.has_listed_versions():
-                    addon = self.f(u'<a href="{0}">{1}</a>',
+                    addon = self.f(LINK_FORMAT,
                                    arg.get_url_path(), arg.name)
                 else:
                     addon = self.f(u'{0}', arg.name)
                 arguments.remove(arg)
             if isinstance(arg, Rating) and not rating:
-                rating = self.f(u'<a href="{0}">{1}</a>',
+                rating = self.f(LINK_FORMAT,
                                 arg.get_url_path(), gettext('Review'))
                 arguments.remove(arg)
             if isinstance(arg, Version) and not version:
@@ -481,12 +483,12 @@ class ActivityLog(ModelBase):
                     version = self.f(text, arg.version)
                 arguments.remove(arg)
             if isinstance(arg, Collection) and not collection:
-                collection = self.f(u'<a href="{0}">{1}</a>',
+                collection = self.f(LINK_FORMAT,
                                     arg.get_url_path(), arg.name)
                 arguments.remove(arg)
             if isinstance(arg, Tag) and not tag:
                 if arg.can_reverse():
-                    tag = self.f(u'<a href="{0}">{1}</a>',
+                    tag = self.f(LINK_FORMAT,
                                  arg.get_url_path(), arg.tag_text)
                 else:
                     tag = self.f('{0}', arg.tag_text)
@@ -535,7 +537,7 @@ class ActivityLog(ModelBase):
                 'file': file_,
                 'status': status,
             }
-            return self.f(six.text_type(format), *arguments, **kw)
+            return self.f(six.text_type(format_str), *arguments, **kw)
         except (AttributeError, KeyError, IndexError):
             log.warning('%d contains garbage data' % (self.id or 0))
             return 'Something magical happened.'

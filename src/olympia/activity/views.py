@@ -38,7 +38,7 @@ class VersionReviewNotesViewSet(AddonChildMixin, ListModelMixin,
         alog = ActivityLog.objects.for_version(self.get_version_object())
         return alog.filter(action__in=amo.LOG_REVIEW_QUEUE_DEVELOPER)
 
-    def get_addon_object(self):
+    def get_addon_object(self, permission_classes=None, lookup='addon_pk'):
         return super(VersionReviewNotesViewSet, self).get_addon_object(
             permission_classes=self.permission_classes)
 
@@ -79,7 +79,7 @@ log = olympia.core.logger.getLogger('z.amo.activity')
 class EmailCreationPermission(object):
     """Permit if client's IP address is allowed."""
 
-    def has_permission(self, request, view):
+    def has_permission(self, request, _view):
         try:
             # request.data isn't available at this point.
             data = json.loads(force_text(request.body))
@@ -88,7 +88,7 @@ class EmailCreationPermission(object):
             data = request.POST
 
         secret_key = data.get('SecretKey', '')
-        if not secret_key == settings.INBOUND_EMAIL_SECRET_KEY:
+        if secret_key != settings.INBOUND_EMAIL_SECRET_KEY:
             log.info('Invalid secret key [%s] provided; data [%s]' % (
                 secret_key, data))
             return False

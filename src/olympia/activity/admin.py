@@ -9,7 +9,6 @@ class ActivityLogAdmin(admin.ModelAdmin):
     readonly_fields = ('created', 'user', '__str__',)
     date_hierarchy = 'created'
     fields = ('user', 'created', '__str__',)
-    raw_id_fields = ('user',)
 
     def has_add_permission(self, request):
         return False
