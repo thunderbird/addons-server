@@ -347,7 +347,7 @@ class ActivityLog(ModelBase):
 
             for item in activity.arguments_data:
                 # Each 'item' should have one key and one value only.
-                name, pk = next(iter(item.items()))
+                name, pk = list(item.items())[0]
                 if name not in ('str', 'int', 'null') and pk:
                     # Convert pk to int to have consistent data for when we
                     # call .in_bulk() later.
@@ -380,7 +380,7 @@ class ActivityLog(ModelBase):
             # We preloaded that property earlier
             for item in activity.arguments_data:
                 # As above, each 'item' should have one key and one value only.
-                name, pk = next(iter(item.items()))
+                name, pk = list(item.items())[0]
                 if name in ('str', 'int', 'null'):
                     # It's not actually a model reference, just return the
                     # value directly.
