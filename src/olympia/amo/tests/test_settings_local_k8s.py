@@ -152,6 +152,14 @@ def test_k8s_empty_env_vars_count_as_unset():
     assert all(sid.startswith('atn/stage-eks/') for _, sid in calls)
 
 
+def test_empty_secrets_region_and_account_count_as_unset():
+    _, calls = load('settings_local_k8s', ATN_SECRETS_REGION='',
+                    ATN_SECRETS_ACCOUNT='')
+    assert calls
+    assert all(region == 'us-west-2' and sid.startswith('atn/stage-eks/')
+               for region, sid in calls)
+
+
 def test_k8s_accepts_prefixed_es_suffix():
     k8s, _ = load('settings_local_k8s', ATN_ENV='tbstageeks_blue')
     assert k8s.ES_INDEXES == suffixed_indexes('tbstageeks_blue')
@@ -188,3 +196,27 @@ def test_empty_domain_counts_as_unset():
 def test_k8s_refuses_shared_es_suffix(env_name):
     with pytest.raises(ImproperlyConfigured):
         load('settings_local_k8s', ATN_ENV=env_name)
+
+
+def test_missing_secret_is_improperly_configured():
+    from botocore.exceptions import ClientError
+
+    class MissingSecrets(object):
+        def get_secret_value(self, SecretId):
+            raise ClientError(
+                {'Error': {'Code': 'ResourceNotFoundException'}},
+                'GetSecretValue')
+
+    for name in ('settings_local_stage', 'settings_local_k8s'):
+        sys.modules.pop(name, None)
+    environ = {k: v for k, v in os.environ.items() if k not in ATN_VARS}
+    environ['NETAPP_STORAGE_ROOT'] = '/tmp/storage'
+    try:
+        with patch.dict(os.environ, environ, clear=True), \
+                patch('boto3.client', lambda **kwargs: MissingSecrets()), \
+                pytest.raises(ImproperlyConfigured) as exc:
+            importlib.import_module('settings_local_k8s')
+    finally:
+        for name in ('settings_local_stage', 'settings_local_k8s'):
+            sys.modules.pop(name, None)
+    assert 'atn/stage-eks/' in str(exc.value)

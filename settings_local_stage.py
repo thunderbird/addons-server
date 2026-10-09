@@ -7,6 +7,7 @@ import json
 
 import boto3
 from botocore.exceptions import ClientError
+from django.core.exceptions import ImproperlyConfigured
 
 from olympia.lib.settings_base import * # noqa
 
@@ -22,10 +23,10 @@ from olympia.lib.settings_base import * # noqa
 # ATN_SECRETS_ACCOUNT -- when set, secrets are addressed by (partial) ARN in
 #                        this account instead of by name in the caller's own
 # ATN_DOMAIN          -- public hostname; every site URL below derives from it
-ATN_SECRETS_ENV = os.environ.get('ATN_SECRETS_ENV', 'stage')
-ATN_SECRETS_REGION = os.environ.get('ATN_SECRETS_REGION', 'us-west-2')
-ATN_SECRETS_ACCOUNT = os.environ.get('ATN_SECRETS_ACCOUNT', '')
-# An empty ATN_DOMAIN counts as unset, as in docker/docker-entrypoint.sh.
+# Empty counts as unset for all of these, as in docker/docker-entrypoint.sh.
+ATN_SECRETS_ENV = os.environ.get('ATN_SECRETS_ENV') or 'stage'
+ATN_SECRETS_REGION = os.environ.get('ATN_SECRETS_REGION') or 'us-west-2'
+ATN_SECRETS_ACCOUNT = os.environ.get('ATN_SECRETS_ACCOUNT') or ''
 ATN_DOMAIN = os.environ.get('ATN_DOMAIN') or 'addons-stage.thunderbird.net'
 
 
@@ -59,7 +60,8 @@ def get_secret(secret_name, region_name=ATN_SECRETS_REGION):
         _secrets_cache[secret_name] = secret
         return secret
     except ClientError as e:
-        raise Exception(f"Failed to retrieve secret {secret_name}: {e}")
+        raise ImproperlyConfigured(
+            f"Failed to retrieve secret {secret_name}: {e}") from e
 
 
 # -----------------------------------------------------------------------------
@@ -243,15 +245,12 @@ NOBOT_RECAPTCHA_PRIVATE_KEY = _recaptcha_secret['private']
 
 ES_TIMEOUT = 60
 # Note: there is no separate stage ES domain; amo-tb is shared.
+# The client connects with ES_HOSTS (olympia.amo.search.get_es); nothing reads
+# ES_URLS, so it is not set here.
 ES_HOSTS = [_es_host_secret]
-ES_URLS = ['http://%s' % h for h in ES_HOSTS]
-ES_INDEXES = dict((k, '%s_%s' % (v, ENV)) for k, v in ES_INDEXES.items())
+ES_INDEXES = {k: '%s_%s' % (v, ENV) for k, v in ES_INDEXES.items()}
 
-# TODO: STATSD
-# STATSD_HOST = env('STATSD_HOST')
-# STATSD_PREFIX = env('STATSD_PREFIX')
-
-# CEF_PRODUCT = STATSD_PREFIX
+# TODO: STATSD (STATSD_HOST, STATSD_PREFIX, and CEF_PRODUCT from the prefix)
 
 NEW_FEATURES = True
 
@@ -281,13 +280,17 @@ GOOGLE_ANALYTICS_DOMAIN = DOMAIN
 
 NEWRELIC_ENABLE = False
 
+_fxa_content_host = 'https://accounts.firefox.com'
+_fxa_oauth_host = 'https://oauth.accounts.firefox.com/v1'
+_fxa_profile_host = 'https://profile.accounts.firefox.com/v1'
+
 FXA_CONFIG = {
     'default': {
         'client_id': _fxa_secret['client_id'],
         'client_secret': _fxa_secret['client_secret'],
-        'content_host': 'https://accounts.firefox.com',
-        'oauth_host': 'https://oauth.accounts.firefox.com/v1',
-        'profile_host': 'https://profile.accounts.firefox.com/v1',
+        'content_host': _fxa_content_host,
+        'oauth_host': _fxa_oauth_host,
+        'profile_host': _fxa_profile_host,
         'redirect_url':
             'https://%s/api/v3/accounts/authenticate/' % DOMAIN,
         'scope': 'profile',
@@ -295,9 +298,9 @@ FXA_CONFIG = {
     'internal': {
         'client_id': '',
         'client_secret': '',
-        'content_host': 'https://accounts.firefox.com',
-        'oauth_host': 'https://oauth.accounts.firefox.com/v1',
-        'profile_host': 'https://profile.accounts.firefox.com/v1',
+        'content_host': _fxa_content_host,
+        'oauth_host': _fxa_oauth_host,
+        'profile_host': _fxa_profile_host,
         'redirect_url':
             'https://addons-admin.stage.mozaws.net/fxa-authenticate',
         'scope': 'profile',
@@ -305,9 +308,9 @@ FXA_CONFIG = {
     'amo': {
         'client_id': _fxa_secret['client_id'],
         'client_secret': _fxa_secret['client_secret'],
-        'content_host': 'https://accounts.firefox.com',
-        'oauth_host': 'https://oauth.accounts.firefox.com/v1',
-        'profile_host': 'https://profile.accounts.firefox.com/v1',
+        'content_host': _fxa_content_host,
+        'oauth_host': _fxa_oauth_host,
+        'profile_host': _fxa_profile_host,
         'redirect_url':
             'https://%s/api/v3/accounts/authenticate/' % DOMAIN,
         'scope': 'profile',
@@ -385,33 +388,34 @@ VALIDATION_FAQ_URL = ('https://wiki.mozilla.org/Add-ons/Reviewers/Guide/'
                       'AddonReviews#Step_2:_Automatic_validation')
 
 # CSP Settings
+_csp_self = "'self'"
 PROD_CDN_HOST = CDN_HOST + '/'
 ANALYTICS_HOST = 'https://ssl.google-analytics.com'
 
 CSP_BASE_URI = (
-    "'self'",
+    _csp_self,
     # Required for the legacy discovery pane.
     CDN_HOST,
 )
 CSP_CONNECT_SRC = (
-    "'self'",
+    _csp_self,
     'https://sentry.prod.mozaws.net',
 )
 CSP_FORM_ACTION = (
-    "'self'",
+    _csp_self,
     'https://developer.mozilla.org',
 )
 CSP_FONT_SRC = (
-    "'self'",
+    _csp_self,
     PROD_CDN_HOST,
 )
 CSP_CHILD_SRC = (
-    "'self'",
+    _csp_self,
     'https://www.google.com/recaptcha/',
 )
 CSP_FRAME_SRC = CSP_CHILD_SRC
 CSP_IMG_SRC = (
-    "'self'",
+    _csp_self,
     'data:',  # Used in inlined mobile css.
     'blob:',  # Needed for image uploads.
     ANALYTICS_HOST,
@@ -431,7 +435,7 @@ CSP_SCRIPT_SRC = (
     PROD_CDN_HOST,
 )
 CSP_STYLE_SRC = (
-    "'self'",
+    _csp_self,
     "'unsafe-inline'",
     PROD_CDN_HOST,
 )
@@ -444,6 +448,5 @@ VALID_LOGIN_REDIRECTS = {
     'buildertrunk': 'https://builder-addons-dev.allizom.org',
 }
 
-# Blog URL
-DEVELOPER_BLOG_URL = 'http://blog.mozilla.com/addons/feed/'
+# DEVELOPER_BLOG_URL is inherited from settings_base.
 

@@ -71,6 +71,9 @@ if not re.match(r'^tbstageeks[a-z0-9_]*$', ENV):
 ES_INDEXES = {
     k: '%s_%s' % (v, ENV) for k, v in settings_base.ES_INDEXES.items()}
 
+# The inherited feed URL is http and only redirects to this one.
+DEVELOPER_BLOG_URL = 'https://blog.mozilla.org/addons/feed/'
+
 # settings_base derives SERVICES_DOMAIN from the container hostname; the
 # services robots.txt policy (amo.views.robots) matches requests against it.
 SERVICES_DOMAIN = 'services.' + stage.DOMAIN
