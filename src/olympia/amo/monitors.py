@@ -19,6 +19,26 @@ from olympia.amo.templatetags.jinja_helpers import user_media_path
 monitor_log = olympia.core.logger.getLogger('z.monitor')
 
 
+def _check_memcache_host(host, ip, port):
+    """Try to connect to one memcached host.
+
+    Returns (result, error): result is True if the connection worked, and
+    error is the logged failure message, or None."""
+    error = None
+    try:
+        s = socket.socket()
+        s.connect((ip, int(port)))
+    except Exception as e:
+        result = False
+        error = 'Failed to connect to memcached (%s): %s' % (host, e)
+        monitor_log.critical(error)
+    else:
+        result = True
+    finally:
+        s.close()
+    return result, error
+
+
 def memcache():
     memcache = getattr(settings, 'CACHES', {}).get('default')
     memcache_results = []
@@ -34,17 +54,9 @@ def memcache():
             if ip == '127.0.0.1':
                 using_twemproxy = True
 
-            try:
-                s = socket.socket()
-                s.connect((ip, int(port)))
-            except Exception as e:
-                result = False
-                status = 'Failed to connect to memcached (%s): %s' % (host, e)
-                monitor_log.critical(status)
-            else:
-                result = True
-            finally:
-                s.close()
+            result, error = _check_memcache_host(host, ip, port)
+            if error:
+                status = error
 
             memcache_results.append((ip, port, result))
         if not using_twemproxy and len(memcache_results) < 2:

@@ -89,10 +89,7 @@ def gc(test_result=True):
                'validate-*', '-mtime', '+7', '-type', 'd',
                '-exec', 'rm', '-rf', "{}", ';')
 
-        output = Popen(cmd, stdout=PIPE).communicate()[0]
-
-        for line in output.split(b'\n'):
-            log.debug(line)
+        _run_and_log_output(cmd)
 
     else:
         log.warning('MEDIA_ROOT not defined.')
@@ -104,14 +101,24 @@ def gc(test_result=True):
         cmd = ('find', USERPICS_PATH,
                '-name', '*__unconverted', '-mtime', '+1', '-type', 'f',
                '-exec', 'rm', '{}', ';')
-        output = Popen(cmd, stdout=PIPE).communicate()[0]
-
-        for line in output.split(b'\n'):
-            log.debug(line)
+        _run_and_log_output(cmd)
 
     # Delete stale FileUploads.
+    _delete_file_uploads_created_before(days_ago(180))
+
+
+def _run_and_log_output(cmd):
+    """Run cmd and log each line of its stdout at debug level."""
+    output = Popen(cmd, stdout=PIPE).communicate()[0]
+
+    for line in output.split(b'\n'):
+        log.debug(line)
+
+
+def _delete_file_uploads_created_before(date):
+    """Delete FileUploads (and their files) created on or before date."""
     stale_uploads = FileUpload.objects.filter(
-        created__lte=days_ago(180)).order_by('id')
+        created__lte=date).order_by('id')
     for file_upload in stale_uploads:
         log.debug(u'[FileUpload:{uuid}] Removing file: {path}'
                   .format(uuid=file_upload.uuid, path=file_upload.path))
