@@ -51,7 +51,7 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
     }
 
     // Control keys that shouldn't trigger new requests.
-    var ignoreKeys = [
+    var ignoreKeys = new Set([
         z.keys.SHIFT, z.keys.CONTROL, z.keys.ALT, z.keys.PAUSE,
         z.keys.CAPS_LOCK, z.keys.ESCAPE, z.keys.ENTER,
         z.keys.PAGE_UP, z.keys.PAGE_DOWN,
@@ -59,9 +59,9 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
         z.keys.HOME, z.keys.END,
         z.keys.COMMAND, z.keys.WINDOWS_RIGHT, z.keys.COMMAND_RIGHT,
         z.keys.WINDOWS_LEFT_OPERA, z.keys.WINDOWS_RIGHT_OPERA, z.keys.APPLE
-    ];
+    ]);
 
-    var gestureKeys = [z.keys.ESCAPE, z.keys.UP, z.keys.DOWN];
+    var gestureKeys = new Set([z.keys.ESCAPE, z.keys.UP, z.keys.DOWN]);
 
     function pageUp() {
         // Select the first element.
@@ -83,7 +83,7 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
         // Bail if the results are hidden or if we have a non-gesture key
         // or if we have a alt/ctrl/meta/shift keybinding.
         if (!$results.hasClass('visible') ||
-            gestureKeys.indexOf(e.which) < 0 ||
+            !gestureKeys.has(e.which) ||
             e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
             $results.trigger('keyIgnored');
             return;
@@ -137,7 +137,7 @@ $.fn.searchSuggestions = function($results, processCallback, searchType) {
         }
 
         if (((e.type === 'keyup' && e.which === undefined) ||
-            ignoreKeys.indexOf(e.which) >= 0) && !pasting) {
+            ignoreKeys.has(e.which)) && !pasting) {
             $results.trigger('inputIgnored');
         } else {
             // XHR call and populate suggestions.
