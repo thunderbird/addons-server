@@ -4,7 +4,7 @@ SELECT IFNULL(u.display_name, CONCAT('Firefox user ', u.id)) AS `Name`,
              FROM groups_users
              WHERE group_id IN
                  (SELECT id
-                  FROM groups
+                  FROM `groups`
                   WHERE name IN ('Staff', 'No Reviewer Incentives'))
                AND user_id = rs.user_id), '*', '') AS `Staff`,
        IFNULL(FORMAT(SUM(aa.weight), 0), 0) AS `Total Risk`,
@@ -14,7 +14,7 @@ SELECT IFNULL(u.display_name, CONCAT('Firefox user ', u.id)) AS `Name`,
                     FROM groups_users
                     WHERE group_id IN
                         (SELECT id
-                         FROM groups
+                         FROM `groups`
                          WHERE name IN ('Staff', 'No Reviewer Incentives'))
                       AND user_id = rs.user_id), '-', SUM(rs.score)), 0) AS `Points`,
        FORMAT(COUNT(*), 0) AS `Add-ons Reviewed`
