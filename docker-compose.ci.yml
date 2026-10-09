@@ -1,21 +1,13 @@
-# CI-only overrides, selected by COMPOSE_FILE in .github/workflows/ci-tests.yml.
-# Docker Hub rate-limits anonymous pulls per source IP and GitHub-hosted runners
-# share address space, so parallel PR runs fail at image pull with 429
-# (thunderbird/addons-server#506). The official library images are mirrored on
-# AWS ECR Public with generous anonymous limits; use those tags here. Same image
-# names and tags as docker-compose.yml, only the registry differs. memcached:1.4
-# and redis:4.0 are not on ECR Public, so those stay on their Docker Hub names
-# and the workflow's pull step tries the GCR mirror for them first. Local
-# development keeps pulling from Docker Hub via docker-compose.yml.
+# CI-only overrides, selected by COMPOSE_FILE in .github/workflows/ci-tests.yml
+# (thunderbird/addons-server#506). Image names stay as in docker-compose.yml so
+# the workflow's pull step can try the GCR mirror, ECR Public and Docker Hub in
+# turn for each library image and retag; a registry pinned here would have no
+# fallback. Local development is unaffected.
 services:
-  mysqld:
-    image: public.ecr.aws/docker/library/mysql:8.0
-  rabbitmq:
-    image: public.ecr.aws/docker/library/rabbitmq:3.7
   # The test settings run with SIGNING_SERVER = '' (settings_test.py), nothing
   # depends_on this service, and the signing tests mock the server, so the
-  # autograph container is not needed in CI. It is the one remaining Docker Hub
-  # image (not an official library image, so not on ECR Public); putting it
-  # behind a profile keeps `docker compose up -d` from pulling it.
+  # autograph container is not needed in CI. It is the one image that only
+  # exists on Docker Hub; putting it behind a profile keeps
+  # `docker compose up -d` from pulling it.
   autograph:
     profiles: ["signing"]
