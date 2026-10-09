@@ -120,7 +120,7 @@ h4.step {
     font-style: italic;
 }
 
-pre, code, kbd, tt, samp, tt {
+pre, code, kbd, tt, samp {
     font-family: "andale mono", monospace;
 }
 
