@@ -165,14 +165,14 @@
       {% endblock %}
       {% block js %}{% endblock %}
       {% block footer %}
-        <div id="footer" role="contentinfo">
+        <footer id="footer">
           <div class="section">
             {% block footer_extras %}
             <img class="footerlogo" src="{{ static('img/zamboni/footer-logo-med.png') }}" alt="{{ _('Footer logo') }}">
             {% endblock %}
             {% include "footer.html" %}
           </div> {# section #}
-        </div> {# footer #}
+        </footer> {# footer #}
       {% endblock %}
     </div>
   </body>
