@@ -1,5 +1,5 @@
 z.getVars = function(qs, excl_undefined) {
-    if (typeof qs === 'undefined') {
+    if (qs === undefined) {
         qs = location.search;
     }
     if (qs && qs[0] == '?') {

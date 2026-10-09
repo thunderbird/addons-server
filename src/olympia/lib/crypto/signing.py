@@ -197,8 +197,8 @@ def sign_file(file_obj):
         return file_obj
 
     if not settings.ENABLE_ADDON_SIGNING:
-        #raise SigningError(u'Not signing file {0}: no active endpoint'.format(
-        #    file_obj.pk))
+        # Signing is disabled here: return the file unsigned rather than
+        # raising SigningError.
         return file_obj
 
     # No file? No signature.
@@ -259,8 +259,8 @@ def is_signed(file_path):
             filenames = set(zf.namelist())
     except (zipfile.BadZipfile, IOError):
         filenames = set()
-    return set([u'META-INF/mozilla.rsa', u'META-INF/mozilla.sf',
-                u'META-INF/manifest.mf']).issubset(filenames)
+    return {u'META-INF/mozilla.rsa', u'META-INF/mozilla.sf',
+            u'META-INF/manifest.mf'}.issubset(filenames)
 
 
 class SignatureInfo(object):

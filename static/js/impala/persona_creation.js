@@ -317,7 +317,7 @@
 
 
     function hex2rgb(hex) {
-        hex = parseInt((hex.indexOf('#') > -1 ? hex.substring(1) : hex), 16);
+        hex = Number.parseInt((hex.includes('#') ? hex.substring(1) : hex), 16);
         return {
             r: hex >> 16,
             g: (hex & 0x00FF00) >> 8,
