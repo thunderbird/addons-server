@@ -51,7 +51,7 @@ def test_slugify(test_input, expected):
 
 def test_resize_image():
     # src and dst shouldn't be the same.
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="can't be the same"):
         resize_image('t', 't', 'z')
 
 
