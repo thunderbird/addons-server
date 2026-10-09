@@ -26,7 +26,8 @@ class SlugOrPkChoiceField(forms.ModelChoiceField):
                 value = self.queryset.values_list(
                     'pk', flat=True).get(slug=value)
             except self.queryset.model.DoesNotExist:
-                value = value
+                # Keep the raw value; the parent clean() rejects it.
+                pass
         return super(SlugOrPkChoiceField, self).clean(value)
 
 
