@@ -26,5 +26,5 @@ WHERE DATE(rs.created) BETWEEN @WEEK_BEGIN AND @WEEK_END
      FROM groups_users
      WHERE group_id IN
          (SELECT id
-          FROM groups
+          FROM `groups`
           WHERE name IN ('Staff', 'No Reviewer Incentives')));
