@@ -18,6 +18,8 @@ from olympia.translations.templatetags.jinja_helpers import truncate
 
 log = olympia.core.logger.getLogger('z.ratings')
 
+RATINGS_DETAIL_URL_NAME = 'addons.ratings.detail'
+
 
 class RatingQuerySet(models.QuerySet):
     """
@@ -140,17 +142,17 @@ class Rating(ModelBase):
 
     def get_url_path(self):
         return jinja_helpers.url(
-            'addons.ratings.detail', self.addon.slug, self.id)
+            RATINGS_DETAIL_URL_NAME, self.addon.slug, self.id)
 
     def approve(self, user):
         from olympia.reviewers.models import ReviewerScore
 
         activity.log_create(
-            amo.LOG.APPROVE_RATING, self.addon, self, user=user, details=dict(
-                body=six.text_type(self.body),
-                addon_id=self.addon.pk,
-                addon_title=six.text_type(self.addon.name),
-                is_flagged=self.ratingflag_set.exists()))
+            amo.LOG.APPROVE_RATING, self.addon, self, user=user, details={
+                'body': six.text_type(self.body),
+                'addon_id': self.addon.pk,
+                'addon_title': six.text_type(self.addon.name),
+                'is_flagged': self.ratingflag_set.exists()})
         for flag in self.ratingflag_set.all():
             flag.delete()
         self.editorreview = False
@@ -173,11 +175,11 @@ class Rating(ModelBase):
 
             activity.log_create(
                 amo.LOG.DELETE_RATING, self.addon, self, user=user_responsible,
-                details=dict(
-                    body=six.text_type(self.body),
-                    addon_id=self.addon.pk,
-                    addon_title=six.text_type(self.addon.name),
-                    is_flagged=self.ratingflag_set.exists()))
+                details={
+                    'body': six.text_type(self.body),
+                    'addon_id': self.addon.pk,
+                    'addon_title': six.text_type(self.addon.name),
+                    'is_flagged': self.ratingflag_set.exists()})
             for flag in self.ratingflag_set.all():
                 flag.delete()
 
@@ -204,13 +206,13 @@ class Rating(ModelBase):
     def get_replies(cls, ratings):
         ratings = [r.id for r in ratings]
         qs = Rating.objects.filter(reply_to__in=ratings)
-        return dict((r.reply_to_id, r) for r in qs)
+        return {r.reply_to_id: r for r in qs}
 
     def send_notification_email(self):
         if self.reply_to:
             # It's a reply.
             reply_url = jinja_helpers.url(
-                'addons.ratings.detail', self.addon.slug,
+                RATINGS_DETAIL_URL_NAME, self.addon.slug,
                 self.reply_to.pk, add_prefix=False)
             data = {
                 'name': self.addon.name,
@@ -224,7 +226,7 @@ class Rating(ModelBase):
         else:
             # It's a new rating.
             rating_url = jinja_helpers.url(
-                'addons.ratings.detail', self.addon.slug, self.pk,
+                RATINGS_DETAIL_URL_NAME, self.addon.slug, self.pk,
                 add_prefix=False)
             data = {
                 'name': self.addon.name,

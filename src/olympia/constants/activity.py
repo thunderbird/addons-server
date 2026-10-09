@@ -11,6 +11,9 @@ from django.utils.translation import gettext_lazy as _
 __all__ = ('LOG', 'LOG_BY_ID', 'LOG_KEEP',)
 
 
+_FILE_WAS_SIGNED_FORMAT = _(u'{file} was signed.')
+
+
 class _LOG(object):
     action_class = None
 
@@ -249,7 +252,6 @@ class ADD_RATING(_LOG):
     format = _(u'{rating} for {addon} written.')
 
 
-# TODO(davedash): Add these when we do the admin site
 class ADD_RECOMMENDED_CATEGORY(_LOG):
     id = 31
     action_class = 'edit'
@@ -464,14 +466,14 @@ class ADDON_UNLISTED(_LOG):
 
 class BETA_SIGNED(_LOG):
     id = 131
-    format = _(u'{file} was signed.')
+    format = _FILE_WAS_SIGNED_FORMAT
     keep = True
 
 
 # Obsolete, we don't care about validation results on beta files.
 class BETA_SIGNED_VALIDATION_FAILED(_LOG):
     id = 132
-    format = _(u'{file} was signed.')
+    format = _FILE_WAS_SIGNED_FORMAT
     keep = True
 
 
@@ -485,20 +487,20 @@ class DELETE_ADDON(_LOG):
 
 class EXPERIMENT_SIGNED(_LOG):
     id = 134
-    format = _(u'{file} was signed.')
+    format = _FILE_WAS_SIGNED_FORMAT
     keep = True
 
 
 class UNLISTED_SIGNED(_LOG):
     id = 135
-    format = _(u'{file} was signed.')
+    format = _FILE_WAS_SIGNED_FORMAT
     keep = True
 
 
 # Obsolete, we don't care about validation results on unlisted files anymore.
 class UNLISTED_SIGNED_VALIDATION_FAILED(_LOG):
     id = 136
-    format = _(u'{file} was signed.')
+    format = _FILE_WAS_SIGNED_FORMAT
     keep = True
 
 
@@ -506,7 +508,7 @@ class UNLISTED_SIGNED_VALIDATION_FAILED(_LOG):
 # and the distinction for sideloading add-ons is gone as well.
 class UNLISTED_SIDELOAD_SIGNED_VALIDATION_PASSED(_LOG):
     id = 137
-    format = _(u'{file} was signed.')
+    format = _FILE_WAS_SIGNED_FORMAT
     keep = True
 
 
@@ -514,7 +516,7 @@ class UNLISTED_SIDELOAD_SIGNED_VALIDATION_PASSED(_LOG):
 # and the distinction for sideloading add-ons is gone as well.
 class UNLISTED_SIDELOAD_SIGNED_VALIDATION_FAILED(_LOG):
     id = 138
-    format = _(u'{file} was signed.')
+    format = _FILE_WAS_SIGNED_FORMAT
     keep = True
 
 
@@ -653,10 +655,10 @@ class CREATE_STATICTHEME_FROM_PERSONA(_LOG):
 LOGS = [x for x in vars().values()
         if isclass(x) and issubclass(x, _LOG) and x != _LOG]
 # Make sure there's no duplicate IDs.
-assert len(LOGS) == len(set(log.id for log in LOGS))
+assert len(LOGS) == len({log.id for log in LOGS})
 
-LOG_BY_ID = dict((l.id, l) for l in LOGS)
-LOG = namedtuple('LogTuple', [l.__name__ for l in LOGS])(*[l for l in LOGS])
+LOG_BY_ID = {l.id: l for l in LOGS}
+LOG = namedtuple('LogTuple', [l.__name__ for l in LOGS])(*LOGS)
 LOG_ADMINS = [l.id for l in LOGS if hasattr(l, 'admin_event')]
 LOG_KEEP = [l.id for l in LOGS if hasattr(l, 'keep')]
 LOG_RATING_MODERATION = [l.id for l in LOGS if hasattr(l, 'reviewer_event')]
