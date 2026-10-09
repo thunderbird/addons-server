@@ -49,10 +49,10 @@ class StaticCategory(object):
 
     def get_url_path(self):
         try:
-            type = ADDON_SLUGS[self.type]
+            addon_type = ADDON_SLUGS[self.type]
         except KeyError:
-            type = ADDON_SLUGS[ADDON_EXTENSION]
-        return reverse('browse.%s' % type, args=[self.slug])
+            addon_type = ADDON_SLUGS[ADDON_EXTENSION]
+        return reverse('browse.%s' % addon_type, args=[self.slug])
 
     def _immutable(self, *args):
         raise TypeError('%r instances are immutable' %

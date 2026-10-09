@@ -119,18 +119,18 @@ class Translation(ModelBase):
     delete.alters_data = True
 
     @classmethod
-    def new(cls, string, locale, id=None):
+    def new(cls, string, locale, translation_id=None):
         """
         Jumps through all the right hoops to create a new translation.
 
-        If ``id`` is not given a new id will be created using
+        If ``translation_id`` is not given a new id will be created using
         ``translations_seq``.  Otherwise, the id will be used to add strings to
         an existing translation.
 
         To increment IDs we use a setting on MySQL. This is to support multiple
         database masters -- it's just crazy enough to work! See bug 756242.
         """
-        if id is None:
+        if translation_id is None:
             # Get a sequence key for the new translation.
             with connections['default'].cursor() as cursor:
                 cursor.execute("""
@@ -142,7 +142,7 @@ class Translation(ModelBase):
 
                 # The sequence table should never be empty. But alas, if it is,
                 # let's fix it.
-                if not cursor.rowcount > 0:
+                if cursor.rowcount <= 0:
                     cursor.execute("""
                         INSERT INTO translations_seq (id)
                         VALUES(LAST_INSERT_ID(
@@ -150,10 +150,10 @@ class Translation(ModelBase):
                         ))
                     """)
                 cursor.execute('SELECT LAST_INSERT_ID()')
-                id = cursor.fetchone()[0]
+                translation_id = cursor.fetchone()[0]
 
         # Update if one exists, otherwise create a new one.
-        q = {'id': id, 'locale': locale}
+        q = {'id': translation_id, 'locale': locale}
         try:
             trans = cls.objects.get(**q)
             trans.localized_string = string
