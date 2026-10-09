@@ -56,7 +56,7 @@
 
 {% if addon_tab %}
   {% include "addons/includes/dashboard_tabs.html" %}
-  <section class="dashboard primary" role="main">
+  <main class="dashboard primary">
     <div class="listing island hero c">
       {{ impala_addon_listing_header(request.get_full_path(), search_filter=filter) }}
       <div class="items">
@@ -64,7 +64,7 @@
       </div>
       {{ addons|impala_paginator }}
     </div>
-  </section>
+  </main>
 {% endif %}
 
 {% if theme %}

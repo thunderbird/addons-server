@@ -12,7 +12,7 @@
   {{ l10n_menu(addon.default_locale) }}
   <h2>{{ _('Manage {0}')|format_html(addon.name) }}</h2>
 </header>
-<section class="primary devhub-form edit-version" role="main">
+<main class="primary devhub-form edit-version">
   <h3>{{ title }}</h3>
   <form method="post" enctype="multipart/form-data">
     <div class="item">
@@ -140,6 +140,6 @@
       </div>
     </div>
   </form>
-</section>
+</main>
 {% include "devhub/includes/addons_edit_nav.html" %}
 {% endblock %}

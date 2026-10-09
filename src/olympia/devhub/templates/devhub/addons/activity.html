@@ -18,7 +18,7 @@
   {% endif %}
 </header>
 
-<section id="recent-activity" class="primary" role="main">
+<main id="recent-activity" class="primary">
   <div class="listing results">
     <div class="results-inner">
       {% if pager.object_list %}
@@ -48,9 +48,9 @@
       <div class="listing-footer">{{ pager|paginator }}</div>
     {% endif %}
   </div>
-</section>
+</main>
 
-<section class="secondary" role="complementary">
+<aside class="secondary">
   <div id="refine-results" class="highlight">
 
     <h3>{{ _('Refine Activity') }}</h3>
@@ -79,5 +79,5 @@
   <p class="secondary-feed">
     <a href="{{ rss }}" class="subscribe">{{ _('Subscribe to this feed') }}</a>
   </p>
-</section>
+</aside>
 {% endblock %}

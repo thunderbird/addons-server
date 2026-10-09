@@ -39,20 +39,20 @@
     <td class="app {{ form.app.short }}">{{ form.app.pretty }}</td>
     <td class="select">
       <div>
-        <label>{{ form.min.label }}</label> {{ form.min }}
+        <label for="{{ form.min.id_for_label }}">{{ form.min.label }}</label> {{ form.min }}
         {{ form.non_field_errors() }}
         {{ form.min.errors }}
       </div>
       <div><span class="range">&ndash;</span></div>
       <div>
-        <label>{{ form.max.label }}</label> {{ form.max }}
+        <label for="{{ form.max.id_for_label }}">{{ form.max.label }}</label> {{ form.max }}
         {{ form.max.errors }}
       </div>
     </td>
     {% if form.DELETE %}
     <td class="remove">
       <div>
-        <label>{{ form.DELETE.label }} {{ form.DELETE }}</label>
+        <label for="{{ form.DELETE.id_for_label }}">{{ form.DELETE.label }} {{ form.DELETE }}</label>
         {{ form.application }}
         {{ form.id }}
         <a href="#" class="remove"
