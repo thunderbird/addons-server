@@ -15,6 +15,10 @@ from olympia.discovery.models import DiscoveryItem
 from olympia.versions.compare import version_int
 
 
+_INVALID_PARAM_MESSAGE = 'Invalid "%s" parameter.'
+NAME_RAW_FIELD = 'name.raw'
+
+
 def get_locale_analyzer(lang):
     """Return analyzer to use for the specified language code, or None."""
     analyzer = amo.SEARCH_LANGUAGE_TO_ANALYZER.get(lang)
@@ -43,7 +47,7 @@ class AddonQueryParam(object):
         if self.is_valid(value):
             return value
         raise ValueError(
-            gettext('Invalid "%s" parameter.' % self.query_param)
+            gettext(_INVALID_PARAM_MESSAGE % self.query_param)
         )
 
     def is_valid(self, value):
@@ -58,7 +62,7 @@ class AddonQueryParam(object):
         value = self.reverse_dict.get(value.lower())
         if value is None:
             raise ValueError(
-                gettext('Invalid "%s" parameter.' % self.query_param)
+                gettext(_INVALID_PARAM_MESSAGE % self.query_param)
             )
         return value
 
@@ -96,7 +100,7 @@ class AddonAppVersionQueryParam(AddonQueryParam):
             high = version_int(appversion + 'a')
             if low < version_int('10.0'):
                 raise ValueError(
-                    gettext('Invalid "%s" parameter.' % self.query_param)
+                    gettext(_INVALID_PARAM_MESSAGE % self.query_param)
                 )
             return app, low, high
         raise ValueError(gettext(
@@ -231,7 +235,7 @@ class AddonTypeQueryParam(AddonQueryParam):
         if isinstance(value, int):
             return value in self.valid_values
         else:
-            return all([_value in self.valid_values for _value in value])
+            return all(_value in self.valid_values for _value in value)
 
 
 class AddonStatusQueryParam(AddonQueryParam):
@@ -279,7 +283,7 @@ class AddonCategoryQueryParam(AddonQueryParam):
             value = reverse_dict.get(query_value)
             if value is None:
                 raise ValueError(
-                    gettext('Invalid "%s" parameter.' % self.query_param)
+                    gettext(_INVALID_PARAM_MESSAGE % self.query_param)
                 )
             values.append(value)
         return values
@@ -291,7 +295,7 @@ class AddonCategoryQueryParam(AddonQueryParam):
         if isinstance(value, int):
             return value in self.valid_values
         else:
-            return all([_value in self.valid_values for _value in value])
+            return all(_value in self.valid_values for _value in value)
 
 
 class AddonTagQueryParam(AddonQueryParam):
@@ -359,6 +363,8 @@ class AddonFeaturedQueryParam(AddonQueryParam):
 
 class AddonColorQueryParam(AddonQueryParam):
     query_param = 'color'
+    LUMINOSITY_FIELD = 'colors.l'
+    HUE_FIELD = 'colors.h'
 
     def convert_to_hsl(self, hexvalue):
         # The API is receiving color as a hex string. We store colors in HSL
@@ -392,7 +398,7 @@ class AddonColorQueryParam(AddonQueryParam):
                 Q('range', **{'colors.s': {
                     'lte': LOW_SATURATION,
                 }}),
-                Q('range', **{'colors.l': {
+                Q('range', **{self.LUMINOSITY_FIELD: {
                     'gte': max(min(hsl[2] - 64, 255), 0),
                     'lte': max(min(hsl[2] + 64, 255), 0),
                 }})
@@ -402,12 +408,12 @@ class AddonColorQueryParam(AddonQueryParam):
             # essentially looking for pure black. We can ignore hue and
             # saturation, they don't have enough impact to matter here.
             clauses = [
-                Q('range', **{'colors.l': {'lte': LOW_LUMINOSITY}})
+                Q('range', **{self.LUMINOSITY_FIELD: {'lte': LOW_LUMINOSITY}})
             ]
         elif hsl[2] >= HIGH_LUMINOSITY:
             # Same deal for very high luminosity, this is essentially white.
             clauses = [
-                Q('range', **{'colors.l': {'gte': HIGH_LUMINOSITY}})
+                Q('range', **{self.LUMINOSITY_FIELD: {'gte': HIGH_LUMINOSITY}})
             ]
         else:
             # Otherwise, we want to do the opposite and just try to match the
@@ -418,7 +424,7 @@ class AddonColorQueryParam(AddonQueryParam):
             # are handled above.
             clauses = [
                 Q('range', **{'colors.s': {'gt': LOW_SATURATION}}),
-                Q('range', **{'colors.l': {
+                Q('range', **{self.LUMINOSITY_FIELD: {
                     'gt': LOW_LUMINOSITY,
                     'lt': HIGH_LUMINOSITY
                 }}),
@@ -431,14 +437,16 @@ class AddonColorQueryParam(AddonQueryParam):
                 # end up with a range that's impossible to match. Instead we
                 # need to split into 2 queries and match either with a |.
                 clauses.append(
-                    Q('range', **{'colors.h': {'gte': (hsl[0] - 26) % 255}}) |
-                    Q('range', **{'colors.h': {'lte': (hsl[0] + 26) % 255}})
+                    Q('range',
+                      **{self.HUE_FIELD: {'gte': (hsl[0] - 26) % 255}}) |
+                    Q('range',
+                      **{self.HUE_FIELD: {'lte': (hsl[0] + 26) % 255}})
                 )
             else:
                 # If we don't have to wrap around then it's simpler, just need
                 # a single range query between 2 values.
                 clauses.append(
-                    Q('range', **{'colors.h': {
+                    Q('range', **{self.HUE_FIELD: {
                         'gte': hsl[0] - 26,
                         'lte': hsl[0] + 26,
                     }}),
@@ -479,7 +487,7 @@ class SearchQueryFilter(BaseFilterBackend):
         """
         if analyzer is None:
             clause = query.Term(**{
-                'name.raw': {
+                NAME_RAW_FIELD: {
                     '_name': 'Term(name.raw)',
                     'value': search_query, 'boost': 100.0
                 }
@@ -493,7 +501,7 @@ class SearchQueryFilter(BaseFilterBackend):
                 _name=query_name,
                 boost=100.0,
                 queries=[
-                    {'term': {'name.raw': search_query}},
+                    {'term': {NAME_RAW_FIELD: search_query}},
                     {'term': {'name_l10n_%s.raw' % analyzer: search_query}},
                 ]
             )
@@ -826,7 +834,7 @@ class SortingFilter(BaseFilterBackend):
         'created': '-created',
         'downloads': '-weekly_downloads',
         'hotness': '-hotness',
-        'name': 'name.raw',
+        'name': NAME_RAW_FIELD,
         'random': '_score',
         'rating': '-bayesian_rating',
         'relevance': '_score',

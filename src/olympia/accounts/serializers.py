@@ -233,7 +233,7 @@ class UserNotificationSerializer(serializers.Serializer):
             if not enabled:
                 unsubscribe_newsletter(
                     current_user, notification.basket_newsletter_id)
-            elif enabled:
+            else:
                 subscribe_newsletter(
                     current_user, notification.basket_newsletter_id,
                     request=request)
