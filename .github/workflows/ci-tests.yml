@@ -23,6 +23,12 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    env:
+      # docker-compose.ci.yml pulls the official library images from AWS ECR
+      # Public instead of Docker Hub (thunderbird/addons-server#506). Listing
+      # the override file explicitly keeps docker-compose.override.yml in
+      # play, as it would be with no COMPOSE_FILE set.
+      COMPOSE_FILE: docker-compose.yml:docker-compose.override.yml:docker-compose.ci.yml
 
     steps:
       - uses: actions/checkout@v4

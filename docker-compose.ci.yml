@@ -1,0 +1,16 @@
+# CI-only overrides, selected by COMPOSE_FILE in .github/workflows/ci-tests.yml.
+# Docker Hub rate-limits anonymous pulls per source IP and GitHub-hosted runners
+# share address space, so parallel PR runs fail at image pull with 429
+# (thunderbird/addons-server#506). The official library images are mirrored on
+# AWS ECR Public with generous anonymous limits; use those tags here. Same image
+# names and tags as docker-compose.yml, only the registry differs. Local
+# development keeps pulling from Docker Hub via docker-compose.yml.
+services:
+  memcached:
+    image: public.ecr.aws/docker/library/memcached:1.4
+  mysqld:
+    image: public.ecr.aws/docker/library/mysql:8.0
+  redis:
+    image: public.ecr.aws/docker/library/redis:4.0
+  rabbitmq:
+    image: public.ecr.aws/docker/library/rabbitmq:3.7
