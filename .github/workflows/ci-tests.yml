@@ -23,6 +23,12 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    env:
+      # docker-compose.ci.yml pulls the official library images from AWS ECR
+      # Public instead of Docker Hub (thunderbird/addons-server#506). Listing
+      # the override file explicitly keeps docker-compose.override.yml in
+      # play, as it would be with no COMPOSE_FILE set.
+      COMPOSE_FILE: docker-compose.yml:docker-compose.override.yml:docker-compose.ci.yml
 
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +38,80 @@ jobs:
           echo "cpus: $(nproc)"
           free -h
           df -h /
+
+      # Docker Hub rate-limits anonymous pulls per source IP, and GitHub-hosted
+      # runners share address space, so with many PR runs in flight the
+      # compose build and start steps fail with 429 before any test runs
+      # (thunderbird/addons-server#506). Route docker.io pulls through
+      # Google's public read-through mirror, which serves the library images
+      # this stack uses (python, mysql, redis, rabbitmq, memcached) without
+      # the per-IP cap. Images it does not cache fall through to Docker Hub
+      # unchanged. CI only; local development is unaffected.
+      - name: Use the GCR read-through mirror for Docker Hub pulls
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info --format '{{json .RegistryConfig.Mirrors}}'
+
+      # Even ECR Public and the GCR mirror throttle anonymous pulls under our
+      # parallel load, so keep the service images and the Python base image in
+      # the Actions cache, keyed on the compose files. Only a cache miss talks
+      # to a registry, with retries; every other run loads from the tarball.
+      - name: Restore cached images
+        id: imgcache
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/ci-images.tar
+          key: ci-images-v1-${{ hashFiles('docker-compose.yml', 'docker-compose.ci.yml', 'Dockerfile.python3') }}
+
+      - name: Load or pull images
+        run: |
+          set -e
+          if [ -f /tmp/ci-images.tar ]; then
+            docker load -i /tmp/ci-images.tar
+            exit 0
+          fi
+          dockerfile=$(docker compose config --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["services"]["web"]["build"].get("dockerfile","Dockerfile"))')
+          base=$(sed -n 's/^FROM[[:space:]]\+\([^[:space:]]\+\).*/\1/p' "$dockerfile" | head -1)
+          images="$(docker compose config --images | grep -vE '(-|_)(web|worker)$' || true) $base"
+          # For a Docker Hub library image, try the GCR read-through mirror and
+          # ECR Public before Docker Hub itself; everything else goes direct.
+          candidates() {
+            case "$1" in
+              *.*/*|localhost/*) echo "$1" ;;
+              */*) echo "mirror.gcr.io/$1 docker.io/$1" ;;
+              *) echo "mirror.gcr.io/library/$1 public.ecr.aws/docker/library/$1 docker.io/library/$1" ;;
+            esac
+          }
+          for attempt in $(seq 1 12); do
+            missing=0
+            for img in $images; do
+              docker image inspect "$img" >/dev/null 2>&1 && continue
+              got=0
+              for cand in $(candidates "$img"); do
+                if docker pull "$cand" >/dev/null 2>&1; then
+                  [ "$cand" != "$img" ] && docker tag "$cand" "$img"
+                  got=1; echo "pulled $img from $cand"; break
+                fi
+              done
+              [ "$got" = 1 ] || { missing=1; echo "could not pull $img yet"; }
+            done
+            [ "$missing" = 0 ] && break
+            echo "attempt $attempt hit registry limits; sleeping $((attempt * 60))s"; sleep $((attempt * 60))
+          done
+          for img in $images; do docker image inspect "$img" >/dev/null; done
+          docker save -o /tmp/ci-images.tar $images
+          ls -lh /tmp/ci-images.tar
+
+      # Save the tarball as soon as the fill succeeds, even if the tests fail
+      # later in this job, so a red run still seeds the cache for the next.
+      - name: Save cached images
+        if: steps.imgcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/ci-images.tar
+          key: ${{ steps.imgcache.outputs.cache-primary-key }}
 
       - name: Build Docker Compose
         run: docker compose build
