@@ -213,7 +213,7 @@ def test_missing_secret_is_improperly_configured():
     environ['NETAPP_STORAGE_ROOT'] = '/tmp/storage'
     try:
         with patch.dict(os.environ, environ, clear=True), \
-                patch('boto3.client', lambda **kwargs: MissingSecrets()), \
+                patch('boto3.client', return_value=MissingSecrets()), \
                 pytest.raises(ImproperlyConfigured) as exc:
             importlib.import_module('settings_local_k8s')
     finally:
