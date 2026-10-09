@@ -198,7 +198,6 @@ def parse_next_path(state_parts):
         except (TypeError, ValueError):
             log.info('Error decoding next_path {}'.format(
                 encoded_path))
-            pass
     if not is_safe_url(next_path, allowed_hosts=(settings.DOMAIN,)):
         next_path = None
     return next_path
@@ -565,7 +564,7 @@ class AccountSuperCreate(APIView):
             'username': user.username,
             'email': user.email,
             'display_name': user.display_name,
-            'groups': list((g.pk, g.name, g.rules) for g in user.groups.all()),
+            'groups': [(g.pk, g.name, g.rules) for g in user.groups.all()],
             'fxa_id': user.fxa_id,
             'session_cookie': cookie,
         }, status=201)
