@@ -94,7 +94,7 @@ var Highlighter = {
                     break;
 
                 default:
-                    throw new Error('an unexpected fit');
+                    throw 'an unexpected fit';
                 }
             }
         }
@@ -950,7 +950,7 @@ function bind_viewer(nodes) {
         if (e.charCode && !(e.altKey || e.ctrlKey || e.metaKey) &&
                 ![HTMLInputElement, HTMLSelectElement, HTMLTextAreaElement]
                     .some(function (iface) { return e.target instanceof iface })) {
-            buffer += String.fromCodePoint(e.charCode);
+            buffer += String.fromCharCode(e.charCode);
             if (keys.hasOwnProperty(buffer)) {
                 e.preventDefault();
                 keys[buffer].click();

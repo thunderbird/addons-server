@@ -64,7 +64,7 @@
                     keymap[z.keys.ENTER]();
                 }
 
-                var key = String.fromCodePoint(e.which).toLowerCase();
+                var key = String.fromCharCode(e.which).toLowerCase();
 
                 if (!(key in keymap)) {
                     return;
