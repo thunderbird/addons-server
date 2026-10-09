@@ -119,6 +119,7 @@ class TestIndexCommand(ESTestCase):
         class ReindexThread(threading.Thread):
             def __init__(self):
                 self.stdout = six.StringIO()
+                self.exception = None
                 super(ReindexThread, self).__init__()
 
             def run(self):
@@ -126,16 +127,26 @@ class TestIndexCommand(ESTestCase):
                 # name is going to be different, since we already create an
                 # alias in setUpClass.
                 time.sleep(1)
-                management.call_command('reindex', stdout=self.stdout)
+                try:
+                    management.call_command('reindex', stdout=self.stdout)
+                except Exception as exc:
+                    # Keep it for the main thread: without this the command
+                    # dying is only visible as 'Reindexation done' missing
+                    # from stdout further down, which says nothing about why.
+                    self.exception = exc
         t = ReindexThread()
         t.start()
 
         # Wait for the reindex in the thread to flag the database.
         # The database transaction isn't shared with the thread, so force the
         # commit.
+        # Sleep between checks: a tight loop here holds the GIL and starves
+        # the reindex thread, which matters on a busy CI runner where four
+        # xdist workers share the machine.
         while t.is_alive() and not is_reindexing_amo():
             connection._commit()
             connection.clean_savepoints()
+            time.sleep(0.1)
 
         # We should still be able to search in the foreground while the reindex
         # is being done in the background. We should also be able to index new
@@ -153,6 +164,9 @@ class TestIndexCommand(ESTestCase):
                                  'reindexing in the background.')
 
         t.join()  # Wait for the thread to finish.
+        if t.exception is not None:
+            raise AssertionError(
+                'The reindex command raised in its thread: %r' % t.exception)
         t.stdout.seek(0)
         stdout = t.stdout.read()
         assert 'Reindexation done' in stdout, stdout
