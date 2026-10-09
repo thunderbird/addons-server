@@ -12,17 +12,15 @@ z.StatsManager = (function() {
         storageCache    = z.SessionStorage("statscache"),
         dataStore       = {},
         currentView     = {},
-        siteEvents      = [],
-        addonId         = parseInt($(".primary").attr("data-addon_id"), 10),
+        addonId         = Number.parseInt($(".primary").attr("data-addon_id"), 10),
         baseURL         = $(".primary").attr("data-base_url"),
-        pendingFetches  = 0,
         siteEventsEnabled = true,
         writeInterval   = false,
         lookup          = {},
         msDay = 24 * 60 * 60 * 1000; // One day in milliseconds.
 
     // NaN is a poor choice for a storage key
-    if (isNaN(addonId)) addonId = 'globalstats';
+    if (Number.isNaN(addonId)) addonId = 'globalstats';
 
     // It's a bummer, but we need to know which metrics have breakdown fields.
     // check by saying `if (metric in breakdownMetrics)`
@@ -137,37 +135,11 @@ z.StatsManager = (function() {
     }
 
 
-    function annotateData(data, events) {
-        var i, ev, sd, ed;
-        for (i=0; i < events.length; i++) {
-            ev = events[i];
-            if (ev.end) {
-                sd = Date.iso(ev.start);
-                ed = Date.iso(ev.end);
-                forEachISODate({start: sd, end: ed}, '1 day', data, function(row) {
-                    if (row) {
-                        row.event = ev;
-                    }
-                });
-            } else {
-                if (data[ev.start]) {
-                    data[ev.start].event = ev;
-                }
-            }
-        }
-        return data;
-    }
-
-
     // Returns a list of field names for a given data set.
     function getAvailableFields(view) {
         var metric = view.metric,
             range = normalizeRange(view.range),
-            start = range.start,
-            end = range.end,
             ds,
-            row,
-            numRows = 0,
             fields = {};
 
         // Non-breakdown metrics only have one field.
@@ -175,7 +147,7 @@ z.StatsManager = (function() {
         if (!(metric in breakdownMetrics)) return ["count"];
 
         ds = dataStore[metric];
-        if (!ds) throw "Expected metric with valid data!";
+        if (!ds) throw new Error("Expected metric with valid data!");
 
         // Locate all unique fields.
         forEachISODate(range, '1 day', ds, function(row) {
@@ -221,7 +193,7 @@ z.StatsManager = (function() {
 
         function finished() {
             var ds = dataStore[metric],
-                ret = {}, row, firstIndex;
+                ret = {}, firstIndex;
             if (ds) {
                 forEachISODate(range, '1 day', ds, function(row, date) {
                     var d = date.iso();
@@ -288,7 +260,7 @@ z.StatsManager = (function() {
         var groupKey = false,
             groupVal = false,
             groupCount = 0,
-            d, row, firstIndex;
+            firstIndex;
 
         if (group == 'all') {
             groupKey = firstIndex = range.start.iso();
@@ -362,8 +334,8 @@ z.StatsManager = (function() {
                 groupVal.empty = false;
                 groupVal.count += row.count;
                 if (metric == 'contributions') {
-                    groupVal.total += parseFloat(row.total);
-                    groupVal.average += parseFloat(row.average);
+                    groupVal.total += Number.parseFloat(row.total);
+                    groupVal.average += Number.parseFloat(row.average);
                 }
                 if (metric in breakdownMetrics) {
                     _.each(row.data, function(val, field) {
@@ -418,12 +390,11 @@ z.StatsManager = (function() {
                 var ds = dataStore[metric],
                     data = JSON.parse(raw_data);
 
-                var i, datekey;
-                for (i=0; i<data.length; i++) {
-                    datekey = data[i].date;
+                for (const item of data) {
+                    const datekey = item.date;
                     maxdate = String.max(datekey, maxdate);
                     mindate = String.min(datekey, mindate);
-                    ds[datekey] = data[i];
+                    ds[datekey] = item;
                 }
                 ds.maxdate = String.max(maxdate, ds.maxdate);
                 ds.mindate = String.min(mindate, ds.mindate);
@@ -436,7 +407,7 @@ z.StatsManager = (function() {
                 var retry_delay = 30000;
 
                 if (xhr.getResponseHeader("Retry-After")) {
-                    retry_delay = parseInt(xhr.getResponseHeader("Retry-After"), 10) * 1000;
+                    retry_delay = Number.parseInt(xhr.getResponseHeader("Retry-After"), 10) * 1000;
                 }
 
                 setTimeout(function () {
@@ -460,13 +431,13 @@ z.StatsManager = (function() {
             ret = {};
 
         _.each(data, function(val, source) {
-            pretty = $.trim(getPrettyName('sources', source));
+            pretty = getPrettyName('sources', source).trim();
             if (!lookup[pretty]) {
                 lookup[pretty] = source;
             }
             key = lookup[pretty];
             if (!ret[key]) ret[key] = 0;
-            ret[key] += parseFloat(val);
+            ret[key] += Number.parseFloat(val);
         });
         out.data = ret;
         return out;
@@ -491,7 +462,7 @@ z.StatsManager = (function() {
                 if (!ret[key]) {
                     ret[key] = 0;
                 }
-                ret[key] += parseFloat(val);
+                ret[key] += Number.parseFloat(val);
             });
         });
         out.data = ret;

@@ -1,4 +1,4 @@
-var csv_keys = {
+const csv_keys = {
     downloads: {
         "count": gettext('Downloads')
     },
