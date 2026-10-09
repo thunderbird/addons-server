@@ -14,3 +14,10 @@ services:
     image: public.ecr.aws/docker/library/redis:4.0
   rabbitmq:
     image: public.ecr.aws/docker/library/rabbitmq:3.7
+  # The test settings run with SIGNING_SERVER = '' (settings_test.py), nothing
+  # depends_on this service, and the signing tests mock the server, so the
+  # autograph container is not needed in CI. It is the one remaining Docker Hub
+  # image (not an official library image, so not on ECR Public); putting it
+  # behind a profile keeps `docker compose up -d` from pulling it.
+  autograph:
+    profiles: ["signing"]
