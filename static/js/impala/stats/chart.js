@@ -125,12 +125,12 @@
             range   = normalizeRange(view.range),
             start   = range.start,
             end     = range.end,
-            date_range_days = parseInt((end - start) / 1000 / 3600 / 24, 10),
+            date_range_days = Number.parseInt((end - start) / 1000 / 3600 / 24, 10),
             fields  = obj.fields ? obj.fields.slice(0,5) : ['count'],
             series  = {},
             events  = obj.events,
             chartRange = {},
-            t, row, i, field, val,
+            i, field, val,
             is_overview = metric == 'overview' || metric == 'app_overview';
 
         if (!(group in acceptedGroups)) {
@@ -166,15 +166,13 @@
         // Transmute the data into something Highcharts understands.
         start = Date.iso(data.firstIndex);
         z.data = data;
-        var step = '1 ' + group,
-            point,
-            dataSum = 0;
+        var dataSum = 0;
 
         forEachISODate({start: start, end: end}, '1 '+group, data, function(row, d) {
             for (i = 0; i < fields.length; i++) {
                 field = fields[i];
-                val = parseFloat(z.StatsManager.getField(row, field));
-                if (val != val) val = null;
+                val = Number.parseFloat(z.StatsManager.getField(row, field));
+                if (Number.isNaN(val)) val = null;
                 series[field].push(val);
                 if (val) dataSum += val;
             }
@@ -226,7 +224,7 @@
 
         // Set minimum max value for yAxis to prevent duplicate yAxis values.
         var max = 0;
-        for (var key in data) {
+        for (key in data) {
             if (data[key].count > max) {
                 max = data[key].count;
             }
@@ -480,7 +478,7 @@
         // Generate a pretty title for the chart.
         var title;
         if (typeof obj.view.range == 'string') {
-            var numDays = parseInt(obj.view.range, 10);
+            var numDays = Number.parseInt(obj.view.range, 10);
             title = format(csv_keys.chartTitle[metric][0], numDays);
         } else {
             // This is a custom range so display a range shorter by one day.

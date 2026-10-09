@@ -140,13 +140,15 @@ class TestIndexCommand(ESTestCase):
         # Wait for the reindex in the thread to flag the database.
         # The database transaction isn't shared with the thread, so force the
         # commit.
-        # Sleep between checks: a tight loop here holds the GIL and starves
-        # the reindex thread, which matters on a busy CI runner where four
-        # xdist workers share the machine.
+        # No sleep here on purpose: the reindexing flag is only set for the
+        # few milliseconds between flag_database and unflag_database when the
+        # fixture has zero or one add-on, and a 0.1s poll interval misses that
+        # window on most CI runs (thunderbird/addons-server#457). The tight
+        # loop is what the original test relied on; a deterministic
+        # hold-and-release follows separately.
         while t.is_alive() and not is_reindexing_amo():
             connection._commit()
             connection.clean_savepoints()
-            time.sleep(0.1)
 
         # We should still be able to search in the foreground while the reindex
         # is being done in the background. We should also be able to index new
