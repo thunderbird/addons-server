@@ -15,8 +15,7 @@ $(function () {
         itemsPerPage: 3
     });
     (function() {
-        var $document = $(document),
-            $lightbox = $("#lightbox"),
+        var $lightbox = $("#lightbox"),
             $content = $("#lightbox .content"),
             $caption = $("#lightbox .caption span"),
             $previews = $('.previews'),

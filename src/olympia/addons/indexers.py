@@ -383,8 +383,8 @@ class AddonIndexer(BaseSearchIndexer):
 
         data['is_featured'] = obj.is_featured(None, None)
         data['featured_for'] = [
-            {'application': [app], 'locales': list(sorted(
-                locales, key=lambda x: x or ''))}
+            {'application': [app], 'locales': sorted(
+                locales, key=lambda x: x or '')}
             for app, locales in obj.get_featured_by_app().items()]
 
         data['has_eula'] = bool(obj.eula)

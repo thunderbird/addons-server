@@ -1,5 +1,5 @@
 (function() {
-    var $footer = $('#footer'),
+    const $footer = $('#footer'),
         $page = $('#page'),
         $win = $(window);
     function stickyFooter() {
