@@ -48,7 +48,7 @@ def test_cron_jobs_setting():
 
 
 @pytest.mark.static_assets
-def test_compress_assets_command_without_git():
+def test_compress_assets_command_without_git(settings):
     settings.MINIFY_BUNDLES = {
         'css': {'zamboni/css': ['css/legacy/main.css']}}
 

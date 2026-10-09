@@ -50,8 +50,8 @@ class TestTaskTiming(TestCase):
         actual_run_time = self.statsd.timing.call_args[0][1]
 
         fuzz = 2000  # 2 seconds
-        assert (actual_run_time >= (approx_run_time - fuzz) and
-                actual_run_time <= (approx_run_time + fuzz))
+        assert actual_run_time >= (approx_run_time - fuzz)
+        assert actual_run_time <= (approx_run_time + fuzz)
 
         assert self.cache.get.call_args[0][0].startswith('task_start_time')
         assert self.cache.delete.call_args[0][0].startswith('task_start_time')

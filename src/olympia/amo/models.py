@@ -269,10 +269,10 @@ class SearchMixin(object):
 
     @classmethod
     def unindex(cls, id, index=None):
-        id = str(id)
+        doc_id = str(id)
         es = search.get_es()
         try:
-            es.delete(index or cls._get_index(), cls._meta.db_table, id)
+            es.delete(index or cls._get_index(), cls._meta.db_table, doc_id)
         except elasticsearch.TransportError:
             # Item wasn't found, whatevs.
             pass
@@ -408,12 +408,15 @@ class FakeEmail(ModelBase):
         db_table = 'fake_email'
 
 
+PNG_FILE_NAME = '%d.png'
+
+
 class BasePreview(object):
     thumbnail_url_template = 'thumbs/%s/%d.png?modified=%s'
     image_url_template = 'full/%s/%d.png?modified=%s'
-    thumbnail_path_template = ('%s', 'thumbs', '%s', '%d.png')
-    image_path_template = ('%s', 'full', '%s', '%d.png')
-    original_path_template = ('%s', 'original', '%s', '%d.png')
+    thumbnail_path_template = ('%s', 'thumbs', '%s', PNG_FILE_NAME)
+    image_path_template = ('%s', 'full', '%s', PNG_FILE_NAME)
+    original_path_template = ('%s', 'original', '%s', PNG_FILE_NAME)
     media_folder = 'previews'
 
     def _image_url(self, url_template):

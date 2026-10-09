@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core import mail
 from django.core.files.storage import default_storage as storage
 from django.core.mail import EmailMessage
+from django.test.utils import override_settings
 from django.utils import translation
 
 import mock
@@ -40,17 +41,17 @@ class TestSendMail(TestCase):
         with self.assertRaises(ValueError):
             send_mail('subj', 'body', recipient_list=to)
 
+    @override_settings(EMAIL_DENY_LIST=('nobody@mozilla.org',))
     def test_deny(self):
         to = 'nobody@mozilla.org'
-        settings.EMAIL_DENY_LIST = (to,)
         success = send_mail('test subject', 'test body', recipient_list=[to])
 
         assert success
         assert len(mail.outbox) == 0
 
+    @override_settings(EMAIL_DENY_LIST=('nobody@mozilla.org',))
     def test_deny_flag(self):
         to = 'nobody@mozilla.org'
-        settings.EMAIL_DENY_LIST = (to,)
         success = send_mail('test subject', 'test body',
                             recipient_list=[to], use_deny_list=True)
         assert success
@@ -230,7 +231,7 @@ class TestSendMail(TestCase):
     def test_send_multilines_subjects(self):
         send_mail('test\nsubject', 'test body', from_email='a@example.com',
                   recipient_list=['b@example.com'])
-        assert 'test subject' == mail.outbox[0].subject, 'Subject not stripped'
+        assert mail.outbox[0].subject == 'test subject', 'Subject not stripped'
 
     def test_autoresponse_headers(self):
         send_mail('subject', 'test body', from_email='a@example.com',

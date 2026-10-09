@@ -289,10 +289,10 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
                     'acct-notify')
             for recipient in white_list:
                 # Add unsubscribe link to footer.
-                token, hash = UnsubscribeCode.create(recipient)
+                token, code_hash = UnsubscribeCode.create(recipient)
                 unsubscribe_url = absolutify(
                     reverse('users.unsubscribe',
-                            args=[token, hash, perm_setting.short],
+                            args=[token, code_hash, perm_setting.short],
                             add_prefix=False))
 
                 context = {
@@ -590,7 +590,7 @@ def image_size(filename):
     return size
 
 
-def pngcrush_image(src, **kw):
+def pngcrush_image(src):
     """
     Optimizes a PNG image by running it through Pngcrush.
     """
@@ -611,7 +611,7 @@ def pngcrush_image(src, **kw):
         cmd = [settings.PNGCRUSH_BIN, '-q', '-reduce', '-ow', src, tmp_path]
         process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
+        _, stderr = process.communicate()
 
         if process.returncode != 0:
             log.error('Error optimizing image: %s; %s' % (src, stderr.strip()))
@@ -694,8 +694,8 @@ class ImageCheck(object):
                 if not chunk:
                     break
                 data += chunk
-                acTL, IDAT = data.find(b'acTL'), data.find(b'IDAT')
-                if acTL > -1 and acTL < IDAT:
+                actl, idat = data.find(b'acTL'), data.find(b'IDAT')
+                if actl > -1 and actl < idat:
                     return True
             return False
         elif self.img.format == 'GIF':
@@ -873,9 +873,7 @@ class LocalFileStorage(FileSystemStorage):
                 # Try/except to prevent race condition raising "File exists".
                 os.makedirs(parent)
             except OSError as e:
-                if e.errno == errno.EEXIST and os.path.isdir(parent):
-                    pass
-                else:
+                if not (e.errno == errno.EEXIST and os.path.isdir(parent)):
                     raise
         return super(LocalFileStorage, self)._open(name, mode=mode)
 
@@ -896,7 +894,7 @@ def attach_trans_dict(model, objs):
     # consume the result of sorted_groupby, which is an iterator.
     qs = Translation.objects.filter(id__in=ids, localized_string__isnull=False)
     all_translations = {
-        field_id: sorted(list(translations), key=lambda t: t.locale)
+        field_id: sorted(translations, key=lambda t: t.locale)
         for field_id, translations in sorted_groupby(qs, lambda t: t.id)
     }
 
@@ -1056,10 +1054,10 @@ class StopWatch():
         self.prefix = label_prefix
 
     def start(self):
-        self._timestamp = datetime.datetime.utcnow()
+        self._timestamp = datetime.datetime.now(datetime.timezone.utc)
 
     def log_interval(self, label):
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         statsd.timing(self.prefix + label, now - self._timestamp)
         log.debug(
             "%s: %s", self.prefix + label, now - self._timestamp)

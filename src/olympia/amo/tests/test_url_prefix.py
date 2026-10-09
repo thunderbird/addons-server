@@ -227,39 +227,30 @@ def test_redirect():
     assert redirect['Location'] == '/en-US/firefox/'
 
 
-def test_outgoing_url():
-    redirect_url = settings.REDIRECT_URL
-    secretkey = settings.REDIRECT_SECRET_KEY
-    exceptions = settings.REDIRECT_URL_ALLOW_LIST
+def test_outgoing_url(settings):
     settings.REDIRECT_URL = 'http://example.net'
     settings.REDIRECT_SECRET_KEY = 'sekrit'
     settings.REDIRECT_URL_ALLOW_LIST = ['nicedomain.com']
 
-    try:
-        myurl = 'http://example.com'
-        s = urlresolvers.get_outgoing_url(myurl)
+    myurl = 'http://example.com'
+    s = urlresolvers.get_outgoing_url(myurl)
 
-        # Regular URLs must be escaped.
-        assert s == (
-            'http://example.net/bc7d4bb262c9f0b0f6d3412ede7d3252c2e311bb1d55f6'
-            '2315f636cb8a70913b/'
-            'http%3A//example.com')
+    # Regular URLs must be escaped.
+    assert s == (
+        'http://example.net/bc7d4bb262c9f0b0f6d3412ede7d3252c2e311bb1d55f6'
+        '2315f636cb8a70913b/'
+        'http%3A//example.com')
 
-        # No double-escaping of outgoing URLs.
-        s2 = urlresolvers.get_outgoing_url(s)
-        assert s == s2
+    # No double-escaping of outgoing URLs.
+    s2 = urlresolvers.get_outgoing_url(s)
+    assert s == s2
 
-        evil = settings.REDIRECT_URL.rstrip('/') + '.evildomain.com'
-        s = urlresolvers.get_outgoing_url(evil)
-        assert s != evil  # 'No subdomain abuse of double-escaping protection.'
+    evil = settings.REDIRECT_URL.rstrip('/') + '.evildomain.com'
+    s = urlresolvers.get_outgoing_url(evil)
+    assert s != evil  # 'No subdomain abuse of double-escaping protection.'
 
-        nice = 'http://nicedomain.com/lets/go/go/go'
-        assert nice == urlresolvers.get_outgoing_url(nice)
-
-    finally:
-        settings.REDIRECT_URL = redirect_url
-        settings.REDIRECT_SECRET_KEY = secretkey
-        settings.REDIRECT_URL_ALLOW_LIST = exceptions
+    nice = 'http://nicedomain.com/lets/go/go/go'
+    assert urlresolvers.get_outgoing_url(nice) == nice
 
 
 def test_outgoing_url_dirty_unicode():
@@ -268,7 +259,7 @@ def test_outgoing_url_dirty_unicode():
     urlresolvers.get_outgoing_url(bad)  # bug 564057
 
 
-def test_outgoing_url_query_params():
+def test_outgoing_url_query_params(settings):
     if not getattr(settings, 'REDIRECT_URL', None):
         settings.REDIRECT_URL = 'https://outgoing.prod.mozaws.net/v1/'
 
@@ -286,7 +277,7 @@ def test_outgoing_url_query_params():
     assert fixed.endswith('%3A//xx.com%3Fq=1&v=2%22%20style=%22123%22'), fixed
 
 
-def test_outgoing_url_javascript_scheme():
+def test_outgoing_url_javascript_scheme(settings):
     if not getattr(settings, 'REDIRECT_URL', None):
         settings.REDIRECT_URL = 'https://outgoing.prod.mozaws.net/v1/'
 

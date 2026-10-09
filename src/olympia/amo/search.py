@@ -264,7 +264,7 @@ class ES(object):
         aggregations = {}
         raw_aggregations = self.raw_aggregations()
         for key, val in raw_aggregations.items():
-            aggregations[key] = [v for v in val['buckets']]
+            aggregations[key] = list(val['buckets'])
         return aggregations
 
 
@@ -302,7 +302,7 @@ class ListSearchResults(SearchResults):
         # When fields are specified in `values(...)` we return the fields.
         objs = []
         for hit in hits:
-            objs.append(tuple(v for v in hit['_source'].values()))
+            objs.append(tuple(hit['_source'].values()))
 
         self.objects = objs
 
@@ -314,5 +314,5 @@ class ObjectSearchResults(SearchResults):
         self.objects = self.type.objects.filter(id__in=self.ids)
 
     def __iter__(self):
-        objs = dict((obj.id, obj) for obj in self.objects)
+        objs = {obj.id: obj for obj in self.objects}
         return (objs[id] for id in self.ids if id in objs)
