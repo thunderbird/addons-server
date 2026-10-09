@@ -63,7 +63,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/ci-images.tar
-          key: ci-images-v1-${{ hashFiles('docker-compose.yml', 'docker-compose.ci.yml', 'Dockerfile') }}
+          key: ci-images-v1-${{ hashFiles('docker-compose.yml', 'docker-compose.ci.yml', 'Dockerfile.python3') }}
 
       - name: Load or pull images
         run: |
@@ -72,8 +72,9 @@ jobs:
             docker load -i /tmp/ci-images.tar
             exit 0
           fi
-          base=$(sed -n 's/^FROM[[:space:]]\+\([^[:space:]]\+\).*/\1/p' Dockerfile | head -1)
-          images="$(docker compose config --images | grep -v '^atn\|^addons\|_web$\|_worker$' || true) $base"
+          dockerfile=$(docker compose config --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["services"]["web"]["build"].get("dockerfile","Dockerfile"))')
+          base=$(sed -n 's/^FROM[[:space:]]\+\([^[:space:]]\+\).*/\1/p' "$dockerfile" | head -1)
+          images="$(docker compose config --images | grep -vE '(-|_)(web|worker)$' || true) $base"
           for attempt in 1 2 3 4 5 6; do
             ok=1
             for img in $images; do
