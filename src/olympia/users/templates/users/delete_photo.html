@@ -4,7 +4,7 @@
 
 {% block content %}
 
-<div class="primary" role="main">
+<main class="primary">
   <div class="primary island">
     <h1>{{ _('Delete User Photo') }}</h1>
     <form method="post" action="{{ url('users.delete_photo', target_user.id) }}"
@@ -15,6 +15,6 @@
       </div>
     </form>
   </div>
-</div>{# .primary #}
+</main>{# .primary #}
 
 {% endblock content %}

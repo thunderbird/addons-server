@@ -20,7 +20,7 @@
 <h1 class="fn n">{{ profile.name }}</h1>
 
 <div class="island c">
-  <aside class="secondary user-avatar" data-user-id="{{ profile.id }}">
+  <aside class="secondary user-avatar" data-user-id="{{ profile.id }}" aria-label="{{ _('Profile') }}">
     <img class="avatar" src="{{ profile.picture_url }}"
          alt="{% if not profile.picture_type %}{{ _('No Photo') }}{% endif %}">
     {% if profile.is_addon_developer %}
@@ -64,7 +64,7 @@
 {% endif %}
 
 {% if own_coll or fav_coll %}
-<aside class="secondary" id="my-collections">
+<aside class="secondary" id="my-collections" aria-label="{{ _('My Collections') }}">
   <div class="island">
     <h2>{{ _('My Collections') }}</h2>
     {{ user_collection_list(heading=_('Created by Me'), collections=own_coll,
