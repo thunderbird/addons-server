@@ -12,12 +12,13 @@ from olympia.reviewers.models import AutoApprovalSummary, ReviewerScore
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures('freeze_date')
 class TestReviewReports(object):
 
     # Dates are chosen on purpose:
     # 2019-01-07: part of the reported week is previous quarter (year even)
     # 2019-01-14: back to reported week being within the quarter
-    @pytest.fixture(autouse=True, params=['2019-01-07', '2019-01-14'])
+    @pytest.fixture(params=['2019-01-07', '2019-01-14'])
     def freeze_date(self, request):
         freezer = freeze_time(request.param)
         freezer.start()
