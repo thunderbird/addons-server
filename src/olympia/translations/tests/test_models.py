@@ -14,7 +14,7 @@ from django.utils.functional import lazy
 import jinja2
 import pytest
 
-from mock import patch
+from mock import Mock, patch
 from pyquery import PyQuery as pq
 
 from olympia.amo.models import use_primary_db
@@ -492,7 +492,7 @@ class TranslationMultiDbTests(TransactionTestCase):
         assert len(connections['default'].queries) == 2
 
     @override_settings(DEBUG=True)
-    @patch('multidb.get_replica', lambda: 'slave-2')
+    @patch('multidb.get_replica', new=Mock(return_value='slave-2'))
     def test_translations_reading_from_multiple_db(self):
         with patch.object(django.db.connections, 'databases', self.mocked_dbs):
             # Make sure we are in a clean environnement.
@@ -504,7 +504,7 @@ class TranslationMultiDbTests(TransactionTestCase):
             assert len(connections['slave-2'].queries) == 2
 
     @override_settings(DEBUG=True)
-    @patch('multidb.get_replica', lambda: 'slave-2')
+    @patch('multidb.get_replica', new=Mock(return_value='slave-2'))
     @pytest.mark.xfail(
         reason='Needs django-queryset-transform patch to work. See '
                'thunderbird/addons-server#446.')
@@ -519,7 +519,7 @@ class TranslationMultiDbTests(TransactionTestCase):
             assert len(connections['slave-2'].queries) == 0
 
     @override_settings(DEBUG=True)
-    @patch('multidb.get_replica', lambda: 'slave-2')
+    @patch('multidb.get_replica', new=Mock(return_value='slave-2'))
     def test_translations_reading_from_multiple_db_pinning(self):
         with patch.object(django.db.connections, 'databases', self.mocked_dbs):
             # Make sure we are in a clean environnement.
