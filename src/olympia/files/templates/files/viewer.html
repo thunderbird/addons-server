@@ -83,47 +83,47 @@
 
                 <table id="commands">
                   <tr id="files-up">
-                    <th><code title="{{ _('Up file') }}">k</code></th>
+                    <th scope="row"><code title="{{ _('Up file') }}">k</code></th>
                     <td><a href="#" class="command">{{ _('Up file') }}</a></td>
                   </tr>
 
                   <tr id="files-down">
-                    <th><code title="{{ _('Down file') }}">j</code></th>
+                    <th scope="row"><code title="{{ _('Down file') }}">j</code></th>
                     <td><a href="#" class="command">{{ _('Down file') }}</a></td>
                   </tr>
 
                   <tr id="files-change-prev">
                     {% if diff %}
-                      <th><code title="{{ _('Previous diff') }}">p</code></th>
+                      <th scope="row"><code title="{{ _('Previous diff') }}">p</code></th>
                       <td><a href="#" class="command">{{ _('Previous diff') }}</a></td>
                     {% else %}
-                      <th><code title="{{ _('Previous note') }}">p</code></th>
+                      <th scope="row"><code title="{{ _('Previous note') }}">p</code></th>
                       <td><a href="#" class="command">{{ _('Previous note') }}</a></td>
                     {% endif %}
                   </tr>
 
                   <tr id="files-change-next">
                     {% if diff %}
-                      <th><code title="{{ _('Next diff') }}">n</code></th>
+                      <th scope="row"><code title="{{ _('Next diff') }}">n</code></th>
                       <td><a href="#" class="command">{{ _('Next diff') }}</a></td>
                     {% else %}
-                      <th><code title="{{ _('Next note') }}">n</code></th>
+                      <th scope="row"><code title="{{ _('Next note') }}">n</code></th>
                       <td><a href="#" class="command">{{ _('Next note') }}</a></td>
                     {% endif %}
                   </tr>
 
                   <tr id="files-expand-all">
-                    <th><code title="{{ _('Expand all') }}">e</code></th>
+                    <th scope="row"><code title="{{ _('Expand all') }}">e</code></th>
                     <td><a href="#" class="command">{{ _('Expand all') }}</a></td>
                   </tr>
 
                   <tr id="files-hide">
-                    <th><code title="{{ _('Hide or unhide tree') }}">h</code></th>
+                    <th scope="row"><code title="{{ _('Hide or unhide tree') }}">h</code></th>
                     <td><a href="#" class="command">{{ _('Hide or unhide tree') }}</a></td>
                   </tr>
 
                   <tr id="files-wrap">
-                    <th><code title="{{ _('Wrap or unwrap text') }}">w</code></th>
+                    <th scope="row"><code title="{{ _('Wrap or unwrap text') }}">w</code></th>
                     <td><a href="#" class="command">{{ _('Wrap or unwrap text') }}</a></td>
                   </tr>
 
