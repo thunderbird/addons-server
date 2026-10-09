@@ -120,7 +120,8 @@ class TranslationSerializerField(fields.Field):
         if requested_language:
             single = self.fetch_single_translation(obj, source, field,
                                                    requested_language)
-            return list(single.values())[0] if single and self.flat else single
+            return (next(iter(single.values()))
+                    if single and self.flat else single)
         else:
             return self.fetch_all_translations(obj, source, field)
 
@@ -212,7 +213,7 @@ class ESTranslationSerializerField(TranslationSerializerField):
         translation = self.fetch_single_translation(
             obj, target_name, target_translations, get_language())
         if translation:
-            locale, value = list(translation.items())[0]
+            locale, value = next(iter(translation.items()))
             translation = Translation(localized_string=value, locale=locale)
         setattr(obj, target_name, translation)
 

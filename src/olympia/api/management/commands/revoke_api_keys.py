@@ -26,7 +26,6 @@ class Command(BaseCommand):
                 if apikey.secret != secret:
                     self.stdout.write(
                         'Ignoring APIKey {}, secret differs.\n'.format(key))
-                    continue
                 else:
                     with transaction.atomic():
                         apikey.update(is_active=None)
