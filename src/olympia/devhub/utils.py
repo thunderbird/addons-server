@@ -32,7 +32,10 @@ def process_validation(validation, is_compatibility=False, file_hash=None,
                        channel=amo.RELEASE_CHANNEL_LISTED):
     """Process validation results into the format expected by the web
     frontend, including transforming certain fields into HTML,  mangling
-    compatibility messages, and limiting the number of messages displayed."""
+    compatibility messages, and limiting the number of messages displayed.
+
+    file_hash is accepted but currently unused; kept for caller API
+    compatibility."""
     validation = fix_addons_linter_output(validation, channel=channel)
 
     # Secondly remove any privileged errors
@@ -171,7 +174,7 @@ def fix_addons_linter_output(validation, channel):
     def _merged_messages():
         for type_ in ('errors', 'notices', 'warnings'):
             for msg in validation[type_]:
-                # FIXME: Remove `uid` once addons-linter generates it
+                # Known issue: remove `uid` once addons-linter generates it
                 msg['uid'] = uuid.uuid4().hex
                 msg['type'] = msg.pop('_type')
                 msg['id'] = [msg.pop('code')]
@@ -270,15 +273,12 @@ class Validator(object):
                        amo.RELEASE_CHANNEL_UNLISTED)
             save = tasks.handle_upload_validation_result
             is_mozilla_signed = False
-            is_experiment = False
 
             # We're dealing with a bare file upload. Try to extract the
             # metadata that we need to match it against a previous upload
             # from the file itself.
             try:
                 addon_data = parse_addon(file_, minimal=True)
-                is_webextension = addon_data.get('is_webextension', False) # Double check
-                is_experiment = addon_data.get('is_experiment', False) # Double check
                 is_mozilla_signed = addon_data.get(
                     'is_mozilla_signed_extension', False)
             except ValidationError as form_error:
@@ -419,9 +419,9 @@ def extract_theme_properties(addon, channel):
         return {}
     theme_props = parsed_data.get('theme', {})
     # pre-process colors to convert chrome style colors and strip spaces
-    theme_props['colors'] = dict(
+    theme_props['colors'] = {k: v for k, v in (
         process_color_value(prop, color)
-        for prop, color in theme_props.get('colors', {}).items())
+        for prop, color in theme_props.get('colors', {}).items())}
     return theme_props
 
 

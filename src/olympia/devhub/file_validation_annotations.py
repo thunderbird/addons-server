@@ -31,7 +31,8 @@ def insert_validation_message(results, type_='error', message='', msg_id='',
     results['success'] = not results['errors']
 
 
-def annotate_legacy_addon_restrictions(path, results, parsed_data, error=True):
+def annotate_legacy_addon_restrictions(path, results, _parsed_data,
+                                       error=True):
     """
     Annotate validation results to restrict uploads of legacy
     (non-webextension) add-ons.
@@ -86,7 +87,7 @@ def annotate_webext_incompatibilities(results, file_, addon, version_string,
         return results
 
     is_webextension = results['metadata'].get('is_webextension', False)
-    was_webextension = previous_version and previous_version.is_webextension
+    was_webextension = previous_version.is_webextension
 
     if is_webextension and not was_webextension:
         results['is_upgrade_to_webextension'] = True
@@ -272,7 +273,7 @@ def annotate_search_plugin_validation(results, file_path, channel):
                     'include a template attribute.'])
         else:
             url_template = url.attributes['template'].value
-            if url_template[:4] != 'http':
+            if not url_template.startswith('http'):
                 insert_validation_message(
                     results,
                     message=(

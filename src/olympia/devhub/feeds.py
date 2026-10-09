@@ -54,4 +54,4 @@ class ActivityFeedRSS(Feed):
         return self.link()
 
     def item_guid(self):
-        pass
+        pass  # Intentionally blank: no guid, Django falls back to item_link.
