@@ -14,7 +14,7 @@ data-default-locale="{{ request.LANG|lower }}"
 
 {% block content %}
 {% include 'users/includes/navigation.html' %}
-<div id="user_edit" class="primary prettyform grid" role="main">
+<main id="user_edit" class="primary prettyform grid">
   {% if not user.display_name %}
     <div class="notification-box error anonymous">
       <h2>{{ _('Please set your display name') }}</h2>
@@ -189,5 +189,5 @@ data-default-locale="{{ request.LANG|lower }}"
       </p>
     </div>{# /.tab-wrapper #}
   </form>
-</div>{# /.primary #}
+</main>{# /.primary #}
 {% endblock content %}
