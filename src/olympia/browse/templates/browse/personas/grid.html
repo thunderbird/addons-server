@@ -1,7 +1,7 @@
 {% extends "browse/personas/base.html" %}
 
 {% block content %}
-<div class="primary" role="main">
+<main class="primary">
   <header>
     <h2>{{ title }}</h2>
   </header>
@@ -20,6 +20,6 @@
       {% endif %}
     </div>
   </div>
-</div>
+</main>
 {{ persona_categories() }}
 {% endblock content %}

@@ -24,7 +24,7 @@
 {% endblock rss_feed %}
 
 {% block content %}
-<div class="primary" role="main">
+<main class="primary">
   <header>
     {% if category %}
       <hgroup>
@@ -50,9 +50,9 @@
       </div>
     </div>
   </div>
-</div>
+</main>
 
-<div class="secondary" role="complementary">
+<aside class="secondary">
   {% if APP == amo.FIREFOX %}
     <div id="search-tools-sidebar" class="other-categories highlight">
       <hgroup>
@@ -94,5 +94,5 @@
       </li>
     </ul>
   </div>
-</div>
+</aside>
 {% endblock %}
