@@ -411,7 +411,6 @@ class ReviewerScore(ModelBase):
         namespace = 'riscore'
         if not key:  # Assuming we're invalidating the namespace.
             cache_ns_key(namespace, invalidate)
-            return
         else:
             # Using cache_ns_key so each cache val is invalidated together.
             ns_key = cache_ns_key(namespace, invalidate)
@@ -576,9 +575,9 @@ class ReviewerScore(ModelBase):
         if val is not None:
             return val
 
-        val = list(ReviewerScore.objects.filter(user=user)
-                                        .aggregate(total=Sum('score'))
-                                        .values())[0]
+        val = next(iter(ReviewerScore.objects.filter(user=user)
+                                             .aggregate(total=Sum('score'))
+                                             .values()))
         if val is None:
             val = 0
 
