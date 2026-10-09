@@ -19,7 +19,7 @@
     </p>
   {% endif %}
 
-  <h3>{{ _('Upload Version') }}</h3>
+  <h3 id="upload-addon-heading">{{ _('Upload Version') }}</h3>
   <p>
   {% trans %}
     Use the fields below to upload your add-on package. After upload, a series
@@ -31,7 +31,7 @@
   <div class="hidden">
     {{ new_addon_form.upload }}
   </div>
-  <input type="file" id="upload-addon"
+  <input type="file" id="upload-addon" aria-labelledby="upload-addon-heading"
   {% if addon %}
       data-upload-url="{{ url('devhub.upload_for_version', addon.slug, channel_param) }}"
   {% else %}

@@ -22,13 +22,13 @@
     {% endif %}
 
     <div>
-        <h3>{{ _('Theme name') }}<span class="req" title="{{ _('required') }}">*</span></h3>
+        <h3 id="theme-name-heading">{{ _('Theme name') }}<span class="req" title="{{ _('required') }}">*</span></h3>
         {% if addon %}
           <input type="hidden" id="theme-name" value="{{ addon.name }}"/>
           {{ addon.name }}
       </ul>
         {% else %}
-          <input type="text" id="theme-name"/>
+          <input type="text" id="theme-name" aria-labelledby="theme-name-heading"/>
         {% endif %}
     </div>
     <div id="theme-header" class="row" data-existing-header="{{ existing_properties.get('images', {}).get('headerURL','') }}">
