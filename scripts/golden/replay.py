@@ -11,8 +11,9 @@ and tuned without sending the requests again.
 Production safety (not configurable downwards):
     - Any host that does not look like a stage/dev/local host is treated as
       production and capped at 2 requests per second.
-    - The run stops at the first 5xx from a production host, and after 5
-      consecutive transport errors against one.
+    - The cap is per hostname, shared across targets and services.
+    - The run stops at the first 5xx or 429 from a production host, and
+      after 5 consecutive transport errors against one.
     Use --resume to continue an interrupted run into the same output file.
 
 Standard library only. Example (the first run, prod vs Fargate stage):
@@ -142,18 +143,30 @@ class TLSNameHandler(urllib.request.HTTPSHandler):
         return self.do_open(conn, req, context=self._context)
 
 
+class Limiters:
+    """One rate limiter per hostname, shared by every target and service, so
+    two base URLs on the same production host share its 2 rps budget."""
+
+    def __init__(self, rps):
+        self.rps = rps
+        self.by_host = {}
+
+    def get(self, base):
+        host = (urlsplit(base).hostname or '').lower()
+        if host not in self.by_host:
+            rps = min(self.rps, PROD_MAX_RPS) if is_production(base) \
+                else self.rps
+            self.by_host[host] = RateLimiter(rps)
+        return self.by_host[host]
+
+
 class Target:
-    def __init__(self, label, bases, tls_names, rps, timeout):
+    def __init__(self, label, bases, tls_names, limiters, timeout):
         self.label = label
         self.bases = bases
         self.timeout = timeout
-        self.limiters = {}
-        self.prod = {}
-        for service, base in bases.items():
-            prod = is_production(base)
-            self.prod[service] = prod
-            self.limiters[service] = RateLimiter(
-                min(rps, PROD_MAX_RPS) if prod else rps)
+        self.limiters = {s: limiters.get(b) for s, b in bases.items()}
+        self.prod = {s: is_production(b) for s, b in bases.items()}
         self.opener = urllib.request.build_opener(
             NoRedirect, TLSNameHandler(tls_names))
 
@@ -293,14 +306,16 @@ def build_targets(args):
     for item in args.tls_name:
         host, _, name = item.partition('=')
         tls_names[host] = name
+    limiters = Limiters(args.rps)
     targets = {}
     for side in ('a', 'b'):
         bases = {s: getattr(args, '%s_%s' % (side, s)).rstrip('/')
                  for s in ('versioncheck', 'services')}
-        targets[side] = Target(side.upper(), bases, tls_names, args.rps,
+        targets[side] = Target(side.upper(), bases, tls_names, limiters,
                                args.timeout)
         for service, base in bases.items():
-            note = ('  [production: <= %s rps, stop on 5xx]' % PROD_MAX_RPS
+            note = ('  [production: <= %s rps per host, stop on 5xx/429]'
+                    % PROD_MAX_RPS
                     if targets[side].prod[service] else '')
             print('target %s %-12s %s%s' % (side.upper(), service, base,
                                             note), file=sys.stderr)
@@ -308,7 +323,8 @@ def build_targets(args):
 
 
 class ProductionGuard:
-    """Stops the run on a production 5xx or repeated transport errors."""
+    """Stops the run on a production 5xx or 429, or repeated transport
+    errors."""
 
     def __init__(self, targets):
         self.targets = targets
@@ -322,7 +338,7 @@ class ProductionGuard:
             result = rec[side]
             if 'error' not in result:
                 self.transport_errors[side] = 0
-                if result['status'] >= 500:
+                if result['status'] >= 500 or result['status'] == 429:
                     return ('production target %s returned %d for %s'
                             % (target.label, result['status'], rec['url']))
                 continue

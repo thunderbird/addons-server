@@ -59,14 +59,19 @@ TIMESTAMP = re.compile(
     r'|\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT')
 REQUEST_ID = re.compile(r'(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])')
 
-# Dict keys that are data rather than schema: locales, add-on guids, ids and
-# application names (categories and compatibility are keyed by app).
-LOCALE_KEY = re.compile(r'^[a-z]{2,3}([-_][A-Za-z0-9]{2,8})*$')
-DATA_KEY = re.compile(r'[@{}]|^\d+$')
+# Objects whose keys are data rather than schema:
+#   - application names (compatibility, categories)
+#   - add-on guids and numeric ids (versioncheck's addons{} map)
+#   - locales, but only under a translated field, as declared by the
+#     *TranslationSerializerField fields in src/olympia/*/serializers.py
 APP_KEYS = {'android', 'firefox', 'seamonkey', 'thunderbird'}
-# Short schema field names that would otherwise pass as locale codes.
-SCHEMA_WORDS = {'alt', 'app', 'id', 'is', 'key', 'max', 'min', 'src', 'tag',
-                'url'}
+ID_KEY = re.compile(r'^(\d+|\{[0-9A-Fa-f-]+\}|[^@\s]+@[^@\s]+)$')
+LOCALE_KEY = re.compile(r'^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
+TRANSLATED_FIELDS = {
+    'caption', 'description', 'developer_comments', 'eula', 'homepage',
+    'name', 'notes', 'privacy_policy', 'release_notes', 'summary',
+    'support_email', 'support_url', 'text',
+}
 
 # Fields the server includes or omits depending on the row, so presence on
 # one side only is data drift. services/update.py: 'addons' is absent ({})
@@ -104,21 +109,19 @@ def scrub(text, site_hosts):
     return REQUEST_ID.sub('<request-id>', text)
 
 
-def is_data_key(key):
-    return (key in APP_KEYS or bool(DATA_KEY.search(key))
-            or (bool(LOCALE_KEY.match(key)) and key not in SCHEMA_WORDS))
+def field_name(path):
+    """Last field in a generalized path: 'results[].license.name' -> 'name'."""
+    return path.rsplit('.', 1)[-1].replace('[]', '').replace('{}', '')
 
 
-def is_data_map(a, b):
+def is_data_map(path, a, b):
     keys = set(a) | set(b)
     if not keys:
         return False
-    if all(is_data_key(k) for k in keys):
+    if keys <= APP_KEYS or all(ID_KEY.match(k) for k in keys):
         return True
-    # A translations object may include locales that are also schema words
-    # ('id' is Indonesian); a region-qualified key marks it as locales.
-    return (all(LOCALE_KEY.match(k) for k in keys)
-            and any('-' in k or '_' in k for k in keys))
+    return (field_name(path) in TRANSLATED_FIELDS
+            and all(LOCALE_KEY.match(k) for k in keys))
 
 
 def type_name(value):
@@ -138,7 +141,7 @@ def compare_values(a, b, path, findings):
     aggregates, e.g., results[].current_version.files[].hash.
     """
     if isinstance(a, dict) and isinstance(b, dict):
-        if is_data_map(a, b):
+        if is_data_map(path, a, b):
             compare_data_maps(a, b, path + '{}', findings)
         else:
             compare_objects(a, b, path, findings)
@@ -244,52 +247,70 @@ def parse_body(side, site_hosts):
     return ctype, 'text', body
 
 
-def status_findings(a, b, findings):
-    """Record transport, 5xx and status differences; True if decided."""
+def error_findings(a, b, findings):
+    """Record transport errors and 5xx; True if either side has one."""
     for label, side in (('A', a), ('B', b)):
         if 'error' in side:
             findings.add('error', 'transport error on %s' % label)
         elif side['status'] >= 500:
             findings.add('error', '%d on %s' % (side['status'], label))
-    if findings.items:
-        return True
-    if a['status'] == b['status']:
-        return False
+    return bool(findings.items)
+
+
+def status_findings(a, b, findings):
     if {a['status'], b['status']} == {200, 404}:
         findings.add('data', 'only %s has the object (200 vs 404)'
                      % ('A' if a['status'] == 200 else 'B'))
     else:
         findings.add('behavioral', 'status %d -> %d'
                      % (a['status'], b['status']))
-    return True
 
 
-def body_findings(a, b, site_hosts, findings):
-    ca, fa, va = parse_body(a, site_hosts)
-    cb, fb, vb = parse_body(b, site_hosts)
+def format_findings(pa, pb, findings):
+    """Compare content type and body format; True if the formats match."""
+    (ca, fa, _), (cb, fb, _) = pa, pb
     if ca != cb:
         findings.add('behavioral', 'content-type %s -> %s' % (ca, cb))
     if fa != fb:
         findings.add('behavioral', 'body format %s -> %s' % (fa, fb))
-    elif fa in ('json', 'xml'):
+    return fa == fb
+
+
+def body_findings(status, pa, pb, findings):
+    _, fmt, va = pa
+    _, _, vb = pb
+    if fmt in ('json', 'xml'):
         compare_values(va, vb, '', findings)
     elif va != vb:
-        findings.add('behavioral' if a['status'] < 400 else 'data',
-                     '%s body differs' % fa)
+        findings.add('behavioral' if status < 400 else 'data',
+                     '%s body differs' % fmt)
+
+
+def is_redirect(side):
+    return 300 <= side['status'] < 400
 
 
 def classify(rec, site_hosts):
     findings = Findings()
     a, b = rec['a'], rec['b']
-    if status_findings(a, b, findings):
+    if error_findings(a, b, findings):
         return findings
-    if 300 <= a['status'] < 400:
+    pa, pb = parse_body(a, site_hosts), parse_body(b, site_hosts)
+    if a['status'] != b['status']:
+        status_findings(a, b, findings)
+        # A 404 that is HTML on one side and JSON on the other is still a
+        # protocol change, even though the missing object itself is data.
+        if not (is_redirect(a) or is_redirect(b)):
+            format_findings(pa, pb, findings)
+        return findings
+    if is_redirect(a):
         la = scrub(a.get('location') or '', site_hosts)
         lb = scrub(b.get('location') or '', site_hosts)
         if la != lb:
             findings.add('behavioral', 'redirect location differs')
         return findings
-    body_findings(a, b, site_hosts, findings)
+    if format_findings(pa, pb, findings):
+        body_findings(a['status'], pa, pb, findings)
     return findings
 
 

@@ -51,7 +51,10 @@ mkdir -p /tmp/golden && cd /tmp/golden
 python3 $REPO/scripts/golden/sample.py --profile mzla-tb-legacy --end 2026-09-25 --days 7 --files-per-hour 3
 ```
 
-Without `--out` this rewrites `$REPO/scripts/golden/samples/`.
+Without `--out` this rewrites `$REPO/scripts/golden/samples/`. If the window
+or `--files-per-hour` (default 3) differs from `samples/manifest.json`, the
+script refuses before reading any logs. Pass `--replace` to make a new
+reference sample on purpose.
 
 This reads the logs with read-only S3 calls in the thunderbird-legacy account:
 `s3://versioncheck-logs/E1PQMC7BGJOP5E.*` and
@@ -102,8 +105,10 @@ exceptions with `--tls-name HOST=NAME`.
 Production safety is built in and can't be loosened from the command line:
 
 - Any host that doesn't look like stage, dev or local is treated as
-  production. It is capped at **2 requests per second**, and the run
-  **stops at the first 5xx** from it, or after 5 consecutive transport
+  production. It is capped at **2 requests per second per hostname**. The
+  limiter is shared by every target and service, so two base URLs on the
+  same production host still share one 2 rps budget. The run **stops at
+  the first 5xx or 429** from production, or after 5 consecutive transport
   errors.
 - Only GET requests are sent, redirects are not followed, and no cookies
   are sent.
@@ -143,11 +148,21 @@ Both sides are normalized first:
   `Date`, `Expires`, `X-AMO-Request-Id`, CloudFront headers and `ETag` all
   differ legitimately.
 
+Both scrubs are blunt. The request-id scrub replaces any 32-hex value in a
+body, not only request ids, so an md5-style hash that changes won't be
+reported. The host scrub hides a URL field that switches between site
+hosts, for example a link moving from `services.addons.thunderbird.net` to
+`addons.thunderbird.net`.
+
 JSON bodies are compared by walking both trees. XML bodies, meaning
 `reqVersion=1` RDF update manifests, are converted to trees and walked the
 same way. Paths are generalized: list indices become `[]`, and keys of
-data-keyed objects (locales, add-on guids, numeric ids, app names) become
-`{}`. The report therefore aggregates on paths like
+data-keyed objects become `{}`. These are objects keyed by app name
+(compatibility, categories), objects keyed by add-on guid or numeric id
+(versioncheck's `addons`), and locale-keyed objects under a translated
+field. The translated fields are listed in `TRANSLATED_FIELDS` and come from
+the `TranslationSerializerField` fields in `src/olympia/*/serializers.py`.
+Anything else that appears on one side only is a field difference. The report therefore aggregates on paths like
 `addons{}.updates[].update_hash`.
 
 | kind | meaning | examples |
@@ -156,6 +171,10 @@ data-keyed objects (locales, add-on guids, numeric ids, app names) become
 | `data` | same shape, different content: what you expect from a DB copied from prod in 2024 | `value differs`, `list length differs`, `list empty in B`, `null in B`, `map key only in A`, `optional field only in A`, `only A has the object (200 vs 404)` |
 | `behavioral` | different shape or protocol, which needs an explanation | `field only in A/B`, `type string -> number`, `status 200 -> 302`, `content-type ...`, `body format json -> text`, `redirect location differs` |
 | `error` | 5xx or transport error on either side | `502 on B`, `transport error on A` |
+
+When the statuses differ, content type and body format are still compared.
+A 404 that is JSON on prod and an HTML error page on stage is behavioral,
+even though the missing object itself is data.
 
 A pair counts under its most severe finding. Categories count pairs, and a
 pair usually has several. The JSON report has every category with example

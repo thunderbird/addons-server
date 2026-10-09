@@ -279,7 +279,10 @@ def parse_args():
     parser.add_argument('--end', help='UTC date (YYYY-MM-DD), exclusive; '
                         'default today')
     parser.add_argument('--days', type=int, default=7)
-    parser.add_argument('--files-per-hour', type=int, default=2)
+    parser.add_argument('--files-per-hour', type=int, default=3)
+    parser.add_argument('--replace', action='store_true',
+                        help='allow rewriting the committed sample with a '
+                        'different window or settings')
     parser.add_argument('--endpoints', default=','.join(ENDPOINTS),
                         help='comma-separated subset of %s'
                         % ','.join(ENDPOINTS))
@@ -287,6 +290,22 @@ def parse_args():
     parser.add_argument('--out', help='output directory under the current '
                         'directory (default: the committed samples)')
     return parser.parse_args()
+
+
+def check_committed(manifest):
+    """Refuse to silently replace the committed sample with a different one."""
+    path = os.path.join(DEFAULT_OUT, 'manifest.json')
+    if not os.path.exists(path):
+        return
+    with open(path) as fh:
+        committed = json.load(fh)
+    keys = ('window_start', 'window_end', 'files_per_hour')
+    if any(committed.get(k) != manifest[k] for k in keys):
+        sys.exit('the committed sample was built with %s; this run would use '
+                 '%s. Pass the same --end/--days/--files-per-hour, --out DIR, '
+                 'or --replace to make a new reference sample.' % (
+                     {k: committed.get(k) for k in keys},
+                     {k: manifest[k] for k in keys}))
 
 
 def main():
@@ -308,6 +327,8 @@ def main():
         'sources': {},
         'endpoints': {},
     }
+    if out == DEFAULT_OUT and not args.replace:
+        check_committed(manifest)
 
     for source_name, source in SOURCES.items():
         samples = {name: EndpointSample(name) for name in wanted
