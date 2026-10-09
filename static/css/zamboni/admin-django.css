@@ -85,11 +85,6 @@ h5 {
     letter-spacing: 1px;
 }
 
-ul li {
-    list-style-type: square;
-    padding: 1px 0;
-}
-
 ul.plainlist {
     margin-left: 0 !important;
 }
@@ -687,6 +682,9 @@ table#change-history tbody th {
 
 #header {
     width: 100%;
+    background: #417690;
+    color: #ffc;
+    overflow: hidden;
 }
 
 #content-main {
@@ -742,12 +740,6 @@ table#change-history tbody th {
 
 /* HEADER */
 
-#header {
-    background: #417690;
-    color: #ffc;
-    overflow: hidden;
-}
-
 #header a:link, #header a:visited {
     color: white;
 }
@@ -801,6 +793,7 @@ table#change-history tbody th {
 /* AMO Override. Everything below isn't part of Django's base.css */
 ul li {
     list-style-type: none;
+    padding: 1px 0;
 }
 #navbar > ul {
     margin: 0;

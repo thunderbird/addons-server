@@ -80,10 +80,6 @@
     padding-bottom: .5em;
 }
 
-.collapsed-files #files {
-    width: 2em;
-}
-
 .collapsed-files #content-wrapper,
 .collapsed-files #messages,
 .collapsed-collapsed #thinking,
@@ -129,6 +125,7 @@
 }
 
 .collapsed-files #files {
+    width: 2em;
     padding-bottom: 0 !important;
 }
 
@@ -141,12 +138,6 @@
    the pages wrap correctly on very large peices of text. */
 body.file-viewer div.section {
     min-width: 90em;
-}
-
-.syntaxhighlighter .line-code {
-    display: block;
-    white-space: pre-wrap;
-    max-width: 54em;
 }
 
 #file-viewer .syntaxhighlighter .td-line-code {
@@ -163,6 +154,9 @@ body.file-viewer div.section {
 }
 
 .syntaxhighlighter .line-code {
+    display: block;
+    white-space: pre-wrap;
+    max-width: 54em;
     padding-left: .4em;
 }
 
@@ -213,10 +207,6 @@ div.diff-bar .delete,
 
 .syntaxhighlighter, .syntaxhighlighter table {
     margin: 0;
-}
-
-#diff-wrapper {
-    margin-bottom: 1em;
 }
 
 a.closed {
@@ -391,10 +381,6 @@ a.selected > span {
     color: white;
 }
 
-.diff-bar {
-    margin-left: -1px;
-}
-
 .diff-bar > a {
     position: absolute;
     left: 0;
@@ -461,10 +447,12 @@ a.selected > span {
 }
 
 #diff-wrapper {
+    margin-bottom: 1em;
     position: relative;
 }
 
 .diff-bar {
+    margin-left: -1px;
     border: 1px solid gray;
     width: 10px;
     position: absolute;

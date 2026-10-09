@@ -35,13 +35,6 @@ table tr:nth-child(odd) {
     margin: 1.5em 0 .9em;
 }
 
-/* Django does weird things to align forms and the transbox looks off.  This
- * makes it look ok.
-.trans {
-    float: left;
-}
-*/
-
 /* Override the Django body.login background. */
 html body.login {
     background: inherit;
