@@ -46,7 +46,7 @@ from . import tasks
 class AuthorForm(forms.ModelForm):
     class Meta:
         model = AddonUser
-        fields = ('user', 'role', 'listed', 'position')
+        exclude = ('addon',)
 
 
 class BaseModelFormSet(BaseModelFormSet):
