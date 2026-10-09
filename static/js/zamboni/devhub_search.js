@@ -13,7 +13,7 @@ google.setOnLoadCallback(function() {
     sc.setSearchCompleteCallback(null, function(sc, searcher) {
         if (searcher.results.length) {
             var cur = searcher.cursor,
-                total = parseInt(cur.estimatedResultCount, 10);
+                total = Number.parseInt(cur.estimatedResultCount, 10);
             if (total > sc.maxResultCount) {
                 sc.maxResultCount = total;
                 $('#cse').show();

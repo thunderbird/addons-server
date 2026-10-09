@@ -107,7 +107,7 @@ $(document).ready(function() {
                         $review.find(title_selector).text($form.find('#' + comment_title_widget_id).val());
                         var rating = $form.find('.ratingwidget input:radio:checked').val();
                         $('.stars', $review).removeClass('stars-0 stars-1 stars-2 stars-3 stars-4 stars-5').addClass('stars-' + rating);
-                        rating = $review.attr('data-rating', rating);
+                        $review.attr('data-rating', rating);
                         $review.children('p.description').html(
                             $form.find('#' + comment_body_widget_id).val()
                                 .replace(/&/g,'&amp;')

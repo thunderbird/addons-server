@@ -123,6 +123,11 @@ $.fn.personasButton = function(trigger, callback) {
 };
 
 
+// Totally boss repeat hack.
+function repeatString(str, n) {
+    return new Array( n + 1 ).join( str );
+}
+
 // Vertical carousel component
 // Based on jQuery Infinite Carousel
 // http://jqueryfordesigners.com/jquery-infinite-carousel/
@@ -142,15 +147,10 @@ function VerticalCarousel(container) {
     this.container.after(this.nextButton);
     this.interval = false;
 
-    // Totally boss repeat hack.
-    function repeat(str, n) {
-        return new Array( n + 1 ).join( str );
-    }
-
     // Pad out the last page if necessary.
     var padAmount = this.numItems % this.numVisible;
     if (padAmount > 0) {
-        this.container.append(repeat('<li style="height:' + this.singleHeight + 'px" class="empty" />', padAmount));
+        this.container.append(repeatString('<li style="height:' + this.singleHeight + 'px" class="empty" />', padAmount));
         this.items = this.container.find('> li');
     }
 
