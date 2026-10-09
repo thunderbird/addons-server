@@ -9,8 +9,8 @@ $(document).ready(function() {
         var preLoadBlob = null;
 
         function getFile() {
-            file_selector = $wizard.find('#header-img')[0];
-            file = file_selector.files[0];
+            var file_selector = $wizard.find('#header-img')[0];
+            var file = file_selector.files[0];
             if (file && $wizard.find('#header-img').attr('accept').split(',').indexOf(file.type) == -1)
                 return null;
             return file ? file : preLoadBlob;
@@ -64,7 +64,7 @@ $(document).ready(function() {
             xhr.responseType = "json";
             // load the image as a blob so we can treat it as a File
             xhr.onload = function() {
-                jsonResponse = xhr.response;
+                var jsonResponse = xhr.response;
                 preLoadBlob = b64toBlob(jsonResponse[img_src]);
                 preLoadBlob.name = img_src;
                 $wizard.find('input[type="file"]').trigger('change');
@@ -73,7 +73,7 @@ $(document).ready(function() {
         });
 
         function updateManifest() {
-            textarea = $wizard.find('#manifest').val(generateManifest());
+            $wizard.find('#manifest').val(generateManifest());
             toggleSubmitIfNeeded();
         }
 
@@ -99,7 +99,7 @@ $(document).ready(function() {
             };
             colors = _.omit(colors, function(value) {return value === "";});
 
-            manifest = {
+            var manifest = {
                 name: $wizard.find('#theme-name').val(),
                 manifest_version: 2,
                 version: $wizard.data('version'),

@@ -1,7 +1,7 @@
 $(document).ready(function() {
 
     // Modals
-    var $modalFile, $modalDelete, $modalDisable;
+    var $modalFile, $modalDelete, $modalDisable, $modalUnlist;
 
     // Edit Add-on
     $("#edit-addon").exists(initEditAddon);
@@ -211,7 +211,7 @@ $(document).ready(function() {
     initCompatibility();
 
     $(document).on('click', '.addon-edit-cancel', function(){
-        parent_div = $(this).closest('.edit-addon-section');
+        var parent_div = $(this).closest('.edit-addon-section');
         parent_div.load($(this).attr('href'), function() {
             $('.tooltip').tooltip('#tooltip');
             hideSameSizedIcons();
@@ -227,8 +227,8 @@ $(document).ready(function() {
 (function initFormPerms() {
     z.noEdit = $("body").hasClass("no-edit");
     if (z.noEdit) {
-        $primary = $(".primary");
-        $els = $primary.find("input, select, textarea, button, a.button");
+        var $primary = $(".primary");
+        var $els = $primary.find("input, select, textarea, button, a.button");
         $els.prop("disabled", true);
         $primary.find("span.handle, a.remove").hide();
         $(".primary h3 a.button").remove();
@@ -261,7 +261,7 @@ function truncateFields() {
 
 
 function addonFormSubmit() {
-    parent_div = $(this);
+    var parent_div = $(this);
 
     (function(parent_div){
         // If the baseurl changes (the slug changed) we need to go to the new url.
@@ -325,7 +325,7 @@ function initEditAddon() {
         e.preventDefault();
 
         var a = e.target;
-        parent_div = $(a).closest('.edit-addon-section');
+        var parent_div = $(a).closest('.edit-addon-section');
 
         (function(parent_div, a){
             parent_div.find(".item").addClass("loading");
@@ -371,7 +371,7 @@ function create_new_preview_field() {
 }
 
 function renumberPreviews() {
-    previews = $("#file-list").children(".preview:visible");
+    var previews = $("#file-list").children(".preview:visible");
     previews.each(function(i, el) {
         $(this).find(".position input").val(i);
     });
@@ -412,7 +412,7 @@ function initUploadPreview() {
     }
 
     function upload_start(e, file) {
-        form = create_new_preview_field();
+        var form = create_new_preview_field();
         forms['form_' + file.instance] = form;
 
         $(form).show().find('.preview-thumb').addClass('loading')
@@ -421,13 +421,13 @@ function initUploadPreview() {
     }
 
     function upload_finished(e, file) {
-        form = forms['form_' + file.instance];
+        var form = forms['form_' + file.instance];
         form.find('.preview-thumb').removeClass('loading');
         renumberPreviews();
     }
 
     function upload_success(e, file, upload_hash) {
-        form = forms['form_' + file.instance];
+        var form = forms['form_' + file.instance];
         form.find('[name$="upload_hash"]').val(upload_hash);
     }
 
@@ -618,7 +618,7 @@ function initVersions() {
 
     function loadReviewHistory(div, nextLoad) {
         div.removeClass("hidden");
-        replybox = div.children('.dev-review-reply')
+        var replybox = div.children('.dev-review-reply')
         if (replybox.length == 1) {
             replybox[0].scrollIntoView(false);
         }
@@ -691,7 +691,7 @@ function initVersions() {
 
     $(".dev-review-reply-form").submit(function (e) {
         e.preventDefault();
-        $replyForm = $(e.target)
+        var $replyForm = $(e.target)
         if ($replyForm.children('textarea').val() == '') {
             return false
         }
@@ -1062,7 +1062,6 @@ var imageStatus = {
                     }, 2500);
                     self.polling();
                     $this.attr('style', '').addClass('preview-error');
-                    delete img;
                 };
                 img.src = self.newurl($this.attr('data-url'));
             }
@@ -1099,9 +1098,9 @@ var imageStatus = {
 
 
 function hideSameSizedIcons() {
-    icon_sizes = [];
+    var icon_sizes = [];
     $('#icon_preview_readonly img').show().each(function(){
-        size = $(this).width() + 'x' + $(this).height();
+        var size = $(this).width() + 'x' + $(this).height();
         if($.inArray(size, icon_sizes) >= 0) {
             $(this).hide();
         }
