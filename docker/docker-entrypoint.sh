@@ -53,6 +53,17 @@ log_error() {
 : "${CELERY_LOGLEVEL:=info}"
 : "${DJANGO_SETTINGS_MODULE:=settings}"
 
+# Public hostname for the http-to-https redirect. Must match DOMAIN in the
+# Django settings: settings_local_k8s defaults ATN_DOMAIN to the EKS stage
+# name, while the Fargate stage (settings_local_stage) keeps its own name.
+if [ -z "${ATN_DOMAIN}" ]; then
+    if [ "${DJANGO_SETTINGS_MODULE}" = "settings_local_k8s" ]; then
+        ATN_DOMAIN=addons-stage-eks.thunderbird.net
+    else
+        ATN_DOMAIN=addons-stage.thunderbird.net
+    fi
+fi
+
 export DJANGO_SETTINGS_MODULE
 
 # Working directory
@@ -103,7 +114,7 @@ start_web() {
         --static-safe=${NETAPP_STORAGE_ROOT:-/tmp/storage}/shared_storage/uploads/ \
         --static-safe=${NETAPP_STORAGE_ROOT:-/tmp/storage}/files/ \
         --static-expires=/* 7776000 \
-        --route-if="equal:\${HTTP_X_FORWARDED_PROTO};http redirect-permanent:https://addons-stage.thunderbird.net\${REQUEST_URI}" \
+        --route-if="equal:\${HTTP_X_FORWARDED_PROTO};http redirect-permanent:https://${ATN_DOMAIN}\${REQUEST_URI}" \
         --route-uri="^/([a-z]{2,3})(-[A-Z]{2,3})?/(firefox|android)/(.*) redirect-302:https://addons.mozilla.org/\$1\$2/\$3/\$4" \
         --route-uri="^/user-media/addons/_attachments/(.*) addheader:Content-Disposition: attachment" \
         --collect-header="X-Accel-Redirect X_SENDFILE" \
