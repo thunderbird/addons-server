@@ -14,9 +14,10 @@ $('#recaptcha_different').click(function(e) {
 
 $('#recaptcha_audio').click(function(e) {
     e.preventDefault();
-    var toggleType = this.getAttribute('data-nextType') || 'audio';
+    // HTML lowercases attribute names, so data-nextType is dataset.nexttype.
+    var toggleType = this.dataset.nexttype || 'audio';
     Recaptcha.switch_type(toggleType);
-    this.setAttribute('data-nextType', toggleType === 'audio' ? 'image' : 'audio');
+    this.dataset.nexttype = toggleType === 'audio' ? 'image' : 'audio';
 });
 
 $('#recaptcha_help').click(function(e) {

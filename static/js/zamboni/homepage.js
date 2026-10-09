@@ -26,14 +26,15 @@ $(document).ready(function(){
     };
 
     // If we already have a hash, switch to the tab.
+    var selected;
     if (location.hash) {
-        var selected = $('#homepage .listing-header ' + location.hash);
+        selected = $('#homepage .listing-header ' + location.hash);
         if (selected) {
             selected.find('a').click().focus();
         }
     } else {
         // Add the current page to the history so we can get back.
-        var selected = $('#homepage .listing-header .selected a')[0];
+        selected = $('#homepage .listing-header .selected a')[0];
         update(selected, true);
     }
 

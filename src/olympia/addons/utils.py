@@ -1,4 +1,3 @@
-import re
 import json
 import os.path
 import random
@@ -25,7 +24,6 @@ from olympia.lib.cache import memoize, memoize_key
 from olympia.translations.fields import LocaleErrorMessage
 
 
-# FIXME: Decide for sure whether GUID should start with a '@'
 def generate_addon_guid():
     return '{%s}' % str(uuid.uuid4())
 
@@ -192,9 +190,6 @@ def get_addon_recommendations_invalid():
         TAAR_LITE_FALLBACK_REASON_INVALID)
 
 
-MULTIPLE_STOPS_REGEX = re.compile(r'\.{2,}')
-
-
 @statsd.timer('addons.tasks.migrate_lwts_to_static_theme.build_xpi')
 def build_static_theme_xpi_from_lwt(lwt, upload_zip):
     # create manifest
@@ -202,8 +197,6 @@ def build_static_theme_xpi_from_lwt(lwt, upload_zip):
                    else amo.THEME_ACCENTCOLOR_DEFAULT)
     textcolor = '#%s' % (lwt.persona.textcolor or '000')
 
-    lwt_header = MULTIPLE_STOPS_REGEX.sub(
-        u'.', six.text_type(lwt.persona.header))
     manifest = {
         "manifest_version": 2,
         "name": six.text_type(lwt.name) or six.text_type(lwt.slug),

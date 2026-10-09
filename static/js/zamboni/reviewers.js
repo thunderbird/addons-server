@@ -125,7 +125,7 @@ function initReviewActions() {
     var url = $('#addon').attr('data-url');
     function check_currently_viewing() {
         $.post(url, {'addon_id': addon_id}, function(d){
-            var show = d.is_user != 1 && typeof d.current_name != "undefined",
+            var show = d.is_user != 1 && d.current_name !== undefined,
                        $current = $('.currently_viewing_warning');
 
             $current.toggle(show);
@@ -508,7 +508,7 @@ function initPerformanceStats() {
             labels.push(vals.label);
             $.each(vals, function(group, amount){
                 if(groups[group]){
-                    data_points[group].data.push(parseFloat(amount));
+                    data_points[group].data.push(Number.parseFloat(amount));
                 }
             });
         });
