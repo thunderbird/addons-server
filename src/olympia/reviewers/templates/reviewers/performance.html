@@ -8,7 +8,7 @@
   {% if is_admin %}
   <p>
     {{ _('View statistics for user') }}
-    <select id="select_user" data-url="{{ url('reviewers.performance') }}">
+    <select id="select_user" aria-label="{{ _('View statistics for user') }}" data-url="{{ url('reviewers.performance') }}">
       <option value="" selected="selected">{{ current_user.name }}</option>
       <option value="">-----------------------</option>
       {% for reviewer in reviewers %}
