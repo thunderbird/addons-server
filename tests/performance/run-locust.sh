@@ -29,7 +29,7 @@ fi
 
 LOCUST_OPTS="-f ${LOCUST_FILE} --host=${ATTACKED_HOST} --no-reset-stats $LOCUST_OPTS"
 
-case `echo ${LOCUST_MODE} | tr 'a-z' 'A-Z'` in
+case $(echo ${LOCUST_MODE} | tr 'a-z' 'A-Z') in
 "MASTER")
     LOCUST_OPTS="--master --master-bind-port=${LOCUST_MASTER_BIND_PORT} $LOCUST_OPTS"
     ;;
@@ -39,6 +39,9 @@ case `echo ${LOCUST_MODE} | tr 'a-z' 'A-Z'` in
         echo "You need to set LOCUST_MASTER."
         exit 1
     fi
+    ;;
+*)
+    # Standalone mode: no extra options.
     ;;
 esac
 
