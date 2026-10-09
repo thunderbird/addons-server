@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
+import copy
 import json
 
 from datetime import timedelta
 
 from django.conf import settings
 from django.core import mail
+from django.core.cache import cache
 from django.test.utils import override_settings
 from django.utils.encoding import force_text
 
@@ -33,6 +35,17 @@ from olympia.users.models import UserProfile
 
 locmem_cache = settings.CACHES.copy()
 locmem_cache['default']['BACKEND'] = 'django.core.cache.backends.locmem.LocMemCache'  # noqa
+
+# The throttle tests need a cache store that no other test writes to.
+# LocMemCache keeps one store per LOCATION for the whole process, capped at
+# MAX_ENTRIES (300). Once it is full, every write culls a third of it, and
+# that can drop the throttle's history between two requests, letting the
+# second one through with a 201. Whether it does depends on how full earlier
+# tests in the same xdist worker left the store. Use a store of their own and
+# clear it at the start of each test.
+# See thunderbird/addons-server#486.
+throttle_cache = copy.deepcopy(locmem_cache)
+throttle_cache['default']['LOCATION'] = 'ratings-throttle-tests'
 
 
 class ReviewTest(TestCase):
@@ -2399,8 +2412,9 @@ class TestRatingViewSetPost(TestCase):
             u"You can't leave more than one review for the same version of "
             u"an add-on."]
 
-    @override_settings(CACHES=locmem_cache)
+    @override_settings(CACHES=throttle_cache)
     def test_throttle(self):
+        cache.clear()
         with freeze_time('2017-11-01') as frozen_time:
             self.user = user_factory()
             self.client.login_api(self.user)
@@ -2426,8 +2440,9 @@ class TestRatingViewSetPost(TestCase):
                 'score': 2, 'version': new_version.pk})
             assert response.status_code == 201, response.content
 
-    @override_settings(CACHES=locmem_cache)
+    @override_settings(CACHES=throttle_cache)
     def test_rating_throttle_separated_from_abuse_throttle(self):
+        cache.clear()
         with freeze_time('2017-11-01') as frozen_time:
             self.user = user_factory()
             self.client.login_api(self.user)
@@ -2824,8 +2839,9 @@ class TestRatingViewSetReply(TestCase):
         assert response.data['non_field_errors'] == [
             u"You can't reply to a review that is already a reply."]
 
-    @override_settings(CACHES=locmem_cache)
+    @override_settings(CACHES=throttle_cache)
     def test_throttle(self):
+        cache.clear()
         self.addon_author = user_factory()
         self.addon.addonuser_set.create(user=self.addon_author)
         other_rating = Rating.objects.create(
