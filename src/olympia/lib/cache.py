@@ -148,10 +148,9 @@ class Token(object):
         if not token.well_formed():
             return False
         result = cache.get(token.cache_key())
-        if result is not None:
-            if result == data:
-                cache.delete(token.cache_key())
-                return True
+        if result is not None and result == data:
+            cache.delete(token.cache_key())
+            return True
         return False
 
 
