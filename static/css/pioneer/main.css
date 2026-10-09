@@ -64,7 +64,6 @@ a {
 }
 
 @media
-(min-device-pixel-ratio: 2),
 (min-resolution: 192dpi) {
   .page-container {
     background-image: url("../../img/pioneer/stars@2x.png");
