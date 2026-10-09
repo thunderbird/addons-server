@@ -1470,10 +1470,6 @@ a.experiment-summary {
   -webkit-animation: spin 1000ms;
           animation: spin 1000ms; }
 
-.hover {
-  -webkit-animation: hover 1000ms infinite alternate ease-in-out;
-          animation: hover 1000ms infinite alternate ease-in-out; }
-
 .fly-down {
   -webkit-animation: fly-down 500ms forwards ease-out;
           animation: fly-down 500ms forwards ease-out; }
@@ -1503,6 +1499,10 @@ a.experiment-summary {
 .fly-up {
   -webkit-animation: fly-up 500ms forwards ease-out;
           animation: fly-up 500ms forwards ease-out; }
+
+.hover {
+  -webkit-animation: hover 1000ms infinite alternate ease-in-out;
+          animation: hover 1000ms infinite alternate ease-in-out; }
 
 .move-down-fade-in {
   -webkit-animation: move-down-fade-in 700ms forwards ease-out;
