@@ -107,7 +107,7 @@ function normalizeRange(range) {
         ret.start = new Date(range.start);
         ret.end = new Date(range.end);
     } else {
-        throw new Error("Invalid range values found.");
+        throw new TypeError("Invalid range values found.");
     }
     return ret;
 }

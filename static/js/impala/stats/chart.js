@@ -224,9 +224,9 @@
 
         // Set minimum max value for yAxis to prevent duplicate yAxis values.
         var max = 0;
-        for (key in data) {
-            if (data[key].count > max) {
-                max = data[key].count;
+        for (var maxKey in data) {
+            if (data[maxKey].count > max) {
+                max = data[maxKey].count;
             }
         }
         // Chart has minimum 5 ticks so set max to 5 to avoid pigeonholing.
