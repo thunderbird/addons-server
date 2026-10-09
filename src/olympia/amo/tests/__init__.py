@@ -83,6 +83,12 @@ ES_INDEX_SUFFIXES = {
     key: timestamp_index('')
     for key in settings.ES_INDEXES.keys()}
 
+# Prefix shared by every ES index and alias this process owns. Overwritten by
+# prefix_indexes() at pytest_configure time with a worker-specific value when
+# running under xdist. Use get_es_index_prefix() to read it: importing the
+# name directly would bind the pre-configure default.
+_ES_INDEX_PREFIX = 'test'
+
 
 def get_es_index_name(key):
     """Return the name of the actual index used in tests for a given key
@@ -108,8 +114,10 @@ def setup_es_test_data(es):
     aliases_and_indexes = set(list(settings.ES_INDEXES.values()) +
                               list(es.indices.get_alias().keys()))
 
+    # Only ever delete our own indices: under xdist the other workers have
+    # live indices in the same cluster, and they all start with `test_`.
     for key in aliases_and_indexes:
-        if key.startswith('test_'):
+        if owns_es_index(key):
             es.indices.delete(key, ignore=[404])
 
     # Figure out the name of the indices we're going to create from the
@@ -1078,16 +1086,54 @@ def safe_exec(string, value=None, globals_=None, locals_=None):
     return locals_
 
 
+def get_es_index_prefix():
+    """Return the prefix every ES index and alias used by this pytest process
+    carries.
+
+    Under xdist each worker gets its own prefix, so workers must only ever
+    touch indices starting with theirs.
+    """
+    return _ES_INDEX_PREFIX
+
+
+def es_index_prefix_for_config(config):
+    """Return the ES index prefix a pytest process with this config owns.
+
+    Pure: prefix_indexes() is what applies it. Kept separate so the rule can
+    be tested without mutating global settings.
+    """
+    # pytest-xdist renamed `slaveinput` to `workerinput`; accept either so
+    # this keeps working across xdist versions.
+    worker_input = getattr(
+        config, 'workerinput', getattr(config, 'slaveinput', None))
+    if worker_input:
+        worker_id = worker_input.get('workerid', worker_input.get('slaveid'))
+        return 'test_{}'.format(worker_id)
+    return 'test'
+
+
+def owns_es_index(name, prefix=None):
+    """Whether an ES index or alias belongs to this pytest process.
+
+    Under xdist every worker's indices start with `test_`, so the full
+    prefix including the worker id is what decides ownership. Deleting an
+    index this returns False for destroys another worker's live data.
+    """
+    if prefix is None:
+        prefix = get_es_index_prefix()
+    return name.startswith('%s_' % prefix)
+
+
 def prefix_indexes(config):
     """Prefix all ES index names and cache keys with `test_` and, if running
-    under xdist, the ID of the current slave.
+    under xdist, the ID of the current worker.
 
     Note that this is a pytest helper that is primarily used in conftest.
     """
-    if hasattr(config, 'slaveinput'):
-        prefix = 'test_{[slaveid]}'.format(config.slaveinput)
-    else:
-        prefix = 'test'
+    global _ES_INDEX_PREFIX
+
+    prefix = es_index_prefix_for_config(config)
+    _ES_INDEX_PREFIX = prefix
 
     # Ideally, this should be a session-scoped fixture that gets injected into
     # any test that requires ES. This would be especially useful, as it would
