@@ -136,16 +136,17 @@
                     return 0;
                 }
 
-                var pageTop = win.scrollTop();
+                var pageTop = win.scrollTop(),
+                    i;
                 if (pageTop <= themes[currentTheme].top) {
-                    for (var i = currentTheme - 1; i >= 0; i--) {
+                    for (i = currentTheme - 1; i >= 0; i--) {
                         if (themes[i].top < pageTop) {
                             break;
                         }
                     }
                     return i+1;
                 } else {
-                    for (var i = currentTheme; i < themes.length; i++) {
+                    for (i = currentTheme; i < themes.length; i++) {
                         // Scroll down the themes until we find a theme
                         // that is at the top of our page. That is our current
                         // theme.
@@ -366,7 +367,6 @@
             onChange();
 
             function onChange(e) {
-                var category = $('#rq-category', self).val();
                 var advance = $('#rq-advance:checked', self).val();
                 var shortcuts = $('#rq-shortcuts:checked', self).val();
 
@@ -407,9 +407,9 @@ $(document).ready(function() {
         }
 
         // If daily message is present, align fixed sidebar.
-        if (['none', undefined].indexOf($('.daily-message').css('display')) < 0) {
+        if (!['none', undefined].includes($('.daily-message').css('display'))) {
             var $sidebar = $('.sidebar .align.fixed');
-            var top = parseInt($sidebar.css('top'), 10) + 82;
+            var top = Number.parseInt($sidebar.css('top'), 10) + 82;
             $sidebar.css('top', top + 'px');
         }
     }

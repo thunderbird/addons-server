@@ -7,7 +7,7 @@ function dispatchPersonaEvent(aType, aNode, callback, forceHttps)
                    'ResetPersona': 'ResetBrowserThemePreview',
                    'SelectPersona': 'InstallBrowserTheme'};
     try {
-        if (!aNode.hasAttribute('data-browsertheme')) {
+        if (!('browsertheme' in aNode.dataset)) {
             return;
         }
 
@@ -24,14 +24,15 @@ function dispatchPersonaEvent(aType, aNode, callback, forceHttps)
 
         for (var i=0; i<events.length; i++) {
           var event = events[i];
-          var eventObject = document.createEvent('Events');
-          eventObject.initEvent(event, true, false);
+          var eventObject = new Event(event, {bubbles: true, cancelable: false});
           aNode.dispatchEvent(eventObject);
         }
         if (callback) {
             callback();
         }
-    } catch(e) {}
+    } catch(e) {
+        // Theme events are best-effort; browsers without support just ignore them.
+    }
 }
 
 
@@ -46,10 +47,11 @@ $.hasPersonas = function() {
 
     var body = document.getElementsByTagName('body')[0];
     try {
-        var event = document.createEvent('Events');
-        event.initEvent('CheckPersonas', true, false);
+        var event = new Event('CheckPersonas', {bubbles: true, cancelable: false});
         body.dispatchEvent(event);
-    } catch(e) {}
+    } catch(e) {
+        // No persona support; the attribute check below then returns false.
+    }
 
     return body.getAttribute('personas') == 'true';
 };

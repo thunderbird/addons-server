@@ -119,9 +119,13 @@ class AkismetReport(ModelBase):
             discard = response.headers.get('X-akismet-pro-tip') == 'discard'
             # Only True or False outcomes are valid.
             if outcome is True or outcome is False:
-                self.update(result=(
-                    self.HAM if not outcome else
-                    self.DEFINITE_SPAM if discard else self.MAYBE_SPAM))
+                if not outcome:
+                    result = self.HAM
+                elif discard:
+                    result = self.DEFINITE_SPAM
+                else:
+                    result = self.MAYBE_SPAM
+                self.update(result=result)
                 log.debug('Akismet response %s' % self.get_result_display())
                 self._statsd_incr()
                 return self.result

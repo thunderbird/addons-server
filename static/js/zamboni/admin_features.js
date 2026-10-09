@@ -1,7 +1,7 @@
 $(document).ready(function(){
     function incTotalForms() {
         var $totalForms = $('#id_form-TOTAL_FORMS'),
-            num = parseInt($totalForms.val()) + 1;
+            num = Number.parseInt($totalForms.val()) + 1;
         $totalForms.val(num);
         return num;
     }
@@ -16,7 +16,7 @@ $(document).ready(function(){
             $input.show();
             return;
         }
-        $.post(document.body.getAttribute('data-featured-collection-url'),
+        $.post(document.body.dataset.featuredCollectionUrl,
                {'collection': cid}, function(data) {
             $td.removeClass('loading');
             $input.hide();
@@ -44,9 +44,7 @@ $(document).ready(function(){
     })).on('collectionAdd', '.collection-ac', function() {
         // Autocomplete for collection add form.
         var $input = $(this),
-            $tr = $input.closest('tr'),
-            $td = $input.closest('td'),
-            $select = $tr.find('.collection-select');
+            $td = $input.closest('td');
         function selectCollection() {
             var item = JSON.parse($input.attr('data-item'));
             if (item) {
@@ -72,7 +70,7 @@ $(document).ready(function(){
             minLength: 3,
             width: 300,
             source: function(request, response) {
-                $.getJSON(document.body.getAttribute('data-collections-url'),
+                $.getJSON(document.body.dataset.collectionsUrl,
                           {'app': $input.closest('tr').attr('data-app'),
                            'q': request.term}, response);
             },
