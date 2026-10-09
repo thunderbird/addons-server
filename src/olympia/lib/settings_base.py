@@ -18,7 +18,6 @@ _css_common_invisible_upload_less = 'css/common/invisible-upload.less'
 _css_impala_formset_less = 'css/impala/formset.less'
 _css_legacy_jquery_lightbox_css = 'css/legacy/jquery-lightbox.css'
 _css_zamboni_reviewers_less = 'css/zamboni/reviewers.less'
-_http_url = 'http://%s'
 _js_impala_capabilities_js = 'js/impala/capabilities.js'
 _js_impala_promos_js = 'js/impala/promos.js'
 _js_lib_format_js = 'js/lib/format.js'
@@ -227,7 +226,7 @@ DOMAIN = HOSTNAME
 
 # Full base URL for your main site including protocol.  No trailing slash.
 #   Example: https://addons.mozilla.org
-SITE_URL = _http_url % DOMAIN
+SITE_URL = 'http://%s' % DOMAIN
 
 # Domain of the services site.  This is where your API, and in-product pages
 # live.
@@ -235,7 +234,7 @@ SERVICES_DOMAIN = 'services.%s' % DOMAIN
 
 # Full URL to your API service. No trailing slash.
 #   Example: https://services.addons.mozilla.org
-SERVICES_URL = _http_url % SERVICES_DOMAIN
+SERVICES_URL = 'http://%s' % SERVICES_DOMAIN
 
 # Filter IP addresses of allowed clients that can post email through the API.
 ALLOWED_CLIENTS_EMAIL_API = env.list('ALLOWED_CLIENTS_EMAIL_API', default=[])
@@ -1522,7 +1521,7 @@ VALID_LOGIN_REDIRECTS = {
 
 # Elasticsearch
 ES_HOSTS = [os.environ.get('ELASTICSEARCH_LOCATION', '127.0.0.1:9200')]
-ES_URLS = [_http_url % h for h in ES_HOSTS]
+ES_URLS = ['http://%s' % h for h in ES_HOSTS]
 ES_INDEXES = {
     'default': 'addons',
     'stats': 'addons_stats',
