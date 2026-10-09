@@ -24,6 +24,13 @@ from olympia.core.languages import ALL_LANGUAGES
 PAGINATE_PERSONAS_BY = 30
 MIN_COUNT_FOR_LANDING = 4
 
+ADDONS_ID_PK_NAME = 'addons.id'
+
+_SORT_OPT_TOP_RATED = _(u'Top Rated')
+_SORT_OPT_UP_AND_COMING = _(u'Up & Coming')
+_SORT_OPT_MOST_POPULAR = _(u'Most Popular')
+_SORT_OPT_RECENTLY_ADDED = _(u'Recently Added')
+
 
 def locale_display_name(locale):
     """
@@ -52,23 +59,23 @@ Locale = collections.namedtuple('Locale', 'locale display native dicts packs')
 class AddonFilter(BaseFilter):
     opts = (('featured', _(u'Featured')),
             ('users', _(u'Most Users')),
-            ('rating', _(u'Top Rated')),
+            ('rating', _SORT_OPT_TOP_RATED),
             ('created', _(u'Newest')))
     extras = (('name', _(u'Name')),
               ('popular', _(u'Weekly Downloads')),
               ('updated', _(u'Recently Updated')),
-              ('hotness', _(u'Up & Coming')))
+              ('hotness', _SORT_OPT_UP_AND_COMING))
 
 
 class ThemeFilter(AddonFilter):
     opts = (('users', _(u'Most Users')),
-            ('rating', _(u'Top Rated')),
+            ('rating', _SORT_OPT_TOP_RATED),
             ('created', _(u'Newest')),
             ('featured', _(u'Featured')))
     extras = (('name', _(u'Name')),
               ('popular', _(u'Weekly Downloads')),
               ('updated', _(u'Recently Updated')),
-              ('hotness', _(u'Up & Coming')))
+              ('hotness', _SORT_OPT_UP_AND_COMING))
 
 
 def addon_listing(request, addon_types, filter_=AddonFilter, default=None):
@@ -115,8 +122,7 @@ def _get_locales(addons):
         locales[locale] = Locale(addon.target_locale, addon.locale_display,
                                  addon.locale_native, dicts, packs)
 
-    for locale in sorted(locales.items(), key=lambda x: x[1].display):
-        yield locale
+    yield from sorted(locales.items(), key=lambda x: x[1].display)
 
 
 # We never use the category, but this makes it
@@ -143,9 +149,9 @@ def themes(request, category=None):
         q = Category.objects.filter(application=request.APP.id, type=TYPE)
         category = get_object_or_404(q, slug=category)
 
-    addons, filter = addon_listing(request, [TYPE], default='users',
-                                   filter_=ThemeFilter)
-    sorting = filter.field
+    addons, addon_filter = addon_listing(request, [TYPE], default='users',
+                                         filter_=ThemeFilter)
+    sorting = addon_filter.field
     src = 'cb-btn-%s' % sorting
     dl_src = 'cb-dl-%s' % sorting
 
@@ -155,8 +161,9 @@ def themes(request, category=None):
     addons = amo.utils.paginate(request, addons, 16, count=addons.count())
     return render(request, 'browse/themes.html',
                   {'section': 'themes', 'addon_type': TYPE, 'addons': addons,
-                   'category': category, 'filter': filter, 'sorting': sorting,
-                   'search_cat': '%s,0' % TYPE, 'src': src, 'dl_src': dl_src})
+                   'category': category, 'filter': addon_filter,
+                   'sorting': sorting, 'search_cat': '%s,0' % TYPE,
+                   'src': src, 'dl_src': dl_src})
 
 
 @non_atomic_requests
@@ -171,8 +178,8 @@ def extensions(request, category=None):
     if not sort and category and category.count > 4:
         return category_landing(request, category)
 
-    addons, filter = addon_listing(request, [TYPE])
-    sorting = filter.field
+    addons, addon_filter = addon_listing(request, [TYPE])
+    sorting = addon_filter.field
     src = 'cb-btn-%s' % sorting
     dl_src = 'cb-dl-%s' % sorting
 
@@ -183,17 +190,17 @@ def extensions(request, category=None):
     return render(request, 'browse/extensions.html',
                   {'section': 'extensions', 'addon_type': TYPE,
                    'category': category, 'addons': addons,
-                   'filter': filter, 'sorting': sorting,
-                   'sort_opts': filter.opts, 'src': src,
+                   'filter': addon_filter, 'sorting': sorting,
+                   'sort_opts': addon_filter.opts, 'src': src,
                    'dl_src': dl_src, 'search_cat': '%s,0' % TYPE})
 
 
 class CategoryLandingFilter(BaseFilter):
 
     opts = (('featured', _(u'Featured')),
-            ('users', _(u'Most Popular')),
-            ('rating', _(u'Top Rated')),
-            ('created', _(u'Recently Added')))
+            ('users', _SORT_OPT_MOST_POPULAR),
+            ('rating', _SORT_OPT_TOP_RATED),
+            ('created', _SORT_OPT_RECENTLY_ADDED))
 
     def __init__(self, request, base, category, key, default):
         self.category = category
@@ -203,20 +210,21 @@ class CategoryLandingFilter(BaseFilter):
 
     def filter_featured(self):
         qs = self.base_queryset.all()
-        return manual_order(qs, self.ids, pk_name='addons.id')
+        return manual_order(qs, self.ids, pk_name=ADDONS_ID_PK_NAME)
 
 
 @non_atomic_requests
 def category_landing(request, category, addon_type=amo.ADDON_EXTENSION,
-                     Filter=CategoryLandingFilter):
+                     filter_class=CategoryLandingFilter):
     base = (Addon.objects.listed(request.APP)
             .exclude(type=amo.ADDON_PERSONA)
             .filter(categories__id=category.id))
-    filter = Filter(request, base, category, key='browse', default='featured')
+    addon_filter = filter_class(request, base, category, key='browse',
+                                default='featured')
     return render(request, 'browse/impala/category_landing.html',
                   {'section': amo.ADDON_SLUGS[addon_type],
                    'addon_type': addon_type, 'category': category,
-                   'filter': filter, 'sorting': filter.field,
+                   'filter': addon_filter, 'sorting': addon_filter.field,
                    'search_cat': '%s,0' % category.type})
 
 
@@ -226,7 +234,8 @@ def creatured(request, category):
     q = Category.objects.filter(application=request.APP.id, type=TYPE)
     category = get_object_or_404(q, slug=category)
     ids = AddonCategory.creatured_random(category, request.LANG)
-    addons = manual_order(Addon.objects.public(), ids, pk_name='addons.id')
+    addons = manual_order(Addon.objects.public(), ids,
+                          pk_name=ADDONS_ID_PK_NAME)
     return render(request, 'browse/creatured.html',
                   {'addons': addons, 'category': category,
                    'sorting': 'featured'})
@@ -234,9 +243,9 @@ def creatured(request, category):
 
 class ThemesFilter(BaseFilter):
 
-    opts = (('created', _(u'Recently Added')),
-            ('popular', _(u'Most Popular')),
-            ('rating', _(u'Top Rated')))
+    opts = (('created', _SORT_OPT_RECENTLY_ADDED),
+            ('popular', _SORT_OPT_MOST_POPULAR),
+            ('rating', _SORT_OPT_TOP_RATED))
 
     def filter(self, field):
             return super(ThemesFilter, self).filter(field)
@@ -253,10 +262,10 @@ class ThemesFilter(BaseFilter):
 
 class PersonasFilter(BaseFilter):
 
-    opts = (('up-and-coming', _(u'Up & Coming')),
-            ('created', _(u'Recently Added')),
-            ('popular', _(u'Most Popular')),
-            ('rating', _(u'Top Rated')))
+    opts = (('up-and-coming', _SORT_OPT_UP_AND_COMING),
+            ('created', _SORT_OPT_RECENTLY_ADDED),
+            ('popular', _SORT_OPT_MOST_POPULAR),
+            ('rating', _SORT_OPT_TOP_RATED))
 
     def filter(self, field):
         # Special case with dashes.
@@ -289,8 +298,8 @@ def staticthemes(request, category=None):
     if not sort and category and category.count > 4:
         return category_landing(request, category, amo.ADDON_STATICTHEME)
 
-    addons, filter = addon_listing(request, [TYPE])
-    sorting = filter.field
+    addons, addon_filter = addon_listing(request, [TYPE])
+    sorting = addon_filter.field
     src = 'cb-btn-%s' % sorting
     dl_src = 'cb-dl-%s' % sorting
 
@@ -302,8 +311,8 @@ def staticthemes(request, category=None):
                   {'section': 'extensions', 'addon_type': TYPE,
                    'categories': categories,
                    'category': category, 'addons': addons,
-                   'filter': filter, 'sorting': sorting,
-                   'sort_opts': filter.opts, 'src': src,
+                   'filter': addon_filter, 'sorting': sorting,
+                   'sort_opts': addon_filter.opts, 'src': src,
                    'dl_src': dl_src, 'search_cat': 'themes'})
 
 def personas_listing(request, category_slug=None):
@@ -364,10 +373,10 @@ def personas(request, category=None):
 
     if cat:
         ids = AddonCategory.creatured_random(cat, request.LANG)
-        featured = manual_order(base, ids, pk_name="addons.id")
+        featured = manual_order(base, ids, pk_name=ADDONS_ID_PK_NAME)
     else:
         ids = Addon.featured_random(request.APP, request.LANG)
-        featured = manual_order(base, ids, pk_name="addons.id")
+        featured = manual_order(base, ids, pk_name=ADDONS_ID_PK_NAME)
 
     ctx = {'categories': categories, 'category': cat, 'addons': addons,
            'filter': filter_, 'sorting': filter_.field,
@@ -483,12 +492,12 @@ class SearchToolsFilter(AddonFilter):
         except Category.DoesNotExist:
             pass
 
-        return manual_order(Addon.objects.valid(), ids, 'addons.id')
+        return manual_order(Addon.objects.valid(), ids, ADDONS_ID_PK_NAME)
 
 
 class SearchExtensionsFilter(AddonFilter):
-    opts = (('popular', _(u'Most Popular')),
-            ('created', _(u'Recently Added')),)
+    opts = (('popular', _SORT_OPT_MOST_POPULAR),
+            ('created', _SORT_OPT_RECENTLY_ADDED),)
 
 
 @non_atomic_requests
@@ -498,8 +507,8 @@ def search_tools(request, category=None):
     qs = Category.objects.filter(application=APP.id, type=TYPE)
     categories = sorted(qs, key=attrgetter('weight', 'name'))
 
-    addons, filter = addon_listing(request, [TYPE], SearchToolsFilter,
-                                   'popular')
+    addons, addon_filter = addon_listing(request, [TYPE], SearchToolsFilter,
+                                         'popular')
 
     if category:
         category = get_object_or_404(qs, slug=category)
@@ -513,5 +522,5 @@ def search_tools(request, category=None):
 
     return render(request, 'browse/search_tools.html',
                   {'categories': categories, 'category': category,
-                   'addons': addons, 'filter': filter,
+                   'addons': addons, 'filter': addon_filter,
                    'search_extensions_filter': sidebar_ext})
