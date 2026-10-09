@@ -52,7 +52,7 @@ $.ajaxCache = function(o) {
     const cache = z.AjaxCache(o.url + ':' + o.type),
         args = JSON.stringify(o.data),
         previous_args = JSON.stringify(cache.previous.args);
-    let items,
+    var items,
         request;
 
     if (args != previous_args) {
@@ -69,7 +69,7 @@ $.ajaxCache = function(o) {
             request = $.ajax({url: o.url, type: o.method, data: o.data});
 
             request.done(function(data) {
-                let items;
+                var items;
                 if (!objEqual(data, cache.previous.data)) {
                     items = data;
                 }

@@ -80,7 +80,7 @@ $(document).ready(function() {
             }
 
             $form.find('#' + comment_title_widget_id).val($review.find(title_selector).text());
-            $form.find('#' + comment_body_widget_id).val($review.children('p.description').html().replaceAll(/<br>/g, '\n'));
+            $form.find('#' + comment_body_widget_id).val($review.children('p.description').html().replace(/<br>/g, '\n'));
             $review.hide();
             $form.show();
             $window.resize();
@@ -110,10 +110,10 @@ $(document).ready(function() {
                         $review.attr('data-rating', rating);
                         $review.children('p.description').html(
                             $form.find('#' + comment_body_widget_id).val()
-                                .replaceAll(/&/g,'&amp;')
-                                .replaceAll(/</g,'&lt;')
-                                .replaceAll(/>/g,'&gt;')
-                                .replaceAll(/\n/g, '<br>'));
+                                .replace(/&/g,'&amp;')
+                                .replace(/</g,'&lt;')
+                                .replace(/>/g,'&gt;')
+                                .replace(/\n/g, '<br>'));
                         done_edit();
                     },
                     error: function(xhr) {

@@ -5,7 +5,7 @@
                                              processResults, 'AMO');
 
     function processResults(settings) {
-        if (!settings?.category) {
+        if (!settings || !settings.category) {
             return;
         }
 
@@ -30,7 +30,7 @@
                             cls: '',
                             subtitle: ''
                         };
-                        if (item.icons?.['32']) {
+                        if (item.icons && item.icons['32']) {
                             d.icon = format(
                                 'style="background-image:url({0})"',
                                 escape_(item.icons['32'])

@@ -2,7 +2,7 @@ z.getVars = function(qs, excl_undefined) {
     if (qs === undefined) {
         qs = location.search;
     }
-    if (qs?.[0] == '?') {
+    if (qs && qs[0] == '?') {
         qs = qs.substr(1);  // Filter off the leading ? if it's there.
     }
     if (!qs) return {};

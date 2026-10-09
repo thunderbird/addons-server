@@ -7,7 +7,7 @@ $(function() {
             $parent = $widget.closest('.item');
         if ($widget.hasClass('ajax-loading')) return;
         $widget.addClass('ajax-loading');
-        let follow_text = gettext('Follow this Collection');
+        var follow_text = gettext('Follow this Collection');
         $.ajax({
             url: $(this).attr('href'),
             type: 'POST',
