@@ -42,6 +42,19 @@ LINK_FORMAT = u'<a href="{0}">{1}</a>'
 MAX_TOKEN_USE_COUNT = 100
 
 
+def _first_item(mapping):
+    """Return the first (key, value) pair of mapping.
+
+    Like list(mapping.items())[0], but without materializing the whole
+    items view - and explicitly raising IndexError (not StopIteration)
+    on an empty mapping, matching what list(...)[0] would raise.
+    """
+    try:
+        return next(iter(mapping.items()))
+    except StopIteration:
+        raise IndexError('list index out of range')
+
+
 class ActivityLogToken(ModelBase):
     id = PositiveAutoField(primary_key=True)
     version = models.ForeignKey(
@@ -347,7 +360,7 @@ class ActivityLog(ModelBase):
 
             for item in activity.arguments_data:
                 # Each 'item' should have one key and one value only.
-                name, pk = list(item.items())[0]
+                name, pk = _first_item(item)
                 if name not in ('str', 'int', 'null') and pk:
                     # Convert pk to int to have consistent data for when we
                     # call .in_bulk() later.
@@ -380,7 +393,7 @@ class ActivityLog(ModelBase):
             # We preloaded that property earlier
             for item in activity.arguments_data:
                 # As above, each 'item' should have one key and one value only.
-                name, pk = list(item.items())[0]
+                name, pk = _first_item(item)
                 if name in ('str', 'int', 'null'):
                     # It's not actually a model reference, just return the
                     # value directly.
