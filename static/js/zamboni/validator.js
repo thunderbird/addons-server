@@ -6,32 +6,91 @@ $(document).ready(function() {
 
 });
 
+function resultSummary(numErrors, numWarnings, numNotices, testsWereRun) {
+    if (!testsWereRun) {
+        return gettext('These tests were not run.');
+    }
+    // e.g. '1 error, 3 warnings'
+    var errors = format(ngettext('{0} error', '{0} errors', numErrors),
+                        [numErrors]),
+        warnings = format(ngettext('{0} warning', '{0} warnings', numWarnings),
+                          [numWarnings]),
+        notices = format(ngettext('{0} notice', '{0} notices', numNotices),
+                          [numNotices]);
+    return format('{0}, {1}, {2}', errors, warnings, notices);
+}
+
+function retab(line, tabstops) {
+    // Replaces tabs with spaces, to match the given tab stops.
+
+    var SPACES = "                                ";
+    tabstops = Math.min(tabstops || 4, SPACES.length);
+
+    function replace_tab(full_match, non_tab) {
+        if (non_tab) {
+            position += non_tab.length;
+            return non_tab;
+        }
+        else {
+            var pos = position;
+            position += position % tabstops || tabstops;
+            return SPACES.slice(0, position - pos);
+        }
+    }
+
+    var position = 0;
+    return line.replace(/([^\t]+)|\t/g, replace_tab);
+}
+
+function formatCodeIndentation(lines) {
+    // Replaces leading tabs with spaces, and then trims the
+    // smallest common indentation space from each line.
+
+    // Retab all lines and find the common indent.
+    var indent = Infinity;
+    lines = lines.map(function(line) {
+        // When the context line is at the start or end of the file,
+        // the line before or after the context line will be null.
+        if (line == null) {
+            return null;
+        }
+
+        // We need the replace function to run even if there's no
+        // whitespace, so `indent` is properly updated. Stick with
+        // \s* rather than \s+.
+        return line.replace(/^(\s*)/, function(match) {
+            match = retab(match);
+            indent = Math.min(indent, match.length);
+            return match;
+        });
+    });
+
+    // Trim off the common white space.
+    return lines.map(function(line) {
+        // Line may be null. Do not try to slice null.
+        return line && line.slice(indent);
+    });
+}
+
+function sortByType(messages) {
+    var ordering = [
+        'error', 'warning', 'notice', undefined /* no type */];
+    return _.sortBy(messages, function(msg) {
+        return ordering.indexOf(msg.type);
+    });
+}
+
 function initValidator($doc) {
     $doc = $doc || $(document);
 
-    function inherit(OtherClass, constructor) {
-        var NewClass = function() {
-            OtherClass.apply(this, arguments);
-            if (typeof constructor !== 'undefined') {
-                constructor.apply(this, arguments);
-            }
-        }
-        $.extend(NewClass.prototype, OtherClass.prototype);
-        return NewClass;
-    }
-
-    function emptyFn() {
-        return null;
-    }
-
     function ResultsTier($suite, tierId, options) {
-        if (typeof options === 'undefined') {
+        if (options === undefined) {
             options = {}
         }
-        if (typeof options.app === 'undefined') {
+        if (options.app === undefined) {
             options.app = null;
         }
-        if (typeof options.testsWereRun === 'undefined') {
+        if (options.testsWereRun === undefined) {
             options.testsWereRun = true;
         }
         this.$results = $('.results', $suite);
@@ -191,7 +250,7 @@ function initValidator($doc) {
     };
 
     MsgVisitor.prototype.getTier = function(tierId, options) {
-        if (typeof options === 'undefined') {
+        if (options === undefined) {
             options = {app: null};
         }
         if (!options.app
@@ -199,7 +258,7 @@ function initValidator($doc) {
             && this.data.validation.ending_tier < tierId) {
             options.testsWereRun = false;
         }
-        if (typeof this.tiers[tierId] === 'undefined') {
+        if (this.tiers[tierId] === undefined) {
             this.tiers[tierId] = this.createTier(tierId, options);
         }
         return this.tiers[tierId];
@@ -214,7 +273,7 @@ function initValidator($doc) {
             return;
         }
 
-        if (typeof this.msgSet[msg.uid] !== 'undefined') {
+        if (this.msgSet[msg.uid] !== undefined) {
             return;
         }
         this.msgSet[msg.uid] = true;
@@ -252,12 +311,13 @@ function initValidator($doc) {
                 file = file.join('/');
             }
 
+            var $link;
             if (this.fileURL) {
                 var url = this.fileURL + file;
                 if (msg.line) {
                     url += "#L" + msg.line;
                 }
-                var $link = $('<a>', { href: url, text: file,
+                $link = $('<a>', { href: url, text: file,
                                        target: 'file-viewer-' + this.fileID });
             } else {
                 // There's no file browse URL for bare file uploads, so
@@ -286,7 +346,7 @@ function initValidator($doc) {
                     }
                 });
                 $context.append($code);
-            } else if (msg.line && typeof msg.column !== 'undefined') {
+            } else if (msg.line && msg.column !== undefined) {
                 // Normally, the line number would be displayed with the
                 // context. If we have no context, display it with the
                 // filename.
@@ -314,14 +374,6 @@ function initValidator($doc) {
             validation = data.validation,
             summaryTxt;
 
-        function sortByType(messages) {
-            var ordering = [
-                'error', 'warning', 'notice', undefined /* no type */];
-            return _.sortBy(messages, function(msg) {
-                return ordering.indexOf(msg.type);
-            });
-        }
-
         function rebuildResults() {
             vis = new MsgVisitor(suite, data);
             $.each(sortByType(validation.messages), function(i, msg) {
@@ -338,72 +390,6 @@ function initValidator($doc) {
             $('.suite-summary', suite).show();
         }
         rebuildResults();
-    }
-
-    function resultSummary(numErrors, numWarnings, numNotices, testsWereRun) {
-        if (!testsWereRun) {
-            return gettext('These tests were not run.');
-        }
-        // e.g. '1 error, 3 warnings'
-        var errors = format(ngettext('{0} error', '{0} errors', numErrors),
-                            [numErrors]),
-            warnings = format(ngettext('{0} warning', '{0} warnings', numWarnings),
-                              [numWarnings]),
-            notices = format(ngettext('{0} notice', '{0} notices', numNotices),
-                              [numNotices]);
-        return format('{0}, {1}, {2}', errors, warnings, notices);
-    }
-
-    function formatCodeIndentation(lines) {
-        // Replaces leading tabs with spaces, and then trims the
-        // smallest common indentation space from each line.
-
-        function retab(line, tabstops) {
-            // Replaces tabs with spaces, to match the given tab stops.
-
-            var SPACES = "                                ";
-            tabstops = Math.min(tabstops || 4, SPACES.length);
-
-            function replace_tab(full_match, non_tab) {
-                if (non_tab) {
-                    position += non_tab.length;
-                    return non_tab;
-                }
-                else {
-                    var pos = position;
-                    position += position % tabstops || tabstops;
-                    return SPACES.substr(0, position - pos);
-                }
-            }
-
-            var position = 0;
-            return line.replace(/([^\t]+)|\t/g, replace_tab);
-        }
-
-        // Retab all lines and find the common indent.
-        var indent = Infinity;
-        lines = lines.map(function(line) {
-            // When the context line is at the start or end of the file,
-            // the line before or after the context line will be null.
-            if (line == null) {
-                return null;
-            }
-
-            // We need the replace function to run even if there's no
-            // whitespace, so `indent` is properly updated. Stick with
-            // \s* rather than \s+.
-            return line.replace(/^(\s*)/, function(match) {
-                match = retab(match);
-                indent = Math.min(indent, match.length);
-                return match;
-            });
-        });
-
-        // Trim off the common white space.
-        return lines.map(function(line) {
-            // Line may be null. Do not try to slice null.
-            return line && line.slice(indent);
-        });
     }
 
     $('.addon-validator-suite', $doc).on('validate', function(e) {

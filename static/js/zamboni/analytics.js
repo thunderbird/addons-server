@@ -16,8 +16,7 @@ function isDoNotTrackEnabled() {
 }
 
 var _gaq = _gaq || [];
-_gaq.push(['_setAccount', 'UA-36116321-7']);
-_gaq.push(['_trackPageview']);
+_gaq.push(['_setAccount', 'UA-36116321-7'], ['_trackPageview']);
 
 (function() {
     if (isDoNotTrackEnabled() === false) {

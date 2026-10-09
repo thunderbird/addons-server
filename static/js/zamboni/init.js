@@ -103,11 +103,12 @@ var escape_ = function(s){
             .replace(/'/g, '&#39;').replace(/"/g, '&#34;');
 };
 
-//TODO(potch): kill underscore dead. until then, fake it on mobile.
+// Fake underscore on mobile until zamboni stops depending on it (potch);
+// tracked in thunderbird/addons-server#464.
 if (!('_' in window)) _ = {};
 /* is ``key`` in obj? */
 _.haskey = function(obj, key) {
-    return typeof obj[key] !== "undefined";
+    return obj[key] !== undefined;
 };
 
 

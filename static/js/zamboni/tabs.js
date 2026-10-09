@@ -90,7 +90,7 @@ Tabs.prototype = {
      * If updateHash is true, location.hash will be updated.
      */
     select: function(hash, updateHash) {
-        if (typeof hash === 'undefined') {
+        if (hash === undefined) {
             if (!this.tabs.filter('.tab-selected').length) {
                 return this.select(this.getHash(this.tabs[0]));
             }
