@@ -298,7 +298,7 @@ $('#addon-select').click(function(e) {
             '<input name="addon" value="{id}" type="hidden">' +
             '<img src="{icon}" alt=""><h3>{name}</h3>' +
             '<p class="comments">' +
-            '<textarea name="addon_comment"></textarea>' +
+            '<textarea name="addon_comment" aria-labelledby="addons-list-comment"></textarea>' +
             '</p></td>' +
             '<td>' + gettext('Pending') + '</td>' +
             '<td><a title="' + gettext('Add a comment') + '" class="comment">' + gettext('Comment') + '</a></td>' +
