@@ -68,6 +68,11 @@ from .decorators import (
     unlisted_addons_reviewer_required)
 
 
+REVIEWERS_GUIDE_URL = 'https://wiki.mozilla.org/Add-ons/Reviewers/Guide'
+UNLISTED_QUEUE_ALL_URL_NAME = 'reviewers.unlisted_queue_all'
+PERFORMANCE_URL_NAME = 'reviewers.performance'
+
+
 def base_context(**kw):
     ctx = {'motd': get_config('reviewers_review_motd')}
     ctx.update(kw)
@@ -167,11 +172,12 @@ def dashboard(request):
             pending_queue = filter_static_themes(
                 pending_queue, extension_reviewer, theme_reviewer)
 
-        header = (
-            gettext('Static Themes and Legacy Add-ons')
-            if extension_reviewer and theme_reviewer
-            else gettext('Static Themes') if theme_reviewer
-            else gettext('Legacy Add-ons'))
+        if extension_reviewer and theme_reviewer:
+            header = gettext('Static Themes and Legacy Add-ons')
+        elif theme_reviewer:
+            header = gettext('Static Themes')
+        else:
+            header = gettext('Legacy Add-ons')
         sections[header] = [(
             gettext('New ({0})').format(full_review_queue.count()),
             reverse('reviewers.queue_nominated')
@@ -180,7 +186,7 @@ def dashboard(request):
             reverse('reviewers.queue_pending')
         ), (
             gettext('Performance'),
-            reverse('reviewers.performance')
+            reverse(PERFORMANCE_URL_NAME)
         ), (
             gettext('Review Log'),
             reverse('reviewers.reviewlog')
@@ -188,7 +194,7 @@ def dashboard(request):
         if view_all or extension_reviewer:
             sections[header].append(
                 (gettext('Add-on Review Guide'),
-                 'https://wiki.mozilla.org/Add-ons/Reviewers/Guide'))
+                 REVIEWERS_GUIDE_URL))
         if view_all or theme_reviewer:
             sections[header].append(
                 (gettext('Theme Review Guide'),
@@ -203,13 +209,13 @@ def dashboard(request):
             reverse('reviewers.queue_auto_approved')
         ), (
             gettext('Performance'),
-            reverse('reviewers.performance')
+            reverse(PERFORMANCE_URL_NAME)
         ), (
             gettext('Add-on Review Log'),
             reverse('reviewers.reviewlog')
         ), (
             gettext('Review Guide'),
-            'https://wiki.mozilla.org/Add-ons/Reviewers/Guide'
+            REVIEWERS_GUIDE_URL
         )]
     if view_all or acl.action_allowed(
             request, amo.permissions.ADDONS_CONTENT_REVIEW):
@@ -220,7 +226,7 @@ def dashboard(request):
             reverse('reviewers.queue_content_review')
         ), (
             gettext('Performance'),
-            reverse('reviewers.performance')
+            reverse(PERFORMANCE_URL_NAME)
         )]
     if view_all or acl.action_allowed(
             request, amo.permissions.RATINGS_MODERATE):
@@ -239,10 +245,10 @@ def dashboard(request):
             request, amo.permissions.ADDONS_REVIEW_UNLISTED):
         sections[gettext('Unlisted Add-ons')] = [(
             gettext('All Unlisted Add-ons'),
-            reverse('reviewers.unlisted_queue_all')
+            reverse(UNLISTED_QUEUE_ALL_URL_NAME)
         ), (
             gettext('Review Guide'),
-            'https://wiki.mozilla.org/Add-ons/Reviewers/Guide'
+            REVIEWERS_GUIDE_URL
         )]
     if view_all or acl.action_allowed(
             request, amo.permissions.ADDON_REVIEWER_MOTD_EDIT):
@@ -348,10 +354,10 @@ def _recent_reviewers(days=90):
 
 
 def _performance_total(data):
-    # TODO(gkoberger): Fix this so it's the past X, rather than this X to date.
-    # (ex: March 15-April 15, not April 1 - April 15)
-    total_yr = dict(usercount=0, teamamt=0, teamcount=0, teamavg=0)
-    total_month = dict(usercount=0, teamamt=0, teamcount=0, teamavg=0)
+    # Not yet implemented (gkoberger): Fix this so it's the past X, rather
+    # than this X to date. (ex: March 15-April 15, not April 1 - April 15)
+    total_yr = {'usercount': 0, 'teamamt': 0, 'teamcount': 0, 'teamavg': 0}
+    total_month = {'usercount': 0, 'teamamt': 0, 'teamcount': 0, 'teamavg': 0}
     current_year = datetime.now().year
 
     for k, val in data.items():
@@ -364,7 +370,7 @@ def _performance_total(data):
     if current_label_month in data:
         total_month = data[current_label_month]
 
-    return dict(month=total_month, year=total_yr)
+    return {'month': total_month, 'year': total_yr}
 
 
 def _performance_by_month(user_id, months=12, end_month=None, end_year=None):
@@ -391,8 +397,8 @@ def _performance_by_month(user_id, months=12, end_month=None, end_year=None):
 
         if label not in monthly_data:
             xaxis = row.approval_created.strftime('%b %Y')
-            monthly_data[label] = dict(teamcount=0, usercount=0,
-                                       teamamt=0, label=xaxis)
+            monthly_data[label] = {'teamcount': 0, 'usercount': 0,
+                                   'teamamt': 0, 'label': xaxis}
 
         monthly_data[label]['teamamt'] = monthly_data[label]['teamamt'] + 1
         monthly_data_count = monthly_data[label]['teamcount']
@@ -451,18 +457,18 @@ def filter_static_themes(qs, extension_reviewer, theme_reviewer):
             if types_to_include else qs)
 
 
-def _queue(request, TableObj, tab, qs=None, unlisted=False,
-           SearchForm=QueueSearchForm):
+def _queue(request, table_obj, tab, qs=None, unlisted=False,
+           search_form_class=QueueSearchForm):
     if qs is None:
-        qs = TableObj.Meta.model.objects.all()
+        qs = table_obj.Meta.model.objects.all()
 
-    if SearchForm:
+    if search_form_class:
         if request.GET:
-            search_form = SearchForm(request.GET)
+            search_form = search_form_class(request.GET)
             if search_form.is_valid():
                 qs = search_form.filter_qs(qs)
         else:
-            search_form = SearchForm()
+            search_form = search_form_class()
         is_searching = search_form.data.get('searching')
     else:
         search_form = None
@@ -493,10 +499,10 @@ def _queue(request, TableObj, tab, qs=None, unlisted=False,
                 Q(**{'addons_addonreviewerflags.needs_sensitive_data_access_review': True})
             )
 
-    order_by = request.GET.get('sort', TableObj.default_order_by())
-    if hasattr(TableObj, 'translate_sort_cols'):
-        order_by = TableObj.translate_sort_cols(order_by)
-    table = TableObj(data=qs, order_by=order_by)
+    order_by = request.GET.get('sort', table_obj.default_order_by())
+    if hasattr(table_obj, 'translate_sort_cols'):
+        order_by = table_obj.translate_sort_cols(order_by)
+    table = table_obj(data=qs, order_by=order_by)
     per_page = request.GET.get('per_page', REVIEWS_PER_PAGE)
     try:
         per_page = int(per_page)
@@ -590,7 +596,7 @@ def queue_moderated(request):
 
 @unlisted_addons_reviewer_required
 def unlisted_queue(request):
-    return redirect(reverse('reviewers.unlisted_queue_all'))
+    return redirect(reverse(UNLISTED_QUEUE_ALL_URL_NAME))
 
 
 @any_reviewer_required
@@ -612,7 +618,7 @@ def queue_content_review(request):
         .order_by('addonapprovalscounter__last_content_review', 'created')
     )
     return _queue(request, ContentReviewTable, 'content_review',
-                  qs=qs, SearchForm=None)
+                  qs=qs, search_form_class=None)
 
 
 @permission_required(amo.permissions.ADDONS_POST_REVIEW)
@@ -628,7 +634,7 @@ def queue_auto_approved(request):
             'addonapprovalscounter__last_human_review',
             'created'))
     return _queue(request, AutoApprovedTable, 'auto_approved',
-                  qs=qs, SearchForm=None)
+                  qs=qs, search_form_class=None)
 
 
 @permission_required(amo.permissions.REVIEWS_ADMIN)
@@ -640,7 +646,7 @@ def queue_expired_info_requests(request):
             disabled_by_user=False)
         .order_by('addonreviewerflags__pending_info_request'))
     return _queue(request, ExpiredInfoRequestsTable, 'expired_info_requests',
-                  qs=qs, SearchForm=None)
+                  qs=qs, search_form_class=None)
 
 
 def _get_comments_for_hard_deleted_versions(addon):
@@ -738,7 +744,6 @@ def determine_channel(channel_as_text):
         # 'content' is not a real channel, just a different review mode for
         # listed add-ons.
         content_review_only = True
-        channel = 'listed'
     else:
         content_review_only = False
     # channel is passed in as text, but we want the constant.
@@ -824,7 +829,7 @@ def review(request, addon, channel=None):
             queue_type = form.helper.handler.review_type
         redirect_url = reverse('reviewers.queue_%s' % queue_type)
     else:
-        redirect_url = reverse('reviewers.unlisted_queue_all')
+        redirect_url = reverse(UNLISTED_QUEUE_ALL_URL_NAME)
 
     if request.method == 'POST' and form.is_valid():
         form.helper.process()
@@ -1111,7 +1116,7 @@ def whiteboard(request, addon, channel):
 @unlisted_addons_reviewer_required
 def unlisted_list(request):
     return _queue(request, ViewUnlistedAllListTable, 'all',
-                  unlisted=True, SearchForm=AllAddonSearchForm)
+                  unlisted=True, search_form_class=AllAddonSearchForm)
 
 
 def policy_viewer(request, addon, eula_or_privacy, page_title, long_title):

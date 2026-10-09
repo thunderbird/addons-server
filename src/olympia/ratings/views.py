@@ -172,7 +172,7 @@ def reply(request, addon, review_id):
             'addon': addon,
             'defaults': _review_details(request, addon, form)
         }
-        reply, created = Rating.unfiltered.update_or_create(**kwargs)
+        Rating.unfiltered.update_or_create(**kwargs)
         return redirect(jinja_helpers.url(
             'addons.ratings.detail', addon.slug, review_id))
     ctx = {
@@ -286,7 +286,7 @@ class RatingViewSet(AddonChildMixin, ModelViewSet):
         self.kwargs['addon_pk'] = str(rating.addon.pk)
         return self.get_addon_object()
 
-    def get_addon_object(self):
+    def get_addon_object(self, permission_classes=None, lookup='addon_pk'):
         """Return addon object associated with the request, or None if not
         relevant.
 

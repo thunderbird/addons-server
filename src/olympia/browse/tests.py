@@ -763,7 +763,7 @@ class TestSearchToolsPages(BaseSearchToolsTest):
         # between the category / no category cases.
         sort_links = [urlparse(a.attrib['href']).path for a in
                       doc('.listing-header ul li a')]
-        assert set(sort_links) == set([reverse('browse.search-tools')])
+        assert set(sort_links) == {reverse('browse.search-tools')}
 
     def test_sidebar_extensions_links(self):
         response = self.client.get(reverse('browse.search-tools'))
@@ -777,7 +777,7 @@ class TestSearchToolsPages(BaseSearchToolsTest):
                     'Most Popular', 'Recently Added']))
 
         search_ext_url = urlparse(reverse('browse.extensions',
-                                  kwargs=dict(category='search-tools')))
+                                  kwargs={'category': 'search-tools'}))
 
         assert urlparse(links[0].attrib['href']).path == search_ext_url.path
         assert urlparse(links[1].attrib['href']).path == search_ext_url.path
