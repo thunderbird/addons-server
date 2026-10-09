@@ -108,7 +108,6 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         response = self.client.put(self.url(self.guid, '12.5'))
         assert response.status_code == 401
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_addon_does_not_exist(self):
         guid = '@create-version'
         qs = Addon.unfiltered.filter(guid=guid)
@@ -127,7 +126,9 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         self.auto_sign_version.assert_called_with(latest_version)
         assert not addon.tags.filter(tag_text='dynamic theme').exists()
 
-    @pytest.mark.xfail(reason="ATN requires extensions to include a GUID, making this test incompatible.")
+    @pytest.mark.skip(
+        reason='ATN requires extensions to include a GUID, making this test '
+               'incompatible. See thunderbird/addons-server#397.')
     def test_new_addon_random_slug_unlisted_channel(self):
         guid = '@create-webextension'
         qs = Addon.unfiltered.filter(guid=guid)
@@ -180,7 +181,6 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         assert response.status_code == 200
         assert 'processed' in response.data
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_version_added(self):
         assert Addon.objects.get(guid=self.guid).status == amo.STATUS_PUBLIC
         qs = Version.objects.filter(addon__guid=self.guid, version='3.0')
@@ -203,7 +203,6 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         assert not version.all_files[0].is_mozilla_signed_extension
         assert not version.addon.tags.filter(tag_text='dynamic theme').exists()
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_version_already_uploaded(self):
         response = self.request('PUT', self.url(self.guid, '3.0'))
         assert response.status_code == 202
@@ -214,7 +213,6 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         assert response.data['error'] == ('Version already exists. '
                                           'Latest version is: 3.0.')
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_version_failed_review(self):
         self.create_version('3.0')
         version = Version.objects.get(addon__guid=self.guid, version='3.0')
@@ -232,7 +230,10 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         assert response.status_code == 200
         assert 'processed' in response.data
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
+    @pytest.mark.xfail(
+        reason='amo-validator giving `Unexpected error during validation: '
+               'JSONDecodeError: Expecting value: line 1 column 1 (char 0)`. '
+               'See thunderbird/addons-server#397.')
     def test_version_added_is_experiment(self):
         self.grant_permission(self.user, 'Experiments:submit')
         guid = '@experiment-inside-webextension-guid'
@@ -254,7 +255,10 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         assert latest_version.channel == amo.RELEASE_CHANNEL_UNLISTED
         self.auto_sign_version.assert_called_with(latest_version)
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
+    @pytest.mark.xfail(
+        reason='amo-validator giving `Unexpected error during validation: '
+               'JSONDecodeError: Expecting value: line 1 column 1 (char 0)`. '
+               'See thunderbird/addons-server#397.')
     def test_version_added_is_experiment_reject_no_perm(self):
         guid = '@experiment-inside-webextension-guid'
         qs = Addon.unfiltered.filter(guid=guid)
@@ -391,7 +395,6 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
             amo.STATUS_CHOICES_ADDON[amo.STATUS_DISABLED])
         assert error_msg in response.data['error']
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_channel_ignored_for_new_addon(self):
         guid = '@create-version'
         qs = Addon.unfiltered.filter(guid=guid)
@@ -423,7 +426,6 @@ class TestUploadVersion(BaseUploadVersionTestMixin, TestCase):
         third_version = addon.versions.latest()
         assert third_version.channel == amo.RELEASE_CHANNEL_UNLISTED
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_unlisted_channel_for_listed_addon(self):
         addon = Addon.objects.get(guid=self.guid)
         assert addon.status == amo.STATUS_PUBLIC
@@ -554,7 +556,9 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
         AppVersion.objects.get_or_create(application=amo.THUNDERBIRD.id, version='60.0')
         AppVersion.objects.get_or_create(application=amo.THUNDERBIRD.id, version='60.*')
 
-    @pytest.mark.xfail(reason="ATN requires extensions to include a GUID, making this test incompatible.")
+    @pytest.mark.skip(
+        reason='ATN requires extensions to include a GUID, making this test '
+               'incompatible. See thunderbird/addons-server#397.')
     def test_addon_does_not_exist_webextension(self):
         response = self.request(
             'POST',
@@ -581,7 +585,9 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
         self.auto_sign_version.assert_called_with(
             latest_version)
 
-    @pytest.mark.xfail(reason="ATN requires extensions to include a GUID, making this test incompatible.")
+    @pytest.mark.skip(
+        reason='ATN requires extensions to include a GUID, making this test '
+               'incompatible. See thunderbird/addons-server#397.')
     def test_addon_does_not_exist_webextension_with_guid_in_url(self):
         guid = '@custom-guid-provided'
         # Override the filename self.request() picks, we want that specific
@@ -610,7 +616,9 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
         self.auto_sign_version.assert_called_with(
             latest_version)
 
-    @pytest.mark.xfail(reason="ATN requires extensions to include a GUID, making this test incompatible.")
+    @pytest.mark.skip(
+        reason='ATN requires extensions to include a GUID, making this test '
+               'incompatible. See thunderbird/addons-server#397.')
     def test_addon_does_not_exist_webextension_with_invalid_guid_in_url(self):
         guid = 'custom-invalid-guid-provided'
         # Override the filename self.request() picks, we want that specific
@@ -697,7 +705,9 @@ class TestUploadVersionWebextension(BaseUploadVersionTestMixin, TestCase):
         assert addon.summary == u'Benachrichtigt den Benutzer über Linkklicks'
 
 
-    @pytest.mark.xfail(reason="ATN requires extensions to include a GUID, making this test incompatible.")
+    @pytest.mark.skip(
+        reason='ATN requires extensions to include a GUID, making this test '
+               'incompatible. See thunderbird/addons-server#397.')
     def test_too_long_guid_not_in_manifest_forbidden(self):
         fname = (
             'src/olympia/files/fixtures/files/webextension_with_id.xpi')
@@ -856,7 +866,6 @@ class TestCheckVersion(BaseUploadVersionTestMixin, TestCase):
         assert response.status_code == 404
         assert 'error' in response.data
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_version_download_url(self):
         version_string = '3.0'
         qs = File.objects.filter(version__addon__guid=self.guid,
@@ -870,7 +879,6 @@ class TestCheckVersion(BaseUploadVersionTestMixin, TestCase):
             reverse_ns('signing.file', kwargs={'file_id': file_.id}) +
             '/{fname}?src=api'.format(fname=file_.filename))
 
-    @pytest.mark.xfail(reason="amo-validator giving `Unexpected error during validation: JSONDecodeError: Expecting value: line 1 column 1 (char 0)`")
     def test_file_hash(self):
         version_string = '3.0'
         qs = File.objects.filter(version__addon__guid=self.guid,

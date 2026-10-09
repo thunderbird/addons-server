@@ -540,7 +540,6 @@ class TestParseXpi(TestCase):
             self.parse()
         assert e.exception.messages == ['Duplicate add-on ID found.']
 
-    @pytest.mark.xfail(reason="ATN does not support any extension without an id.")
     def test_guid_no_dupe_webextension_no_id(self):
         Addon.objects.create(guid=None, type=1)
         self.parse(filename='webextension_no_id.xpi')
@@ -558,7 +557,9 @@ class TestParseXpi(TestCase):
             self.parse(addon, filename='webextension.xpi')
         assert e.exception.messages[0].startswith('The add-on ID in your')
 
-    @pytest.mark.xfail(reason="ATN does not support any extension without an id.")
+    @pytest.mark.skip(
+        reason='ATN does not support any extension without an id. See '
+               'thunderbird/addons-server#397.')
     def test_guid_nomatch_webextension_supports_no_guid(self):
         # addon.guid is generated if none is set originally so it doesn't
         # really matter what we set here, we allow updates to an add-on
@@ -590,7 +591,6 @@ class TestParseXpi(TestCase):
         assert not parsed['is_restart_required']
         assert not parsed['is_experiment']
 
-    @pytest.mark.xfail(reason="ATN doesn't seem to support RDF web extensions")
     def test_experiment_inside_webextension(self):
         self.grant_permission(self.user, 'Experiments:submit')
         parsed = self.parse(filename='experiment_inside_webextension.xpi')
@@ -692,7 +692,10 @@ class TestParseXpi(TestCase):
         msg = e.exception.messages[0]
         assert msg == 'Version numbers should have fewer than 32 characters.'
 
-    @pytest.mark.xfail(reason="We don't support legacy extensions with this version upgrade, so it might not be needed. Might want to double check that.")
+    @pytest.mark.skip(
+        reason="We don't support legacy extensions with this version upgrade, "
+               'so it might not be needed. Might want to double check that. '
+               'See thunderbird/addons-server#397.')
     def test_strict_compat_undefined(self):
         result = self.parse()
         # It's a legacy extension so it will always have strict compatibility

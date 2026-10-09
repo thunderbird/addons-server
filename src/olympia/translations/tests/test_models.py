@@ -505,7 +505,9 @@ class TranslationMultiDbTests(TransactionTestCase):
 
     @override_settings(DEBUG=True)
     @patch('multidb.get_replica', lambda: 'slave-2')
-    @pytest.mark.xfail(reason='Needs django-queryset-transform patch to work')
+    @pytest.mark.xfail(
+        reason='Needs django-queryset-transform patch to work. See '
+               'thunderbird/addons-server#397.')
     def test_translations_reading_from_multiple_db_using(self):
         with patch.object(django.db.connections, 'databases', self.mocked_dbs):
             # Make sure we are in a clean environnement.
