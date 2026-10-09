@@ -84,11 +84,6 @@ p.install-button {
     font-weight: normal;
 }
 
-.experimental .install .exp-confirm-install {
-}
-.experimental .install .exp-desc {
-}
-
 .teaser-items .item .install {
     float: left;
 }
@@ -508,17 +503,6 @@ h4.author a {
     margin-right: 5px;
 }
 
-#addon-summary .stats {
-    margin: 0;
-    float: none;
-    text-align: left;
-    color: #6FB727;
-}
-
-.html-rtl #addon-summary .stats {
-    text-align: right;
-}
-
 #addon-summary .stats em {
     font-style: normal;
     font-weight: bold;
@@ -571,12 +555,17 @@ h4.author a {
 }
 
 #addon-summary .stats {
+    margin: 0;
+    float: none;
+    text-align: left;
+    color: #6FB727;
     position: absolute;
     left: -240px;
     top: 180px;
 }
 
 .html-rtl #addon-summary .stats {
+    text-align: right;
     left: auto;
     right: -240px;
 }
@@ -1014,9 +1003,6 @@ dl.faq dt:target, dl.validation dt:target { color: #df731b; }
 .html-rtl .app_install-popup ol {
     margin-left: 0;
     margin-right: 2em;
-}
-
-.html-rtl .app_install-popup ol {
     margin-top: 1.5em;
     margin-bottom: 0;
 }
@@ -1114,28 +1100,19 @@ html[xmlns] .clearfix {
     font-weight: normal;
 }
 
-.jqmOverlay {
-    background-color: #000;
-}
-
 /** END Modal collection box. */
 
 /*** =Dictionaries ***/
+#dictionaries tbody tr:nth-child(even),
+#dictionaries tbody tr.alt th, #dictionaries tbody tr.alt td {
+    background-color: #fff;
+}
 #dictionaries {
     background-color: #f7fafc;
     border: 1px solid #eef1f3;
     -moz-border-radius: 6px;
     -webkit-border-radius: 6px;
     border-radius: 6px;
-}
-#dictionaries th, #dictionaries td {
-    border-bottom: 1px solid #eee;
-}
-#dictionaries tbody tr:nth-child(even),
-#dictionaries tbody tr.alt th, #dictionaries tbody tr.alt td {
-    background-color: #fff;
-}
-#dictionaries {
     clear: both;
     padding: 10px 15px;
 }
@@ -1143,6 +1120,7 @@ html[xmlns] .clearfix {
     width: 100%;
 }
 #dictionaries th, #dictionaries td {
+    border-bottom: 1px solid #eee;
     padding: 6px 12px;
 }
 #dictionaries td p {
@@ -1718,10 +1696,6 @@ html[xmlns] .clearfix {
     float: right;
 }
 
-.personas-feature p {
-    padding: 0;
-}
-
 .personas-feature strong {
     color: #6a6a6a;
 }
@@ -1764,6 +1738,7 @@ html[xmlns] .clearfix {
 }
 
 .personas-feature p {
+    padding: 0;
     font-size: 93%;
     line-height: 1.3em;
 }
