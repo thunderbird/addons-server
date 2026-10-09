@@ -17,7 +17,7 @@
   {{ l10n_menu(addon.default_locale) }}
   <h2>{{ addon.name }}</h2>
 </header>
-<section id="edit-addon" class="primary devhub-form" role="main">
+<main id="edit-addon" class="primary devhub-form">
 <form method="post" class="item">
   {% csrf_token %}
   {{ user_form.management_form }}
@@ -70,7 +70,7 @@
   </li>
 </ul>
 {% endwith %}
-</section>
+</main>
 {% include "devhub/includes/addons_edit_nav.html" %}
 
 <div id="author-roles-help" class="popup">

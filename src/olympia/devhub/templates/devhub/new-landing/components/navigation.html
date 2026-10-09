@@ -34,7 +34,7 @@
         </a></li>
 
         <li class="avatar"><a href="{{ user.get_url_path() }}">
-          <img src="{{ request.user.picture_url }}" alt="{% if not request.user.picture_type %}{{ _('No Photo') }}{% else %}{{ _('User Photo') }}{% endif %}" />
+          <img src="{{ request.user.picture_url }}" alt="{% if not request.user.picture_type %}{{ _('No avatar') }}{% else %}{{ _('User avatar') }}{% endif %}" />
         </a></li>
       {% else %}
         <li class="show-on-desktop DevHub-Navigation-Register">

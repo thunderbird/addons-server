@@ -147,7 +147,7 @@
 <header>
   <h2>{{ addon.name }}</h2>
 </header>
-<section id="edit-addon" class="primary devhub-form" role="main">
+<main id="edit-addon" class="primary devhub-form">
   {% if has_listed_versions %}
     <h3>{{ distro_tag(amo.RELEASE_CHANNEL_LISTED)}} {{ _('Listing visibility') }}</h3>
     <div class="item" id="addon-current-state">
@@ -262,7 +262,7 @@
     </div>
   </div>
   {% endif %}
-</section>
+</main>
 
 <div id="modals">
 

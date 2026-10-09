@@ -110,7 +110,7 @@
         </div>
       </fieldset>
       <p class="legal">
-        <label>
+        <label for="{{ form.agreed.id_for_label }}">
           {{ form.agreed.as_widget(attrs={'required': ''}) }}
           {% trans agreement_link_open='<a href="https://developer.mozilla.org/en-US/Add-ons/AMO/Policy/Agreement">'|safe,
                    privacy_notice_link_open='<a href="https://www.mozilla.org/en-US/privacy/websites/">'|safe, link_close='</a>'|safe %}
