@@ -66,7 +66,7 @@ LOGGING['loggers'].update({
 ES_TIMEOUT = 60
 ES_HOSTS = env('ES_HOSTS')
 ES_URLS = ['http://%s' % h for h in ES_HOSTS]
-ES_INDEXES = dict((k, '%s_%s' % (v, ENV)) for k, v in ES_INDEXES.items())
+ES_INDEXES = {k: '%s_%s' % (v, ENV) for k, v in ES_INDEXES.items()}
 
 CEF_PRODUCT = STATSD_PREFIX
 

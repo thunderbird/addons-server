@@ -81,7 +81,7 @@ csp = 'csp.middleware.CSPMiddleware'
 ES_TIMEOUT = 60
 ES_HOSTS = env('ES_HOSTS')
 ES_URLS = ['http://%s' % h for h in ES_HOSTS]
-ES_INDEXES = dict((k, '%s_%s' % (v, ENV)) for k, v in ES_INDEXES.items())
+ES_INDEXES = {k: '%s_%s' % (v, ENV) for k, v in ES_INDEXES.items()}
 
 CEF_PRODUCT = STATSD_PREFIX
 
@@ -102,13 +102,18 @@ NEWRELIC_ENABLE = env.bool('NEWRELIC_ENABLE', default=False)
 if NEWRELIC_ENABLE:
     NEWRELIC_INI = '/etc/newrelic.d/%s.ini' % DOMAIN
 
+# Lowercase so Django does not load these as settings.
+_fxa_content_host = 'https://stable.dev.lcip.org'
+_fxa_oauth_host = 'https://oauth-stable.dev.lcip.org/v1'
+_fxa_profile_host = 'https://stable.dev.lcip.org/profile/v1'
+
 FXA_CONFIG = {
     'default': {
         'client_id': env('FXA_CLIENT_ID'),
         'client_secret': env('FXA_CLIENT_SECRET'),
-        'content_host': 'https://stable.dev.lcip.org',
-        'oauth_host': 'https://oauth-stable.dev.lcip.org/v1',
-        'profile_host': 'https://stable.dev.lcip.org/profile/v1',
+        'content_host': _fxa_content_host,
+        'oauth_host': _fxa_oauth_host,
+        'profile_host': _fxa_profile_host,
         'redirect_url':
             'https://%s/api/v3/accounts/authenticate/' % DOMAIN,
         'scope': 'profile',
@@ -116,18 +121,18 @@ FXA_CONFIG = {
     'amo': {
         'client_id': env('AMO_FXA_CLIENT_ID'),
         'client_secret': env('AMO_FXA_CLIENT_SECRET'),
-        'content_host': 'https://stable.dev.lcip.org',
-        'oauth_host': 'https://oauth-stable.dev.lcip.org/v1',
-        'profile_host': 'https://stable.dev.lcip.org/profile/v1',
+        'content_host': _fxa_content_host,
+        'oauth_host': _fxa_oauth_host,
+        'profile_host': _fxa_profile_host,
         'redirect_url': 'https://amo.addons-dev.allizom.org/fxa-authenticate',
         'scope': 'profile',
     },
     'local': {
         'client_id': env('DEVELOPMENT_FXA_CLIENT_ID'),
         'client_secret': env('DEVELOPMENT_FXA_CLIENT_SECRET'),
-        'content_host': 'https://stable.dev.lcip.org',
-        'oauth_host': 'https://oauth-stable.dev.lcip.org/v1',
-        'profile_host': 'https://stable.dev.lcip.org/profile/v1',
+        'content_host': _fxa_content_host,
+        'oauth_host': _fxa_oauth_host,
+        'profile_host': _fxa_profile_host,
         'redirect_url': 'http://localhost:3000/fxa-authenticate',
         'scope': 'profile',
     },
