@@ -94,8 +94,9 @@ class TestExtractor(TestCase):
 
         # Increase the size though and it should raise an error.
         getsize_mock.return_value = settings.MAX_STATICTHEME_SIZE + 1
+        xpi_file = mock.Mock()
         with pytest.raises(forms.ValidationError) as exc:
-            utils.check_xpi_info(manifest, xpi_file=mock.Mock())
+            utils.check_xpi_info(manifest, xpi_file=xpi_file)
 
         assert (
             exc.value.message ==
@@ -414,12 +415,13 @@ class TestManifestJSONExtractor(TestCase):
         fixture = (
             'src/olympia/files/fixtures/files/notify-link-clicks-i18n.xpi')
 
-        with amo.tests.copy_file(fixture, file_obj.file_path):
+        file_path = file_obj.file_path
+        with amo.tests.copy_file(fixture, file_path):
             with pytest.raises(forms.ValidationError) as exc:
-                utils.parse_xpi(file_obj.file_path)
-                assert dict(exc.value.messages)['en-us'].startswith(
-                    u'Add-on names cannot contain the Mozilla or'
-                )
+                utils.parse_xpi(file_path)
+            assert dict(exc.value.messages)['en-us'].startswith(
+                u'Add-on names cannot contain the Mozilla or'
+            )
 
     @mock.patch('olympia.addons.models.resolve_i18n_message')
     @override_switch('content-optimization', active=False)
@@ -977,12 +979,13 @@ def test_atomic_lock_lifetime():
 
         lock2 = flufl.lock.Lock('/tmp/test-atomic-lock3.lock')
 
+        # We have to apply `timedelta` to actually raise an exception,
+        # otherwise `.lock()` will wait for 2 seconds and get the lock
+        # for us. We get a `TimeOutError` because we were locking
+        # with a different claim file
+        no_wait = timedelta(seconds=0)
         with pytest.raises(flufl.lock.TimeOutError):
-            # We have to apply `timedelta` to actually raise an exception,
-            # otherwise `.lock()` will wait for 2 seconds and get the lock
-            # for us. We get a `TimeOutError` because we were locking
-            # with a different claim file
-            lock2.lock(timeout=timedelta(seconds=0))
+            lock2.lock(timeout=no_wait)
 
         with _get_lock() as lock_attained2:
             assert not lock_attained2
@@ -1178,7 +1181,6 @@ class TestGetBackgroundImages(TestCase):
 
 
 @pytest.mark.parametrize('value, expected', [
-    (1, '1/1/1'),
     (1, '1/1/1'),
     (12, '2/12/12'),
     (123, '3/23/123'),

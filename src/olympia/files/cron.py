@@ -35,6 +35,6 @@ def cleanup_extracted_file():
 def cleanup_validation_results():
     """Will remove all validation results.  Used when the validator is
     upgraded and results may no longer be relevant."""
-    all = FileValidation.objects.all()
-    log.info('Removing %s old validation results.' % (all.count()))
-    all.delete()
+    validations = FileValidation.objects.all()
+    log.info('Removing %s old validation results.' % (validations.count()))
+    validations.delete()

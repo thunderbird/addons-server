@@ -53,6 +53,9 @@ from olympia.versions.compare import version_int as vint
 
 log = olympia.core.logger.getLogger('z.files.utils')
 
+MANIFEST_JSON = 'manifest.json'
+INSTALL_RDF = 'install.rdf'
+
 
 class ParseError(forms.ValidationError):
     pass
@@ -155,10 +158,10 @@ class Extractor(object):
             certificate_info = SigningCertificateInformation(
                 zip_file.read(certificate))
 
-        if zip_file.exists('manifest.json'):
+        if zip_file.exists(MANIFEST_JSON):
             data = ManifestJSONExtractor(
                 zip_file, certinfo=certificate_info).parse(minimal=minimal)
-        elif zip_file.exists('install.rdf'):
+        elif zip_file.exists(INSTALL_RDF):
             # Note that RDFExtractor is a misnomer, it receives the zip_file
             # object because it might need to read other files than just
             # the rdf to deal with dictionaries, complete themes etc.
@@ -218,7 +221,7 @@ class RDFExtractor(object):
         self.zip_file = zip_file
         self.certinfo = certinfo
         self.rdf = rdflib.Graph().parse(
-            data=force_text(zip_file.read('install.rdf')))
+            data=force_text(zip_file.read(INSTALL_RDF)))
         self.package_type = None
         self.find_root()  # Will set self.package_type
 
@@ -371,7 +374,7 @@ class ManifestJSONExtractor(object):
         self.certinfo = certinfo
 
         if not data:
-            data = zip_file.read('manifest.json')
+            data = zip_file.read(MANIFEST_JSON)
 
         # Remove BOM if present.
         data = unicodehelper.decode(data)
@@ -426,12 +429,13 @@ class ManifestJSONExtractor(object):
 
     @property
     def type(self):
-        return (
-            amo.ADDON_LPAPP if 'langpack_id' in self.data
-            else amo.ADDON_STATICTHEME if 'theme' in self.data
-            else amo.ADDON_DICT if 'dictionaries' in self.data
-            else amo.ADDON_EXTENSION
-        )
+        if 'langpack_id' in self.data:
+            return amo.ADDON_LPAPP
+        if 'theme' in self.data:
+            return amo.ADDON_STATICTHEME
+        if 'dictionaries' in self.data:
+            return amo.ADDON_DICT
+        return amo.ADDON_EXTENSION
 
     @property
     def strict_max_version(self):
@@ -450,30 +454,15 @@ class ManifestJSONExtractor(object):
 
     def apps(self):
         """Get `AppVersion`s for the application."""
-        type_ = self.type
-        if type_ == amo.ADDON_LPAPP:
-            # Langpack are only compatible with Thunderbird desktop at the moment.
-            # https://github.com/mozilla/addons-server/issues/8381
-            # They are all strictly compatible with a specific version, so
-            # the default min version here doesn't matter much.
-            apps = (
-                (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD),
-            )
-        elif type_ == amo.ADDON_STATICTHEME:
-            # Static themes are only compatible with Thunderbird >= 60.
-            apps = (
-                (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD),
-            )
-        elif type_ == amo.ADDON_DICT:
+        if self.type == amo.ADDON_DICT:
             # WebExt dicts are only compatible with Thunderbird >= 60.5.
             apps = (
                 (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_DICT_MIN_VERSION_THUNDERBIRD),
             )
         else:
-            webext_min = (
-                amo.DEFAULT_WEBEXT_MIN_VERSION
-                if self.get('browser_specific_settings', None) is None
-                else amo.DEFAULT_WEBEXT_MIN_VERSION_BROWSER_SPECIFIC)
+            # Langpacks (strictly compatible with a specific version, so the
+            # default min version here doesn't matter much), static themes
+            # and other extensions are compatible with Thunderbird >= 60.
             apps = (
                 (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD),
             )
@@ -517,7 +506,6 @@ class ManifestJSONExtractor(object):
         if self.manifest_version == 3 and self.get('applications'):
             raise forms.ValidationError(gettext('Manifest v3 does not support "applications" key. Please use "browser_specific_settings" instead.'))
 
-        couldnt_find_version = False
         for app, default_min_version in apps:
             if self.guid is None and not self.strict_min_version:
                 strict_min_version = max(amo.DEFAULT_WEBEXT_MIN_VERSION_NO_ID,
@@ -541,9 +529,9 @@ class ManifestJSONExtractor(object):
         """Guess target_locale for a dictionary from manifest contents."""
         try:
             dictionaries = self.get('dictionaries', {})
-            key = force_text(list(dictionaries.keys())[0])
+            key = force_text(next(iter(dictionaries.keys())))
             return key[:255]
-        except (IndexError, UnicodeDecodeError):
+        except (StopIteration, UnicodeDecodeError):
             # This shouldn't happen: the linter should prevent it, but
             # just in case, handle the error (without bothering with
             # translations as users should never see this).
@@ -645,7 +633,7 @@ def extract_search(content):
     }
 
 
-def parse_search(fileorpath, addon=None):
+def parse_search(fileorpath):
     try:
         f = get_file(fileorpath)
         data = extract_search(f)
@@ -809,9 +797,9 @@ class SafeZip(object):
         or
             locale/de/browser
         """
-        type, path = manifest.split(':')
+        kind, path = manifest.split(':')
         jar = self
-        if type == 'jar':
+        if kind == 'jar':
             parts = path.split('!')
             for part in parts[:-1]:
                 jar = self.__class__(six.BytesIO(jar.zip_file.read(part)))
@@ -1113,7 +1101,7 @@ def parse_addon(pkg, addon=None, user=None, minimal=False):
     """
     name = getattr(pkg, 'name', pkg)
     if name.endswith('.xml'):
-        parsed = parse_search(pkg, addon)
+        parsed = parse_search(pkg)
     elif name.endswith(amo.VALID_ADDON_FILE_EXTENSIONS):
         parsed = parse_xpi(pkg, addon, minimal=minimal, user=user)
     else:
@@ -1164,10 +1152,10 @@ def update_version_number(file_obj, new_version_number):
         with zipfile.ZipFile(updated, 'w', zipfile.ZIP_DEFLATED) as dest:
             for file_ in file_list:
                 content = source.read(file_.filename)
-                if file_.filename == 'install.rdf':
+                if file_.filename == INSTALL_RDF:
                     content = _update_version_in_install_rdf(
                         content, new_version_number)
-                if file_.filename in ['package.json', 'manifest.json']:
+                if file_.filename in ['package.json', MANIFEST_JSON]:
                     content = _update_version_in_json_manifest(
                         content, new_version_number)
                 dest.writestr(file_, content)
@@ -1197,19 +1185,19 @@ def write_crx_as_xpi(chunks, target):
         # ZIP file from this CRX.
         start_position = 16 + public_key_length + signature_length
 
-        hash = hashlib.sha256()
+        sha256 = hashlib.sha256()
         tmp.seek(start_position)
 
         # Now we open the Django storage and write our real XPI file.
         with storage.open(target, 'wb') as file_destination:
-            bytes = tmp.read(65536)
+            chunk = tmp.read(65536)
             # Keep reading bytes and writing them to the XPI.
-            while bytes:
-                hash.update(bytes)
-                file_destination.write(bytes)
-                bytes = tmp.read(65536)
+            while chunk:
+                sha256.update(chunk)
+                file_destination.write(chunk)
+                chunk = tmp.read(65536)
 
-    return hash
+    return sha256
 
 
 def _update_version_in_install_rdf(content, new_version_number):
