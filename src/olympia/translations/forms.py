@@ -94,5 +94,5 @@ class LocaleErrorList(ErrorList):
         if isinstance(error, LocaleErrorMessage):
             return error.message
         if isinstance(error, ValidationError):
-            return list(error)[0]
+            return next(iter(error))
         return force_text(error)

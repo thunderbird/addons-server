@@ -116,6 +116,6 @@ def log_configure():
 def log_exception(data):
     # Note: although this logs exceptions, it logs at the info level so that
     # on prod, we log at the error level and result in no logs on prod.
-    typ, value, discard = sys.exc_info()
+    typ, value, _ = sys.exc_info()
     error_log = olympia.core.logger.getLogger('z.update')
     error_log.exception(u'Type: %s, %s. Data: %s' % (typ, value, data))

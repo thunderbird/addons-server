@@ -255,9 +255,9 @@ class Collection(ModelBase):
     def transformer(collections):
         if not collections:
             return
-        author_ids = set(c.author_id for c in collections)
-        authors = dict((u.id, u) for u in
-                       UserProfile.objects.filter(id__in=author_ids))
+        author_ids = {c.author_id for c in collections}
+        authors = {u.id: u for u in
+                   UserProfile.objects.filter(id__in=author_ids)}
         for c in collections:
             c.author = authors.get(c.author_id)
 
