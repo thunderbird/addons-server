@@ -223,7 +223,9 @@ class TestAddStaticThemeFromLwt(TestCase):
         cron.addon_last_updated()  # Make sure the last_updated change stuck.
         assert static_theme.reload().last_updated == self.update_date
 
-    @pytest.mark.xfail(reason='Personas are no longer supported')
+    @pytest.mark.skip(
+        reason='Personas are no longer supported. See '
+               'thunderbird/addons-server#446.')
     def test_add_static_theme_from_lwt(self):
 
         author = user_factory()
@@ -258,7 +260,9 @@ class TestAddStaticThemeFromLwt(TestCase):
             persona.all_categories, licenses.LICENSE_CC_BY_ND.builtin,
             [rating], collection)
 
-    @pytest.mark.xfail(reason='Personas are no longer supported')
+    @pytest.mark.skip(
+        reason='Personas are no longer supported. See '
+               'thunderbird/addons-server#446.')
     def test_add_static_theme_broken_lwt(self):
         """What if no author or license or category?"""
         persona = addon_factory(type=amo.ADDON_PERSONA)
