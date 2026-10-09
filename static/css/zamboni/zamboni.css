@@ -151,7 +151,6 @@ ul.errorlist {
 
 /* 'listing header' */
 .listing-header {
-    background-color: #E0EFFD;
     background: -webkit-gradient(
         linear,
         left bottom,
@@ -165,7 +164,6 @@ ul.errorlist {
 /* 'listing item' */
 .object-lead,
 .listing .item {
-    background-color: #E0EFFD;
     background: -webkit-gradient(
         linear,
         left bottom,
@@ -279,7 +277,6 @@ input[type=button]:focus {
 
 a.button:active, button.button:active {
     border-color: #03c;
-    background-image: url("../../img/zamboni/button-blue-on.png");
     background: linear-gradient(#39f 40%, #6fb7ff 60%);
     background: -webkit-gradient(linear, left top, left bottom, color-stop(40%, #39f), color-stop(60%, #6fb7ff));
     -moz-box-shadow: inset 0 0 2px rgba(0,0,0,.5);
@@ -400,7 +397,6 @@ input[type=button].add:focus {
 a.button.add:active,
 a.button.download:active {
     border-color: #1a5404;
-    background-image: url("../../img/zamboni/button-green-on.png");
     background: linear-gradient(#55a802 40%, #83c046 65%);
     background: -webkit-gradient(linear, left top, left bottom, color-stop(40%, #55a802), color-stop(65%, #83c046));
 }
@@ -2081,7 +2077,6 @@ form .error .note.error {
 }
 
 .results-head .suggest {
-    padding-left: 10px;
     font-size: .923em;
     line-height: 1.4;
     position: absolute;
@@ -2882,7 +2877,6 @@ h6.author, .author a {
     border-left: 1px solid black;
     height: 2em;
     float: left;
-    width: 0px;
     overflow: visible;
     width: 120px;
 }
@@ -2895,7 +2889,6 @@ h6.author, .author a {
 }
 .grouped_ratings .rating_bar span.bar {
     display:block;
-    height: 100%;
     position: relative;
     background: #acd;
     margin: .4em .5em 0 0;

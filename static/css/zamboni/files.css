@@ -512,7 +512,6 @@ a.selected > span {
 .message {
     display:none;
 
-    position: absolute;
     padding-left: 10px;
     top: -.2em;
     left: 100%;
@@ -533,7 +532,6 @@ a.selected > span {
     padding: 0.5em 1em;
 
     border: 1px solid #fff;
-    border-radius: .8em;
     background: #2A4364;
     color: white;
     border-radius: .8em;

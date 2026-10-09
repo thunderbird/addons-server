@@ -123,8 +123,6 @@ class TestRDFExtractor(TestCase):
         ]
 
 
-    @pytest.mark.xfail(reason=("This waffle switch was for the split of AMO (addons.mozilla.org) "
-                               "& ATN (addons.thunderbird.net). And so as the Thunderbird repo, this should pass."))
     def test_apps_disallow_thunderbird_and_seamonkey(self):
         zip_file = utils.SafeZip(get_addon_file(
             'valid_firefox_and_thunderbird_addon.xpi'))
@@ -185,7 +183,9 @@ class TestManifestJSONExtractor(TestCase):
                 'gecko': {
                     'id': 'some-id'}}})['guid'] == 'some-id'
 
-    @pytest.mark.xfail(reason="ATN requires a guid for each and every extension.")
+    @pytest.mark.skip(
+        reason='ATN requires a guid for each and every extension. See '
+               'thunderbird/addons-server#446.')
     def test_name_for_guid_if_no_id(self):
         """Don't use the name for the guid if there is no id."""
         assert self.parse({'name': 'addon-name'})['guid'] is None
@@ -434,7 +434,9 @@ class TestManifestJSONExtractor(TestCase):
         with amo.tests.copy_file(fixture, file_obj.file_path):
             utils.parse_xpi(file_obj.file_path)
 
-    @pytest.mark.xfail(reason="ATN requires a guid for each and every extension.")
+    @pytest.mark.skip(
+        reason='ATN requires a guid for each and every extension. See '
+               'thunderbird/addons-server#446.')
     def test_apps_use_default_versions_if_applications_is_omitted(self):
         """
         WebExtensions are allowed to omit `applications[/gecko]` and we
@@ -663,7 +665,9 @@ class TestManifestJSONExtractorStaticTheme(TestManifestJSONExtractor):
             amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD)
         assert apps[0].max.version == amo.DEFAULT_WEBEXT_MAX_VERSION
 
-    @pytest.mark.xfail(reason="ATN requires a guid and strict_max_version for each web extension")
+    @pytest.mark.skip(
+        reason='ATN requires a guid and strict_max_version for each web '
+               'extension. See thunderbird/addons-server#446.')
     def test_apps_use_default_versions_if_none_provided(self):
         """Use the default min and max versions if none provided."""
         self.create_webext_default_versions()

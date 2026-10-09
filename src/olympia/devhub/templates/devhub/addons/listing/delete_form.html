@@ -22,10 +22,10 @@
     </p>
   {% endif %}
   <p>
-    <label>
+    <label for="delete-addon-slug-{{ addon.id }}">
       {{ _('Enter the following text to confirm your decision: {slug}')|format_html(slug=addon.slug) }}
     </label>
-    <input class="full-width" type="text" name="slug" autocomplete="off"
+    <input class="full-width" type="text" name="slug" id="delete-addon-slug-{{ addon.id }}" autocomplete="off"
            placeholder="{{ addon.slug }}" pattern="{{ addon.slug }}" required>
   </p>
   <input type="hidden" name="addon_id" class="addon_id" value="{{ addon.id }}">

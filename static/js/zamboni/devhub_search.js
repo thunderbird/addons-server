@@ -4,7 +4,7 @@ google.setOnLoadCallback(function() {
         opt = new google.search.DrawOptions();
 
     opt.setInput(qry.get(0));
-    sc = new google.search.CustomSearchControl('007182852441266509516:fnsg3w7luc4');
+    var sc = new google.search.CustomSearchControl('007182852441266509516:fnsg3w7luc4');
     sc.setNoResultsString(gettext('No results found.'));
     sc.setSearchStartingCallback(null, function(sc, searcher, qry) {
         sc.maxResultCount = 0;

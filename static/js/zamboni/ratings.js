@@ -54,7 +54,7 @@ $(document).ready(function() {
         var $form = $("#review-edit-form"),
             $review = $(this).parents(".review"),
             rating = $review.attr("data-rating"),
-            edit_url = $("a.permalink", $review).attr("href") + "edit";
+            edit_url = $("a.permalink", $review).attr("href") + "edit",
             $cancel = $("#review-edit-cancel");
 
         $review.attr("action", edit_url);

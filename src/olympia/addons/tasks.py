@@ -431,7 +431,6 @@ def find_inconsistencies_between_es_and_db(ids, **kw):
         doc_type=AddonIndexer.get_doctype_name(),
         index=AddonIndexer.get_index_alias(),
         using=amo.search.get_es()).filter('ids', values=ids)[:length].execute()
-    es_addons = es_addons
     db_len = len(db_addons)
     es_len = len(es_addons)
     if db_len != es_len:

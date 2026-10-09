@@ -47,7 +47,6 @@ class AppversionsFeed(BaseFeed):
         apps, versions = get_versions(order=('application', '-version_int'))
         return [(app, version) for app in apps
                 for version in versions[app.id][:3]]
-        return [(app, versions[app.id][:3]) for app in apps]
 
     def item_title(self, item):
         app, version = item

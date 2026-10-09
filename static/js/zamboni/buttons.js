@@ -113,7 +113,7 @@ var installButton = function() {
         $button = $this.parent();
         $button.append(format(type || notavail, [msg]));
         if (!z.appMatchesUserAgent) {
-            $warning = $button.find('.extra .not-available');
+            var $warning = $button.find('.extra .not-available');
             $warning.addClass('remove-no');
         }
     };
@@ -150,7 +150,8 @@ var installButton = function() {
             // install method.  We can't bind this directly because we add
             // more .installers dynamically.
             var $target = $(e.target),
-                $installer = '';
+                $installer = '',
+                installer;
             if ($target.hasClass('installer')) {
                 installer = $target;
             } else {
@@ -215,7 +216,7 @@ var installButton = function() {
     // big function since we merge the messaging when bad platform and version
     // occur simultaneously.
     var versionsAndPlatforms = function(options) {
-        var opts = $.extend({addWarning: true}, options);
+        var opts = $.extend({addWarning: true}, options),
             warn = opts.addWarning ? addWarning : _.identity;
 
         // Do badPlatform prep out here since we need it in all branches.

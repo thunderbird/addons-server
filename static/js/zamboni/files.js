@@ -252,7 +252,7 @@ if (typeof SyntaxHighlighter !== 'undefined') {
     //
     // Slightly modified from the built-in version to handle
     // newer keywords:
-    new function() {
+    (function() {
         function JSBrush() {
             var keywords = 'break case catch class const continue debugger' +
                            'default delete do else enum export extends false finally ' +
@@ -278,7 +278,7 @@ if (typeof SyntaxHighlighter !== 'undefined') {
         JSBrush.aliases = ['js', 'jsm', 'es'];
         JSBrush.prototype = SyntaxHighlighter.brushes.JScript.prototype;
         SyntaxHighlighter.brushes.JScript = JSBrush;
-    };
+    })();
 }
 
 jQuery.fn.numberInput = function(increment) {

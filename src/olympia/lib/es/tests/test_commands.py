@@ -39,6 +39,27 @@ class TestIndexCommand(ESTestCase):
     def _fixture_teardown(self):
         return TransactionTestCase._fixture_teardown(self)
 
+    # TransactionTestCase's teardown flushes the database, and MySQL commits
+    # implicitly on TRUNCATE. TestCase also opens an atomic block around the
+    # whole class and rolls it back in tearDownClass. Together those two
+    # destroy django_content_type for everything that runs afterwards in this
+    # process: the TRUNCATE commits and cannot be undone, while the rows
+    # post_migrate recreates right after it are inside the class atomic and
+    # disappear when it rolls back. The table is then empty, the process
+    # keeps cached content type ids pointing at rows that no longer exist,
+    # and the next test that writes an admin log entry fails with
+    #   IntegrityError (1452) ... django_admin_log.content_type_id
+    # Opt out of the class-level atomic, which is what TransactionTestCase
+    # does and what the fixture methods above already assume.
+    # See thunderbird/addons-server#397.
+    @classmethod
+    def _enter_atomics(cls):
+        return {}
+
+    @classmethod
+    def _rollback_atomics(cls, atomics):
+        pass
+
     def tearDown(self):
         # Delete only indices we created. Another xdist worker can create one
         # of its own while these tests run, and anything missing from the

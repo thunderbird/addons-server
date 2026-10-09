@@ -92,7 +92,7 @@ $(document).ready(function() {
 // registered outside itself.
 function makeBlurHideCallback(el) {
     var hider = function(e) {
-        _root = el.get(0);
+        var _root = el.get(0);
         // Bail if the click was somewhere on the popup.
         if (e) {
             if (e.type == 'click' &&
@@ -453,7 +453,6 @@ function slugify() {
             $slug.val(new_slug);
         }
     }
-    name_val = $slug.val();
     $('#slug_value').text($slug.val());
 }
 
@@ -576,7 +575,7 @@ function initCharCount() {
             if (hasFormData) {
                 this.xhr.send(this.formData);
             } else {
-                content_type = "multipart/form-data;boundary=" + this.boundary;
+                var content_type = "multipart/form-data;boundary=" + this.boundary;
                 this.xhr.setRequestHeader("Content-Type", content_type);
 
                 this.output += "--" + this.boundary + "--";

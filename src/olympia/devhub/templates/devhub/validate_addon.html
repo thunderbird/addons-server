@@ -4,7 +4,7 @@
 
 {% block content %}
 <header>
-  <h2>{{ title }}</h2>
+  <h2 id="validate-addon-heading">{{ title }}</h2>
 </header>
 <form method="post" id="create-addon" class="item new-addon-file">
   {% csrf_token %}
@@ -22,7 +22,7 @@
       <label>{{ _('Do you want your add-on to be distributed on this site?') }}</label>
       {{ new_addon_form.channel }}
     </div>
-    <input type="file" id="upload-addon"
+    <input type="file" id="upload-addon" aria-labelledby="validate-addon-heading"
       data-upload-url="{{ url('devhub.standalone_upload') }}"
       data-upload-url-listed="{{ url('devhub.standalone_upload') }}"
       data-upload-url-unlisted="{{ url('devhub.standalone_upload_unlisted') }}">
