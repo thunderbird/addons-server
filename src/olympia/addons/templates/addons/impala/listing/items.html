@@ -3,7 +3,7 @@
   <div class="item addon">
     <div class="info">
     {% if addon.type == 10 and addon.current_previews.count() > 0 %}
-      <img src="{{ addon.current_previews[0].image_url }}" width="442px" height="60px">
+      <img src="{{ addon.current_previews[0].image_url }}" width="442px" height="60px" alt="">
     {% endif %}
       <h3>
         {% set dl_url = addon.get_url_path() %}
