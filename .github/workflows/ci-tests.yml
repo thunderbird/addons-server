@@ -33,6 +33,21 @@ jobs:
           free -h
           df -h /
 
+      # Docker Hub rate-limits anonymous pulls per source IP, and GitHub-hosted
+      # runners share address space, so with many PR runs in flight the
+      # compose build and start steps fail with 429 before any test runs
+      # (thunderbird/addons-server#506). Route docker.io pulls through
+      # Google's public read-through mirror, which serves the library images
+      # this stack uses (python, mysql, redis, rabbitmq, memcached) without
+      # the per-IP cap. Images it does not cache fall through to Docker Hub
+      # unchanged. CI only; local development is unaffected.
+      - name: Use the GCR read-through mirror for Docker Hub pulls
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info --format '{{json .RegistryConfig.Mirrors}}'
+
       - name: Build Docker Compose
         run: docker compose build
 
