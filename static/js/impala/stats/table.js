@@ -44,6 +44,24 @@
                 }
             }
 
+            function renderHeadCell(f) {
+                var id = f.split('|').pop(),
+                    prettyName = _.escape(z.StatsManager.getPrettyName(metric, id)),
+                    trimmedPrettyName = (prettyName.length > 32) ? (prettyName.substr(0, 32) + '...') : prettyName;
+                return format('<th title="{0}">', prettyName) + trimmedPrettyName + '</th>';
+            }
+
+            function renderBodyCell(row, f) {
+                var cell = '<td>';
+                if (metric == 'contributions' && f != 'count') {
+                    cell += '$' + Highcharts.numberFormat(z.StatsManager.getField(row, f), 2);
+                } else {
+                    cell += Highcharts.numberFormat(z.StatsManager.getField(row, f), 0);
+                }
+                cell += '</td>';
+                return cell;
+            }
+
             function showPage(page) {
                 var p = pages[page];
                 if (p) {
@@ -74,14 +92,9 @@
                          newHead    = '<tr><th>' + gettext('Date') + '</th>',
                          row;
 
-                     _.each(fields, function(f) {
-                         var id = f.split('|').pop(),
-                             prettyName = _.escape(z.StatsManager.getPrettyName(metric, id)),
-                             trimmedPrettyName = (prettyName.length > 32) ? (prettyName.substr(0, 32) + '...') : prettyName;
-                         newHead += format('<th title="{0}">', prettyName);
-                         newHead += trimmedPrettyName;
-                         newHead += '</th>';
-                     });
+                     for (var hi = 0; hi < fields.length; hi++) {
+                         newHead += renderHeadCell(fields[hi]);
+                     }
 
                      var d = range.end.clone().backward('1 day'),
                          lastRowDate = range.start.clone().backward('1 day');
@@ -89,15 +102,9 @@
                          row = data[d.iso()] || {};
                          newBody += '<tr>';
                          newBody += '<th>' + Highcharts.dateFormat('%a, %b %e, %Y', Date.iso(d)) + "</th>";
-                         _.each(fields, function(f) {
-                             newBody += '<td>';
-                             if (metric == 'contributions' && f != 'count') {
-                                 newBody += '$' + Highcharts.numberFormat(z.StatsManager.getField(row, f), 2);
-                             } else {
-                                 newBody += Highcharts.numberFormat(z.StatsManager.getField(row, f),0);
-                             }
-                             newBody += '</td>';
-                         });
+                         for (var bi = 0; bi < fields.length; bi++) {
+                             newBody += renderBodyCell(row, fields[bi]);
+                         }
                         newBody += '</tr>';
                      }
                      newBody += '</tbody>';

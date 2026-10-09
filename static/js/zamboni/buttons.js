@@ -13,17 +13,32 @@ z.button.after = {'contrib': function(xpi_url, status) {
 }};
 
 var notavail = '<div class="extra"><span class="button disabled not-available" disabled>{0}</span></div>',
-    incompat = '<div class="extra"><span class="button disabled not-available" disabled>{0}</span></div>',
     noappsupport = '<div class="extra"><span class="button disabled not-available" disabled>{0}</span></div>',
-    download_re = new RegExp('(/downloads/(?:latest|file)/\\d+)');
+    download_re = /(\/downloads\/(?:latest|file)\/\d+)/;
 
-// The lowest maxVersion an app has to support to allow default-to-compatible.
-var D2C_MAX_VERSIONS = {
-    firefox: '4.0',
-    mobile: '11.0',
-    seamonkey: '2.1',
-    thunderbird: '5.0'
-};
+var showDownloadAnyway = function($button) {
+    var $visibleButton = $button.filter(':visible')
+    var $installShell = $visibleButton.parents('.install-shell');
+    var $downloadAnyway = $visibleButton.next('.download-anyway');
+    if ($downloadAnyway.length && !z.appMatchesUserAgent) {
+        // We want to be able to add the download anyway link regardless
+        // of what is already shown. There could be just an error message,
+        // or an error message plus a link to more versions. We also want
+        // those combinations to work without the download anyway link
+        // being shown.
+        // Append a separator to the .more-versions element:
+        // if it's displayed we need to separate the download anyway link
+        // from the text shown in that span.
+        var $moreVersions = $installShell.find('.more-versions');
+        $moreVersions.append(' | ');
+        // In any case, add the download anyway link to the parent div.
+        // It'll show up regardless of whether we are showing the more
+        // versions link or not.
+        var $newParent = $installShell.find('.extra .not-available');
+        $newParent.append($downloadAnyway);
+        $downloadAnyway.show();
+    }
+}
 
 /* Called by the jQuery plugin to set up a single button. */
 var installButton = function() {
@@ -50,8 +65,7 @@ var installButton = function() {
         }
     });
 
-    var addon = $this.attr('data-addon'),
-        min = $this.attr('data-min'),
+    var min = $this.attr('data-min'),
         max = $this.attr('data-max'),
         name = $this.attr('data-name'),
         icon = $this.attr('data-icon'),
@@ -67,7 +81,6 @@ var installButton = function() {
         _s = accept_eula ? gettext('Accept and Install') : gettext('Add to {0}'),
         addto = format(_s, [z.appName]),
         appSupported = z.appMatchesUserAgent && min && max,
-        $body = $(document.body),
         olderBrowser,
         newerBrowser;
 
@@ -101,7 +114,6 @@ var installButton = function() {
                 if (VersionCompare.compareVersions(z.browserVersion, _min) >= 0 &&
                     VersionCompare.compareVersions(z.browserVersion, _max) <= 0) {
                     compatible = false;
-                    return;
                 }
             });
         }
@@ -136,6 +148,7 @@ var installButton = function() {
             if (!appSupported && !no_compat_necessary) return;
             if (!hasAddonManager && !hasInstallTrigger) return;
         } catch (e) {
+            // Probing the add-on manager failed, so leave the button alone.
             return;
         }
 
@@ -150,7 +163,6 @@ var installButton = function() {
             // install method.  We can't bind this directly because we add
             // more .installers dynamically.
             var $target = $(e.target),
-                $installer = '',
                 installer;
             if ($target.hasClass('installer')) {
                 installer = $target;
@@ -176,48 +188,13 @@ var installButton = function() {
         });
     };
 
-    // Gather the available platforms.
-    var platforms = $button.map(function() {
-        var name = $(this).find('.os').attr('data-os'),
-            text = z.appMatchesUserAgent ?
-                /* L10n: {0} is an platform like Windows or Linux. */
-                gettext('Install for {0} anyway') : gettext('Download for {0} anyway');
-        return  {
-            href: $(this).attr('href'),
-            msg: format(text, [name])
-        };
-    });
-
-    var showDownloadAnyway = function($button) {
-        var $visibleButton = $button.filter(':visible')
-        var $installShell = $visibleButton.parents('.install-shell');
-        var $downloadAnyway = $visibleButton.next('.download-anyway');
-        if ($downloadAnyway.length && !z.appMatchesUserAgent) {
-            // We want to be able to add the download anyway link regardless
-            // of what is already shown. There could be just an error message,
-            // or an error message plus a link to more versions. We also want
-            // those combinations to work without the download anyway link
-            // being shown.
-            // Append a separator to the .more-versions element:
-            // if it's displayed we need to separate the download anyway link
-            // from the text shown in that span.
-            var $moreVersions = $installShell.find('.more-versions');
-            $moreVersions.append(' | ');
-            // In any case, add the download anyway link to the parent div.
-            // It'll show up regardless of whether we are showing the more
-            // versions link or not.
-            var $newParent = $installShell.find('.extra .not-available');
-            $newParent.append($downloadAnyway);
-            $downloadAnyway.show();
-        }
-    }
-
     // Add version and platform warnings.  This is one
     // big function since we merge the messaging when bad platform and version
     // occur simultaneously.
     var versionsAndPlatforms = function(options) {
         var opts = $.extend({addWarning: true}, options),
-            warn = opts.addWarning ? addWarning : _.identity;
+            warn = opts.addWarning ? addWarning : _.identity,
+            msg, tpl;
 
         // Do badPlatform prep out here since we need it in all branches.
         if (badPlatform) {
@@ -229,9 +206,9 @@ var installButton = function() {
 
         if (appSupported && !compatible && (olderBrowser || newerBrowser)) {
             // L10n: {0} is an app name.
-            var msg = format(gettext('This add-on is not compatible with your version of {0}.'),
+            msg = format(gettext('This add-on is not compatible with your version of {0}.'),
                         [z.appName, z.browserVersion]);
-            var tpl = template(msg +
+            tpl = template(msg +
                 ' <br/><span class="more-versions"><a href="{versions_url}">' +
                 gettext('View other versions') + '</a></span>');
             warn(tpl({'versions_url': versions_url}));
@@ -249,10 +226,10 @@ var installButton = function() {
             $button.addClass('installer');
             $button.closest('div').attr('data-version-supported', true);
         } else if (!appSupported) {
-            var msg = (min && max ?
+            msg = (min && max ?
               gettext('Works with {app} {min} - {max}') :
               gettext('Works with {app}'));
-            var tpl = template(msg +
+            tpl = template(msg +
                 '<br/><span class="more-versions"><a href="{versions_url}">' +
                 gettext('View other versions') + '</a></span>');
             var context = {'app': z.appName, 'min': min, 'max': max,

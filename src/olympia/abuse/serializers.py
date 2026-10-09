@@ -36,7 +36,7 @@ class AddonAbuseReportSerializer(BaseAbuseReportSerializer):
         choices=list(AbuseReport.REASONS.api_choices), required=False,
         allow_null=True)
     app = ReverseChoiceField(
-        choices=list((v.id, k) for k, v in amo.APPS.items()), required=False,
+        choices=[(v.id, k) for k, v in amo.APPS.items()], required=False,
         source='application')
     appversion = serializers.CharField(
         required=False, source='application_version', max_length=255)

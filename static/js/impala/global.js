@@ -56,7 +56,11 @@ function listing_grid() {
     $grid.trigger("grid.init", {self: $grid, current: current, maxPage: maxPage});
     $grid.go = function(n) {
         if (n != current) {
-            n = n < 0 ? 0 : (n > maxPage ? maxPage : n);
+            if (n < 0) {
+                n = 0;
+            } else if (n > maxPage) {
+                n = maxPage;
+            }
             current = n;
             $pages.hide().eq(n).show().find('.hovercard h3').truncate();
             $grid.trigger("grid.update", {self: $grid, current: current, maxPage: maxPage});
