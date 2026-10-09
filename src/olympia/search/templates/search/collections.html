@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="primary" role="main">
+<main class="primary">
   <header class="results-head">
     <h2>{{ _('Search Results') }}</h2>
     <h3 class="results-count">{{ showing(query, pager) }}</h3>
@@ -44,10 +44,10 @@
       {% include 'search/no_results.html' %}
     {% endif %}
   </div>
-</div> {# /primary #}
+</main> {# /primary #}
 
-<div class="secondary" role="complementary">
+<aside class="secondary">
   {% include 'bandwagon/includes/collection_sidebar.html' %}
-</div>
+</aside>
 
 {% endblock %}

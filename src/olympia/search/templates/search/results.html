@@ -89,13 +89,13 @@
       {{ num_results() }}
     </section>
 
-    <section class="primary" role="main">
+    <main class="primary">
       <h1>{{ heading }}</h1>
       <div class="listing results island hero c">
         <div id="pjax-results">
           {% include "search/results_inner.html" %}
         </div>
       </div>
-    </section>
+    </main>
   {% endif %}
 {% endblock %}
