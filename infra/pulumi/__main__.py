@@ -29,6 +29,11 @@ import tb_pulumi.elasticache
 import tb_pulumi.fargate
 import tb_pulumi.network
 
+# Values repeated in the resources below.
+ECS_TASKS_SERVICE = "ecs-tasks.amazonaws.com"
+STS_ASSUME_ROLE = "sts:AssumeRole"
+SECRETS_GET_VALUE = "secretsmanager:GetSecretValue"
+
 
 def main():
     # Create a ThunderbirdPulumiProject to aggregate resources
@@ -533,8 +538,8 @@ def main():
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Principal": {"Service": "ecs-tasks.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
+                        "Principal": {"Service": ECS_TASKS_SERVICE},
+                        "Action": STS_ASSUME_ROLE,
                     }
                 ],
             }
@@ -560,7 +565,7 @@ def main():
                     {
                         "Sid": "AllowATNSecretsAccess",
                         "Effect": "Allow",
-                        "Action": "secretsmanager:GetSecretValue",
+                        "Action": SECRETS_GET_VALUE,
                         "Resource": f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*",
                     }
                 ],
@@ -670,7 +675,7 @@ def main():
                 {
                     "Sid": "AllowATNSecretsAccess",
                     "Effect": "Allow",
-                    "Action": "secretsmanager:GetSecretValue",
+                    "Action": SECRETS_GET_VALUE,
                     "Resource": f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*",
                 }
             ],
@@ -886,8 +891,8 @@ def main():
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Principal": {"Service": "ecs-tasks.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
+                        "Principal": {"Service": ECS_TASKS_SERVICE},
+                        "Action": STS_ASSUME_ROLE,
                     }
                 ],
             }
@@ -914,7 +919,7 @@ def main():
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Action": ["secretsmanager:GetSecretValue"],
+                        "Action": [SECRETS_GET_VALUE],
                         "Resource": [
                             f"arn:aws:secretsmanager:{project.aws_region}:{project.aws_account_id}:secret:atn/{project.stack}/*"
                         ],
@@ -1046,7 +1051,7 @@ def main():
                     {
                         "Effect": "Allow",
                         "Principal": {"Service": "scheduler.amazonaws.com"},
-                        "Action": "sts:AssumeRole",
+                        "Action": STS_ASSUME_ROLE,
                     }
                 ],
             }
@@ -1088,9 +1093,7 @@ def main():
                             "Action": ["iam:PassRole"],
                             "Resource": [args[1], args[2]],
                             "Condition": {
-                                "StringLike": {
-                                    "iam:PassedToService": "ecs-tasks.amazonaws.com"
-                                }
+                                "StringLike": {"iam:PassedToService": ECS_TASKS_SERVICE}
                             },
                         },
                     ],

@@ -11,9 +11,9 @@ $(document).ready(function() {
         function getFile() {
             var file_selector = $wizard.find('#header-img')[0];
             var file = file_selector.files[0];
-            if (file && $wizard.find('#header-img').attr('accept').split(',').indexOf(file.type) == -1)
+            if (file && !$wizard.find('#header-img').attr('accept').split(',').includes(file.type))
                 return null;
-            return file ? file : preLoadBlob;
+            return file || preLoadBlob;
         }
 
         $wizard.on('click', '.reset', _pd(function() {
@@ -49,7 +49,8 @@ $(document).ready(function() {
         $wizard.find('img.preview').on('load', function(e) {
             var $svg_img = $('#svg-header-img'),
                 $svg = $('#preview-svg-root');
-            $svg_img.attr('href', ($svg_img.src = e.target.src));
+            $svg_img.src = e.target.src;
+            $svg_img.attr('href', $svg_img.src);
             $svg_img.attr('height', e.target.naturalHeight);
             var meetOrSlice = (e.target.naturalWidth < $svg.width())? 'meet' : 'slice';
             $svg_img.attr('preserveAspectRatio', 'xMaxYMin '+ meetOrSlice);
@@ -219,17 +220,15 @@ $(document).ready(function() {
                         }
                     });
                 }, 1000);
+            } else if (data.validation.errors === 0 ) {
+                $wizard.find('#submit-describe').submit();
             } else {
-                if (data.validation.errors === 0 ) {
-                    $wizard.find('#submit-describe').submit();
-                } else {
-                    data.validation.messages.forEach(function(message) {
-                       $('.errorlist.validator').append($('<li>', {'html': message.message}));
-                       console.error(message);
-                    });
-                    $('button.upload').removeClass('uploading').removeClass('disabled')
-                                      .text($('button.upload').data('upload-text'));
-                }
+                data.validation.messages.forEach(function(message) {
+                   $('.errorlist.validator').append($('<li>', {'html': message.message}));
+                   console.error(message);
+                });
+                $('button.upload').removeClass('uploading').removeClass('disabled')
+                                  .text($('button.upload').data('upload-text'));
             }
         }
 

@@ -31,7 +31,8 @@
             });
             $form.on('submit', _pd(function() {
                 // Prevent just submitting the form because that takes you
-                // to your page. TODO: do something clever with this.
+                // to your page. Whether submit should do something here is
+                // an open product decision, see thunderbird/addons-server#464.
             }));
         });
 
