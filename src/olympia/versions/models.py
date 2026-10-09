@@ -341,9 +341,9 @@ class Version(OnChangeMixin, ModelBase):
         if self.channel == amo.RELEASE_CHANNEL_UNLISTED:
             # Unlisted add-ons and their updates are automatically approved so
             # they don't get a queue.
-            # TODO: when we've finished with unlisted/listed versions the
-            # status of an all-unlisted addon will be STATUS_NULL so we won't
-            # need this check.
+            # Pending cleanup: when we've finished with unlisted/listed
+            # versions the status of an all-unlisted addon will be
+            # STATUS_NULL so we won't need this check.
             return None
 
         if self.addon.status == amo.STATUS_NOMINATED:
@@ -366,7 +366,7 @@ class Version(OnChangeMixin, ModelBase):
         # Dicts, search providers and personas don't have compatibility info.
         # Fake one for them.
         if self.addon and self.addon.type in amo.NO_COMPAT:
-            return {app: None for app in amo.APP_TYPE_SUPPORT[self.addon.type]}
+            return dict.fromkeys(amo.APP_TYPE_SUPPORT[self.addon.type])
         # Otherwise, return _compatible_apps which is a cached property that
         # is filled by the transformer, or simply calculated from the related
         # compat instances.
@@ -404,9 +404,9 @@ class Version(OnChangeMixin, ModelBase):
         default."""
         # Use self.all_files directly since that's cached and more potentially
         # prefetched through a transformer already
-        return not any([
+        return not any(
             file for file in self.all_files
-            if file.binary_components or file.strict_compatibility])
+            if file.binary_components or file.strict_compatibility)
 
     def is_compatible_app(self, app):
         """Returns True if the provided app passes compatibility conditions."""
@@ -451,7 +451,7 @@ class Version(OnChangeMixin, ModelBase):
     @cached_property
     def supported_platforms(self):
         """Get a list of supported platform names."""
-        return list(set(amo.PLATFORMS[f.platform] for f in self.all_files))
+        return list({amo.PLATFORMS[f.platform] for f in self.all_files})
 
     @property
     def status(self):
@@ -533,14 +533,14 @@ class Version(OnChangeMixin, ModelBase):
         if not versions:
             return
 
-        ids = set(v.id for v in versions)
+        ids = {v.id for v in versions}
         avs = (ApplicationsVersions.objects.filter(version__in=ids)
                .select_related('min', 'max'))
         files = File.objects.filter(version__in=ids)
 
         def rollup(xs):
             groups = sorted_groupby(xs, 'version_id')
-            return dict((k, list(vs)) for k, vs in groups)
+            return {k: list(vs) for k, vs in groups}
 
         av_dict, file_dict = rollup(avs), rollup(files)
 
@@ -556,7 +556,7 @@ class Version(OnChangeMixin, ModelBase):
         """Attach all the activity to the versions."""
         from olympia.activity.models import VersionLog
 
-        ids = set(v.id for v in versions)
+        ids = {v.id for v in versions}
         if not versions:
             return
 
@@ -707,7 +707,6 @@ def update_status(sender, instance, **kw):
         except models.ObjectDoesNotExist:
             log.info('Got ObjectDoesNotExist processing Version change signal',
                      exc_info=True)
-            pass
 
 
 def inherit_nomination(sender, instance, **kw):
@@ -729,7 +728,7 @@ def update_incompatible_versions(sender, instance, **kw):
     matches any compat overrides.
     """
     try:
-        if not instance.addon.type == amo.ADDON_EXTENSION:
+        if instance.addon.type != amo.ADDON_EXTENSION:
             return
     except ObjectDoesNotExist:
         return
@@ -749,7 +748,7 @@ def cleanup_version(sender, instance, **kw):
 def clear_compatversion_cache_on_save(sender, instance, created, **kw):
     """Clears compatversion cache if new Version created."""
     try:
-        if not instance.addon.type == amo.ADDON_EXTENSION:
+        if instance.addon.type != amo.ADDON_EXTENSION:
             return
     except ObjectDoesNotExist:
         return
@@ -761,7 +760,7 @@ def clear_compatversion_cache_on_save(sender, instance, created, **kw):
 def clear_compatversion_cache_on_delete(sender, instance, **kw):
     """Clears compatversion cache when Version deleted."""
     try:
-        if not instance.addon.type == amo.ADDON_EXTENSION:
+        if instance.addon.type != amo.ADDON_EXTENSION:
             return
     except ObjectDoesNotExist:
         return
@@ -828,8 +827,8 @@ class License(ModelBase):
         db_table = 'licenses'
 
     def __str__(self):
-        license = self._constant or self
-        return six.text_type(license.name)
+        license_ = self._constant or self
+        return six.text_type(license_.name)
 
     @property
     def _constant(self):

@@ -9,7 +9,6 @@ from . import views
 
 
 impala_patterns = [
-    # TODO: Impalacize these views.
     url(r'^extensions/(?P<category>[^/]+)/featured$',
         views.legacy_creatured_redirect,
         name='i_browse.creatured'),

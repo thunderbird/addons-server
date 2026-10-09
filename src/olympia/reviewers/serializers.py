@@ -1,6 +1,5 @@
 import io
 import os
-import mimetypes
 from collections import OrderedDict
 from datetime import datetime
 
@@ -99,10 +98,9 @@ class FileEntriesSerializer(FileSerializer):
                 path = force_text(entry_wrapper.path)
                 blob = entry_wrapper.blob
 
-                mime, encoding = mimetypes.guess_type(entry.name)
                 sha_hash = (
                     get_sha256(io.BytesIO(memoryview(blob)))
-                    if not entry.type == 'tree' else '')
+                    if entry.type != 'tree' else '')
 
                 commit_tzinfo = FixedOffset(commit.commit_time_offset)
                 commit_time = datetime.fromtimestamp(
@@ -180,9 +178,10 @@ class FileEntriesSerializer(FileSerializer):
         blob_or_tree = commit.tree[self.get_selected_file(obj)]
 
         if blob_or_tree.type == 'blob':
-            # TODO: Test if this is actually needed, historically it was
-            # because files inside a zip could have any encoding but I'm not
-            # sure if git unifies this to some degree (cgrebs)
+            # Pending verification: test if this is actually needed,
+            # historically it was because files inside a zip could have any
+            # encoding but I'm not sure if git unifies this to some degree
+            # (cgrebs)
             return unicodehelper.decode(
                 self.git_repo[blob_or_tree.oid].read_raw())
 
