@@ -1422,7 +1422,7 @@ def test_parse_addon(search_mock, xpi_mock):
     xpi_mock.assert_called_with('file.xpi', None, minimal=False, user=user)
 
     parse_addon('file.xml', None, user=user)
-    search_mock.assert_called_with('file.xml', None)
+    search_mock.assert_called_with('file.xml')
 
     parse_addon('file.jar', None, user=user)
     xpi_mock.assert_called_with('file.jar', None, minimal=False, user=user)

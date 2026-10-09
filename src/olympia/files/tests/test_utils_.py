@@ -419,7 +419,7 @@ class TestManifestJSONExtractor(TestCase):
         with amo.tests.copy_file(fixture, file_path):
             with pytest.raises(forms.ValidationError) as exc:
                 utils.parse_xpi(file_path)
-            assert dict(exc.value.messages)['en-us'].startswith(
+            assert exc.value.messages[0].startswith(
                 u'Add-on names cannot contain the Mozilla or'
             )
 
