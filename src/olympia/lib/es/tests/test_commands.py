@@ -9,7 +9,7 @@ from django.test.testcases import TransactionTestCase
 import six
 
 from olympia.amo.tests import (
-    ESTestCase, addon_factory, create_switch, get_es_index_prefix)
+    ESTestCase, addon_factory, create_switch, owns_es_index)
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import urlparams
 from olympia.lib.es.utils import is_reindexing_amo, unflag_reindexing_amo
@@ -43,10 +43,9 @@ class TestIndexCommand(ESTestCase):
         # Delete only indices we created. Another xdist worker can create one
         # of its own while these tests run, and anything missing from the
         # setUp snapshot is not automatically ours.
-        own_prefix = '%s_' % get_es_index_prefix()
         current_indices = self.es.indices.stats()['indices'].keys()
         for index in current_indices:
-            if index not in self.indices and index.startswith(own_prefix):
+            if index not in self.indices and owns_es_index(index):
                 self.es.indices.delete(index, ignore=404)
         super(TestIndexCommand, self).tearDown()
 
@@ -85,11 +84,9 @@ class TestIndexCommand(ESTestCase):
         indices = cls.es.indices.get_alias()
         # Under xdist the other workers own indices in the same cluster that
         # also start with `test_`, so match our own prefix only.
-        own_prefix = '%s_' % get_es_index_prefix()
         items = [(index, list(aliases['aliases'].keys())[0])
                  for index, aliases in indices.items()
-                 if len(aliases['aliases']) > 0 and
-                 index.startswith(own_prefix)]
+                 if len(aliases['aliases']) > 0 and owns_es_index(index)]
         items.sort()
         return items
 
