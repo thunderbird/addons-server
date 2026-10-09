@@ -58,7 +58,7 @@ def version_dict(version):
             else:
                 d[num] = int(d[num]) if d[num] else None
     else:
-        d = {k: None for k in numbers}
+        d = dict.fromkeys(numbers)
         d.update((k, None) for k in letters)
     return d
 
