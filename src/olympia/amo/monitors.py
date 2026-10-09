@@ -25,6 +25,7 @@ def _check_memcache_host(host, ip, port):
     Returns (result, error): result is True if the connection worked, and
     error is the logged failure message, or None."""
     error = None
+    s = None
     try:
         s = socket.socket()
         s.connect((ip, int(port)))
@@ -35,7 +36,8 @@ def _check_memcache_host(host, ip, port):
     else:
         result = True
     finally:
-        s.close()
+        if s is not None:
+            s.close()
     return result, error
 
 
