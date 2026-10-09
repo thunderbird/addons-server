@@ -339,7 +339,8 @@ $.fn.modal = function(click_target, o) {
                     $('.modal-overlay, .close').on('click modal', $modal.hider);
                 }, 0);
             } catch (err) {
-                // TODO(Kumar) handle this more gracefully. See bug 701221.
+                // Only logged for now (Kumar, bug 701221); a more graceful
+                // fallback is tracked in thunderbird/addons-server#464.
                 if (typeof console !== 'undefined') {
                     console.error('Could not close modal:', err);
                 }
