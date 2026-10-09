@@ -104,10 +104,6 @@ section > section {
     display: none;
 }
 
-.detail header {
-    margin-bottom: 20px;
-}
-
 /* @Clear floats *********/
 body:after,
 header:after,
@@ -433,10 +429,6 @@ section#featured-addons {
     margin: 0 -10px;
     clear: both;
 }
-#promo-video-addons li.show {
-    border-bottom: 0;
-    border-top: 1px solid #cdd4de;
-}
 .featured-themes li {
     border-bottom-color: #666;
 }
@@ -476,6 +468,12 @@ section#featured-addons {
 }
 .featured .featured-themes span.addon-title {
     pointer-events: none;
+    background-color: rgba(255,255,255,0.65);
+    border-top: 1px solid rgba(255,255,255,0.35);
+    text-decoration: none;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
 }
 
 .featured .featured-addons a.addon-title,
@@ -486,15 +484,6 @@ section#featured-addons {
 .featured .featured-themes span.addon-title b {
     display: block;
     font-weight: normal;
-}
-
-.featured .featured-themes span.addon-title {
-    background-color: rgba(255,255,255,0.65);
-    border-top: 1px solid rgba(255,255,255,0.35);
-    text-decoration: none;
-    position: absolute;
-    bottom: 0;
-    width: 100%;
 }
 
 .featured .featured-addons a.addon-title:hover,
@@ -535,9 +524,6 @@ section#featured-addons {
 #sub .all {
     line-height: 24px;
     font-size: 13px;
-}
-
-#sub .all {
     display: block;
     float: right;
 }
@@ -917,9 +903,6 @@ li#requires-restart {
     margin-top: 12px;
     padding: 10px;
     z-index: 10;
-}
-
-.install-note {
     width: 300px;
 }
 
@@ -1422,7 +1405,6 @@ body.eula #main {
 }
 #main #promos.js.show-video {
     height: auto;
-    /* -moz-transition: height 1s ease; */
 }
 
 #main #promos.show-video .slider,
@@ -1432,7 +1414,6 @@ body.eula #main {
 
 .promo-video {
     border-radius: 8px;
-    /* border: 1px solid rgb(168, 184, 209); */ /* Clean this up before using */
 }
 .promo-video video {
     width: 100%;
@@ -1455,6 +1436,8 @@ body.eula #main {
 }
 
 #promo-video-addons li.show {
+    border-bottom: 0;
+    border-top: 1px solid #cdd4de;
     display: block;
 }
 

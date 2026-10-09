@@ -47,7 +47,9 @@ form .char-count:after,
 
 #version-status .version-changed {
     float: right;
-    color: #888888;
+    color: #AAA;
+    display: block;
+    font-size: 11px;
 }
 
 #setup h3,
@@ -181,16 +183,6 @@ label.above-the-field .locale {
     display: inline;
     margin-left: 0.5em;
 }
-
-/*
-Bug 622030- TODO (potch) fix this later
-
-#addon-description,
-#developer_comments {
-    max-height: 6.4em;
-    overflow: hidden;
-}
-*/
 
 table .prose {
     margin: 0;
@@ -654,11 +646,6 @@ a.extra {
     display: block;
 }
 
-#version-status .version-changed {
-    color: #AAA;
-    display: block;
-    font-size: 11px;
-}
 
 #version-list table {
     width: 100%;
@@ -1131,8 +1118,6 @@ pre.email_comment {
     display: block;
     padding: .5em 1.3em;
     margin: 0;
-}
-#navbar li.top a.controller {
     border-right: 1px solid #1e2e4c;
 }
 #navbar li.top:hover,
@@ -1315,6 +1300,7 @@ form.select-review .errorlist {
     border: 1px solid #b5d9e5;
     margin: 0 4px 4px 4px;
     background-color: #fff;
+    height: 10em;
 }
 #addon-validator-suite .results {
     background: none;
@@ -1325,9 +1311,6 @@ form.select-review .errorlist {
     font-weight: normal;
     font-family: georgia,serif;
     margin: 0 0 0.4em 4px;
-}
-#addon-validator-suite .results .tier-results {
-    height: 10em;
 }
 #addon-validator-suite .results .ajax-loading,
 #addon-validator-suite .results .tests-passed,
@@ -1384,8 +1367,6 @@ form.select-review .errorlist {
 #addon-validator-suite .msg {
     margin: 0 1em;
     padding: 0.8em 1em 1em 45px;
-}
-#addon-validator-suite .msg {
     border-top: 1px dashed #b9cedb;
 }
 #addon-validator-suite .msg:first-child {
