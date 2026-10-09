@@ -44,7 +44,7 @@ class UserDeleteForm(forms.Form):
 
     def clean_email(self):
         user_email = self.request.user.email
-        if not user_email == self.cleaned_data['email']:
+        if user_email != self.cleaned_data['email']:
             raise forms.ValidationError(
                 gettext('Email must be {email}.').format(email=user_email))
 
@@ -252,17 +252,17 @@ class AdminUserEditForm(UserEditForm):
     def changed_fields(self):
         """Returns changed_data ignoring these fields."""
         return (set(self.changed_data) -
-                set(['admin_log', 'notifications', 'photo']))
+                {'admin_log', 'notifications', 'photo'})
 
     def changes(self):
         """A dictionary of changed fields, old, new."""
-        details = dict([(k, (self.initial[k], self.cleaned_data[k]))
-                        for k in self.changed_fields()])
+        details = {k: (self.initial[k], self.cleaned_data[k])
+                  for k in self.changed_fields()}
         return details
 
     def clean_anonymize(self):
         if (self.cleaned_data['anonymize'] and
-                self.changed_fields() != set(['anonymize'])):
+                self.changed_fields() != {'anonymize'}):
             raise forms.ValidationError(gettext(
                 'To anonymize, enter a reason for the change but do not '
                 'change any other field.'))
