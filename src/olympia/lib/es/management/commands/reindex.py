@@ -122,6 +122,65 @@ class Command(BaseCommand):
                   'Default: False'),
             default=False),
 
+    def _wipe_indexes(self, modules, skip_confirmation):
+        """Delete all the indexes in modules, after confirmation unless
+        skip_confirmation is set."""
+        confirm = ''
+        if not skip_confirmation:
+            confirm = input('Are you sure you want to wipe all AMO '
+                            'Elasticsearch indexes? (yes/no): ')
+
+            while confirm not in ('yes', 'no'):
+                confirm = input('Please enter either "yes" or "no": ')
+
+        if (confirm == 'yes' or skip_confirmation):
+            unflag_database()
+            for index in set(modules.keys()):
+                ES.indices.delete(index, ignore=404)
+        else:
+            raise CommandError("Aborted.")
+
+    def _alias_chain(self, alias, add_alias_action, to_remove):
+        """Return the task chain that builds a new time-stamped index for
+        alias, recording the alias actions and old indexes to remove."""
+        old_index = None
+
+        try:
+            olds = ES.indices.get_alias(alias)
+            for old_index in olds:
+                # Mark the index to be removed later.
+                to_remove.append(old_index)
+                # Mark the alias to be removed from that index.
+                add_alias_action('remove', old_index, alias)
+        except NotFoundError:
+            # If the alias dit not exist, ignore it, don't try to remove
+            # it.
+            pass
+
+        # Create a new index, using the alias name with a timestamp.
+        new_index = timestamp_index(alias)
+
+        # If old_index is None that could mean it's a full index.
+        # In that case we want to continue index in it.
+        if ES.indices.exists(alias):
+            old_index = alias
+
+        # Main chain for this alias: flag the database, then create the new
+        # index...
+        _chain = (
+            flag_database.si(new_index, old_index, alias) |
+            create_new_index.si(alias, new_index)
+        )
+        # ... Then start indexing data. gather_index_data_tasks() is a
+        # function returning a group of indexing tasks.
+        index_data_tasks = gather_index_data_tasks(alias, new_index)
+        if index_data_tasks.tasks:
+            _chain |= index_data_tasks
+
+        # Adding new index to the alias.
+        add_alias_action('add', new_index, alias)
+        return _chain
+
     def handle(self, *args, **kwargs):
         """Reindexing work.
 
@@ -141,21 +200,7 @@ class Command(BaseCommand):
         modules = get_modules(with_stats=kwargs.get('with_stats', False))
 
         if kwargs.get('wipe', False):
-            skip_confirmation = kwargs.get('noinput', False)
-            confirm = ''
-            if not skip_confirmation:
-                confirm = input('Are you sure you want to wipe all AMO '
-                                'Elasticsearch indexes? (yes/no): ')
-
-                while confirm not in ('yes', 'no'):
-                    confirm = input('Please enter either "yes" or "no": ')
-
-            if (confirm == 'yes' or skip_confirmation):
-                unflag_database()
-                for index in set(modules.keys()):
-                    ES.indices.delete(index, ignore=404)
-            else:
-                raise CommandError("Aborted.")
+            self._wipe_indexes(modules, kwargs.get('noinput', False))
         elif force:
             unflag_database()
 
@@ -174,46 +219,10 @@ class Command(BaseCommand):
         workflow = []
 
         # For each alias, we create a new time-stamped index.
-        for alias, module in modules.items():
-            old_index = None
-
-            try:
-                olds = ES.indices.get_alias(alias)
-                for old_index in olds:
-                    # Mark the index to be removed later.
-                    to_remove.append(old_index)
-                    # Mark the alias to be removed from that index.
-                    add_alias_action('remove', old_index, alias)
-            except NotFoundError:
-                # If the alias dit not exist, ignore it, don't try to remove
-                # it.
-                pass
-
-            # Create a new index, using the alias name with a timestamp.
-            new_index = timestamp_index(alias)
-
-            # If old_index is None that could mean it's a full index.
-            # In that case we want to continue index in it.
-            if ES.indices.exists(alias):
-                old_index = alias
-
-            # Main chain for this alias: flag the database, then create the new
-            # index...
-            _chain = (
-                flag_database.si(new_index, old_index, alias) |
-                create_new_index.si(alias, new_index)
-            )
-            # ... Then start indexing data. gather_index_data_tasks() is a
-            # function returning a group of indexing tasks.
-            index_data_tasks = gather_index_data_tasks(alias, new_index)
-            if index_data_tasks.tasks:
-                _chain |= index_data_tasks
-
+        for alias in modules:
             # Append that chain to the workflow we're going to execute.
-            workflow.append(_chain)
-
-            # Adding new index to the alias.
-            add_alias_action('add', new_index, alias)
+            workflow.append(
+                self._alias_chain(alias, add_alias_action, to_remove))
 
         # Group each alias chain so that they are executed in parallel if there
         # is more than one alias to deal with.
