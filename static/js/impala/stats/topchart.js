@@ -65,7 +65,7 @@
                 if (data.empty) {
                     $self.removeClass('loading');
                     $self.addClass('nodata');
-                    if (hChart) hChart.destroy?.();
+                    if (hChart && hChart.destroy) hChart.destroy();
                     $table.html('');
                     return;
                 }

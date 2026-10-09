@@ -108,7 +108,7 @@
     function showNoDataOverlay() {
         $chart.parent().addClass('nodata');
         $chart.parent().removeClass('loading');
-        if (chart) chart.destroy?.();
+        if (chart && chart.destroy) chart.destroy();
     }
 
     $win.on("changeview", function() {
@@ -293,8 +293,10 @@
 
             if (is_overview) {
                 return function() {
-                    var ret = "<b>" + xFormatter(this.x) + "</b>";
-                    for (const p of this.points) {
+                    var ret = "<b>" + xFormatter(this.x) + "</b>",
+                        p;
+                    for (var i=0; i < this.points.length; i++) {
+                        p = this.points[i];
                         ret += '<br>' + p.series.name + ': ';
                         ret += Highcharts.numberFormat(p.y, 0);
                     }
@@ -302,8 +304,10 @@
                 };
             } else if (metric == 'contributions') {
                 return function() {
-                    var ret = "<b>" + xFormatter(this.x) + "</b>";
-                    for (const p of this.points) {
+                    var ret = "<b>" + xFormatter(this.x) + "</b>",
+                        p;
+                    for (var i=0; i < this.points.length; i++) {
+                        p = this.points[i];
                         ret += '<br>' + p.series.name + ': ';
                         if (p.series.options.yAxis > 0) {
                             ret += Highcharts.numberFormat(p.y, 0);
@@ -484,7 +488,7 @@
         newConfig.title = {
             text: title
         };
-        if (chart) chart.destroy?.();
+        if (chart && chart.destroy) chart.destroy();
         chart = new Highcharts.Chart(newConfig);
 
         chartRange = chart.xAxis[0].getExtremes();

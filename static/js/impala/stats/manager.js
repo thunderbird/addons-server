@@ -390,11 +390,12 @@ z.StatsManager = (function() {
                 var ds = dataStore[metric],
                     data = JSON.parse(raw_data);
 
-                for (const item of data) {
-                    const datekey = item.date;
+                var i, datekey;
+                for (i=0; i<data.length; i++) {
+                    datekey = data[i].date;
                     maxdate = String.max(datekey, maxdate);
                     mindate = String.min(datekey, mindate);
-                    ds[datekey] = item;
+                    ds[datekey] = data[i];
                 }
                 ds.maxdate = String.max(maxdate, ds.maxdate);
                 ds.mindate = String.min(mindate, ds.mindate);

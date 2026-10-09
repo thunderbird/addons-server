@@ -10,7 +10,7 @@ $(function() {
     // Save some requests by waiting until the graph data is ready.
     $(window).on("dataready", function(e, data) {
         // return;
-        const view    = _.extend({}, data.view, {group: 'all'}),
+        var view    = _.extend({}, data.view, {group: 'all'}),
             range   = normalizeRange(view.range);
 
         // get aggregates for Daily Users and Downloads for the given time range.
@@ -19,12 +19,12 @@ $(function() {
                 $("#downloads-in-range, #users-in-range").text(gettext('No data available.'));
             } else {
                 // make all that data pretty.
-                const aggregateRow    = data[data.firstIndex].data,
+                var aggregateRow    = data[data.firstIndex].data,
                     totalDownloads  = Highcharts.numberFormat(aggregateRow.downloads, 0),
                     totalUsers      = Highcharts.numberFormat(aggregateRow.updates, 0),
                     startString     = range.start.iso(),
-                    endString       = range.end.iso();
-                let downloadFormat,
+                    endString       = range.end.iso(),
+                    downloadFormat,
                     userFormat;
                 if (typeof view.range == 'string') {
                     downloadFormat  = csv_keys.aggregateLabel.downloads[0];
