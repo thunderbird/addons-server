@@ -38,7 +38,7 @@ def main(requirements_path):
 
     with open(requirements_path) as fobj:
         for line in fobj:
-            args_str, options_str = break_args_options(line)
+            _, options_str = break_args_options(line)
             opts, _ = parser.parse_args(shlex.split(options_str), defaults)
             if opts.requirements:
                 nested_requirements.update(opts.requirements)
