@@ -130,7 +130,7 @@
             <div class="dev-review-reply">
               <form class="dev-review-reply-form" action="{{ drf_url('version-reviewnotes-list', addon.id, version.id) }}"
                     data-token="{{ token }}" data-history="#{{ version.id }}-review-history" data-no-csrf>
-                  <textarea name="comments" placeholder="{{ _('Leave a reply') }}" aria-label="{{ _('Leave a reply') }}"></textarea>
+                  <textarea name="comments" placeholder="{{ _('Leave a reply') }}" aria-label="{{ _('Leave a reply')|striptags }}"></textarea>
                   <button type="submit" class="submit" >{{ _('Reply') }}</button ty>
               </form>
             </div>
