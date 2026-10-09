@@ -28,7 +28,7 @@
 {% endblock %}
 
 {% macro persona_categories() %}
-<div class="secondary" role="complementary">
+<aside class="secondary">
   {% if profile %}
     <aside class="profile">
       <a href="{{ profile.get_url_path() }}">
@@ -52,5 +52,5 @@
       <p><a href="{{ url('devhub.docs', 'themes') }}" class="learn-more">{{ _('Learn more') }}</a></p>
     </div>
   {% endif %}
-</div>
+</aside>
 {% endmacro %}
