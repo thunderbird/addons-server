@@ -46,7 +46,7 @@ from . import tasks
 class AuthorForm(forms.ModelForm):
     class Meta:
         model = AddonUser
-        exclude = ('addon',)
+        fields = ('user', 'role', 'listed', 'position')
 
 
 class BaseModelFormSet(BaseModelFormSet):
@@ -95,7 +95,7 @@ class DeleteForm(forms.Form):
 
     def clean_slug(self):
         data = self.cleaned_data
-        if not data['slug'] == self.addon.slug:
+        if data['slug'] != self.addon.slug:
             raise forms.ValidationError(gettext('Slug incorrect.'))
 
 
@@ -121,15 +121,15 @@ class LicenseRadioSelect(forms.RadioSelect):
 
         link = (u'<a class="xx extra" href="%s" target="_blank" '
                 u'rel="noopener noreferrer">%s</a>')
-        license = self.choices[index][1]
+        license_ = self.choices[index][1]
 
-        if hasattr(license, 'url') and license.url:
-            details = link % (license.url, gettext('Details'))
+        if hasattr(license_, 'url') and license_.url:
+            details = link % (license_.url, gettext('Details'))
             context['label'] = mark_safe(
                 six.text_type(context['label']) + ' ' + details)
-        if hasattr(license, 'icons'):
-            context['attrs']['data-cc'] = license.icons
-        context['attrs']['data-name'] = six.text_type(license)
+        if hasattr(license_, 'icons'):
+            context['attrs']['data-cc'] = license_.icons
+        context['attrs']['data-name'] = six.text_type(license_)
         return context
 
 
@@ -225,19 +225,19 @@ class LicenseForm(AMOModelForm):
         if not is_other:
             # We're dealing with a builtin license, there is no modifications
             # allowed to it, just return it.
-            license = License.objects.get(builtin=builtin)
+            license_ = License.objects.get(builtin=builtin)
         else:
             # We're not dealing with a builtin license, so save it to the
             # database.
-            license = super(LicenseForm, self).save(*args, **kw)
+            license_ = super(LicenseForm, self).save(*args, **kw)
 
         if self.version:
-            if (changed and is_other) or license != self.version.license:
-                self.version.update(license=license)
+            if (changed and is_other) or license_ != self.version.license:
+                self.version.update(license=license_)
                 if log:
-                    ActivityLog.create(amo.LOG.CHANGE_LICENSE, license,
+                    ActivityLog.create(amo.LOG.CHANGE_LICENSE, license_,
                                        self.version.addon)
-        return license
+        return license_
 
 
 class PolicyForm(TranslationFormMixin, AMOModelForm):
@@ -261,8 +261,8 @@ class PolicyForm(TranslationFormMixin, AMOModelForm):
         if not self.addon:
             raise ValueError('addon keyword arg cannot be None')
         kw['instance'] = self.addon
-        kw['initial'] = dict(has_priv=self._has_field('privacy_policy'),
-                             has_eula=self._has_field('eula'))
+        kw['initial'] = {'has_priv': self._has_field('privacy_policy'),
+                         'has_eula': self._has_field('eula')}
         super(PolicyForm, self).__init__(*args, **kw)
 
     def _has_field(self, name):

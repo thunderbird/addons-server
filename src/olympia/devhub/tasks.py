@@ -215,7 +215,7 @@ def validate_file_path(path, channel, is_experiment=False, **kw):
     if not is_webextension:
         results = deepcopy(amo.VALIDATOR_SKELETON_RESULTS)
         annotations.annotate_legacy_addon_restrictions(
-            path=path, results=results, parsed_data=data,
+            path=path, results=results, _parsed_data=data,
             error=not is_mozilla_signed)
         return json.dumps(results)
 
@@ -229,7 +229,8 @@ def validate_file(file_id, **kwargs):
 
     Should only be called directly by Validator."""
 
-    # FIXME: This should take no kwargs, but is getting called with 'hash_'
+    # Known issue: This should take no kwargs, but is getting called with
+    # 'hash_'
     file_ = File.objects.get(pk=file_id)
     try:
         return file_.validation.validation
@@ -278,8 +279,9 @@ def handle_upload_validation_result(
     statsd.timing('devhub.validation_results_processed', delta)
 
     if not storage.exists(upload.path):
-        # TODO: actually fix this so we can get stats. It seems that
-        # the file maybe gets moved but it needs more investigation.
+        # Pending investigation: actually fix this so we can get stats. It
+        # seems that the file maybe gets moved but it needs more
+        # investigation.
         log.warning('Scaled upload stats were not tracked. File is '
                     'missing: {}'.format(upload.path))
         return
@@ -401,7 +403,6 @@ def revoke_api_key(key_id):
     except APIKey.DoesNotExist:
         log.info('User %s has already revoked the key, nothing to be done.'
                  % original_key.user)
-        pass
 
 
 def run_addons_linter(path, channel, is_experiment=False):
@@ -673,10 +674,10 @@ def check_content_type(response, content_type,
                        no_ct_message, wrong_ct_message):
     if not response.headers.get('Content-Type', '').startswith(content_type):
         if 'Content-Type' in response.headers:
-            raise Exception(wrong_ct_message %
-                            (content_type, response.headers['Content-Type']))
+            raise ValueError(wrong_ct_message %
+                             (content_type, response.headers['Content-Type']))
         else:
-            raise Exception(no_ct_message % content_type)
+            raise ValueError(no_ct_message % content_type)
 
 
 def get_content_and_check_size(response, max_size, error_message):
@@ -684,7 +685,7 @@ def get_content_and_check_size(response, max_size, error_message):
     # downloading huge files.
     content = response.read(max_size + 1)
     if len(content) > max_size:
-        raise Exception(error_message % max_size)
+        raise ValueError(error_message % max_size)
     return content
 
 

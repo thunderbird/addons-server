@@ -70,6 +70,11 @@ log = olympia.core.logger.getLogger('z.devhub')
 
 MDN_BASE = 'https://developer.mozilla.org/en-US/Add-ons'
 
+STANDALONE_UPLOAD_DETAIL_URL_NAME = 'devhub.standalone_upload_detail'
+UPLOAD_DETAIL_URL_NAME = 'devhub.upload_detail'
+SUBMIT_VERSION_SOURCE_URL_NAME = 'devhub.submit.version.source'
+API_KEY_URL_NAME = 'devhub.api_key'
+
 
 def get_fileupload_by_uuid_or_404(value):
     try:
@@ -128,9 +133,9 @@ def dashboard(request, theme=False):
     addon_items = _get_items(
         None, Addon.objects.filter(authors=request.user))[:4]
 
-    data = dict(rss=_get_rss_feed(request), blog_posts=_get_posts(),
-                timestamp=int(time.time()), addon_tab=not theme,
-                theme=theme, addon_items=addon_items)
+    data = {'rss': _get_rss_feed(request), 'blog_posts': _get_posts(),
+            'timestamp': int(time.time()), 'addon_tab': not theme,
+            'theme': theme, 'addon_items': addon_items}
     if data['addon_tab']:
         addons, data['filter'] = addon_listing(request)
         data['addons'] = amo_utils.paginate(request, addons, per_page=10)
@@ -151,7 +156,7 @@ def ajax_compat_status(request, addon_id, addon):
     if not (addon.accepts_compatible_apps() and addon.current_version):
         raise http.Http404()
     return render(request, 'devhub/addons/ajax_compat_status.html',
-                  dict(addon=addon))
+                  {'addon': addon})
 
 
 @dev_required
@@ -159,7 +164,7 @@ def ajax_compat_error(request, addon_id, addon):
     if not (addon.accepts_compatible_apps() and addon.current_version):
         raise http.Http404()
     return render(request, 'devhub/addons/ajax_compat_error.html',
-                  dict(addon=addon))
+                  {'addon': addon})
 
 
 @dev_required
@@ -183,10 +188,11 @@ def ajax_compat_update(request, addon_id, addon, version_id):
                     'max' in form.changed_data):
                 _log_max_version_change(addon, version, form.instance)
     return render(request, 'devhub/addons/ajax_compat_update.html',
-                  dict(addon=addon, version=version, compat_form=compat_form))
+                  {'addon': addon, 'version': version,
+                   'compat_form': compat_form})
 
 
-def _get_addons(request, addons, addon_id, action):
+def _get_addons(_request, addons, addon_id, action):
     """Create a list of ``MenuItem``s for the activity feed."""
     items = []
 
@@ -300,8 +306,8 @@ def feed(request, addon_id=None):
     addon_items = _get_addons(request, addons_all, addon_selected, action)
 
     pager = amo_utils.paginate(request, items, 20)
-    data = dict(addons=addon_items, pager=pager, activities=activities,
-                rss=rssurl, addon=addon)
+    data = {'addons': addon_items, 'pager': pager, 'activities': activities,
+            'rss': rssurl, 'addon': addon}
     return render(request, 'devhub/addons/activity.html', data)
 
 
@@ -443,7 +449,7 @@ def ownership(request, addon_id, addon):
                             'site_url': settings.SITE_URL}),
                   None, recipients, use_deny_list=False)
 
-    if request.method == 'POST' and all([form.is_valid() for form in fs]):
+    if request.method == 'POST' and all(form.is_valid() for form in fs):
         # Authors.
         authors = user_form.save(commit=False)
         addon_authors_emails = list(
@@ -509,8 +515,8 @@ def validate_addon(request):
                    'new_addon_form': forms.DistributionChoiceForm()})
 
 
-def handle_upload(filedata, request, channel, addon=None, is_standalone=False,
-                  submit=False):
+def handle_upload(filedata, request, channel, addon=None,
+                  _is_standalone=False, submit=False):
     automated_signing = channel == amo.RELEASE_CHANNEL_UNLISTED
 
     user = request.user if request.user.is_authenticated else None
@@ -557,14 +563,14 @@ def upload(request, channel='listed', addon=None, is_standalone=False):
     filedata = request.FILES['upload']
     upload = handle_upload(
         filedata=filedata, request=request, addon=addon,
-        is_standalone=is_standalone, channel=channel)
+        _is_standalone=is_standalone, channel=channel)
     if addon:
         return redirect('devhub.upload_detail_for_version',
                         addon.slug, upload.uuid.hex)
     elif is_standalone:
-        return redirect('devhub.standalone_upload_detail', upload.uuid.hex)
+        return redirect(STANDALONE_UPLOAD_DETAIL_URL_NAME, upload.uuid.hex)
     else:
-        return redirect('devhub.upload_detail', upload.uuid.hex, 'json')
+        return redirect(UPLOAD_DETAIL_URL_NAME, upload.uuid.hex, 'json')
 
 
 @post_required
@@ -577,7 +583,7 @@ def upload_for_version(request, addon_id, addon, channel):
 @json_view
 def standalone_upload_detail(request, uuid):
     upload = get_fileupload_by_uuid_or_404(uuid)
-    url = reverse('devhub.standalone_upload_detail', args=[uuid])
+    url = reverse(STANDALONE_UPLOAD_DETAIL_URL_NAME, args=[uuid])
     return upload_validation_context(request, upload, url=url)
 
 
@@ -670,16 +676,16 @@ def json_upload_detail(request, upload, addon_slug=None):
     return result
 
 
-def upload_validation_context(request, upload, addon=None, url=None):
+def upload_validation_context(_request, upload, addon=None, url=None):
     if not url:
         if addon:
             url = reverse('devhub.upload_detail_for_version',
                           args=[addon.slug, upload.uuid.hex])
         else:
             url = reverse(
-                'devhub.upload_detail',
+                UPLOAD_DETAIL_URL_NAME,
                 args=[upload.uuid.hex, 'json'])
-    full_report_url = reverse('devhub.upload_detail', args=[upload.uuid.hex])
+    full_report_url = reverse(UPLOAD_DETAIL_URL_NAME, args=[upload.uuid.hex])
 
     validation = upload.processed_validation or ''
 
@@ -706,7 +712,7 @@ def upload_detail(request, uuid, format='html'):
                 type(exc), exc))
             raise
 
-    validate_url = reverse('devhub.standalone_upload_detail',
+    validate_url = reverse(STANDALONE_UPLOAD_DETAIL_URL_NAME,
                            args=[upload.uuid.hex])
 
     context = {'validate_url': validate_url, 'filename': upload.pretty_name,
@@ -910,7 +916,7 @@ def ajax_upload_image(request, upload_type, addon_id=None):
                     % (max_size // 1024))
 
         if image_check.is_image() and is_persona:
-            persona, img_type = upload_type.split('_')  # 'header' or 'footer'
+            _persona, img_type = upload_type.split('_')  # 'header' or 'footer'
             expected_size = amo.PERSONA_IMAGE_SIZES.get(img_type)[1]
             actual_size = image_check.size
             if actual_size != expected_size:
@@ -993,7 +999,7 @@ def version_edit(request, addon_id, addon, version_id):
         data['compat_form'] = compat_form
 
     if (request.method == 'POST' and
-            all([form.is_valid() for form in data.values()])):
+            all(form.is_valid() for form in data.values())):
         if 'compat_form' in data:
             for compat in data['compat_form'].save(commit=False):
                 compat.version = version
@@ -1216,9 +1222,13 @@ def submit_version_agreement(request, addon_id, addon):
 @transaction.atomic
 def _submit_distribution(request, addon, next_view):
     # Accept GET for the first load so we can preselect the channel.
-    form = forms.DistributionChoiceForm(
-        request.POST if request.method == 'POST' else
-        request.GET if request.GET.get('channel') else None)
+    if request.method == 'POST':
+        initial = request.POST
+    elif request.GET.get('channel'):
+        initial = request.GET
+    else:
+        initial = None
+    form = forms.DistributionChoiceForm(initial)
 
     if request.method == 'POST' and form.is_valid():
         data = form.cleaned_data
@@ -1371,7 +1381,7 @@ def submit_addon_upload(request, channel):
 def submit_version_upload(request, addon_id, addon, channel):
     channel_id = amo.CHANNEL_CHOICES_LOOKUP[channel]
     return _submit_upload(
-        request, addon, channel_id, 'devhub.submit.version.source')
+        request, addon, channel_id, SUBMIT_VERSION_SOURCE_URL_NAME)
 
 
 @dev_required
@@ -1385,7 +1395,7 @@ def submit_version_auto(request, addon_id, addon):
         return redirect('devhub.submit.version.distribution', addon.slug)
     channel = last_version.channel
     return _submit_upload(
-        request, addon, channel, 'devhub.submit.version.source')
+        request, addon, channel, SUBMIT_VERSION_SOURCE_URL_NAME)
 
 
 @login_required
@@ -1400,7 +1410,7 @@ def submit_addon_theme_wizard(request, channel):
 def submit_version_theme_wizard(request, addon_id, addon, channel):
     channel_id = amo.CHANNEL_CHOICES_LOOKUP[channel]
     return _submit_upload(
-        request, addon, channel_id, 'devhub.submit.version.source',
+        request, addon, channel_id, SUBMIT_VERSION_SOURCE_URL_NAME,
         wizard=True)
 
 
@@ -1646,7 +1656,7 @@ def submit_lwt_theme(request):
                 gettext('Please check the form for errors.'))
             request.session['unsaved_data'] = data['unsaved_data']
 
-    return render(request, 'devhub/personas/submit.html', dict(form=form))
+    return render(request, 'devhub/personas/submit.html', {'form': form})
 
 
 @dev_required(theme=True)
@@ -1654,7 +1664,7 @@ def submit_theme_done(request, addon_id, addon, theme):
     if addon.is_public():
         return redirect(addon.get_url_path())
     return render(request, 'devhub/personas/submit_done.html',
-                  dict(addon=addon))
+                  {'addon': addon})
 
 
 @dev_required(theme=True)
@@ -1690,7 +1700,7 @@ def request_review(request, addon_id, addon):
     return redirect(addon.get_dev_url('versions'))
 
 
-def docs(request, doc_name=None):
+def docs(_request, doc_name=None):
     mdn_docs = {
         None: '',
         'getting-started': '',
@@ -1718,7 +1728,7 @@ def docs(request, doc_name=None):
 
 @login_required
 def api_key_agreement(request):
-    next_step = reverse('devhub.api_key')
+    next_step = reverse(API_KEY_URL_NAME)
     return render_agreement(request, 'devhub/api/agreement.html', next_step)
 
 
@@ -1773,7 +1783,7 @@ def api_key(request):
 
         send_key_change_email(request.user.email, new_credentials.key)
 
-        return redirect(reverse('devhub.api_key'))
+        return redirect(reverse(API_KEY_URL_NAME))
 
     if request.method == 'POST' and request.POST.get('action') == 'revoke':
         credentials.update(is_active=None)
@@ -1783,7 +1793,7 @@ def api_key(request):
         msg = gettext(
             'Your old credentials were revoked and are no longer valid.')
         messages.success(request, msg)
-        return redirect(reverse('devhub.api_key'))
+        return redirect(reverse(API_KEY_URL_NAME))
 
     return render(request, 'devhub/api/key.html',
                   {'title': gettext('Manage API Keys'),
@@ -1792,7 +1802,7 @@ def api_key(request):
 
 def send_key_change_email(to_email, key):
     template = loader.get_template('devhub/email/new-key-email.ltxt')
-    url = absolutify(reverse('devhub.api_key'))
+    url = absolutify(reverse(API_KEY_URL_NAME))
     send_mail(
         gettext('New API key created'),
         template.render({'key': key, 'url': url}),
@@ -1803,7 +1813,7 @@ def send_key_change_email(to_email, key):
 
 def send_key_revoked_email(to_email, key):
     template = loader.get_template('devhub/email/revoked-key-email.ltxt')
-    url = absolutify(reverse('devhub.api_key'))
+    url = absolutify(reverse(API_KEY_URL_NAME))
     send_mail(
         gettext('API key revoked'),
         template.render({'key': key, 'url': url}),

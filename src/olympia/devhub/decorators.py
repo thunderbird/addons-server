@@ -31,9 +31,8 @@ def dev_required(owner_for_post=False, allow_reviewers=False, theme=False,
             def fun():
                 return f(request, addon_id=addon.id, addon=addon, *args, **kw)
 
-            if allow_reviewers:
-                if acl.is_reviewer(request, addon):
-                    return fun()
+            if allow_reviewers and acl.is_reviewer(request, addon):
+                return fun()
             # Require an owner or dev for POST requests.
             if request.method == 'POST':
                 if acl.check_addon_ownership(request, addon,

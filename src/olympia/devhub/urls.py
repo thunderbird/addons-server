@@ -9,6 +9,10 @@ from olympia.lib.misc.urlconf_decorator import decorate
 from . import views
 
 
+ADDONS_EDIT_URL_NAME = 'devhub.addons.edit'
+ADDONS_VERSIONS_URL_NAME = 'devhub.addons.versions'
+
+
 # These will all start with /theme/<slug>/
 theme_detail_patterns = [
     url(r'^$', lambda r,
@@ -26,9 +30,9 @@ theme_detail_patterns = [
 # These will all start with /addon/<addon_id>/
 detail_patterns = [
     # Redirect to the edit page from the base.
-    url(r'^$', lambda r, addon_id: redirect('devhub.addons.edit', addon_id,
+    url(r'^$', lambda r, addon_id: redirect(ADDONS_EDIT_URL_NAME, addon_id,
                                             permanent=True)),
-    url(r'^edit$', views.edit, name='devhub.addons.edit'),
+    url(r'^edit$', views.edit, name=ADDONS_EDIT_URL_NAME),
     url(r'^delete$', views.delete, name='devhub.addons.delete'),
     url(r'^disable$', views.disable, name='devhub.addons.disable'),
     url(r'^enable$', views.enable, name='devhub.addons.enable'),
@@ -47,7 +51,7 @@ detail_patterns = [
     url(r'^upload/(?P<uuid>[^/]+)$', views.upload_detail_for_version,
         name='devhub.upload_detail_for_version'),
 
-    url(r'^versions$', views.version_list, name='devhub.addons.versions'),
+    url(r'^versions$', views.version_list, name=ADDONS_VERSIONS_URL_NAME),
     url(r'^versions/delete$', views.version_delete,
         name='devhub.versions.delete'),
     url(r'^versions/reenable$', views.version_reenable,
@@ -121,11 +125,11 @@ ajax_patterns = [
 ]
 redirect_patterns = [
     url(r'^addon/edit/(\d+)',
-        lambda r, id: redirect('devhub.addons.edit', id, permanent=True)),
+        lambda r, id: redirect(ADDONS_EDIT_URL_NAME, id, permanent=True)),
     url(r'^addon/status/(\d+)',
-        lambda r, id: redirect('devhub.addons.versions', id, permanent=True)),
+        lambda r, id: redirect(ADDONS_VERSIONS_URL_NAME, id, permanent=True)),
     url(r'^versions/(\d+)',
-        lambda r, id: redirect('devhub.addons.versions', id, permanent=True)),
+        lambda r, id: redirect(ADDONS_VERSIONS_URL_NAME, id, permanent=True)),
 ]
 
 urlpatterns = decorate(use_primary_db, [
@@ -164,7 +168,7 @@ urlpatterns = decorate(use_primary_db, [
     url(r'^themes$', views.dashboard, name='devhub.themes',
         kwargs={'theme': True}),
     url(r'^feed$', views.feed, name='devhub.feed_all'),
-    # TODO: not necessary when devhub homepage is moved out of remora
+    # Not necessary when devhub homepage is moved out of remora
     url(r'^feed/all$', lambda r: redirect('devhub.feed_all', permanent=True)),
     url(r'^feed/%s$' % ADDON_ID, views.feed, name='devhub.feed'),
 
