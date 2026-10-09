@@ -63,7 +63,7 @@
   {% if is_pjax %}
     {% include "search/results_inner.html" %}
   {% else %}
-    <aside id="search-facets" class="secondary">
+    <section id="search-facets" class="secondary" role="complementary">
       <h2>{{ _('Filter Results') }}</h2>
       <ul class="facets island pjax-trigger">
       {% if not search_placeholder %}
@@ -87,7 +87,7 @@
         {% endif %}
       </ul>
       {{ num_results() }}
-    </aside>
+    </section>
 
     <main class="primary">
       <h1>{{ heading }}</h1>
