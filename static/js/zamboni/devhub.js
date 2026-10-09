@@ -239,8 +239,8 @@ $(document).ready(function() {
 })();
 
 function truncateFields() {
-    // TODO (potch) find a good fix for this later
-    // as per Bug 622030...
+    // Truncation is disabled pending a proper fix (Bug 622030, potch).
+    // Re-enabling or removing it is tracked in thunderbird/addons-server#464.
     return;
     // var els = [
     //         "#addon-description",
