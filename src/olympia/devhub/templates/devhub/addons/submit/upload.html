@@ -45,8 +45,8 @@
 
   {{ new_addon_form.non_field_errors() }}
 
-    <div class="compatible-apps">
-      <label>{{ _('Which applications is this version compatible with?') }}</label>
+    <div class="compatible-apps" role="group" aria-labelledby="compatible-apps-label">
+      <label id="compatible-apps-label">{{ _('Which applications is this version compatible with?') }}</label>
       {{ new_addon_form.compatible_apps.errors }}
       {{ new_addon_form.compatible_apps }}
     </div>
