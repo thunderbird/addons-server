@@ -170,13 +170,8 @@ class Collection(ModelBase):
     def get_fallback(cls):
         return cls._meta.get_field('default_locale')
 
-    def set_addons(self, addon_ids, comments=None):
-        """Replace the current add-ons with a new list of add-on ids."""
-        if comments is None:
-            comments = {}
-        order = {a: idx for idx, a in enumerate(addon_ids)}
-
-        # Partition addon_ids into add/update/remove buckets.
+    def _partition_addon_ids(self, addon_ids, order):
+        """Partition addon_ids into add/update/remove buckets."""
         existing = set(self.addons.using('default')
                        .values_list('id', flat=True))
         add, update = [], []
@@ -184,8 +179,9 @@ class Collection(ModelBase):
             bucket = update if addon in existing else add
             bucket.append((addon, order[addon]))
         remove = existing.difference(addon_ids)
-        now = datetime.now()
+        return add, update, remove
 
+    def _sync_addons_sql(self, add, remove):
         with connection.cursor() as cursor:
             if remove:
                 cursor.execute("DELETE FROM addons_collections "
@@ -206,10 +202,13 @@ class Collection(ModelBase):
                     for addon_id, idx in add:
                         activity.log_create(amo.LOG.ADD_TO_COLLECTION,
                                             (Addon, addon_id), self)
+
+    def _update_addon_orderings(self, update, now):
         for addon, ordering in update:
             (CollectionAddon.objects.filter(collection=self.id, addon=addon)
              .update(ordering=ordering, modified=now))
 
+    def _update_addon_comments(self, comments):
         for addon, comment in six.iteritems(comments):
             try:
                 c = (CollectionAddon.objects.using('default')
@@ -219,6 +218,19 @@ class Collection(ModelBase):
             else:
                 c.comments = comment
                 c.save(force_update=True)
+
+    def set_addons(self, addon_ids, comments=None):
+        """Replace the current add-ons with a new list of add-on ids."""
+        if comments is None:
+            comments = {}
+        order = {a: idx for idx, a in enumerate(addon_ids)}
+
+        add, update, remove = self._partition_addon_ids(addon_ids, order)
+        now = datetime.now()
+
+        self._sync_addons_sql(add, remove)
+        self._update_addon_orderings(update, now)
+        self._update_addon_comments(comments)
 
         self.save()
 
