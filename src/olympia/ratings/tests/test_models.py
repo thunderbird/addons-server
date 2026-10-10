@@ -266,8 +266,8 @@ class TestGroupedRating(TestCase):
     # since it'd affect the results of our tests by calculating GroupedRating
     # results early (and storing result in cache) or changing is_latest boolean
     # on reviews.
-    @mock.patch.object(Rating, 'refresh', lambda x, update_denorm=False: None)
-    def setUpTestData(cls):
+    @mock.patch.object(Rating, 'refresh', return_value=None)
+    def setUpTestData(cls, _mock_refresh):
         cls.addon = addon_factory()
         user = user_factory()
 

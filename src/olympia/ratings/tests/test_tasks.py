@@ -15,8 +15,8 @@ from olympia.ratings.tasks import (
 class TestAddonRatingAggregates(TestCase):
     # Prevent <Rating>.refresh() from being fired when setting up test data,
     # since it'd call addon_rating_aggregates too early.
-    @mock.patch.object(Rating, 'refresh', lambda x, update_denorm=False: None)
-    def test_addon_rating_aggregates(self):
+    @mock.patch.object(Rating, 'refresh', return_value=None)
+    def test_addon_rating_aggregates(self, _mock_refresh):
         addon = addon_factory()
         addon2 = addon_factory()
 
