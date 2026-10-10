@@ -360,8 +360,10 @@ def no_jinja_autoescape():
     """Disable Jinja2 autoescape."""
     autoescape_orig = engines['jinja2'].env.autoescape
     engines['jinja2'].env.autoescape = False
-    yield
-    engines['jinja2'].env.autoescape = autoescape_orig
+    try:
+        yield
+    finally:
+        engines['jinja2'].env.autoescape = autoescape_orig
 
 
 def send_mail_jinja(subject, template, context, *args, **kwargs):

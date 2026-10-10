@@ -13,7 +13,7 @@ AMO uses JWT tokens in a different way. Notes:
 See https://github.com/GetBlimp/django-rest-framework-jwt/ for more info.
 """
 from calendar import timegm
-from datetime import datetime
+from datetime import datetime, timezone
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -71,7 +71,7 @@ def jwt_decode_handler(token, get_api_key=APIKey.get_jwt_key):
     }
 
     try:
-        now = timegm(datetime.utcnow().utctimetuple())
+        now = timegm(datetime.now(timezone.utc).utctimetuple())
 
         payload = jwt.decode(
             token,
