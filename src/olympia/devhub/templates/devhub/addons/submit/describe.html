@@ -83,7 +83,7 @@
       {{ form.slug.errors }}
     </div>
     <div class="addon-submission-field">
-      <label>{{ _('Summary:') }}<span class="req" title="{{ _('required') }}">*</span></label>
+      <label for="id_summary_0">{{ _('Summary:') }}<span class="req" title="{{ _('required') }}">*</span></label>
       {{ form.summary }}
       {{ form.summary.errors }}
       <div class="edit-addon-details">
@@ -96,7 +96,7 @@
     {% endif %}
     {% if addon.type == amo.ADDON_EXTENSION %}
     <div class="addon-submission-field">
-      <label>{{ _('Description:') }}
+      <label for="id_description_0">{{ _('Description:') }}
       {% if form.description.field.min_length %}
         <span class="req" title="{{ _('required') }}">*</span>
       {% endif %}</label>
@@ -149,8 +149,8 @@
       {% endfor %}
     </div>
     {% else %}
-    <div id="addon-categories-edit" class="addon-submission-field">
-      <label>{{ _('Select a category for this add-on:') }}<span class="req" title="{{ _('required') }}">*</span></label>
+    <div id="addon-categories-edit" class="addon-submission-field" role="radiogroup" aria-labelledby="addon-categories-edit-label">
+      <label id="addon-categories-edit-label">{{ _('Select a category for this add-on:') }}<span class="req" title="{{ _('required') }}">*</span></label>
       {{ cat_form.category.errors }}
       {{ cat_form.category }}
     </div>

@@ -122,7 +122,7 @@
                       {{ form.id }}
                       <span class="js-hidden delete">{{ form.DELETE }}{{ form.DELETE.label_tag() }}</span>
                       <div class="edit-previews-text">
-                        <label data-for="{{ form.prefix }}-{{ form.caption.name }}" class="above-the-field">
+                        <label data-for="{{ form.prefix }}-{{ form.caption.name }}" for="id_{{ form.prefix }}-{{ form.caption.name }}_0" class="above-the-field">
                           {{ _('Please provide a caption for this screenshot:') }}
                         </label>
                         {{ form.caption }}
