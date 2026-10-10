@@ -224,9 +224,11 @@ HOSTNAME = socket.gethostname()
 # need the real domain.
 DOMAIN = HOSTNAME
 
+HTTP_URL_FORMAT = 'http://%s'
+
 # Full base URL for your main site including protocol.  No trailing slash.
 #   Example: https://addons.mozilla.org
-SITE_URL = 'http://%s' % DOMAIN
+SITE_URL = HTTP_URL_FORMAT % DOMAIN
 
 # Domain of the services site.  This is where your API, and in-product pages
 # live.
@@ -234,7 +236,7 @@ SERVICES_DOMAIN = 'services.%s' % DOMAIN
 
 # Full URL to your API service. No trailing slash.
 #   Example: https://services.addons.mozilla.org
-SERVICES_URL = 'http://%s' % SERVICES_DOMAIN
+SERVICES_URL = HTTP_URL_FORMAT % SERVICES_DOMAIN
 
 # Filter IP addresses of allowed clients that can post email through the API.
 ALLOWED_CLIENTS_EMAIL_API = env.list('ALLOWED_CLIENTS_EMAIL_API', default=[])
@@ -1521,7 +1523,7 @@ VALID_LOGIN_REDIRECTS = {
 
 # Elasticsearch
 ES_HOSTS = [os.environ.get('ELASTICSEARCH_LOCATION', '127.0.0.1:9200')]
-ES_URLS = ['http://%s' % h for h in ES_HOSTS]
+ES_URLS = [HTTP_URL_FORMAT % h for h in ES_HOSTS]
 ES_INDEXES = {
     'default': 'addons',
     'stats': 'addons_stats',

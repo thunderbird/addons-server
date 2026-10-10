@@ -45,7 +45,7 @@ def action_allowed_user(user, permission):
         for group in user.groups_list)
 
 
-def submission_allowed(user, parsed_addon_data):
+def submission_allowed():
     """Experiments can only be submitted by the people with the right group.
 
     See bug 1220097.

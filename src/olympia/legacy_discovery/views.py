@@ -46,9 +46,9 @@ def module_admin(request):
     qs.ordered = True  # The formset looks for this.
     _sync_db_and_registry(qs, APP.id)
 
-    Form = modelformset_factory(DiscoveryModule, form=DiscoveryModuleForm,
-                                can_delete=True, extra=0)
-    formset = Form(request.POST or None, queryset=qs)
+    formset_class = modelformset_factory(
+        DiscoveryModule, form=DiscoveryModuleForm, can_delete=True, extra=0)
+    formset = formset_class(request.POST or None, queryset=qs)
 
     if request.method == 'POST' and formset.is_valid():
         formset.save()
