@@ -68,6 +68,30 @@ def with_addon(allow_missing=False):
     return wrapper
 
 
+def _channel_for_existing_addon(request, addon):
+    """Pick the channel for a new version of an existing addon and check
+    the addon's metadata allows it."""
+    channel_param = request.POST.get('channel')
+    channel = amo.CHANNEL_CHOICES_LOOKUP.get(channel_param)
+    if not channel:
+        last_version = (
+            addon.find_latest_version(None, exclude=()))
+        if last_version:
+            channel = last_version.channel
+        else:
+            channel = amo.RELEASE_CHANNEL_UNLISTED  # Treat as new.
+
+    will_have_listed = channel == amo.RELEASE_CHANNEL_LISTED
+    if not addon.has_complete_metadata(
+            has_listed_versions=will_have_listed):
+        raise forms.ValidationError(
+            gettext('You cannot add a listed version to this addon '
+                     'via the API due to missing metadata. '
+                     'Please submit via the website'),
+            status.HTTP_400_BAD_REQUEST)
+    return channel
+
+
 def _validate_url_guid(guid):
     """Raise ValidationError if a GUID passed in the URL is too long or
     malformed."""
@@ -138,30 +162,6 @@ class VersionView(APIView):
             raise forms.ValidationError(msg, status.HTTP_409_CONFLICT)
         return version_string
 
-    @staticmethod
-    def _channel_for_existing_addon(request, addon):
-        """Pick the channel for a new version of an existing addon and check
-        the addon's metadata allows it."""
-        channel_param = request.POST.get('channel')
-        channel = amo.CHANNEL_CHOICES_LOOKUP.get(channel_param)
-        if not channel:
-            last_version = (
-                addon.find_latest_version(None, exclude=()))
-            if last_version:
-                channel = last_version.channel
-            else:
-                channel = amo.RELEASE_CHANNEL_UNLISTED  # Treat as new.
-
-        will_have_listed = channel == amo.RELEASE_CHANNEL_LISTED
-        if not addon.has_complete_metadata(
-                has_listed_versions=will_have_listed):
-            raise forms.ValidationError(
-                gettext('You cannot add a listed version to this addon '
-                         'via the API due to missing metadata. '
-                         'Please submit via the website'),
-                status.HTTP_400_BAD_REQUEST)
-        return channel
-
     @use_primary_db
     def handle_upload(self, request, addon, version_string, guid=None):
         if 'upload' in request.FILES:
@@ -210,7 +210,7 @@ class VersionView(APIView):
             created = True
         else:
             created = False
-            channel = self._channel_for_existing_addon(request, addon)
+            channel = _channel_for_existing_addon(request, addon)
 
         file_upload = devhub_handle_upload(
             filedata=filedata, request=request, addon=addon, submit=True,
