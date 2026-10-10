@@ -652,8 +652,8 @@ class TestUserHistory(TestCase):
         user.update(email='dark@sith.com')
         user.update(email='luke@jedi.com')
         user.update(email='dark@sith.com')
-        assert [user] == list(find_users('luke@jedi.com'))
-        assert [user] == list(find_users('dark@sith.com'))
+        assert list(find_users('luke@jedi.com')) == [user]
+        assert list(find_users('dark@sith.com')) == [user]
 
     def test_user_find_multiple(self):
         user_1 = UserProfile.objects.create(username='user_1',
@@ -661,7 +661,7 @@ class TestUserHistory(TestCase):
         user_1.update(email='dark@sith.com')
         user_2 = UserProfile.objects.create(username='user_2',
                                             email='luke@jedi.com')
-        assert [user_1, user_2] == list(find_users('luke@jedi.com'))
+        assert list(find_users('luke@jedi.com')) == [user_1, user_2]
 
 
 class TestUserManager(TestCase):
