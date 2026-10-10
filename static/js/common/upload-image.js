@@ -42,7 +42,7 @@ $.fn.objectUrl = function(offset) {
     if (z.capabilities.fileAPI && files.length) {
         offset = offset || 0;
         var f = files[offset];
-        if (typeof window.URL !== 'undefined') {
+        if (window.URL !== undefined) {
             url = window.URL.createObjectURL(f);
         } else if (typeof window.webkitURL == 'function') {
             url = window.webkitURL.createObjectURL(f);
@@ -73,8 +73,7 @@ $.fn.objectUrl = function(offset) {
 
         // Loop through the files.
         $.each(files, function(v, f){
-            var data = "",
-                file = {
+            var file = {
                     'instance': instance_id,
                     'name': f.name || f.fileName,
                     'size': f.size,
@@ -93,11 +92,11 @@ $.fn.objectUrl = function(offset) {
             instance_id++;
             outstanding_uploads++;
 
-            if ($upload_field.attr('data-allowed-types').split('|').indexOf(file.type) < 0) {
+            if (!$upload_field.attr('data-allowed-types').split('|').includes(file.type)) {
                 var errors = [gettext('Images must be either PNG or JPG.')];
-                if (typeof $upload_field.attr('multiple') !== 'undefined') {
+                if ($upload_field.attr('multiple') !== undefined) {
                     // If we have a `multiple` attribute, assume not an icon.
-                    if ($upload_field.attr('data-allowed-types').indexOf('video') > -1) {
+                    if ($upload_field.attr('data-allowed-types').includes('video')) {
                        errors.push([gettext('Videos must be in WebM.')]);
                     }
                 }
