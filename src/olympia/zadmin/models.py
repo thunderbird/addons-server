@@ -40,7 +40,7 @@ def get_config(conf):
 
 
 def set_config(conf, value):
-    cf, created = Config.objects.get_or_create(key=conf)
+    cf, _ = Config.objects.get_or_create(key=conf)
     cf.value = value
     cf.save()
 

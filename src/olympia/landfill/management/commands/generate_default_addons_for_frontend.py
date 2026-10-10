@@ -31,24 +31,24 @@ base_collections = [
 #  Addons that exist in the carousel.
 #  Needs to be updated as the homepage is updated
 hero_addons = [
-    u'facebook-container'
-    u'midnight-lizard-quantum'
-    u'turbo-download-manager'
-    u'auth-helper'
-    u'ip-address-and-domain-info'
-    u'ublock-origin'
-    u'ghostery'
-    u'multi-account-containers'
-    u'transparent-standalone-image'
-    u'tabliss'
-    u'share-backported'
-    u'view-page-archive'
-    u'privacy-possum'
-    u'page-translate'
-    u'textmarkerpro'
-    u'forget_me_not'
-    u'groupspeeddial'
-    u'styl-us'
+    u'facebook-container',
+    u'midnight-lizard-quantum',
+    u'turbo-download-manager',
+    u'auth-helper',
+    u'ip-address-and-domain-info',
+    u'ublock-origin',
+    u'ghostery',
+    u'multi-account-containers',
+    u'transparent-standalone-image',
+    u'tabliss',
+    u'share-backported',
+    u'view-page-archive',
+    u'privacy-possum',
+    u'page-translate',
+    u'textmarkerpro',
+    u'forget_me_not',
+    u'groupspeeddial',
+    u'styl-us',
 ]
 
 

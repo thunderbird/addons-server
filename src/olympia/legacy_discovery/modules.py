@@ -20,31 +20,16 @@ from olympia.lib.cache import cache_get_or_set, make_key
 # The global registry for promo modules.  Managed through PromoModuleMeta.
 registry = {}
 
+PROMO_PURPLE_CLASS = 'promo promo-purple'
 
-# Temporarily here as part of the legacy-api removal
-# Simplified a bit by stuff that isn't used
-def addon_filter(addons, addon_type, limit, app, platform, version,
-                 compat_mode='strict'):
-    """
-    Filter addons by type, application, app version, and platform.
-    Add-ons that support the current locale will be sorted to front of list.
-    Shuffling will be applied to the add-ons supporting the locale and the
-    others separately.
-    Doing this in the database takes too long, so we do it in code and wrap
-    it in generous caching.
-    """
-    APP = app
 
-    def partition(seq, key):
-        """Group a sequence based into buckets by key(x)."""
-        groups = itertools.groupby(sorted(seq, key=key), key=key)
-        return ((k, list(v)) for k, v in groups)
+def _partition(seq, key):
+    """Group a sequence based into buckets by key(x)."""
+    groups = itertools.groupby(sorted(seq, key=key), key=key)
+    return ((k, list(v)) for k, v in groups)
 
-    # Take out personas since they don't have versions.
-    groups = dict(partition(addons,
-                            lambda x: x.type == amo.ADDON_PERSONA))
-    personas, addons = groups.get(True, []), groups.get(False, [])
 
+def _filter_addons_by_platform(addons, platform):
     platform = platform.lower()
     if platform != 'all' and platform in amo.PLATFORM_DICT:
         def f(ps):
@@ -53,12 +38,14 @@ def addon_filter(addons, addon_type, limit, app, platform, version,
         pid = amo.PLATFORM_DICT[platform]
         addons = [a for a in addons
                   if f(a.current_version.supported_platforms)]
+    return addons
+
+
+def _filter_addons_by_compat(addons, app, version, compat_mode):
+    APP = app
 
     if version is not None:
         vint = version_int(version)
-
-        def f_strict(app):
-            return app.min.version_int <= vint <= app.max.version_int
 
         def f_ignore(app):
             return app.min.version_int <= vint
@@ -69,9 +56,31 @@ def addon_filter(addons, addon_type, limit, app, platform, version,
         addons = []
         for addon, apps in xs:
             app = apps.get(APP)
-            if compat_mode == 'ignore':
-                if app and f_ignore(app):
-                    addons.append(addon)
+            if compat_mode == 'ignore' and app and f_ignore(app):
+                addons.append(addon)
+
+    return addons
+
+
+# Temporarily here as part of the legacy-api removal
+# Simplified a bit by stuff that isn't used
+def addon_filter(addons, limit, app, platform, version,
+                 compat_mode='strict'):
+    """
+    Filter addons by type, application, app version, and platform.
+    Add-ons that support the current locale will be sorted to front of list.
+    Shuffling will be applied to the add-ons supporting the locale and the
+    others separately.
+    Doing this in the database takes too long, so we do it in code and wrap
+    it in generous caching.
+    """
+    # Take out personas since they don't have versions.
+    groups = dict(_partition(addons,
+                             lambda x: x.type == amo.ADDON_PERSONA))
+    personas, addons = groups.get(True, []), groups.get(False, [])
+
+    addons = _filter_addons_by_platform(addons, platform)
+    addons = _filter_addons_by_compat(addons, app, version, compat_mode)
 
     # Put personas back in.
     addons.extend(personas)
@@ -82,7 +91,7 @@ def addon_filter(addons, addon_type, limit, app, platform, version,
     def partitioner(x):
         return x.description is not None and (x.description.locale == lang)
 
-    groups = dict(partition(addons, partitioner))
+    groups = dict(_partition(addons, partitioner))
     good, others = groups.get(True, []), groups.get(False, [])
 
     random.shuffle(good)
@@ -191,7 +200,6 @@ class CollectionPromo(PromoModule):
     def get_addons(self):
         addons = self.collection.addons.public()
         kw = {
-            'addon_type': 'ALL',
             'limit': self.limit,
             'app': self.request.APP,
             'platform': self.platform,
@@ -225,7 +233,7 @@ class CollectionPromo(PromoModule):
 class ShoppingCollection(CollectionPromo):
     slug = 'Shopping Collection'
     collection_author, collection_slug = 'mozilla', 'onlineshopping'
-    cls = 'promo promo-purple'
+    cls = PROMO_PURPLE_CLASS
     title = _(u'Shopping Made Easy')
     subtitle = _(u'Save on your favorite items '
                  u'from the comfort of your browser.')
@@ -326,7 +334,7 @@ class UpAndComing(CollectionPromo):
 
 class Privacy(CollectionPromo):
     slug = 'Privacy Collection'
-    cls = 'promo promo-purple'
+    cls = PROMO_PURPLE_CLASS
     collection_author, collection_slug = 'mozilla', 'privacy'
     title = _(u'Worry-free browsing')
     subtitle = _(u'Protect your privacy online with the add-ons in this '
@@ -344,7 +352,7 @@ class Featured(CollectionPromo):
 
 class Games(CollectionPromo):
     slug = 'Games!'
-    cls = 'promo promo-purple'
+    cls = PROMO_PURPLE_CLASS
     collection_author, collection_slug = 'mozilla', 'games'
     title = _(u'Games!')
     subtitle = _(u'Add more fun to your Firefox. Play dozens of games right '
@@ -355,7 +363,7 @@ class Games(CollectionPromo):
 
 class MustHaveMedia(CollectionPromo):
     slug = 'Must-Have Media'
-    cls = 'promo promo-purple'
+    cls = PROMO_PURPLE_CLASS
     collection_author, collection_slug = 'mozilla', 'must-have-media'
     title = _(u'Must-Have Media')
     subtitle = _(u'Take better screenshots, improve your online video '

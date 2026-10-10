@@ -37,6 +37,9 @@ from olympia.devhub.tasks import create_version_for_upload
 
 log = olympia.core.logger.getLogger('z.users')
 
+ICON_PREFIX = 'icon/'
+CREATED_ADDON_MESSAGE = 'Created addon {0} for testing successfully'
+
 
 class GenerateAddonsSerializer(serializers.Serializer):
     count = serializers.IntegerField(default=10)
@@ -131,7 +134,7 @@ class GenerateAddonsSerializer(serializers.Serializer):
         'ui-tester2'. It has a version number.
 
         """
-        default_icons = [x[0] for x in icons() if x[0].startswith('icon/')]
+        default_icons = [x[0] for x in icons() if x[0].startswith(ICON_PREFIX)]
         addon = addon_factory(
             status=STATUS_PUBLIC,
             type=ADDON_EXTENSION,
@@ -170,8 +173,7 @@ class GenerateAddonsSerializer(serializers.Serializer):
         addon.save()
         generate_collection(addon, app=FIREFOX)
         print(
-            'Created addon {0} for testing successfully'
-            .format(addon.name))
+            CREATED_ADDON_MESSAGE.format(addon.name))
 
     def create_featured_android_addon(self):
         """Creates a custom addon named 'Ui-Addon-Android'.
@@ -184,7 +186,7 @@ class GenerateAddonsSerializer(serializers.Serializer):
         It is an Android addon.
 
         """
-        default_icons = [x[0] for x in icons() if x[0].startswith('icon/')]
+        default_icons = [x[0] for x in icons() if x[0].startswith(ICON_PREFIX)]
         addon = addon_factory(
             status=STATUS_PUBLIC,
             type=ADDON_EXTENSION,
@@ -217,8 +219,7 @@ class GenerateAddonsSerializer(serializers.Serializer):
         addon.save()
         generate_collection(addon, app=FIREFOX)
         print(
-            'Created addon {0} for testing successfully'
-            .format(addon.name))
+            CREATED_ADDON_MESSAGE.format(addon.name))
 
     def create_featured_addon_with_version_for_install(self):
         """Creates a custom addon named 'Ui-Addon'.
@@ -230,7 +231,7 @@ class GenerateAddonsSerializer(serializers.Serializer):
         'ui-tester2'. It has a version number.
 
         """
-        default_icons = [x[0] for x in icons() if x[0].startswith('icon/')]
+        default_icons = [x[0] for x in icons() if x[0].startswith(ICON_PREFIX)]
         try:
             addon = Addon.objects.get(guid='@webextension-guid')
         except Addon.DoesNotExist:
@@ -254,8 +255,7 @@ class GenerateAddonsSerializer(serializers.Serializer):
             addon.save()
             generate_collection(addon, app=FIREFOX)
             print(
-                'Created addon {0} for testing successfully'
-                .format(addon.name))
+                CREATED_ADDON_MESSAGE.format(addon.name))
         return addon
 
     def create_featured_theme(self):
@@ -340,9 +340,6 @@ class GenerateAddonsSerializer(serializers.Serializer):
         # using whatever add-on you already have should work imho, otherwise
         # fall back to a new one for test purposes
         addon = self.create_featured_addon_with_version_for_install()
-
-        # the user the add-on gets created with
-        user = UserProfile.objects.get(username='uitest')
 
         user, _ = UserProfile.objects.get_or_create(
             pk=settings.TASK_USER_ID,

@@ -49,13 +49,13 @@ class Tag(ModelBase):
         return reverse('tags.detail', args=[self.tag_text])
 
     def save_tag(self, addon):
-        tag, created = Tag.objects.get_or_create(tag_text=self.tag_text)
+        tag, _ = Tag.objects.get_or_create(tag_text=self.tag_text)
         AddonTag.objects.get_or_create(addon=addon, tag=tag)
         activity.log_create(amo.LOG.ADD_TAG, tag, addon)
         return tag
 
     def remove_tag(self, addon):
-        tag, created = Tag.objects.get_or_create(tag_text=self.tag_text)
+        tag, _ = Tag.objects.get_or_create(tag_text=self.tag_text)
         for addon_tag in AddonTag.objects.filter(addon=addon, tag=tag):
             addon_tag.delete()
         activity.log_create(amo.LOG.REMOVE_TAG, tag, addon)

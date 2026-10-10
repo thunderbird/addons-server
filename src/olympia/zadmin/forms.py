@@ -97,7 +97,7 @@ class FileStatusForm(ModelForm):
         fields = ('status',)
 
     def clean_status(self):
-        changed = not self.cleaned_data['status'] == self.instance.status
+        changed = self.cleaned_data['status'] != self.instance.status
         if changed and self.instance.version.deleted:
             raise forms.ValidationError(
                 gettext('Deleted versions can`t be changed.'))
