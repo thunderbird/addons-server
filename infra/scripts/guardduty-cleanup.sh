@@ -81,7 +81,7 @@ if [[ "$FORCE" == false ]]; then
         --output text 2>/dev/null || echo "None")
 
     if [[ "$VPC_PROJECT_TAG" != "thunderbird-addons" ]]; then
-        echo "  ERROR: VPC $VPC_ID does not have tag pulumi_project=thunderbird-addons"
+        echo "  ERROR: VPC $VPC_ID does not have tag pulumi_project=thunderbird-addons" >&2
         echo "  Found: pulumi_project=$VPC_PROJECT_TAG"
         echo ""
         echo "  This safety check should prevent accidental cleanup of the wrong VPC"
