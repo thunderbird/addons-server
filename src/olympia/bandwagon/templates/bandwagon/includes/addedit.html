@@ -26,8 +26,8 @@
   {{ form.description }}
   </p>
 
-  <div id="collection_listed">
-    <label>{{ form.listed.label }}</label>
+  <div id="collection_listed" role="radiogroup" aria-labelledby="collection_listed_label">
+    <label id="collection_listed_label">{{ form.listed.label }}</label>
     {{ form.listed }}
   </div>
 
