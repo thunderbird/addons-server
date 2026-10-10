@@ -68,6 +68,21 @@ def with_addon(allow_missing=False):
     return wrapper
 
 
+def _validate_url_guid(guid):
+    """Raise ValidationError if a GUID passed in the URL is too long or
+    malformed."""
+    if len(guid) > 64:
+        raise forms.ValidationError(gettext(
+            'Please specify your Add-on GUID in the manifest if it\'s '
+            'longer than 64 characters.'
+        ))
+
+    if not amo.ADDON_GUID_PATTERN.match(guid):
+        raise forms.ValidationError(
+            gettext('Invalid GUID in URL'),
+            status.HTTP_400_BAD_REQUEST)
+
+
 class VersionView(APIView):
     authentication_classes = [JWTKeyAuthentication]
     permission_classes = [IsAuthenticated]
@@ -103,6 +118,50 @@ class VersionView(APIView):
             file_upload, context={'request': request})
         return Response(serializer.data, status=status_code)
 
+    @staticmethod
+    def _check_upload_version(addon, parsed_data, version_string):
+        """Default version_string to the manifest version and check it
+        matches the manifest and isn't already used by addon. Returns the
+        version string to use."""
+        version_string = version_string or parsed_data['version']
+
+        if version_string and parsed_data['version'] != version_string:
+            raise forms.ValidationError(
+                gettext('Version does not match the manifest file.'),
+                status.HTTP_400_BAD_REQUEST)
+
+        if (addon is not None and
+                addon.versions.filter(version=version_string).exists()):
+            latest_version = addon.find_latest_version(None, exclude=())
+            msg = gettext('Version already exists. Latest version is: %s.'
+                           % latest_version.version)
+            raise forms.ValidationError(msg, status.HTTP_409_CONFLICT)
+        return version_string
+
+    @staticmethod
+    def _channel_for_existing_addon(request, addon):
+        """Pick the channel for a new version of an existing addon and check
+        the addon's metadata allows it."""
+        channel_param = request.POST.get('channel')
+        channel = amo.CHANNEL_CHOICES_LOOKUP.get(channel_param)
+        if not channel:
+            last_version = (
+                addon.find_latest_version(None, exclude=()))
+            if last_version:
+                channel = last_version.channel
+            else:
+                channel = amo.RELEASE_CHANNEL_UNLISTED  # Treat as new.
+
+        will_have_listed = channel == amo.RELEASE_CHANNEL_LISTED
+        if not addon.has_complete_metadata(
+                has_listed_versions=will_have_listed):
+            raise forms.ValidationError(
+                gettext('You cannot add a listed version to this addon '
+                         'via the API due to missing metadata. '
+                         'Please submit via the website'),
+                status.HTTP_400_BAD_REQUEST)
+        return channel
+
     @use_primary_db
     def handle_upload(self, request, addon, version_string, guid=None):
         if 'upload' in request.FILES:
@@ -121,19 +180,8 @@ class VersionView(APIView):
                 % amo.STATUS_CHOICES_ADDON[amo.STATUS_DISABLED])
             raise forms.ValidationError(msg, status.HTTP_400_BAD_REQUEST)
 
-        version_string = version_string or parsed_data['version']
-
-        if version_string and parsed_data['version'] != version_string:
-            raise forms.ValidationError(
-                gettext('Version does not match the manifest file.'),
-                status.HTTP_400_BAD_REQUEST)
-
-        if (addon is not None and
-                addon.versions.filter(version=version_string).exists()):
-            latest_version = addon.find_latest_version(None, exclude=())
-            msg = gettext('Version already exists. Latest version is: %s.'
-                           % latest_version.version)
-            raise forms.ValidationError(msg, status.HTTP_409_CONFLICT)
+        version_string = self._check_upload_version(
+            addon, parsed_data, version_string)
 
         package_guid = parsed_data.get('guid', None)
 
@@ -150,16 +198,7 @@ class VersionView(APIView):
             # No guid was present in the package, but one was provided in the
             # URL, so we take it instead of generating one ourselves. But
             # first, validate it properly.
-            if len(guid) > 64:
-                raise forms.ValidationError(gettext(
-                    'Please specify your Add-on GUID in the manifest if it\'s '
-                    'longer than 64 characters.'
-                ))
-
-            if not amo.ADDON_GUID_PATTERN.match(guid):
-                raise forms.ValidationError(
-                    gettext('Invalid GUID in URL'),
-                    status.HTTP_400_BAD_REQUEST)
+            _validate_url_guid(guid)
             parsed_data['guid'] = guid
 
         # channel will be ignored for new addons.
@@ -171,24 +210,7 @@ class VersionView(APIView):
             created = True
         else:
             created = False
-            channel_param = request.POST.get('channel')
-            channel = amo.CHANNEL_CHOICES_LOOKUP.get(channel_param)
-            if not channel:
-                last_version = (
-                    addon.find_latest_version(None, exclude=()))
-                if last_version:
-                    channel = last_version.channel
-                else:
-                    channel = amo.RELEASE_CHANNEL_UNLISTED  # Treat as new.
-
-            will_have_listed = channel == amo.RELEASE_CHANNEL_LISTED
-            if not addon.has_complete_metadata(
-                    has_listed_versions=will_have_listed):
-                raise forms.ValidationError(
-                    gettext('You cannot add a listed version to this addon '
-                             'via the API due to missing metadata. '
-                             'Please submit via the website'),
-                    status.HTTP_400_BAD_REQUEST)
+            channel = self._channel_for_existing_addon(request, addon)
 
         file_upload = devhub_handle_upload(
             filedata=filedata, request=request, addon=addon, submit=True,

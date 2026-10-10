@@ -206,6 +206,50 @@ def ajax_search_suggestions(request):
         suggester)
 
 
+def _app_suggestions(q_):
+    """Suggestion dicts for the applications matching the lowercased
+    query q_."""
+    results = []
+    for a in amo.APP_USAGE:
+        name_ = six.text_type(a.pretty).lower()
+        word_matches = [w for w in q_.split() if name_ in w]
+        if q_ in name_ or word_matches:
+            results.append({
+                'id': a.id,
+                'name': gettext('{0} Add-ons').format(a.pretty),
+                'url': locale_url(a.short),
+                'cls': 'app ' + a.short
+            })
+    return results
+
+
+def _category_suggestions(request, cat, q_):
+    """Suggestion dicts for the categories matching the lowercased query
+    q_."""
+    results = []
+    cats = Category.objects
+    cats = cats.filter(Q(application=request.APP.id) |
+                       Q(type=amo.ADDON_SEARCH))
+    if cat == 'themes':
+        cats = cats.filter(type=amo.ADDON_STATICTHEME)
+    else:
+        cats = cats.exclude(type=amo.ADDON_PERSONA).exclude(type=amo.ADDON_STATICTHEME)
+
+    for c in cats:
+        if not c.name:
+            continue
+        name_ = six.text_type(c.name).lower()
+        word_matches = [w for w in q_.split() if name_ in w]
+        if q_ in name_ or word_matches:
+            results.append({
+                'id': c.id,
+                'name': six.text_type(c.name),
+                'url': c.get_url_path(),
+                'cls': 'cat'
+            })
+    return results
+
+
 def _build_suggestions(request, cat, suggester):
     results = []
     q = request.GET.get('q')
@@ -214,42 +258,40 @@ def _build_suggestions(request, cat, suggester):
 
         if cat != 'apps':
             # Applications.
-            for a in amo.APP_USAGE:
-                name_ = six.text_type(a.pretty).lower()
-                word_matches = [w for w in q_.split() if name_ in w]
-                if q_ in name_ or word_matches:
-                    results.append({
-                        'id': a.id,
-                        'name': gettext('{0} Add-ons').format(a.pretty),
-                        'url': locale_url(a.short),
-                        'cls': 'app ' + a.short
-                    })
+            results.extend(_app_suggestions(q_))
 
         # Categories.
-        cats = Category.objects
-        cats = cats.filter(Q(application=request.APP.id) |
-                           Q(type=amo.ADDON_SEARCH))
-        if cat == 'themes':
-            cats = cats.filter(type=amo.ADDON_STATICTHEME)
-        else:
-            cats = cats.exclude(type=amo.ADDON_PERSONA).exclude(type=amo.ADDON_STATICTHEME)
-
-        for c in cats:
-            if not c.name:
-                continue
-            name_ = six.text_type(c.name).lower()
-            word_matches = [w for w in q_.split() if name_ in w]
-            if q_ in name_ or word_matches:
-                results.append({
-                    'id': c.id,
-                    'name': six.text_type(c.name),
-                    'url': c.get_url_path(),
-                    'cls': 'cat'
-                })
+        results.extend(_category_suggestions(request, cat, q_))
 
         results += suggester.items
 
     return results
+
+
+def _filter_by_appver(qs, appver, app):
+    """Filter qs on add-ons compatible with app version appver."""
+    # Get a min version less than X.0.
+    low = version_int(appver)
+    # Get a max version greater than X.0a.
+    high = version_int(appver + 'a')
+    # Note: when strict compatibility is not enabled on add-ons, we
+    # fake the max version we index in compatible_apps.
+    return qs.filter(**{
+        'current_version.compatible_apps.%s.max__gte' % app.id: high,
+        'current_version.compatible_apps.%s.min__lte' % app.id: low
+    })
+
+
+def _filter_by_category(qs, cat_id, app, show):
+    """Filter qs on category cat_id if it exists for app; otherwise remove
+    'cat' from show (in place) and return qs unchanged."""
+    cat = (Category.objects.filter(id=cat_id)
+           .filter(Q(application=app.id) | Q(type=amo.ADDON_SEARCH)))
+    if not cat.exists():
+        show.remove('cat')
+    if 'cat' in show:
+        qs = qs.filter(category=cat_id)
+    return qs
 
 
 def _filter_search(request, qs, query, filters, sorting,
@@ -269,27 +311,13 @@ def _filter_search(request, qs, query, filters, sorting,
         if ps[0] != ps[1]:
             qs = qs.filter(platforms__in=ps)
     if 'appver' in show:
-        # Get a min version less than X.0.
-        low = version_int(query['appver'])
-        # Get a max version greater than X.0a.
-        high = version_int(query['appver'] + 'a')
-        # Note: when strict compatibility is not enabled on add-ons, we
-        # fake the max version we index in compatible_apps.
-        qs = qs.filter(**{
-            'current_version.compatible_apps.%s.max__gte' % APP.id: high,
-            'current_version.compatible_apps.%s.min__lte' % APP.id: low
-        })
+        qs = _filter_by_appver(qs, query['appver'], APP)
     if 'atype' in show and query['atype'] in amo.ADDON_TYPES:
         qs = qs.filter(type=query['atype'])
     else:
         qs = qs.filter(type__in=types)
     if 'cat' in show:
-        cat = (Category.objects.filter(id=query['cat'])
-               .filter(Q(application=APP.id) | Q(type=amo.ADDON_SEARCH)))
-        if not cat.exists():
-            show.remove('cat')
-        if 'cat' in show:
-            qs = qs.filter(category=query['cat'])
+        qs = _filter_by_category(qs, query['cat'], APP, show)
     if 'tag' in show:
         qs = qs.filter(tags=query['tag'])
     if 'sort' in show:
