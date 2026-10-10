@@ -173,7 +173,8 @@ yesterday = datetime.today() - timedelta(days=1)
 # it works correctly, so we set ENABLE_ADDON_SIGNING to True and mock the
 # actual signing call.
 @override_settings(ENABLE_ADDON_SIGNING=True)
-@mock.patch('olympia.lib.crypto.signing.call_signing', lambda f: None)
+@mock.patch('olympia.lib.crypto.signing.call_signing',
+            new=mock.Mock(return_value=None))
 class TestReviewHelper(TestCase):
     fixtures = ['base/addon_3615', 'base/users']
     preamble = 'Mozilla Add-ons: Delicious Bookmarks 2.1.072'
@@ -386,13 +387,13 @@ class TestReviewHelper(TestCase):
 
         for template in ('nominated_to_sandbox', 'pending_to_public',
                          'pending_to_sandbox',):
-            mail.outbox = []
+            mail.outbox.clear()
             self.helper.handler.notify_email(template, 'Sample subject %s, %s')
             assert len(mail.outbox) == 1
             assert base_fragment in mail.outbox[0].body
             assert mail.outbox[0].reply_to == [reply_email]
 
-        mail.outbox = []
+        mail.outbox.clear()
         # This one does not inherit from base.txt because it's for unlisted
         # signing notification, which is not really something that necessitates
         # reviewer interaction, so it's simpler.
@@ -416,7 +417,7 @@ class TestReviewHelper(TestCase):
         self.helper.set_data(self.get_data())
         context_data = self.helper.handler.get_context_data()
         for template, context_key in six.iteritems(expected):
-            mail.outbox = []
+            mail.outbox.clear()
             self.helper.handler.notify_email(template, 'Sample subject %s, %s')
             assert len(mail.outbox) == 1
             assert context_key in context_data

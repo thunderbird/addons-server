@@ -36,7 +36,8 @@ def addon_with_files(db):
     return addon
 
 
-@mock.patch('olympia.reviewers.utils.sign_file', lambda f: None)
+@mock.patch('olympia.reviewers.utils.sign_file',
+            new=mock.Mock(return_value=None))
 @pytest.mark.parametrize(
     'review_action,addon_status,file_status,review_class,review_type,'
     'final_addon_status,final_file_status',
