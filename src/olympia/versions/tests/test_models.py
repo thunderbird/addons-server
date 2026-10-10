@@ -815,8 +815,8 @@ class TestExtensionVersionFromUpload(TestVersionFromUpload):
             actual_delta = mock_timing.call_args[0][1]
 
             fuzz = 2000  # 2 seconds
-            assert (actual_delta >= (rough_delta - fuzz) and
-                    actual_delta <= (rough_delta + fuzz))
+            assert actual_delta >= (rough_delta - fuzz)
+            assert actual_delta <= (rough_delta + fuzz)
 
     def test_nomination_inherited_for_updates(self):
         assert self.addon.status == amo.STATUS_PUBLIC

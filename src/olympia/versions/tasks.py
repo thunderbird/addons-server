@@ -30,9 +30,10 @@ log = olympia.core.logger.getLogger('z.versions.task')
 def _build_static_theme_preview_context(theme_manifest, file_):
     # First build the context shared by both the main preview and the thumb
     context = {'amo': amo}
-    context.update({k: v for k, v in (
-        process_color_value(prop, color)
-        for prop, color in theme_manifest.get('colors', {}).items())})
+    context.update({
+        k: v
+        for prop, color in theme_manifest.get('colors', {}).items()
+        for k, v in (process_color_value(prop, color),)})
     images_dict = theme_manifest.get('images', {})
     header_url = images_dict.get(
         'headerURL', images_dict.get('theme_frame', ''))
