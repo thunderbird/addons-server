@@ -30,10 +30,10 @@ VALID_STATUSES = ["userDisabled,incompatible", "userEnabled", "Unknown",
 UPDATE_COUNT_TRIGGER = "userEnabled"
 VALID_APP_GUIDS = amo.APP_GUIDS.keys()
 APPVERSION_REGEX = re.compile(
-    r"""^\d{1,3}                # Major version: 2, 35
-        \.\d{1,3}([ab]\d)?      # Minor version + alpha or beta: .0a1, .0b2
-        (\.\d{1,3})?$           # Patch version: .1, .23
-    """, re.VERBOSE | re.ASCII)
+    r"""^[0-9]{1,3}                # Major version: 2, 35
+        \.[0-9]{1,3}([ab][0-9])?   # Minor version + alpha or beta: .0a1, .0b2
+        (\.[0-9]{1,3})?$           # Patch version: .1, .23
+    """, re.VERBOSE)
 
 
 class Command(BaseCommand):
@@ -309,8 +309,8 @@ class Command(BaseCommand):
 
         if fits(field):
             return
-        # Order by count (asc), for a dict like {'<locale>': <count>}.
-        values = sorted(field.items(), key=lambda v: v[1])
+        # Order by count (desc), for a dict like {'<locale>': <count>}.
+        values = list(reversed(sorted(field.items(), key=lambda v: v[1])))
         while not fits(field):
-            key, _ = values.pop(0)  # Remove the least used (the first).
+            key, _ = values.pop()  # Remove the least used (the last).
             del field[key]  # Remove this entry from the dict.
