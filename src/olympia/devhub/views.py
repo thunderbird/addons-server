@@ -799,6 +799,24 @@ def _save_addons_section(request, addon, section, form_class, previews,
     return form, addon, editable, valid_slug
 
 
+def _addons_section_form(request, addon, section, form_class, previews,
+                         extra_forms, valid_slug, editable):
+    """The section form for addons_section(): saved on an editable POST,
+    unbound when editable, False otherwise. Returns (form, addon, editable,
+    valid_slug)."""
+    if editable:
+        if request.method == 'POST':
+            return _save_addons_section(
+                request, addon, section, form_class, previews,
+                extra_forms, valid_slug)
+
+        else:
+            form = form_class(instance=addon, request=request)
+    else:
+        form = False
+    return form, addon, editable, valid_slug
+
+
 @dev_required
 def addons_section(request, addon_id, addon, section, editable=False):
     show_listed = addon.has_listed_versions()
@@ -835,16 +853,9 @@ def addons_section(request, addon_id, addon, section, editable=False):
 
     # Get the slug before the form alters it to the form data.
     valid_slug = addon.slug
-    if editable:
-        if request.method == 'POST':
-            form, addon, editable, valid_slug = _save_addons_section(
-                request, addon, section, models[section], previews,
-                (cat_form, dependency_form, whiteboard_form), valid_slug)
-
-        else:
-            form = models[section](instance=addon, request=request)
-    else:
-        form = False
+    form, addon, editable, valid_slug = _addons_section_form(
+        request, addon, section, models[section], previews,
+        (cat_form, dependency_form, whiteboard_form), valid_slug, editable)
 
     data = {
         'addon': addon,
