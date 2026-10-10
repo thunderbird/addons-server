@@ -38,33 +38,42 @@ def _construct_search(field_name):
         return "%s__icontains" % field_name
 
 
+def _search_separator_and_operator(search_term):
+    if ' ' not in search_term and ',' in search_term:
+        return ',', operator.or_
+    return None, operator.and_
+
+
+def _build_search_filters(orm_lookups, search_term, separator):
+    filters = []
+    for bit in search_term.split(separator):
+        or_queries = [models.Q(**{orm_lookup: bit})
+                      for orm_lookup in orm_lookups]
+
+        q_for_this_term = models.Q(
+            functools.reduce(operator.or_, or_queries))
+        filters.append(q_for_this_term)
+    return filters
+
+
+def _any_lookup_needs_distinct(orm_lookups, opts):
+    for search_spec in orm_lookups:
+        if admin.utils.lookup_needs_distinct(opts, search_spec):
+            return True
+    return False
+
+
 def _search_term_filters(search_term, search_fields, opts):
     """Build the (filters, use_distinct, joining_operator) tuple used by
     UserAdmin.get_search_results() to filter and dedupe the queryset."""
-    use_distinct = False
-    filters = []
-    joining_operator = operator.and_
-    if search_fields and search_term:
-        orm_lookups = [_construct_search(str(search_field))
-                       for search_field in search_fields]
-        if ' ' not in search_term and ',' in search_term:
-            separator = ','
-            joining_operator = operator.or_
-        else:
-            separator = None
-        for bit in search_term.split(separator):
-            or_queries = [models.Q(**{orm_lookup: bit})
-                          for orm_lookup in orm_lookups]
+    if not (search_fields and search_term):
+        return [], False, operator.and_
 
-            q_for_this_term = models.Q(
-                functools.reduce(operator.or_, or_queries))
-            filters.append(q_for_this_term)
-
-        if not use_distinct:
-            for search_spec in orm_lookups:
-                if admin.utils.lookup_needs_distinct(opts, search_spec):
-                    use_distinct = True
-                    break
+    orm_lookups = [_construct_search(str(search_field))
+                   for search_field in search_fields]
+    separator, joining_operator = _search_separator_and_operator(search_term)
+    filters = _build_search_filters(orm_lookups, search_term, separator)
+    use_distinct = _any_lookup_needs_distinct(orm_lookups, opts)
 
     return filters, use_distinct, joining_operator
 
