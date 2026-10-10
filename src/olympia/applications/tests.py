@@ -75,18 +75,18 @@ class TestCommands(TestCase):
             application=amo.FIREFOX.id, version='53.*').exists()
 
         # Result of PyQuery()
-        MockedDoc = mock.Mock()
-        pyquery_mock.return_value = MockedDoc
+        mocked_doc = mock.Mock()
+        pyquery_mock.return_value = mocked_doc
 
         # Result of PyQuery()('selector'). Return 2 applications, one with a
         # valid guid and one that is garbage and should be ignored.
-        MockedDocResult = [
+        mocked_doc_result = [
             mock.Mock(spec=[], text='lol'),
             mock.Mock(spec=[], text='some versions...'),
             mock.Mock(spec=[], text='{ec8030f7-c20a-464f-9b0e-13a3a9e97384}'),
             mock.Mock(spec=[], text='53.0, 53.*'),
         ]
-        MockedDoc.return_value = MockedDocResult
+        mocked_doc.return_value = mocked_doc_result
 
         call_command('import_prod_versions')
 
