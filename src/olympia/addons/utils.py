@@ -107,44 +107,49 @@ def get_creatured_ids(category, lang=None):
     return list(map(int, filter(None, per_locale + others)))
 
 
+def _check_name_for_trademark(name):
+    name = normalize_string(name, strip_punctuation=True).lower()
+
+    for symbol in amo.MOZILLA_TRADEMARK_SYMBOLS:
+        if waffle.switch_is_active('content-optimization'):
+            violates_trademark = symbol in name
+
+        else:
+            violates_trademark = (
+                name.count(symbol) > 1 or (
+                    name.count(symbol) >= 1 and not
+                    name.endswith(' for {}'.format(symbol))))
+
+        if violates_trademark:
+            raise forms.ValidationError(gettext(
+                u'Add-on names cannot contain the Mozilla or '
+                u'Firefox trademarks.'))
+
+
+def _check_localized_names_for_trademark(name, form):
+    for locale, localized_name in name.items():
+        try:
+            _check_name_for_trademark(localized_name)
+        except forms.ValidationError as exc:
+            if form is not None:
+                for message in exc.messages:
+                    error_message = LocaleErrorMessage(
+                        message=message, locale=locale)
+                    form.add_error('name', error_message)
+            else:
+                raise
+
+
 def verify_mozilla_trademark(name, user, form=None):
     skip_trademark_check = (
         user and user.is_authenticated and user.email and
         user.email.endswith(amo.ALLOWED_TRADEMARK_SUBMITTING_EMAILS))
 
-    def _check(name):
-        name = normalize_string(name, strip_punctuation=True).lower()
-
-        for symbol in amo.MOZILLA_TRADEMARK_SYMBOLS:
-            if waffle.switch_is_active('content-optimization'):
-                violates_trademark = symbol in name
-
-            else:
-                violates_trademark = (
-                    name.count(symbol) > 1 or (
-                        name.count(symbol) >= 1 and not
-                        name.endswith(' for {}'.format(symbol))))
-
-            if violates_trademark:
-                raise forms.ValidationError(gettext(
-                    u'Add-on names cannot contain the Mozilla or '
-                    u'Firefox trademarks.'))
-
     if not skip_trademark_check:
         if not isinstance(name, dict):
-            _check(name)
+            _check_name_for_trademark(name)
         else:
-            for locale, localized_name in name.items():
-                try:
-                    _check(localized_name)
-                except forms.ValidationError as exc:
-                    if form is not None:
-                        for message in exc.messages:
-                            error_message = LocaleErrorMessage(
-                                message=message, locale=locale)
-                            form.add_error('name', error_message)
-                    else:
-                        raise
+            _check_localized_names_for_trademark(name, form)
     return name
 
 
@@ -226,6 +231,52 @@ def build_static_theme_xpi_from_lwt(lwt, upload_zip):
         dest.write(lwt.persona.header_path, arcname=lwt.persona.header)
 
 
+def _copy_dictionary_files(old_zip, new_zip):
+    """Copy all wanted files from old_zip into new_zip.
+
+    Returns the path of the last .dic file found (or '' if none).
+    """
+    dictionary_path = ''
+    for obj in old_zip.filelist:
+        splitted = obj.filename.split('/')
+        # Ignore useless directories and files.
+        if splitted[0] in ('META-INF', '__MACOSX', 'chrome',
+                           'chrome.manifest', 'install.rdf'):
+            continue
+
+        # Also ignore javascript (regardless of where they are, not just at
+        # the root), since dictionaries should not contain any code.
+        if splitted[-1].endswith('.js'):
+            continue
+
+        # Store the path of the last .dic file we find. It can be inside a
+        # directory.
+        if (splitted[-1].endswith('.dic')):
+            dictionary_path = obj.filename
+
+        new_zip.writestr(obj.filename, old_zip.read(obj.filename))
+
+    return dictionary_path
+
+
+def _guess_target_language(addon, dictionary_path):
+    if addon.target_locale:
+        return addon.target_locale
+    # Guess target_locale since we don't have one already. Note that
+    # for extra confusion, target_locale is a language, not a locale.
+    target_language = to_language(os.path.splitext(
+        os.path.basename(dictionary_path))[0])
+    if target_language not in settings.AMO_LANGUAGES:
+        # We couldn't find that language in the list we support. Let's
+        # try with just the prefix.
+        target_language = target_language.split('-')[0]
+        if target_language not in settings.AMO_LANGUAGES:
+            # We tried our best.
+            raise ValidationError(u'Addon has no target_locale and we'
+                                  u' could not guess one from the xpi')
+    return target_language
+
+
 def build_webext_dictionary_from_legacy(addon, destination):
     """Create a webext package of a legacy dictionary `addon`, and put it in
     `destination` path."""
@@ -235,27 +286,8 @@ def build_webext_dictionary_from_legacy(addon, destination):
     if not old_zip.is_valid:
         raise ValidationError('Current dictionary xpi is not valid')
 
-    dictionary_path = ''
-
     with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as new_zip:
-        for obj in old_zip.filelist:
-            splitted = obj.filename.split('/')
-            # Ignore useless directories and files.
-            if splitted[0] in ('META-INF', '__MACOSX', 'chrome',
-                               'chrome.manifest', 'install.rdf'):
-                continue
-
-            # Also ignore javascript (regardless of where they are, not just at
-            # the root), since dictionaries should not contain any code.
-            if splitted[-1].endswith('.js'):
-                continue
-
-            # Store the path of the last .dic file we find. It can be inside a
-            # directory.
-            if (splitted[-1].endswith('.dic')):
-                dictionary_path = obj.filename
-
-            new_zip.writestr(obj.filename, old_zip.read(obj.filename))
+        dictionary_path = _copy_dictionary_files(old_zip, new_zip)
 
         # Now that all files we want from the old zip are copied, build and
         # add manifest.json.
@@ -265,21 +297,7 @@ def build_webext_dictionary_from_legacy(addon, destination):
             # chrome/ directory for some reason. Abort!
             raise ValidationError('Current dictionary xpi has no .dic file')
 
-        if addon.target_locale:
-            target_language = addon.target_locale
-        else:
-            # Guess target_locale since we don't have one already. Note that
-            # for extra confusion, target_locale is a language, not a locale.
-            target_language = to_language(os.path.splitext(
-                os.path.basename(dictionary_path))[0])
-            if target_language not in settings.AMO_LANGUAGES:
-                # We couldn't find that language in the list we support. Let's
-                # try with just the prefix.
-                target_language = target_language.split('-')[0]
-                if target_language not in settings.AMO_LANGUAGES:
-                    # We tried our best.
-                    raise ValidationError(u'Addon has no target_locale and we'
-                                          u' could not guess one from the xpi')
+        target_language = _guess_target_language(addon, dictionary_path)
 
         # Dumb version number increment. This will be invalid in some cases,
         # but some of the dictionaries we have currently already have wild

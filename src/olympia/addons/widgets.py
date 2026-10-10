@@ -57,11 +57,9 @@ class CategoriesSelectMultiple(forms.CheckboxSelectMultiple):
     def __init__(self, **kwargs):
         super(self.__class__, self).__init__(**kwargs)
 
-    def render(self, name, value, attrs=None, renderer=None):
-        value = value or []
-        has_id = attrs and 'id' in attrs
-        final_attrs = self.build_attrs(attrs, {'name': name})
-
+    def _partition_choices(self):
+        """Split self.choices into (choices, other) where other is the misc
+        "doesn't fit into any category" choice, if present."""
         choices = []
         other = None
 
@@ -73,6 +71,37 @@ class CategoriesSelectMultiple(forms.CheckboxSelectMultiple):
                 other = (c[0], msg)
             else:
                 choices.append(c)
+
+        return choices, other
+
+    def _render_checkbox_li(self, name, i, option_value, option_label,
+                            has_id, attrs, final_attrs, str_values):
+        """Render a single <li> checkbox entry.
+
+        Returns (html, final_attrs) since final_attrs may be updated with
+        a new id.
+        """
+        if has_id:
+            final_attrs = dict(final_attrs, id='%s_%s' % (attrs['id'], i))
+            label_for = u' for="%s"' % final_attrs['id']
+        else:
+            label_for = ''
+
+        cb = forms.CheckboxInput(
+            final_attrs, check_test=lambda value: value in str_values)
+        option_value = force_text(option_value)
+        rendered_cb = cb.render(name, option_value)
+        option_label = conditional_escape(force_text(option_label))
+        html = u'<li><label%s>%s %s</label></li>' % (
+            label_for, rendered_cb, option_label)
+        return html, final_attrs
+
+    def render(self, name, value, attrs=None, renderer=None):
+        value = value or []
+        has_id = attrs and 'id' in attrs
+        final_attrs = self.build_attrs(attrs, {'name': name})
+
+        choices, other = self._partition_choices()
 
         choices = list(enumerate(choices))
         choices_size = len(choices)
@@ -89,20 +118,10 @@ class CategoriesSelectMultiple(forms.CheckboxSelectMultiple):
             output.append(u'<ul class="%s checkbox-choices">' % cls)
 
             for i, (option_value, option_label) in group:
-                if has_id:
-                    final_attrs = dict(final_attrs,
-                                       id='%s_%s' % (attrs['id'], i))
-                    label_for = u' for="%s"' % final_attrs['id']
-                else:
-                    label_for = ''
-
-                cb = forms.CheckboxInput(
-                    final_attrs, check_test=lambda value: value in str_values)
-                option_value = force_text(option_value)
-                rendered_cb = cb.render(name, option_value)
-                option_label = conditional_escape(force_text(option_label))
-                output.append(u'<li><label%s>%s %s</label></li>' % (
-                    label_for, rendered_cb, option_label))
+                html, final_attrs = self._render_checkbox_li(
+                    name, i, option_value, option_label, has_id, attrs,
+                    final_attrs, str_values)
+                output.append(html)
 
             output.append(u'</ul>')
 

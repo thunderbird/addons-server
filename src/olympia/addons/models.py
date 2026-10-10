@@ -483,6 +483,39 @@ class Addon(OnChangeMixin, ModelBase):
         subject = 'Deleting %(atype)s %(slug)s (%(id)d)' % context
         return subject, email_msg
 
+    def _soft_delete(self, msg, reason, send_delete_email):
+        # /!\ If we ever stop using soft deletion, and remove this code, we
+        # need to make sure that the logs created below aren't cascade
+        # deleted!
+
+        log.debug('Deleting add-on: %s' % self.id)
+
+        if send_delete_email:
+            email_to = [settings.FLIGTAR]
+            subject, email_msg = self._prepare_deletion_email(msg, reason)
+        # If the add-on was disabled by Mozilla, add the guid to
+        #  DeniedGuids to prevent resubmission after deletion.
+        if self.status == amo.STATUS_DISABLED:
+            try:
+                with transaction.atomic():
+                    DeniedGuid.objects.create(guid=self.guid)
+            except IntegrityError:
+                # If the guid is already in DeniedGuids, we are good.
+                pass
+
+        # Update or NULL out various fields.
+        models.signals.pre_delete.send(sender=Addon, instance=self)
+        self._ratings.all().delete()
+        # The last parameter is needed to automagically create an AddonLog.
+        activity.log_create(amo.LOG.DELETE_ADDON, self.pk,
+                            six.text_type(self.guid), self)
+        self.update(status=amo.STATUS_DELETED, slug=None,
+                    _current_version=None, modified=datetime.now())
+        models.signals.post_delete.send(sender=Addon, instance=self)
+
+        if send_delete_email:
+            send_mail(subject, email_msg, recipient_list=email_to)
+
     @transaction.atomic
     def delete(self, msg='', reason='', send_delete_email=True, hard=False):
         # To avoid a circular import
@@ -507,37 +540,7 @@ class Addon(OnChangeMixin, ModelBase):
             .values_list('id', flat=True))
 
         if soft_deletion:
-            # /!\ If we ever stop using soft deletion, and remove this code, we
-            # need to make sure that the logs created below aren't cascade
-            # deleted!
-
-            log.debug('Deleting add-on: %s' % self.id)
-
-            if send_delete_email:
-                email_to = [settings.FLIGTAR]
-                subject, email_msg = self._prepare_deletion_email(msg, reason)
-            # If the add-on was disabled by Mozilla, add the guid to
-            #  DeniedGuids to prevent resubmission after deletion.
-            if self.status == amo.STATUS_DISABLED:
-                try:
-                    with transaction.atomic():
-                        DeniedGuid.objects.create(guid=self.guid)
-                except IntegrityError:
-                    # If the guid is already in DeniedGuids, we are good.
-                    pass
-
-            # Update or NULL out various fields.
-            models.signals.pre_delete.send(sender=Addon, instance=self)
-            self._ratings.all().delete()
-            # The last parameter is needed to automagically create an AddonLog.
-            activity.log_create(amo.LOG.DELETE_ADDON, self.pk,
-                                six.text_type(self.guid), self)
-            self.update(status=amo.STATUS_DELETED, slug=None,
-                        _current_version=None, modified=datetime.now())
-            models.signals.post_delete.send(sender=Addon, instance=self)
-
-            if send_delete_email:
-                send_mail(subject, email_msg, recipient_list=email_to)
+            self._soft_delete(msg, reason, send_delete_email)
         else:
             # Real deletion path.
             super(Addon, self).delete()
@@ -958,6 +961,37 @@ class Addon(OnChangeMixin, ModelBase):
         return os.path.join(jinja_helpers.user_media_path('addon_icons'),
                             '%s' % (self.id // 1000))
 
+    def _closest_icon_size(self, size):
+        """Get the closest allowed icon size without going over."""
+        if (size not in amo.ADDON_ICON_SIZES and
+                size >= amo.ADDON_ICON_SIZES[0]):
+            return [s for s in amo.ADDON_ICON_SIZES if s < size][-1]
+        elif size < amo.ADDON_ICON_SIZES[0]:
+            return amo.ADDON_ICON_SIZES[0]
+        return size
+
+    def _icon_url_without_icon_type(self, size, use_default):
+        if self.type == amo.ADDON_THEME:
+            icon = amo.ADDON_ICONS[amo.ADDON_THEME]
+            return "%simg/icons/%s" % (settings.STATIC_URL, icon)
+        else:
+            if not use_default:
+                return None
+            return self.get_default_icon_url(size)
+
+    def _icon_url_from_hash(self, size):
+        # [1] is the whole ID, [2] is the directory
+        split_id = re.match(r'((\d*?)\d{1,3})$', str(self.id))
+        # Use the icon hash if we have one as the cachebusting suffix,
+        # otherwise fall back to the add-on modification date.
+        suffix = self.icon_hash or str(
+            int(time.mktime(self.modified.timetuple())))
+        path = '/'.join([
+            split_id.group(2) or '0',
+            '{0}-{1}.png?modified={2}'.format(self.id, size, suffix),
+        ])
+        return jinja_helpers.user_media_url('addon_icons') + path
+
     def get_icon_url(self, size, use_default=True):
         """
         Returns the addon's icon url according to icon_type.
@@ -976,23 +1010,13 @@ class Addon(OnChangeMixin, ModelBase):
             icon_type_split = self.icon_type.split('/')
 
         # Get the closest allowed size without going over
-        if (size not in amo.ADDON_ICON_SIZES and
-                size >= amo.ADDON_ICON_SIZES[0]):
-            size = [s for s in amo.ADDON_ICON_SIZES if s < size][-1]
-        elif size < amo.ADDON_ICON_SIZES[0]:
-            size = amo.ADDON_ICON_SIZES[0]
+        size = self._closest_icon_size(size)
 
         # Figure out what to return for an image URL
         if self.type == amo.ADDON_PERSONA:
             return self.persona.icon_url
         if not self.icon_type:
-            if self.type == amo.ADDON_THEME:
-                icon = amo.ADDON_ICONS[amo.ADDON_THEME]
-                return "%simg/icons/%s" % (settings.STATIC_URL, icon)
-            else:
-                if not use_default:
-                    return None
-                return self.get_default_icon_url(size)
+            return self._icon_url_without_icon_type(size, use_default)
         elif icon_type_split[0] == 'icon':
             return '{0}img/addon-icons/{1}-{2}.png'.format(
                 settings.STATIC_URL,
@@ -1000,17 +1024,7 @@ class Addon(OnChangeMixin, ModelBase):
                 size
             )
         else:
-            # [1] is the whole ID, [2] is the directory
-            split_id = re.match(r'((\d*?)\d{1,3})$', str(self.id))
-            # Use the icon hash if we have one as the cachebusting suffix,
-            # otherwise fall back to the add-on modification date.
-            suffix = self.icon_hash or str(
-                int(time.mktime(self.modified.timetuple())))
-            path = '/'.join([
-                split_id.group(2) or '0',
-                '{0}-{1}.png?modified={2}'.format(self.id, size, suffix),
-            ])
-            return jinja_helpers.user_media_url('addon_icons') + path
+            return self._icon_url_from_hash(size)
 
     def get_default_icon_url(self, size):
         return '{0}img/addon-icons/{1}-{2}.png'.format(
