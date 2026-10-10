@@ -29,6 +29,18 @@ def get_es(hosts=None, timeout=None, **settings):
     return Elasticsearch(hosts, timeout=timeout, **settings)
 
 
+def _first_item(iterable):
+    """Return the first item of iterable.
+
+    Like list(iterable)[0], but without materializing the whole iterable,
+    and still raising IndexError (not StopIteration) when it's empty.
+    """
+    try:
+        return next(iter(iterable))
+    except StopIteration:
+        raise IndexError('list index out of range')
+
+
 class ES(object):
 
     def __init__(self, type_, index):
@@ -101,7 +113,7 @@ class ES(object):
             return new
         else:
             new.start, new.stop = k, k + 1
-            return list(new)[0]
+            return _first_item(new)
 
     def _build_query(self):
         query = Q()

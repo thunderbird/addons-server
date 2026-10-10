@@ -665,7 +665,7 @@ def resize_image(source, destination, size=None):
     exist leading up to the dst filename.
     """
     if source == destination:
-        raise Exception(
+        raise ValueError(
             "source and destination can't be the same: %s" % source)
 
     with storage.open(source, 'rb') as fp:

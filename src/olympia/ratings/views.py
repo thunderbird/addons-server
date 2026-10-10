@@ -370,56 +370,62 @@ class RatingViewSet(AddonChildMixin, ModelViewSet):
                 self.serializer_class = self.reply_serializer_class
         return super(RatingViewSet, self).get_serializer(*args, **kwargs)
 
+    def _filter_list_queryset(self, qs):
+        """Apply the list action's addon/user/version/score/
+        exclude_ratings query parameters to qs."""
+        addon_identifier = self.request.GET.get('addon')
+        user_identifier = self.request.GET.get('user')
+        version_identifier = self.request.GET.get('version')
+        score_filter = (
+            self.request.GET.get('score')
+            if is_gate_active(self.request, 'ratings-score-filter')
+            else None)
+        exclude_ratings = self.request.GET.get('exclude_ratings')
+        if addon_identifier:
+            qs = qs.filter(addon=self.get_addon_object())
+        if user_identifier:
+            user_identifier = _int_param(
+                user_identifier, 'user parameter should be an integer.')
+            qs = qs.filter(user=user_identifier)
+        if version_identifier:
+            version_identifier = _int_param(
+                version_identifier,
+                'version parameter should be an integer.')
+            qs = qs.filter(version=version_identifier)
+        elif addon_identifier:
+            # When filtering on addon but not on version, only return the
+            # latest rating posted by each user.
+            qs = qs.filter(is_latest=True)
+        if not addon_identifier and not user_identifier:
+            # Don't allow listing ratings without filtering by add-on or
+            # user.
+            raise ParseError('Need an addon or user parameter')
+        if user_identifier and addon_identifier and version_identifier:
+            # When user, addon and version identifiers are set, we are
+            # effectively only looking for one or zero objects. Fake
+            # pagination in that case, avoiding all count() calls and
+            # therefore related cache-machine invalidation issues. Needed
+            # because the frontend wants to call this before and after
+            # having posted a new rating, and needs accurate results.
+            self.pagination_class = OneOrZeroPageNumberPagination
+        if score_filter:
+            scores = _int_list_param(
+                score_filter,
+                'score parameter should be an integer or a list of '
+                'integers (separated by a comma).')
+            qs = qs.filter(rating__in=scores)
+        if exclude_ratings:
+            exclude_ratings = _int_list_param(
+                exclude_ratings,
+                'exclude_ratings parameter should be an '
+                'integer or a list of integers '
+                '(separated by a comma).')
+            qs = qs.exclude(pk__in=exclude_ratings)
+        return qs
+
     def filter_queryset(self, qs):
         if self.action == 'list':
-            addon_identifier = self.request.GET.get('addon')
-            user_identifier = self.request.GET.get('user')
-            version_identifier = self.request.GET.get('version')
-            score_filter = (
-                self.request.GET.get('score')
-                if is_gate_active(self.request, 'ratings-score-filter')
-                else None)
-            exclude_ratings = self.request.GET.get('exclude_ratings')
-            if addon_identifier:
-                qs = qs.filter(addon=self.get_addon_object())
-            if user_identifier:
-                user_identifier = _int_param(
-                    user_identifier, 'user parameter should be an integer.')
-                qs = qs.filter(user=user_identifier)
-            if version_identifier:
-                version_identifier = _int_param(
-                    version_identifier,
-                    'version parameter should be an integer.')
-                qs = qs.filter(version=version_identifier)
-            elif addon_identifier:
-                # When filtering on addon but not on version, only return the
-                # latest rating posted by each user.
-                qs = qs.filter(is_latest=True)
-            if not addon_identifier and not user_identifier:
-                # Don't allow listing ratings without filtering by add-on or
-                # user.
-                raise ParseError('Need an addon or user parameter')
-            if user_identifier and addon_identifier and version_identifier:
-                # When user, addon and version identifiers are set, we are
-                # effectively only looking for one or zero objects. Fake
-                # pagination in that case, avoiding all count() calls and
-                # therefore related cache-machine invalidation issues. Needed
-                # because the frontend wants to call this before and after
-                # having posted a new rating, and needs accurate results.
-                self.pagination_class = OneOrZeroPageNumberPagination
-            if score_filter:
-                scores = _int_list_param(
-                    score_filter,
-                    'score parameter should be an integer or a list of '
-                    'integers (separated by a comma).')
-                qs = qs.filter(rating__in=scores)
-            if exclude_ratings:
-                exclude_ratings = _int_list_param(
-                    exclude_ratings,
-                    'exclude_ratings parameter should be an '
-                    'integer or a list of integers '
-                    '(separated by a comma).')
-                qs = qs.exclude(pk__in=exclude_ratings)
+            qs = self._filter_list_queryset(qs)
         return super(RatingViewSet, self).filter_queryset(qs)
 
     def get_paginated_response(self, data):
