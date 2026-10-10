@@ -1607,11 +1607,12 @@ class TestHasCompleteMetadataRedirects(TestCase):
 class TestDocs(TestCase):
 
     def test_doc_urls(self):
-        assert '/en-US/developers/docs/' == reverse('devhub.docs', args=[])
-        assert '/en-US/developers/docs/te' == reverse(
-            'devhub.docs', args=['te'])
-        assert '/en-US/developers/docs/te/st', reverse(
-            'devhub.docs', args=['te/st'])
+        assert reverse('devhub.docs', args=[]) == '/en-US/developers/docs/'
+        assert reverse(
+            'devhub.docs', args=['te']) == '/en-US/developers/docs/te'
+        assert reverse(
+            'devhub.docs',
+            args=['te/st']) == '/en-US/developers/docs/te/st'
 
         urls = [(reverse('devhub.docs', args=["getting-started"]), 301),
                 (reverse('devhub.docs', args=["how-to"]), 301),

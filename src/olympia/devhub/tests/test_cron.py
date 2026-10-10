@@ -2,6 +2,7 @@ import datetime
 import os
 
 from django.conf import settings
+from django.test.utils import override_settings
 
 from olympia.amo.tests import TestCase
 from olympia.devhub.cron import update_blog_posts
@@ -15,9 +16,8 @@ class TestRSS(TestCase):
             settings.ROOT, 'src', 'olympia', 'devhub', 'tests',
             'rss_feeds', 'blog.xml')
 
-        settings.DEVELOPER_BLOG_URL = url
-
-        update_blog_posts()
+        with override_settings(DEVELOPER_BLOG_URL=url):
+            update_blog_posts()
 
         assert BlogPost.objects.count() == 5
 
