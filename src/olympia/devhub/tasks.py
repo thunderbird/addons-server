@@ -333,7 +333,8 @@ def handle_file_validation_result(results, file_id, *args):
     return FileValidation.from_json(file_, results).pk
 
 
-def check_for_api_keys_in_file(results, upload):
+def _jwt_keys_for_upload(upload):
+    """The JWT API keys of the upload's add-on authors (or uploader)."""
     if upload.addon:
         users = upload.addon.authors.all()
     else:
@@ -346,6 +347,37 @@ def check_for_api_keys_in_file(results, upload):
             keys.append(key)
         except APIKey.DoesNotExist:
             pass
+    return keys
+
+
+def _report_leaked_api_key(results, key, upload):
+    """Add the validation error for a key found in the upload and schedule
+    its revocation."""
+    log.info('Developer API key for user %s found in '
+             'submission.' % key.user)
+    if key.user == upload.user:
+        msg = gettext('Your developer API key was found '
+                       'in the submitted file. To protect '
+                       'your account, the key will be '
+                       'revoked.')
+    else:
+        msg = gettext('The developer API key of a '
+                       'coauthor was found in the '
+                       'submitted file. To protect your '
+                       'add-on, the key will be revoked.')
+    annotations.insert_validation_message(
+        results, type_='error',
+        message=msg, msg_id='api_key_detected',
+        compatibility_type=None)
+
+    # Revoke after 2 minutes to allow the developer to
+    # fetch the validation results
+    revoke_api_key.apply_async(
+        kwargs={'key_id': key.id}, countdown=120)
+
+
+def check_for_api_keys_in_file(results, upload):
+    keys = _jwt_keys_for_upload(upload)
 
     if len(keys) > 0:
         zipfile = SafeZip(source=upload.path)
@@ -354,27 +386,7 @@ def check_for_api_keys_in_file(results, upload):
                 file_ = zipfile.read(zipinfo)
                 for key in keys:
                     if key.secret.encode() in file_:
-                        log.info('Developer API key for user %s found in '
-                                 'submission.' % key.user)
-                        if key.user == upload.user:
-                            msg = gettext('Your developer API key was found '
-                                           'in the submitted file. To protect '
-                                           'your account, the key will be '
-                                           'revoked.')
-                        else:
-                            msg = gettext('The developer API key of a '
-                                           'coauthor was found in the '
-                                           'submitted file. To protect your '
-                                           'add-on, the key will be revoked.')
-                        annotations.insert_validation_message(
-                            results, type_='error',
-                            message=msg, msg_id='api_key_detected',
-                            compatibility_type=None)
-
-                        # Revoke after 2 minutes to allow the developer to
-                        # fetch the validation results
-                        revoke_api_key.apply_async(
-                            kwargs={'key_id': key.id}, countdown=120)
+                        _report_leaked_api_key(results, key, upload)
         zipfile.close()
 
     return results

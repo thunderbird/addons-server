@@ -114,10 +114,9 @@ def annotate_akismet_spam_check(results, akismet_results):
                 msg_id='akismet_is_spam_%s' % field)
 
 
-def annotate_search_plugin_validation(results, file_path, channel):
-    if not file_path.endswith('.xml'):
-        return
-
+def _parse_search_plugin(results, file_path):
+    """Parse the OpenSearch XML at file_path; on a security or syntax
+    error, add the validation message and return None."""
     try:
         with open(file_path, 'r') as file_obj:
             dom = minidom.parse(file_obj)
@@ -130,7 +129,7 @@ def annotate_search_plugin_validation(results, file_path, channel):
                 'The OpenSearch extension could not be parsed due to a '
                 'security error in the XML. See {} for more info.'
                 .format(url)])
-        return
+        return None
     except ExpatError:
         insert_validation_message(
             results,
@@ -138,8 +137,13 @@ def annotate_search_plugin_validation(results, file_path, channel):
             description=[
                 'The OpenSearch extension could not be parsed due to a syntax '
                 'error in the XML.'])
-        return
+        return None
 
+    return dom
+
+
+def _check_opensearch_root(results, dom):
+    """Check the document root element and its XML namespace."""
     # Make sure that the root element is OpenSearchDescription.
     if dom.documentElement.tagName != 'OpenSearchDescription':
         insert_validation_message(
@@ -169,6 +173,9 @@ def annotate_search_plugin_validation(results, file_path, channel):
             message='OpenSearch: Bad XMLNS attribute.',
             description=['The XML namespace attribute contains an value.'])
 
+
+def _check_opensearch_short_name(results, dom):
+    """Check there is exactly one ShortName, short enough."""
     # Make sure that there is exactly one ShortName.
     sn = dom.documentElement.getElementsByTagName('ShortName')
     if not sn:
@@ -200,15 +207,10 @@ def annotate_search_plugin_validation(results, file_path, channel):
                     'The ShortName element must contains less than seventeen '
                     'characters.'])
 
-    # Make sure that there is exactly one Description.
-    if len(dom.documentElement.getElementsByTagName('Description')) != 1:
-        insert_validation_message(
-            results,
-            message='OpenSearch: Invalid number of <Description> elements.',
-            description=[
-                'There are too many or too few Description elements '
-                'in the OpenSearch provider.'])
 
+def _check_opensearch_urls(results, dom, channel):
+    """Check the Url elements as a whole; return those with an acceptable
+    type."""
     # Grab the URLs and make sure that there is at least one.
     urls = dom.documentElement.getElementsByTagName('Url')
     if not urls:
@@ -246,87 +248,124 @@ def annotate_search_plugin_validation(results, file_path, channel):
             description=[
                 'OpenSearch providers must have at least one Url '
                 'element with a type attribute set to \'text/html\'.'])
+    return acceptable_urls
 
-    # Make sure that each Url has the require attributes.
-    for url in acceptable_urls:
-        if url.hasAttribute('rel') and url.attributes['rel'].value == 'self':
-            continue
 
-        if url.hasAttribute('method') and \
-           url.attributes['method'].value.upper() not in ('GET', 'POST'):
-            insert_validation_message(
-                results,
-                message='OpenSearch: <Url> element with invalid \'method\'.',
-                description=[
-                    'A Url element in the OpenSearch provider lists a '
-                    'method attribute, but the value is not GET or '
-                    'POST.'])
-
-        # Test for attribute presence.
-        if not url.hasAttribute('template'):
+def _search_terms_in_params(results, url):
+    """Validate every <Param> of url; return True if any value contains
+    the {searchTerms} placeholder."""
+    found_template = False
+    for param in url.getElementsByTagName('Param'):
+        # As long as we're in here and dependent on the
+        # attributes, we'd might as well validate them.
+        attribute_keys = param.attributes.keys()
+        if 'name' not in attribute_keys or \
+           'value' not in attribute_keys:
             insert_validation_message(
                 results,
                 message=(
-                    'OpenSearch: <Url> element missing template attribute.'),
+                    'OpenSearch: `<Param>` element missing '
+                    '\'name/value\'.'),
                 description=[
-                    '<Url> elements of OpenSearch providers must '
-                    'include a template attribute.'])
-        else:
-            url_template = url.attributes['template'].value
-            if not url_template.startswith('http'):
-                insert_validation_message(
-                    results,
-                    message=(
-                        'OpenSearch: `<Url>` element with invalid `template`.'
-                    ),
-                    description=[
-                        'A `<Url>` element in the OpenSearch '
-                        'provider lists a template attribute, but '
-                        'the value is not a valid HTTP URL.'])
+                    'Param elements in the OpenSearch '
+                    'provider must include a name and a '
+                    'value attribute.'])
 
-            # Make sure that there is a {searchTerms} placeholder in the
-            # URL template.
-            found_template = url_template.count('{searchTerms}') > 0
+        param_value = (
+            param.attributes['value'].value if
+            'value' in param.attributes.keys() else '')
 
-            # If we didn't find it in a simple parse of the template=""
-            # attribute, look deeper at the <Param /> elements.
-            if not found_template:
-                for param in url.getElementsByTagName('Param'):
-                    # As long as we're in here and dependent on the
-                    # attributes, we'd might as well validate them.
-                    attribute_keys = param.attributes.keys()
-                    if 'name' not in attribute_keys or \
-                       'value' not in attribute_keys:
-                        insert_validation_message(
-                            results,
-                            message=(
-                                'OpenSearch: `<Param>` element missing '
-                                '\'name/value\'.'),
-                            description=[
-                                'Param elements in the OpenSearch '
-                                'provider must include a name and a '
-                                'value attribute.'])
+        if param_value.count('{searchTerms}'):
+            found_template = True
+    return found_template
 
-                    param_value = (
-                        param.attributes['value'].value if
-                        'value' in param.attributes.keys() else '')
 
-                    if param_value.count('{searchTerms}'):
-                        found_template = True
+def _check_opensearch_url(results, url):
+    """Check one acceptable Url element."""
+    if url.hasAttribute('rel') and url.attributes['rel'].value == 'self':
+        return
 
-            # If the template still hasn't been found...
-            if not found_template:
-                tpl = url.attributes['template'].value
-                insert_validation_message(
-                    results,
-                    message=(
-                        'OpenSearch: <Url> element missing template '
-                        'placeholder.'),
-                    description=[
-                        '`<Url>` elements of OpenSearch providers '
-                        'must include a template attribute or specify a '
-                        'placeholder with `{searchTerms}`.',
-                        'Missing template: %s' % tpl])
+    if url.hasAttribute('method') and \
+       url.attributes['method'].value.upper() not in ('GET', 'POST'):
+        insert_validation_message(
+            results,
+            message='OpenSearch: <Url> element with invalid \'method\'.',
+            description=[
+                'A Url element in the OpenSearch provider lists a '
+                'method attribute, but the value is not GET or '
+                'POST.'])
+
+    # Test for attribute presence.
+    if not url.hasAttribute('template'):
+        insert_validation_message(
+            results,
+            message=(
+                'OpenSearch: <Url> element missing template attribute.'),
+            description=[
+                '<Url> elements of OpenSearch providers must '
+                'include a template attribute.'])
+    else:
+        url_template = url.attributes['template'].value
+        if not url_template.startswith('http'):
+            insert_validation_message(
+                results,
+                message=(
+                    'OpenSearch: `<Url>` element with invalid `template`.'
+                ),
+                description=[
+                    'A `<Url>` element in the OpenSearch '
+                    'provider lists a template attribute, but '
+                    'the value is not a valid HTTP URL.'])
+
+        # Make sure that there is a {searchTerms} placeholder in the
+        # URL template.
+        found_template = url_template.count('{searchTerms}') > 0
+
+        # If we didn't find it in a simple parse of the template=""
+        # attribute, look deeper at the <Param /> elements.
+        if not found_template:
+            found_template = _search_terms_in_params(results, url)
+
+        # If the template still hasn't been found...
+        if not found_template:
+            tpl = url.attributes['template'].value
+            insert_validation_message(
+                results,
+                message=(
+                    'OpenSearch: <Url> element missing template '
+                    'placeholder.'),
+                description=[
+                    '`<Url>` elements of OpenSearch providers '
+                    'must include a template attribute or specify a '
+                    'placeholder with `{searchTerms}`.',
+                    'Missing template: %s' % tpl])
+
+
+def annotate_search_plugin_validation(results, file_path, channel):
+    if not file_path.endswith('.xml'):
+        return
+
+    dom = _parse_search_plugin(results, file_path)
+    if dom is None:
+        return
+
+    _check_opensearch_root(results, dom)
+    _check_opensearch_short_name(results, dom)
+
+    # Make sure that there is exactly one Description.
+    if len(dom.documentElement.getElementsByTagName('Description')) != 1:
+        insert_validation_message(
+            results,
+            message='OpenSearch: Invalid number of <Description> elements.',
+            description=[
+                'There are too many or too few Description elements '
+                'in the OpenSearch provider.'])
+
+    acceptable_urls = _check_opensearch_urls(results, dom, channel)
+
+    # Make sure that each Url has the require attributes.
+    for url in acceptable_urls:
+        _check_opensearch_url(results, url)
 
     # Make sure there are no updateURL elements
     if dom.getElementsByTagName('updateURL'):
