@@ -57,6 +57,21 @@ def _jobs_for_full_date_range(qs, task, date_field, index, limits):
     return jobs
 
 
+def _filter_by_addons_and_dates(qs, date_field, addons, dates):
+    """Apply the --addons/--date CLI constraints to `qs`, if given."""
+    if addons:
+        pks = [int(a.strip()) for a in addons.split(',')]
+        qs = qs.filter(addon__in=pks)
+
+    if dates:
+        if ':' in dates:
+            qs = qs.filter(**{'%s__range' % date_field:
+                              dates.split(':')})
+        else:
+            qs = qs.filter(**{date_field: dates})
+    return qs
+
+
 def gather_index_stats_tasks(index, addons=None, dates=None):
     """
     Return the list of task groups to execute to index statistics for the given
@@ -81,16 +96,7 @@ def gather_index_stats_tasks(index, addons=None, dates=None):
 
         qs = qs.values_list('id', flat=True)
 
-        if addons:
-            pks = [int(a.strip()) for a in addons.split(',')]
-            qs = qs.filter(addon__in=pks)
-
-        if dates:
-            if ':' in dates:
-                qs = qs.filter(**{'%s__range' % date_field:
-                                  dates.split(':')})
-            else:
-                qs = qs.filter(**{date_field: dates})
+        qs = _filter_by_addons_and_dates(qs, date_field, addons, dates)
 
         if not (dates or addons):
             # We're loading the whole world. Do it in stages so we get most
