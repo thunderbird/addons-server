@@ -28,12 +28,12 @@
 {% endblock %}
 
 {% macro persona_categories() %}
-<aside class="secondary">
+<aside class="secondary" aria-label="{{ _('Themes') }}">
   {% if profile %}
-    <aside class="profile">
+    <aside class="profile" aria-labelledby="persona-categories-profile-name">
       <a href="{{ profile.get_url_path() }}">
         <img class="avatar" src="{{ profile.picture_url }}" alt="{{ profile.name }}">
-        <h2>{{ profile.name }}</h2>
+        <h2 id="persona-categories-profile-name">{{ profile.name }}</h2>
         <div>{{ _('View Profile') }}</div>
       </a>
     </aside>
