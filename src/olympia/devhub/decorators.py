@@ -11,6 +11,27 @@ from olympia.addons.models import Addon
 from olympia.amo.decorators import login_required
 
 
+def _dev_required_response(request, addon, fun, owner_for_post,
+                           allow_reviewers, submitting):
+    """Call fun() if the user may access the add-on's devhub page,
+    redirect to the submit flow if needed, or raise PermissionDenied."""
+    if allow_reviewers and acl.is_reviewer(request, addon):
+        return fun()
+    # Require an owner or dev for POST requests.
+    if request.method == 'POST':
+        if acl.check_addon_ownership(request, addon,
+                                     dev=not owner_for_post):
+            return fun()
+    # Ignore disabled so they can view their add-on.
+    elif acl.check_addon_ownership(request, addon, dev=True,
+                                   ignore_disabled=True):
+        # Redirect to the submit flow if they're not done.
+        if (not submitting and addon.should_redirect_to_submit_flow()):
+            return redirect('devhub.submit.details', addon.slug)
+        return fun()
+    raise PermissionDenied
+
+
 def dev_required(owner_for_post=False, allow_reviewers=False, theme=False,
                  submitting=False):
     """Requires user to be add-on owner or admin.
@@ -31,21 +52,9 @@ def dev_required(owner_for_post=False, allow_reviewers=False, theme=False,
             def fun():
                 return f(request, addon_id=addon.id, addon=addon, *args, **kw)
 
-            if allow_reviewers and acl.is_reviewer(request, addon):
-                return fun()
-            # Require an owner or dev for POST requests.
-            if request.method == 'POST':
-                if acl.check_addon_ownership(request, addon,
-                                             dev=not owner_for_post):
-                    return fun()
-            # Ignore disabled so they can view their add-on.
-            elif acl.check_addon_ownership(request, addon, dev=True,
-                                           ignore_disabled=True):
-                # Redirect to the submit flow if they're not done.
-                if (not submitting and addon.should_redirect_to_submit_flow()):
-                    return redirect('devhub.submit.details', addon.slug)
-                return fun()
-            raise PermissionDenied
+            return _dev_required_response(
+                request, addon, fun, owner_for_post=owner_for_post,
+                allow_reviewers=allow_reviewers, submitting=submitting)
         return wrapper
     # The arg will be a function if they didn't pass owner_for_post.
     if callable(owner_for_post):

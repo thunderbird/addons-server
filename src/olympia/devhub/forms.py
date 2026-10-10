@@ -46,7 +46,7 @@ from . import tasks
 class AuthorForm(forms.ModelForm):
     class Meta:
         model = AddonUser
-        exclude = ('addon',)
+        fields = ('user', 'role', 'listed', 'position')
 
 
 class BaseModelFormSet(BaseModelFormSet):
@@ -288,31 +288,37 @@ class PolicyForm(TranslationFormMixin, AMOModelForm):
         return ob
 
 
+def _validate_source_archive(source):
+    """Check a source upload is a readable zip or tar archive with safe
+    members; raise ValidationError for any other file type."""
+    if source.name.endswith('.zip'):
+        zip_file = SafeZip(source)
+        # testzip() returns None if there are no broken CRCs.
+        if zip_file.zip_file.testzip() is not None:
+            raise zipfile.BadZipfile()
+    elif source.name.endswith(('.tar.gz', '.tar.bz2', '.tgz')):
+        # For tar files we need to do a little more work.
+        mode = 'r:bz2' if source.name.endswith('bz2') else 'r:gz'
+        with tarfile.open(mode=mode, fileobj=source) as archive:
+            archive_members = archive.getmembers()
+            for member in archive_members:
+                archive_member_validator(archive, member)
+    else:
+        valid_extensions_string = u'(%s)' % u', '.join(
+            VALID_SOURCE_EXTENSIONS)
+        raise forms.ValidationError(
+            gettext(
+                'Unsupported file type, please upload an archive '
+                'file {extensions}.'.format(
+                    extensions=valid_extensions_string)))
+
+
 class WithSourceMixin(object):
     def clean_source(self):
         source = self.cleaned_data.get('source')
         if source:
             try:
-                if source.name.endswith('.zip'):
-                    zip_file = SafeZip(source)
-                    # testzip() returns None if there are no broken CRCs.
-                    if zip_file.zip_file.testzip() is not None:
-                        raise zipfile.BadZipfile()
-                elif source.name.endswith(('.tar.gz', '.tar.bz2', '.tgz')):
-                    # For tar files we need to do a little more work.
-                    mode = 'r:bz2' if source.name.endswith('bz2') else 'r:gz'
-                    with tarfile.open(mode=mode, fileobj=source) as archive:
-                        archive_members = archive.getmembers()
-                        for member in archive_members:
-                            archive_member_validator(archive, member)
-                else:
-                    valid_extensions_string = u'(%s)' % u', '.join(
-                        VALID_SOURCE_EXTENSIONS)
-                    raise forms.ValidationError(
-                        gettext(
-                            'Unsupported file type, please upload an archive '
-                            'file {extensions}.'.format(
-                                extensions=valid_extensions_string)))
+                _validate_source_archive(source)
             except (zipfile.BadZipfile, tarfile.ReadError, IOError, EOFError):
                 raise forms.ValidationError(
                     gettext('Invalid or broken archive.'))
@@ -671,23 +677,31 @@ class CombinedNameSummaryCleanMixin(object):
                         'name', LocaleErrorMessage(
                             message=formatted_message, locale=locale))
                 elif self.should_auto_crop:
-                    # otherwise we need to shorten the summary (and or name?)
-                    if locale in name_values:
-                        # if only default summary need to shorten name instead.
-                        max_name_length = (
-                            self.fields['name'].max_length
-                            if locale in summary_values
-                            else self.MAX_LENGTH - len(summary_default))
-                        name = name_values[locale][:max_name_length]
-                        name_length = len(name)
-                        self.cleaned_data.setdefault('name', {})[locale] = name
-                    else:
-                        name_length = len(name_default)
-                    if locale in summary_values:
-                        max_summary_length = self.MAX_LENGTH - name_length
-                        self.cleaned_data.setdefault('summary', {})[locale] = (
-                            summary_values[locale][:max_summary_length])
+                    self._auto_crop_locale(
+                        locale, name_values, name_default, summary_values,
+                        summary_default)
         return self.cleaned_data
+
+    def _auto_crop_locale(self, locale, name_values, name_default,
+                          summary_values, summary_default):
+        """Shorten the name and/or summary for a non-default locale so they
+        fit in MAX_LENGTH combined."""
+        # otherwise we need to shorten the summary (and or name?)
+        if locale in name_values:
+            # if only default summary need to shorten name instead.
+            max_name_length = (
+                self.fields['name'].max_length
+                if locale in summary_values
+                else self.MAX_LENGTH - len(summary_default))
+            name = name_values[locale][:max_name_length]
+            name_length = len(name)
+            self.cleaned_data.setdefault('name', {})[locale] = name
+        else:
+            name_length = len(name_default)
+        if locale in summary_values:
+            max_summary_length = self.MAX_LENGTH - name_length
+            self.cleaned_data.setdefault('summary', {})[locale] = (
+                summary_values[locale][:max_summary_length])
 
 
 class DescribeFormContentOptimization(CombinedNameSummaryCleanMixin,

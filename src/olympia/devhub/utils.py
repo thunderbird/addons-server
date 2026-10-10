@@ -389,21 +389,32 @@ def get_addon_akismet_reports(user, user_agent, referrer, upload=None,
         locales = data.get(prop)
         if not locales:
             continue
-        if isinstance(locales, dict):
-            # Avoid spam checking the same value more than once by using a set.
-            locale_values = set(locales.values())
-        else:
-            # It's not a localized dict, it's a flat string; wrap it anyway.
-            locale_values = {locales}
-        for comment in locale_values:
-            if not comment or comment in existing_data:
-                # We don't want to submit empty or unchanged content
-                continue
-            report = AkismetReport.create_for_addon(
-                upload=upload, addon=addon, user=user, property_name=prop,
-                property_value=comment, user_agent=user_agent,
-                referrer=referrer)
-            reports.append((prop, report))
+        reports.extend(_akismet_reports_for_property(
+            prop, locales, existing_data, upload=upload, addon=addon,
+            user=user, user_agent=user_agent, referrer=referrer))
+    return reports
+
+
+def _akismet_reports_for_property(prop, locales, existing_data, upload,
+                                  addon, user, user_agent, referrer):
+    """Create an AkismetReport for each distinct, new value of prop; return
+    a list of (prop, report) tuples."""
+    reports = []
+    if isinstance(locales, dict):
+        # Avoid spam checking the same value more than once by using a set.
+        locale_values = set(locales.values())
+    else:
+        # It's not a localized dict, it's a flat string; wrap it anyway.
+        locale_values = {locales}
+    for comment in locale_values:
+        if not comment or comment in existing_data:
+            # We don't want to submit empty or unchanged content
+            continue
+        report = AkismetReport.create_for_addon(
+            upload=upload, addon=addon, user=user, property_name=prop,
+            property_value=comment, user_agent=user_agent,
+            referrer=referrer)
+        reports.append((prop, report))
     return reports
 
 
