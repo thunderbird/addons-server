@@ -41,18 +41,10 @@ def es_dict(items):
 """
 
 
-def extract_update_count(update):
-    doc = {'addon': update.addon_id,
-           'date': update.date,
-           'count': update.count,
-           'id': update.id,
-           '_id': '{0}-{1}'.format(update.addon_id, update.date),
-           'versions': es_dict(update.versions),
-           'os': [],
-           'locales': [],
-           'apps': [],
-           'status': []}
-
+def _extract_os_dict(update):
+    """Return the es_dict of platform name -> count for `update`, counting
+    only platforms we know about."""
+    result = []
     # Only count platforms we know about.
     if update.oses:
         os = collections.defaultdict(int)
@@ -66,9 +58,14 @@ def extract_update_count(update):
 
             if platform is not None:
                 os[platform.name] += count
-                doc['os'] = es_dict((six.text_type(k), v)
-                                    for k, v in os.items())
+                result = es_dict((six.text_type(k), v)
+                                 for k, v in os.items())
+    return result
 
+
+def _extract_locales_dict(update):
+    """Return the es_dict of lower-cased locale -> count for `update`."""
+    result = []
     # Case-normalize locales.
     if update.locales:
         locales = collections.defaultdict(int)
@@ -77,8 +74,14 @@ def extract_update_count(update):
                 locales[locale.lower()] += int(count)
             except ValueError:
                 pass
-        doc['locales'] = es_dict(locales)
+        result = es_dict(locales)
+    return result
 
+
+def _extract_apps_dict(update):
+    """Return the dict of app guid -> es_dict of version counts for
+    `update`, counting only app/version combos we know about."""
+    result = []
     # Only count app/version combos we know about.
     if update.applications:
         apps = collections.defaultdict(dict)
@@ -91,7 +94,21 @@ def extract_update_count(update):
                     apps[app.guid][version] = int(count)
                 except ValueError:
                     pass
-        doc['apps'] = {app: es_dict(vals) for app, vals in apps.items()}
+        result = {app: es_dict(vals) for app, vals in apps.items()}
+    return result
+
+
+def extract_update_count(update):
+    doc = {'addon': update.addon_id,
+           'date': update.date,
+           'count': update.count,
+           'id': update.id,
+           '_id': '{0}-{1}'.format(update.addon_id, update.date),
+           'versions': es_dict(update.versions),
+           'os': _extract_os_dict(update),
+           'locales': _extract_locales_dict(update),
+           'apps': _extract_apps_dict(update),
+           'status': []}
 
     if update.statuses:
         doc['status'] = es_dict((k, v) for k, v in update.statuses.items()

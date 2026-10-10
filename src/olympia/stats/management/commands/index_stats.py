@@ -34,6 +34,29 @@ To limit the  date range:
 """
 
 
+def _jobs_for_full_date_range(qs, task, date_field, index, limits):
+    """Return the chunked task signatures needed to index the full
+    (unconstrained) history for one queryset/task pair, staged by STEP-day
+    windows so we get the most recent stats first and avoid huge queries."""
+    jobs = []
+    # If there isn't any data at all, skip over.
+    if not (limits['max'] or limits['min']):
+        return jobs
+
+    num_days = (limits['max'] - limits['min']).days
+    for start in range(0, num_days, STEP):
+        stop = start + STEP - 1
+        date_range = (limits['max'] - timedelta(days=stop),
+                      limits['max'] - timedelta(days=start))
+        data = list(qs.filter(**{
+            '%s__range' % date_field: date_range
+        }))
+        if data:
+            jobs.append(create_chunked_tasks_signatures(
+                task, data, CHUNK_SIZE, task_args=(index,)))
+    return jobs
+
+
 def gather_index_stats_tasks(index, addons=None, dates=None):
     """
     Return the list of task groups to execute to index statistics for the given
@@ -76,21 +99,9 @@ def gather_index_stats_tasks(index, addons=None, dates=None):
                                                  date_field: False})
                       .extra(where=['%s <> "0000-00-00"' % date_field])
                       .aggregate(min=Min(date_field), max=Max(date_field)))
-            # If there isn't any data at all, skip over.
-            if not (limits['max'] or limits['min']):
-                continue
-
-            num_days = (limits['max'] - limits['min']).days
-            for start in range(0, num_days, STEP):
-                stop = start + STEP - 1
-                date_range = (limits['max'] - timedelta(days=stop),
-                              limits['max'] - timedelta(days=start))
-                data = list(qs.filter(**{
-                    '%s__range' % date_field: date_range
-                }))
-                if data:
-                    jobs.append(create_chunked_tasks_signatures(
-                        task, data, CHUNK_SIZE, task_args=(index,)))
+            jobs.extend(
+                _jobs_for_full_date_range(qs, task, date_field, index,
+                                          limits))
         else:
             jobs.append(create_chunked_tasks_signatures(
                 task, list(qs), CHUNK_SIZE, task_args=(index,)))

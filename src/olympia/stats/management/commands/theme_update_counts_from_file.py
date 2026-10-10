@@ -64,6 +64,59 @@ class Command(BaseCommand):
             '--separator', action='store', type=str, default='\t',
             dest='separator', help='Field separator in file.')
 
+    def _process_line(self, line, sep, persona_to_addon, migrated_personas,
+                      existing_stheme_update_counts,
+                      new_stheme_update_counts, addons, theme_update_counts):
+        """Parse one line of hive stats data, updating
+        `existing_stheme_update_counts`, `new_stheme_update_counts` and
+        `theme_update_counts` in place."""
+        splitted = line[:-1].split(sep)
+
+        if len(splitted) != 4:
+            log.debug('Badly formatted row: %s' % line)
+            return
+
+        day, id_, src, count = splitted
+        try:
+            id_, count = int(id_), int(count)
+        except ValueError:  # Badly formatted? Drop.
+            return
+
+        if src:
+            src = src.strip()
+
+        # If src is 'gp', it's an old request for the persona id.
+        if id_ not in persona_to_addon and src == 'gp':
+            return  # No such persona.
+        addon_id = persona_to_addon[id_] if src == 'gp' else id_
+
+        # Is the persona already migrated to static theme?
+        if addon_id in migrated_personas:
+            mig_addon_id = migrated_personas[addon_id]
+            if mig_addon_id in existing_stheme_update_counts:
+                existing_stheme_update_counts[mig_addon_id].count += count
+                existing_stheme_update_counts[mig_addon_id].save()
+            elif mig_addon_id in new_stheme_update_counts:
+                new_stheme_update_counts[mig_addon_id].count += count
+            else:
+                new_stheme_update_counts[mig_addon_id] = UpdateCount(
+                    addon_id=mig_addon_id, date=day, count=count)
+
+        # Does this addon exist?
+        if addon_id not in addons:
+            return
+
+        # Memoize the ThemeUpdateCount.
+        if addon_id in theme_update_counts:
+            tuc = theme_update_counts[addon_id]
+        else:
+            tuc = ThemeUpdateCount(addon_id=addon_id, date=day,
+                                   count=0)
+            theme_update_counts[addon_id] = tuc
+
+        # We can now fill the ThemeUpdateCount object.
+        tuc.count += count
+
     def handle(self, *args, **options):
         sep = options['separator']
         start = datetime.now()  # Measure the time it takes to run the script.
@@ -120,52 +173,10 @@ class Command(BaseCommand):
             if index and (index % 1000000) == 0:
                 log.info('Processed %s lines' % index)
 
-            splitted = line[:-1].split(sep)
-
-            if len(splitted) != 4:
-                log.debug('Badly formatted row: %s' % line)
-                continue
-
-            day, id_, src, count = splitted
-            try:
-                id_, count = int(id_), int(count)
-            except ValueError:  # Badly formatted? Drop.
-                continue
-
-            if src:
-                src = src.strip()
-
-            # If src is 'gp', it's an old request for the persona id.
-            if id_ not in persona_to_addon and src == 'gp':
-                continue  # No such persona.
-            addon_id = persona_to_addon[id_] if src == 'gp' else id_
-
-            # Is the persona already migrated to static theme?
-            if addon_id in migrated_personas:
-                mig_addon_id = migrated_personas[addon_id]
-                if mig_addon_id in existing_stheme_update_counts:
-                    existing_stheme_update_counts[mig_addon_id].count += count
-                    existing_stheme_update_counts[mig_addon_id].save()
-                elif mig_addon_id in new_stheme_update_counts:
-                    new_stheme_update_counts[mig_addon_id].count += count
-                else:
-                    new_stheme_update_counts[mig_addon_id] = UpdateCount(
-                        addon_id=mig_addon_id, date=day, count=count)
-
-            # Does this addon exist?
-            if addon_id not in addons:
-                continue
-
-            # Memoize the ThemeUpdateCount.
-            if addon_id in theme_update_counts:
-                tuc = theme_update_counts[addon_id]
-            else:
-                tuc = ThemeUpdateCount(addon_id=addon_id, date=day,
-                                       count=0)
-                theme_update_counts[addon_id] = tuc
-
-            # We can now fill the ThemeUpdateCount object.
-            tuc.count += count
+            self._process_line(
+                line, sep, persona_to_addon, migrated_personas,
+                existing_stheme_update_counts, new_stheme_update_counts,
+                addons, theme_update_counts)
 
         # Create in bulk: this is much faster.
         ThemeUpdateCount.objects.bulk_create(theme_update_counts.values(), 100)
