@@ -19,7 +19,7 @@
 		this.scroll = true;
 	};
 	Slideshow.prototype.init = function() {
-		this.itemTotal = parseInt($(this.itemContainer+'>li').length,10);
+		this.itemTotal = Number.parseInt($(this.itemContainer+'>li').length,10);
 		if (this.itemTotal <= 1) {
 			return;
 		}
