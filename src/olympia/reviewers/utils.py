@@ -298,14 +298,7 @@ class ReviewHelper(object):
                 request, self.addon, self.version, 'pending',
                 content_review_only=self.content_review_only)
 
-    def get_actions(self, request):
-        actions = OrderedDict()
-        if request is None:
-            # If request is not set, it means we are just (ab)using the
-            # ReviewHelper for its `handler` attribute and we don't care about
-            # the actions.
-            return actions
-
+    def _compute_action_conditions(self, request):
         # Conditions used below.
         is_post_reviewer = acl.action_allowed(
             request, amo.permissions.ADDONS_POST_REVIEW)
@@ -368,6 +361,25 @@ class ReviewHelper(object):
             self.version.channel == amo.RELEASE_CHANNEL_LISTED and
             is_content_reviewer and self.content_review_only)
 
+        return {
+            'reviewable_because_complete': reviewable_because_complete,
+            'reviewable_because_not_reserved_for_admins_or_user_is_admin':
+                reviewable_because_not_reserved_for_admins_or_user_is_admin,
+            'reviewable_because_pending': reviewable_because_pending,
+            'was_auto_approved_and_user_can_post_review':
+                was_auto_approved_and_user_can_post_review,
+            'was_auto_approved_and_user_can_content_review':
+                was_auto_approved_and_user_can_content_review,
+            'is_unlisted_and_user_can_review_unlisted':
+                is_unlisted_and_user_can_review_unlisted,
+            'is_public_and_listed_and_user_can_post_review':
+                is_public_and_listed_and_user_can_post_review,
+            'is_public_and_listed_and_user_can_content_review':
+                is_public_and_listed_and_user_can_content_review,
+        }
+
+    def _build_actions(self, c):
+        actions = OrderedDict()
         # Definitions for all actions.
         actions['public'] = {
             'method': self.handler.process_public,
@@ -377,9 +389,9 @@ class ReviewHelper(object):
                          'developer.'),
             'label': _('Approve'),
             'available': (
-                reviewable_because_complete and
-                reviewable_because_not_reserved_for_admins_or_user_is_admin and
-                reviewable_because_pending and
+                c['reviewable_because_complete'] and
+                c['reviewable_because_not_reserved_for_admins_or_user_is_admin'] and
+                c['reviewable_because_pending'] and
                 not self.content_review_only)
         }
         actions['reject'] = {
@@ -401,10 +413,10 @@ class ReviewHelper(object):
             'minimal': True,
             'comments': False,
             'available': (
-                reviewable_because_not_reserved_for_admins_or_user_is_admin and
-                (was_auto_approved_and_user_can_post_review or
-                 was_auto_approved_and_user_can_content_review or
-                 is_unlisted_and_user_can_review_unlisted))
+                c['reviewable_because_not_reserved_for_admins_or_user_is_admin'] and
+                (c['was_auto_approved_and_user_can_post_review'] or
+                 c['was_auto_approved_and_user_can_content_review'] or
+                 c['is_unlisted_and_user_can_review_unlisted']))
         }
         actions['reject_multiple_versions'] = {
             'method': self.handler.reject_multiple_versions,
@@ -416,9 +428,9 @@ class ReviewHelper(object):
                          'developer.'),
             'available': (
                 self.addon.type != amo.ADDON_STATICTHEME and
-                reviewable_because_not_reserved_for_admins_or_user_is_admin and
-                (is_public_and_listed_and_user_can_post_review or
-                 is_public_and_listed_and_user_can_content_review)
+                c['reviewable_because_not_reserved_for_admins_or_user_is_admin'] and
+                (c['is_public_and_listed_and_user_can_post_review'] or
+                 c['is_public_and_listed_and_user_can_content_review'])
             )
         }
         actions['reply'] = {
@@ -447,6 +459,17 @@ class ReviewHelper(object):
             'minimal': True,
             'available': True,
         }
+        return actions
+
+    def get_actions(self, request):
+        if request is None:
+            # If request is not set, it means we are just (ab)using the
+            # ReviewHelper for its `handler` attribute and we don't care about
+            # the actions.
+            return OrderedDict()
+
+        conditions = self._compute_action_conditions(request)
+        actions = self._build_actions(conditions)
 
         # Small tweaks to labels and descriptions when in content review mode.
         if self.content_review_only:
