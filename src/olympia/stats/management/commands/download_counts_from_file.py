@@ -138,14 +138,9 @@ class Command(BaseCommand):
         dc.count += counter
         dc.sources = update_inc(dc.sources, src, counter)
 
-    def handle(self, *args, **options):
-        start = datetime.now()  # Measure the time it takes to run the script.
-        day = options['date']
-        if not day:
-            day = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-
-        sep = options['separator']
-
+    def _get_filepath(self, options, day, sep):
+        """Return the hive data filepath for `day`, after checking it
+        actually contains data for that day."""
         if options['stats_source'] == 's3':
             filepath = 's3://' + '/'.join([settings.AWS_STATS_S3_BUCKET,
                                            settings.AWS_STATS_S3_PREFIX,
@@ -161,6 +156,16 @@ class Command(BaseCommand):
         if get_date(filepath, sep) != day:
             raise CommandError('%s file contains data for another day' %
                                filepath)
+        return filepath
+
+    def handle(self, *args, **options):
+        start = datetime.now()  # Measure the time it takes to run the script.
+        day = options['date']
+        if not day:
+            day = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+        sep = options['separator']
+        filepath = self._get_filepath(options, day, sep)
 
         # First, make sure we don't have any existing counts for the same day,
         # or it would just increment again the same data.

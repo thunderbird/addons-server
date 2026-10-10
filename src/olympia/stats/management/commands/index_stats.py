@@ -34,14 +34,11 @@ To limit the  date range:
 """
 
 
-def _jobs_for_full_date_range(qs, task, date_field, index):
+def _jobs_for_full_date_range(qs, task, date_field, index, limits):
     """Return the chunked task signatures needed to index the full
     (unconstrained) history for one queryset/task pair, staged by STEP-day
     windows so we get the most recent stats first and avoid huge queries."""
     jobs = []
-    limits = (qs.model.objects.filter(**{'%s__isnull' % date_field: False})
-              .extra(where=['%s <> "0000-00-00"' % date_field])
-              .aggregate(min=Min(date_field), max=Max(date_field)))
     # If there isn't any data at all, skip over.
     if not (limits['max'] or limits['min']):
         return jobs
@@ -98,8 +95,13 @@ def gather_index_stats_tasks(index, addons=None, dates=None):
         if not (dates or addons):
             # We're loading the whole world. Do it in stages so we get most
             # recent stats first and don't do huge queries.
+            limits = (qs.model.objects.filter(**{'%s__isnull' %
+                                                 date_field: False})
+                      .extra(where=['%s <> "0000-00-00"' % date_field])
+                      .aggregate(min=Min(date_field), max=Max(date_field)))
             jobs.extend(
-                _jobs_for_full_date_range(qs, task, date_field, index))
+                _jobs_for_full_date_range(qs, task, date_field, index,
+                                          limits))
         else:
             jobs.append(create_chunked_tasks_signatures(
                 task, list(qs), CHUNK_SIZE, task_args=(index,)))

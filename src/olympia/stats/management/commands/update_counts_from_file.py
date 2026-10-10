@@ -121,16 +121,19 @@ class Command(BaseCommand):
             group_filepaths.append((group, filepath))
         return group_filepaths
 
-    def _process_line(self, line, sep, group, guids_to_addon, update_counts):
-        """Parse one line of hive stats data for one `group`, updating
-        `update_counts` (a dict of addon guid -> UpdateCount) in place."""
+    def _parse_line(self, line, sep, group):
+        """Parse and validate one line of hive stats data for `group`.
+
+        Return None if the row should be dropped, otherwise a tuple of
+        (day, addon_guid, data, app_id, app_ver, count)."""
         splitted = line[:-1].split(sep)
 
         if ((group == 'app' and len(splitted) != 6) or
                 (group != 'app' and len(splitted) != 5)):
             log.debug('Badly formatted row: %s' % line)
-            return
+            return None
 
+        app_id = app_ver = data = None
         if group == 'app':
             day, addon_guid, app_id, app_ver, count, \
                 update_type = splitted
@@ -152,7 +155,7 @@ class Command(BaseCommand):
             if update_type:
                 update_type = int(update_type)
         except ValueError:  # Badly formatted? Drop.
-            return
+            return None
 
         # The following is magic that I don't understand. I've just
         # been told that this is the way we can make sure a request
@@ -163,7 +166,17 @@ class Command(BaseCommand):
         if update_type and update_type & 31 != 16:
             log.debug("Update type doesn't add to 16: %s" %
                       update_type)
+            return None
+
+        return day, addon_guid, data, app_id, app_ver, count
+
+    def _process_line(self, line, sep, group, guids_to_addon, update_counts):
+        """Parse one line of hive stats data for one `group`, updating
+        `update_counts` (a dict of addon guid -> UpdateCount) in place."""
+        parsed = self._parse_line(line, sep, group)
+        if parsed is None:
             return
+        day, addon_guid, data, app_id, app_ver, count = parsed
 
         # Does this addon exist?
         if addon_guid and addon_guid in guids_to_addon:
@@ -181,6 +194,11 @@ class Command(BaseCommand):
             update_counts[addon_guid] = uc
 
         # We can now fill the UpdateCount object.
+        self._apply_group_update(uc, group, data, app_id, app_ver, count)
+
+    def _apply_group_update(self, uc, group, data, app_id, app_ver, count):
+        """Dispatch to the right update_* method for `group`, filling in
+        the UpdateCount object `uc` with the given row data."""
         if group == 'version':
             self.update_version(uc, data, count)
         elif group == 'status':
