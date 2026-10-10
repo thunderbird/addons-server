@@ -913,6 +913,28 @@ def _build_auto_approval_info(pager):
     return auto_approval_info
 
 
+def _filter_review_actions(actions, is_static_theme):
+    # The actions we shouldn't show a minimal form for.
+    actions_full = [
+        k for (k, a) in actions if not (is_static_theme or a.get('minimal'))]
+
+    # The actions we should show the comments form for (contrary to minimal
+    # form above, it defaults to True, because most actions do need to have
+    # the comments form).
+    actions_comments = [k for (k, a) in actions if a.get('comments', True)]
+    return actions_full, actions_comments
+
+
+def _build_whiteboard_form(addon, is_static_theme):
+    try:
+        whiteboard = Whiteboard.objects.get(pk=addon.pk)
+    except Whiteboard.DoesNotExist:
+        whiteboard = Whiteboard(pk=addon.pk)
+
+    wb_form_cls = PublicWhiteboardForm if is_static_theme else WhiteboardForm
+    return wb_form_cls(instance=whiteboard, prefix='whiteboard')
+
+
 # Permission checks for this view are done inside, depending on type of review
 # needed, using perform_review_permission_checks().
 @login_required
@@ -972,14 +994,8 @@ def review(request, addon, channel=None):
 
     show_diff = _find_show_diff_version(addon, version, channel)
 
-    # The actions we shouldn't show a minimal form for.
-    actions_full = [
-        k for (k, a) in actions if not (is_static_theme or a.get('minimal'))]
-
-    # The actions we should show the comments form for (contrary to minimal
-    # form above, it defaults to True, because most actions do need to have
-    # the comments form).
-    actions_comments = [k for (k, a) in actions if a.get('comments', True)]
+    actions_full, actions_comments = _filter_review_actions(
+        actions, is_static_theme)
 
     versions = (Version.unfiltered.filter(addon=addon, channel=channel)
                                   .select_related('autoapprovalsummary')
@@ -1003,13 +1019,7 @@ def review(request, addon, channel=None):
 
     flags = get_flags(addon, version) if version else []
 
-    try:
-        whiteboard = Whiteboard.objects.get(pk=addon.pk)
-    except Whiteboard.DoesNotExist:
-        whiteboard = Whiteboard(pk=addon.pk)
-
-    wb_form_cls = PublicWhiteboardForm if is_static_theme else WhiteboardForm
-    whiteboard_form = wb_form_cls(instance=whiteboard, prefix='whiteboard')
+    whiteboard_form = _build_whiteboard_form(addon, is_static_theme)
 
     user_changes_actions = [
         amo.LOG.ADD_USER_WITH_ROLE.id,
