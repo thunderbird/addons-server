@@ -128,7 +128,7 @@ class TestGetFeaturedIds(TestCase):
     def test_locale_shuffle(self):
         # Make sure the locale-specific add-ons are at the front.
         ids = get_featured_ids(amo.FIREFOX, 'en-US')
-        assert (ids[0],) == self.en_us_locale
+        assert self.en_us_locale == (ids[0],)
 
 
 class TestGetCreaturedIds(TestCase):
@@ -190,7 +190,7 @@ class TestGetCreaturedIds(TestCase):
 
     def test_shuffle(self):
         ids = get_creatured_ids(self.category_id, 'en-US')
-        assert (ids[0],) == self.en_us_locale
+        assert self.en_us_locale == (ids[0],)
 
 
 class TestGetAddonRecommendations(TestCase):
