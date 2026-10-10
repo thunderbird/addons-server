@@ -203,20 +203,27 @@ def parse_next_path(state_parts):
     return next_path
 
 
+def _fxa_config_for(view, request, config):
+    """The FxA config with_user() uses: config if given, else the view's
+    get_fxa_config(request), else the default FxA config."""
+    if config is None:
+        if hasattr(view, 'get_fxa_config'):
+            fxa_config = view.get_fxa_config(request)
+        else:
+            fxa_config = (
+                settings.FXA_CONFIG[settings.DEFAULT_FXA_CONFIG_NAME])
+    else:
+        fxa_config = config
+    return fxa_config
+
+
 def with_user(format, config=None):
 
     def outer(fn):
         @functools.wraps(fn)
         @use_primary_db
         def inner(self, request):
-            if config is None:
-                if hasattr(self, 'get_fxa_config'):
-                    fxa_config = self.get_fxa_config(request)
-                else:
-                    fxa_config = (
-                        settings.FXA_CONFIG[settings.DEFAULT_FXA_CONFIG_NAME])
-            else:
-                fxa_config = config
+            fxa_config = _fxa_config_for(self, request, config)
 
             if request.method == 'GET':
                 data = request.query_params
