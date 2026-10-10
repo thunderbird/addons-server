@@ -97,17 +97,11 @@ class Command(BaseCommand):
             '--separator', action='store', type=str, default='\t',
             dest='separator', help='Field separator in file.')
 
-    def handle(self, *args, **options):
-        sep = options['separator']
-
-        start = datetime.now()  # Measure the time it takes to run the script.
-        day = options['date']
-        if not day:
-            day = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-
+    def _gather_group_filepaths(self, options, day, sep):
+        """Return the list of (group, filepath) pairs to process, after
+        checking each file actually contains data for `day`."""
         groups = ('app', 'locale', 'os', 'status', 'version')
         group_filepaths = []
-        # Make sure we're not trying to update with mismatched data.
         for group in groups:
             if options['stats_source'] == 's3':
                 filepath = 's3://' + '/'.join([settings.AWS_STATS_S3_BUCKET,
@@ -125,6 +119,93 @@ class Command(BaseCommand):
                 raise CommandError('%s file contains data for another day' %
                                    filepath)
             group_filepaths.append((group, filepath))
+        return group_filepaths
+
+    def _process_line(self, line, sep, group, guids_to_addon, update_counts):
+        """Parse one line of hive stats data for one `group`, updating
+        `update_counts` (a dict of addon guid -> UpdateCount) in place."""
+        splitted = line[:-1].split(sep)
+
+        if ((group == 'app' and len(splitted) != 6) or
+                (group != 'app' and len(splitted) != 5)):
+            log.debug('Badly formatted row: %s' % line)
+            return
+
+        if group == 'app':
+            day, addon_guid, app_id, app_ver, count, \
+                update_type = splitted
+        else:
+            day, addon_guid, data, count, update_type = splitted
+
+        addon_guid = addon_guid.strip()
+        if update_type:
+            update_type.strip()
+
+        # Old versions of Firefox don't provide the update type.
+        # All the following are "empty-like" values.
+        if update_type in ['0', 'NULL', 'None', '', '\\N',
+                           '%UPDATE_TYPE%']:
+            update_type = None
+
+        try:
+            count = int(count)
+            if update_type:
+                update_type = int(update_type)
+        except ValueError:  # Badly formatted? Drop.
+            return
+
+        # The following is magic that I don't understand. I've just
+        # been told that this is the way we can make sure a request
+        # is valid:
+        # > the lower bits for updateType (eg 112) should add to
+        # > 16, if not, ignore the request.
+        # > udpateType & 31 == 16 == valid request.
+        if update_type and update_type & 31 != 16:
+            log.debug("Update type doesn't add to 16: %s" %
+                      update_type)
+            return
+
+        # Does this addon exist?
+        if addon_guid and addon_guid in guids_to_addon:
+            addon_id = guids_to_addon[addon_guid]
+        else:
+            log.debug(u"Addon {guid} doesn't exist."
+                      .format(guid=addon_guid.strip()))
+            return
+
+        # Memoize the UpdateCount.
+        if addon_guid in update_counts:
+            uc = update_counts[addon_guid]
+        else:
+            uc = UpdateCount(date=day, addon_id=addon_id, count=0)
+            update_counts[addon_guid] = uc
+
+        # We can now fill the UpdateCount object.
+        if group == 'version':
+            self.update_version(uc, data, count)
+        elif group == 'status':
+            self.update_status(uc, data, count)
+            if data == UPDATE_COUNT_TRIGGER:
+                # Use this count to compute the global number
+                # of daily users for this addon.
+                uc.count += count
+        elif group == 'app':
+            self.update_app(uc, app_id, app_ver, count)
+        elif group == 'os':
+            self.update_os(uc, data, count)
+        elif group == 'locale':
+            self.update_locale(uc, data, count)
+
+    def handle(self, *args, **options):
+        sep = options['separator']
+
+        start = datetime.now()  # Measure the time it takes to run the script.
+        day = options['date']
+        if not day:
+            day = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+        # Make sure we're not trying to update with mismatched data.
+        group_filepaths = self._gather_group_filepaths(options, day, sep)
 
         # First, make sure we don't have any existing counts for the same day,
         # or it would just increment again the same data.
@@ -148,77 +229,8 @@ class Command(BaseCommand):
                 if index and (index % 1000000) == 0:
                     log.info('Processed %s lines' % index)
 
-                splitted = line[:-1].split(sep)
-
-                if ((group == 'app' and len(splitted) != 6) or
-                        (group != 'app' and len(splitted) != 5)):
-                    log.debug('Badly formatted row: %s' % line)
-                    continue
-
-                if group == 'app':
-                    day, addon_guid, app_id, app_ver, count, \
-                        update_type = splitted
-                else:
-                    day, addon_guid, data, count, update_type = splitted
-
-                addon_guid = addon_guid.strip()
-                if update_type:
-                    update_type.strip()
-
-                # Old versions of Firefox don't provide the update type.
-                # All the following are "empty-like" values.
-                if update_type in ['0', 'NULL', 'None', '', '\\N',
-                                   '%UPDATE_TYPE%']:
-                    update_type = None
-
-                try:
-                    count = int(count)
-                    if update_type:
-                        update_type = int(update_type)
-                except ValueError:  # Badly formatted? Drop.
-                    continue
-
-                # The following is magic that I don't understand. I've just
-                # been told that this is the way we can make sure a request
-                # is valid:
-                # > the lower bits for updateType (eg 112) should add to
-                # > 16, if not, ignore the request.
-                # > udpateType & 31 == 16 == valid request.
-                if update_type and update_type & 31 != 16:
-                    log.debug("Update type doesn't add to 16: %s" %
-                              update_type)
-                    continue
-
-                # Does this addon exist?
-                if addon_guid and addon_guid in guids_to_addon:
-                    addon_id = guids_to_addon[addon_guid]
-                else:
-                    log.debug(u"Addon {guid} doesn't exist."
-                              .format(guid=addon_guid.strip()))
-                    continue
-
-                # Memoize the UpdateCount.
-                if addon_guid in update_counts:
-                    uc = update_counts[addon_guid]
-                else:
-                    uc = UpdateCount(date=day, addon_id=addon_id, count=0)
-                    update_counts[addon_guid] = uc
-
-                # We can now fill the UpdateCount object.
-                if group == 'version':
-                    self.update_version(uc, data, count)
-                elif group == 'status':
-                    self.update_status(uc, data, count)
-                    if data == UPDATE_COUNT_TRIGGER:
-                        # Use this count to compute the global number
-                        # of daily users for this addon.
-                        uc.count += count
-                elif group == 'app':
-                    self.update_app(uc, app_id, app_ver, count)
-                elif group == 'os':
-                    self.update_os(uc, data, count)
-                elif group == 'locale':
-                    self.update_locale(uc, data, count)
+                self._process_line(line, sep, group, guids_to_addon,
+                                   update_counts)
 
         # Make sure the locales and versions fields aren't too big to fit in
         # the database. Those two fields are the only ones that are not fully

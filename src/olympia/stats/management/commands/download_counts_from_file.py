@@ -81,6 +81,63 @@ class Command(BaseCommand):
             '--separator', action='store', type=str, default='\t',
             dest='separator', help='Field separator in file.')
 
+    def _process_line(self, line, sep, files_to_addon, slugs_to_addon,
+                      fulls, prefixes, download_counts):
+        """Parse one line of hive stats data, updating `download_counts`
+        (a dict of addon id -> DownloadCount) in place."""
+        splitted = line[:-1].split(sep)
+
+        if len(splitted) != 4:
+            log.debug('Badly formatted row: %s' % line)
+            return
+
+        day, counter, id_or_slug, src = splitted
+        try:
+            # Clean up data.
+            id_or_slug = id_or_slug.strip()
+            counter = int(counter)
+        except ValueError:
+            # Ignore completely invalid data.
+            return
+
+        if id_or_slug.strip().isdigit():
+            # If it's a digit, then it should be a file id.
+            try:
+                id_or_slug = int(id_or_slug)
+            except ValueError:
+                return
+
+            # Does this file exist?
+            if id_or_slug in files_to_addon:
+                addon_id = files_to_addon[id_or_slug]
+            # Maybe it's an add-on ?
+            elif id_or_slug in files_to_addon.values():
+                addon_id = id_or_slug
+            else:
+                # It's an integer we don't recognize, ignore the row.
+                return
+        else:
+            # It's probably a slug.
+            if id_or_slug in slugs_to_addon:
+                addon_id = slugs_to_addon[id_or_slug]
+            else:
+                # We've exhausted all possibilities, ignore this row.
+                return
+
+        if not is_valid_source(src, fulls=fulls, prefixes=prefixes):
+            return
+
+        # Memoize the DownloadCount.
+        if addon_id in download_counts:
+            dc = download_counts[addon_id]
+        else:
+            dc = DownloadCount(date=day, addon_id=addon_id, count=0)
+            download_counts[addon_id] = dc
+
+        # We can now fill the DownloadCount object.
+        dc.count += counter
+        dc.sources = update_inc(dc.sources, src, counter)
+
     def handle(self, *args, **options):
         start = datetime.now()  # Measure the time it takes to run the script.
         day = options['date']
@@ -134,58 +191,8 @@ class Command(BaseCommand):
             if index and (index % 1000000) == 0:
                 log.info('Processed %s lines' % index)
 
-            splitted = line[:-1].split(sep)
-
-            if len(splitted) != 4:
-                log.debug('Badly formatted row: %s' % line)
-                continue
-
-            day, counter, id_or_slug, src = splitted
-            try:
-                # Clean up data.
-                id_or_slug = id_or_slug.strip()
-                counter = int(counter)
-            except ValueError:
-                # Ignore completely invalid data.
-                continue
-
-            if id_or_slug.strip().isdigit():
-                # If it's a digit, then it should be a file id.
-                try:
-                    id_or_slug = int(id_or_slug)
-                except ValueError:
-                    continue
-
-                # Does this file exist?
-                if id_or_slug in files_to_addon:
-                    addon_id = files_to_addon[id_or_slug]
-                # Maybe it's an add-on ?
-                elif id_or_slug in files_to_addon.values():
-                    addon_id = id_or_slug
-                else:
-                    # It's an integer we don't recognize, ignore the row.
-                    continue
-            else:
-                # It's probably a slug.
-                if id_or_slug in slugs_to_addon:
-                    addon_id = slugs_to_addon[id_or_slug]
-                else:
-                    # We've exhausted all possibilities, ignore this row.
-                    continue
-
-            if not is_valid_source(src, fulls=fulls, prefixes=prefixes):
-                continue
-
-            # Memoize the DownloadCount.
-            if addon_id in download_counts:
-                dc = download_counts[addon_id]
-            else:
-                dc = DownloadCount(date=day, addon_id=addon_id, count=0)
-                download_counts[addon_id] = dc
-
-            # We can now fill the DownloadCount object.
-            dc.count += counter
-            dc.sources = update_inc(dc.sources, src, counter)
+            self._process_line(line, sep, files_to_addon, slugs_to_addon,
+                               fulls, prefixes, download_counts)
 
         # Close all old connections in this thread before we start creating the
         # `DownloadCount` values.
