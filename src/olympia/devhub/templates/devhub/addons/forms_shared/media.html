@@ -21,7 +21,7 @@
           {% endif %}
           <td>
           {% if context == 'submit' %}
-            <label>
+            <label id="media-icon-type-label">
               {% trans -%}
                 Select an icon for your add-on:
               {%- endtrans %}
@@ -58,7 +58,7 @@
                   {{ tip(None, _("Will be the standard in future add-on detail pages.")) }}
                 </div>
               </div>
-              <ul id="icons_default">
+              <ul id="icons_default" role="radiogroup" aria-labelledby="media-icon-type-label">
                 {{ form.icon_type }}
               </ul>
               <div class="invisible-upload">
@@ -92,19 +92,19 @@
         <tr>
           {% if context == 'edit' %}
           <th>
-            <label>{{ _("Screenshots") }}</label>
+            <label id="media-screenshots-label">{{ _("Screenshots") }}</label>
           </th>
           {% endif %}
           <td class="edit-previews-readonly">
             {% if context == 'submit' %}
-            <label>
+            <label id="media-screenshots-submit-label">
               {% trans %}
                 Please provide at least one screen shot of your add-on:
               {% endtrans %}
             </label>
             {% endif %}
 
-            <div {{ 'class="edit-previews-submit"' if context == 'submit' else '' }}>
+            <div role="group" aria-labelledby="media-screenshots-label" aria-describedby="media-screenshots-submit-label" {{ 'class="edit-previews-submit"' if context == 'submit' else '' }}>
             {% if editable %}
               {% if preview_form %}
                 {{ preview_form.management_form }}
