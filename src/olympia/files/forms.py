@@ -20,6 +20,49 @@ from olympia.versions.models import Version
 log = olympia.core.logger.getLogger('z.files')
 
 
+def _selected_file(context):
+    """Return the File selected in the widget context, or None."""
+    selected_choices = []
+
+    for group in context['widget']['optgroups']:
+        select_option = group[1][0]
+        if select_option['selected']:
+            selected_choices.append(select_option['value'])
+
+    if selected_choices and selected_choices[0]:
+        return File.objects.get(id=selected_choices[0])
+    return None
+
+
+def _render_file_option(files, selected, label=None, deleted=False,
+                        channel=None):
+    """Return the HTML pieces of one <option> for a group of files."""
+    # Make sure that if there's a non-disabled version,
+    # that's the one we use for the ID.
+    files = sorted(
+        files, key=lambda a: a.status == amo.STATUS_DISABLED)
+
+    if label is None:
+        label = u', '.join(f.get_platform_display() for f in files)
+
+    output = [u'<option value="', jinja2.escape(files[0].id), u'" ']
+    if selected in files:
+        output.append(u' selected="true"')
+
+    status = {u'status-%s' % amo.STATUS_CHOICES_API[f.status]
+              for f in files}
+    if deleted:
+        status.update([u'status-deleted'])
+    if channel:
+        if channel == amo.RELEASE_CHANNEL_LISTED:
+            label += ' [AMO]'
+        elif channel == amo.RELEASE_CHANNEL_UNLISTED:
+            label += ' [Self]'
+    output.extend((u' class="', jinja2.escape(' '.join(status)), u'"'))
+    output.extend((u'>', jinja2.escape(label), u'</option>\n'))
+    return output
+
+
 class FileSelectWidget(widgets.Select):
 
     def render(self, name, value, attrs=None, renderer=None):
@@ -36,42 +79,11 @@ class FileSelectWidget(widgets.Select):
 
     def render_options(self, context):
         def option(files, label=None, deleted=False, channel=None):
-            # Make sure that if there's a non-disabled version,
-            # that's the one we use for the ID.
-            files = sorted(
-                files, key=lambda a: a.status == amo.STATUS_DISABLED)
+            return _render_file_option(
+                files, selected, label=label, deleted=deleted,
+                channel=channel)
 
-            if label is None:
-                label = u', '.join(f.get_platform_display() for f in files)
-
-            output = [u'<option value="', jinja2.escape(files[0].id), u'" ']
-            if selected in files:
-                output.append(u' selected="true"')
-
-            status = {u'status-%s' % amo.STATUS_CHOICES_API[f.status]
-                      for f in files}
-            if deleted:
-                status.update([u'status-deleted'])
-            if channel:
-                if channel == amo.RELEASE_CHANNEL_LISTED:
-                    label += ' [AMO]'
-                elif channel == amo.RELEASE_CHANNEL_UNLISTED:
-                    label += ' [Self]'
-            output.extend((u' class="', jinja2.escape(' '.join(status)), u'"'))
-            output.extend((u'>', jinja2.escape(label), u'</option>\n'))
-            return output
-
-        selected_choices = []
-
-        for group in context['widget']['optgroups']:
-            select_option = group[1][0]
-            if select_option['selected']:
-                selected_choices.append(select_option['value'])
-
-        if selected_choices and selected_choices[0]:
-            selected = File.objects.get(id=selected_choices[0])
-        else:
-            selected = None
+        selected = _selected_file(context)
 
         file_ids = [int(c[0]) for c in self.choices if c[0]]
 

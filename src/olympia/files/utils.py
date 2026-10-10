@@ -452,21 +452,9 @@ class ManifestJSONExtractor(object):
             return int(version)
         return None
 
-    def apps(self):
-        """Get `AppVersion`s for the application."""
-        if self.type == amo.ADDON_DICT:
-            # WebExt dicts are only compatible with Thunderbird >= 60.5.
-            apps = (
-                (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_DICT_MIN_VERSION_THUNDERBIRD),
-            )
-        else:
-            # Langpacks (strictly compatible with a specific version, so the
-            # default min version here doesn't matter much), static themes
-            # and other extensions are compatible with Thunderbird >= 60.
-            apps = (
-                (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD),
-            )
-
+    def _validate_apps_constraints(self):
+        """Raise ValidationError if the manifest's GUID or version
+        constraints can't be accepted."""
         if self.guid is None:
             raise forms.ValidationError(
                 gettext('GUID is required for Thunderbird Mail Extensions, including Themes.')
@@ -505,6 +493,23 @@ class ManifestJSONExtractor(object):
         # Manifest version 3 does not support 'applications', only 'browser_specific_settings'!
         if self.manifest_version == 3 and self.get('applications'):
             raise forms.ValidationError(gettext('Manifest v3 does not support "applications" key. Please use "browser_specific_settings" instead.'))
+
+    def apps(self):
+        """Get `AppVersion`s for the application."""
+        if self.type == amo.ADDON_DICT:
+            # WebExt dicts are only compatible with Thunderbird >= 60.5.
+            apps = (
+                (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_DICT_MIN_VERSION_THUNDERBIRD),
+            )
+        else:
+            # Langpacks (strictly compatible with a specific version, so the
+            # default min version here doesn't matter much), static themes
+            # and other extensions are compatible with Thunderbird >= 60.
+            apps = (
+                (amo.THUNDERBIRD, amo.DEFAULT_WEBEXT_MIN_VERSION_THUNDERBIRD),
+            )
+
+        self._validate_apps_constraints()
 
         for app, default_min_version in apps:
             if self.guid is None and not self.strict_min_version:
@@ -1002,8 +1007,57 @@ def parse_xpi(xpi, addon=None, minimal=False, user=None):
     return check_xpi_info(xpi_info, addon, xpi, user=user)
 
 
-def check_xpi_info(xpi_info, addon=None, xpi_file=None, user=None):
+def _check_guid_clashes(guid, addon):
+    """Raise ValidationError if guid doesn't match addon, or (for a new
+    add-on) is already taken."""
     from olympia.addons.models import Addon, DeniedGuid
+
+    current_user = core.get_user()
+    if current_user:
+        deleted_guid_clashes = Addon.unfiltered.exclude(
+            authors__id=current_user.id).filter(guid=guid)
+    else:
+        deleted_guid_clashes = Addon.unfiltered.filter(guid=guid)
+
+    if addon and addon.guid != guid:
+        msg = gettext(
+            'The add-on ID in your manifest.json or install.rdf (%s) '
+            'does not match the ID of your add-on on AMO (%s)')
+        raise forms.ValidationError(msg % (guid, addon.guid))
+    if (not addon and
+        # Non-deleted add-ons.
+        (Addon.objects.filter(guid=guid).exists() or
+         # DeniedGuid objects for deletions for Mozilla disabled add-ons
+         DeniedGuid.objects.filter(guid=guid).exists() or
+         # Deleted add-ons that don't belong to the uploader.
+         deleted_guid_clashes.exists())):
+        raise forms.ValidationError(gettext('Duplicate add-on ID found.'))
+
+
+def _check_version_string(version):
+    """Raise ValidationError if version is too long or has characters
+    outside VERSION_RE."""
+    if len(version) > 32:
+        raise forms.ValidationError(
+            gettext('Version numbers should have fewer than 32 characters.'))
+    if not VERSION_RE.match(version):
+        raise forms.ValidationError(
+            gettext('Version numbers should only contain letters, numbers, '
+                     'and these punctuation characters: +*.-_.'))
+
+
+def _check_static_theme_size(xpi_file):
+    """Raise ValidationError if a static theme file is over the size
+    limit."""
+    max_size = settings.MAX_STATICTHEME_SIZE
+    if xpi_file and os.path.getsize(xpi_file.name) > max_size:
+        raise forms.ValidationError(
+            gettext('Maximum size for WebExtension themes is {0}.')
+            .format(filesizeformat(max_size)))
+
+
+def check_xpi_info(xpi_info, addon=None, xpi_file=None, user=None):
+    from olympia.addons.models import Addon
     guid = xpi_info['guid']
     is_webextension = xpi_info.get('is_webextension', False)
 
@@ -1018,40 +1072,11 @@ def check_xpi_info(xpi_info, addon=None, xpi_file=None, user=None):
         raise forms.ValidationError(gettext('Could not find an add-on ID.'))
 
     if guid:
-        current_user = core.get_user()
-        if current_user:
-            deleted_guid_clashes = Addon.unfiltered.exclude(
-                authors__id=current_user.id).filter(guid=guid)
-        else:
-            deleted_guid_clashes = Addon.unfiltered.filter(guid=guid)
-
-        if addon and addon.guid != guid:
-            msg = gettext(
-                'The add-on ID in your manifest.json or install.rdf (%s) '
-                'does not match the ID of your add-on on AMO (%s)')
-            raise forms.ValidationError(msg % (guid, addon.guid))
-        if (not addon and
-            # Non-deleted add-ons.
-            (Addon.objects.filter(guid=guid).exists() or
-             # DeniedGuid objects for deletions for Mozilla disabled add-ons
-             DeniedGuid.objects.filter(guid=guid).exists() or
-             # Deleted add-ons that don't belong to the uploader.
-             deleted_guid_clashes.exists())):
-            raise forms.ValidationError(gettext('Duplicate add-on ID found.'))
-    if len(xpi_info['version']) > 32:
-        raise forms.ValidationError(
-            gettext('Version numbers should have fewer than 32 characters.'))
-    if not VERSION_RE.match(xpi_info['version']):
-        raise forms.ValidationError(
-            gettext('Version numbers should only contain letters, numbers, '
-                     'and these punctuation characters: +*.-_.'))
+        _check_guid_clashes(guid, addon)
+    _check_version_string(xpi_info['version'])
 
     if is_webextension and xpi_info.get('type') == amo.ADDON_STATICTHEME:
-        max_size = settings.MAX_STATICTHEME_SIZE
-        if xpi_file and os.path.getsize(xpi_file.name) > max_size:
-            raise forms.ValidationError(
-                gettext('Maximum size for WebExtension themes is {0}.')
-                .format(filesizeformat(max_size)))
+        _check_static_theme_size(xpi_file)
 
     if xpi_file:
         # Make sure we pass in a copy of `xpi_info` since
