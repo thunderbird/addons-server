@@ -1331,7 +1331,7 @@ class Addon(OnChangeMixin, ModelBase):
     def tags_partitioned_by_developer(self):
         """Returns a tuple of developer tags and user tags for this addon."""
         tags = self.tags.not_denied()
-        if self.is_persona:
+        if self.is_persona():
             return [], tags
         user_tags = tags.exclude(addon_tags__user__in=self.listed_authors)
         dev_tags = tags.exclude(id__in=[t.id for t in user_tags])
