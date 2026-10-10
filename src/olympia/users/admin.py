@@ -27,6 +27,48 @@ from . import forms
 from .models import DeniedName, GroupUser, UserProfile
 
 
+def _construct_search(field_name):
+    if field_name.startswith('^'):
+        return "%s__istartswith" % field_name[1:]
+    elif field_name.startswith('='):
+        return "%s__iexact" % field_name[1:]
+    elif field_name.startswith('@'):
+        return "%s__icontains" % field_name[1:]
+    else:
+        return "%s__icontains" % field_name
+
+
+def _search_term_filters(search_term, search_fields, opts):
+    """Build the (filters, use_distinct, joining_operator) tuple used by
+    UserAdmin.get_search_results() to filter and dedupe the queryset."""
+    use_distinct = False
+    filters = []
+    joining_operator = operator.and_
+    if search_fields and search_term:
+        orm_lookups = [_construct_search(str(search_field))
+                       for search_field in search_fields]
+        if ' ' not in search_term and ',' in search_term:
+            separator = ','
+            joining_operator = operator.or_
+        else:
+            separator = None
+        for bit in search_term.split(separator):
+            or_queries = [models.Q(**{orm_lookup: bit})
+                          for orm_lookup in orm_lookups]
+
+            q_for_this_term = models.Q(
+                functools.reduce(operator.or_, or_queries))
+            filters.append(q_for_this_term)
+
+        if not use_distinct:
+            for search_spec in orm_lookups:
+                if admin.utils.lookup_needs_distinct(opts, search_spec):
+                    use_distinct = True
+                    break
+
+    return filters, use_distinct, joining_operator
+
+
 class GroupUserInline(admin.TabularInline):
     model = GroupUser
     raw_id_fields = ('user',)
@@ -220,47 +262,36 @@ class UserAdmin(admin.ModelAdmin):
         ids, emails or usernames and find all objects in that list.
         """
         # Apply keyword searches.
-        def construct_search(field_name):
-            if field_name.startswith('^'):
-                return "%s__istartswith" % field_name[1:]
-            elif field_name.startswith('='):
-                return "%s__iexact" % field_name[1:]
-            elif field_name.startswith('@'):
-                return "%s__icontains" % field_name[1:]
-            else:
-                return "%s__icontains" % field_name
-
-        use_distinct = False
         search_fields = self.get_search_fields(request)
-        filters = []
-        joining_operator = operator.and_
-        if search_fields and search_term:
-            orm_lookups = [construct_search(str(search_field))
-                           for search_field in search_fields]
-            if ' ' not in search_term and ',' in search_term:
-                separator = ','
-                joining_operator = operator.or_
-            else:
-                separator = None
-            for bit in search_term.split(separator):
-                or_queries = [models.Q(**{orm_lookup: bit})
-                              for orm_lookup in orm_lookups]
-
-                q_for_this_term = models.Q(
-                    functools.reduce(operator.or_, or_queries))
-                filters.append(q_for_this_term)
-
-            if not use_distinct:
-                for search_spec in orm_lookups:
-                    if admin.utils.lookup_needs_distinct(
-                            self.opts, search_spec):
-                        use_distinct = True
-                        break
+        filters, use_distinct, joining_operator = _search_term_filters(
+            search_term, search_fields, self.opts)
 
         if filters:
             queryset = queryset.filter(
                 functools.reduce(joining_operator, filters))
         return queryset, use_distinct
+
+
+def _bulk_insert_denied_values(deny_list_model, model_field, values):
+    inserted = 0
+    duplicates = 0
+
+    for x in values:
+        # check with the cache
+        if deny_list_model.blocked(x):
+            duplicates += 1
+            continue
+        try:
+            deny_list_model.objects.create(**{model_field: x.lower()})
+            inserted += 1
+        except IntegrityError:
+            # although unlikely, someone else could have added
+            # the same value.
+            # note: unless we manage the transactions manually,
+            # we do lose a primary id here.
+            duplicates += 1
+
+    return inserted, duplicates
 
 
 class DeniedModelAdmin(admin.ModelAdmin):
@@ -270,24 +301,9 @@ class DeniedModelAdmin(admin.ModelAdmin):
         if request.method == 'POST':
             form = self.model_add_form(request.POST)
             if form.is_valid():
-                inserted = 0
-                duplicates = 0
-
-                for x in form.cleaned_data[self.add_form_field].splitlines():
-                    # check with the cache
-                    if self.deny_list_model.blocked(x):
-                        duplicates += 1
-                        continue
-                    try:
-                        self.deny_list_model.objects.create(
-                            **{self.model_field: x.lower()})
-                        inserted += 1
-                    except IntegrityError:
-                        # although unlikely, someone else could have added
-                        # the same value.
-                        # note: unless we manage the transactions manually,
-                        # we do lose a primary id here.
-                        duplicates += 1
+                values = form.cleaned_data[self.add_form_field].splitlines()
+                inserted, duplicates = _bulk_insert_denied_values(
+                    self.deny_list_model, self.model_field, values)
                 msg = '%s new values added to the deny list.' % (inserted)
                 if duplicates:
                     msg += ' %s duplicates were ignored.' % (duplicates)
