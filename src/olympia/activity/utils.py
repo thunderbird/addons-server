@@ -221,6 +221,41 @@ def log_and_notify(action, comments, note_creator, version, perm_setting=None,
     return note
 
 
+def _build_subjects(note, addon, version, author_context_dict):
+    """Build the (subject, reviewer_subject) pair and, for
+    REQUEST_INFORMATION notes, the extra 'number_of_days_left' context
+    entry (added in-place to author_context_dict), all under the en-US
+    locale override."""
+    # Not being localised because we don't know the recipients locale.
+    with translation.override('en-US'):
+        if note.action == amo.LOG.REQUEST_INFORMATION.id:
+            if addon.pending_info_request:
+                days_left = (
+                    # We pad the time left with an extra hour so that the email
+                    # does not end up saying "6 days left" because a few
+                    # seconds or minutes passed between the datetime was saved
+                    # and the email was sent.
+                    addon.pending_info_request + timedelta(hours=1) -
+                    datetime.now()
+                ).days
+                if days_left > 9:
+                    author_context_dict['number_of_days_left'] = (
+                        '%d days' % days_left)
+                elif days_left > 1:
+                    author_context_dict['number_of_days_left'] = (
+                        '%s (%d) days' % (apnumber(days_left), days_left))
+                else:
+                    author_context_dict['number_of_days_left'] = 'one (1) day'
+            subject = u'Mozilla Add-ons: Action Required for %s %s' % (
+                addon.name, version.version)
+            reviewer_subject = u'Mozilla Add-ons: %s %s' % (
+                addon.name, version.version)
+        else:
+            subject = reviewer_subject = u'Mozilla Add-ons: %s %s' % (
+                addon.name, version.version)
+    return subject, reviewer_subject
+
+
 def notify_about_activity_log(addon, version, note, perm_setting=None,
                               send_to_reviewers=True, send_to_staff=True):
     """Notify relevant users about an ActivityLog note."""
@@ -250,33 +285,8 @@ def notify_about_activity_log(addon, version, note, perm_setting=None,
         'is_info_request': note.action == amo.LOG.REQUEST_INFORMATION.id,
     }
 
-    # Not being localised because we don't know the recipients locale.
-    with translation.override('en-US'):
-        if note.action == amo.LOG.REQUEST_INFORMATION.id:
-            if addon.pending_info_request:
-                days_left = (
-                    # We pad the time left with an extra hour so that the email
-                    # does not end up saying "6 days left" because a few
-                    # seconds or minutes passed between the datetime was saved
-                    # and the email was sent.
-                    addon.pending_info_request + timedelta(hours=1) -
-                    datetime.now()
-                ).days
-                if days_left > 9:
-                    author_context_dict['number_of_days_left'] = (
-                        '%d days' % days_left)
-                elif days_left > 1:
-                    author_context_dict['number_of_days_left'] = (
-                        '%s (%d) days' % (apnumber(days_left), days_left))
-                else:
-                    author_context_dict['number_of_days_left'] = 'one (1) day'
-            subject = u'Mozilla Add-ons: Action Required for %s %s' % (
-                addon.name, version.version)
-            reviewer_subject = u'Mozilla Add-ons: %s %s' % (
-                addon.name, version.version)
-        else:
-            subject = reviewer_subject = u'Mozilla Add-ons: %s %s' % (
-                addon.name, version.version)
+    subject, reviewer_subject = _build_subjects(
+        note, addon, version, author_context_dict)
     # Build and send the mail for authors.
     template = template_from_user(note.user, version)
     from_email = formataddr((note.user.name, NOTIFICATIONS_FROM_EMAIL))
