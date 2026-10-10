@@ -69,6 +69,55 @@ class Command(BaseCommand):
             f.write('BUILD_ID_IMG = "%s"\n' % self.build_id)
             f.write('BUNDLE_HASHES = %s\n' % self.bundle_hashes)
 
+    def _process_bundle(self, ftype, name, files):
+        """Concat, cache bust (CSS) and minify one bundle."""
+        # Set the paths to the files.
+        concatted_file = os.path.join(
+            settings.ROOT, 'static',
+            ftype, '%s-all.%s' % (name, ftype,))
+        compressed_file = os.path.join(
+            settings.ROOT, 'static',
+            ftype, '%s-min.%s' % (name, ftype,))
+
+        ensure_path_exists(concatted_file)
+        ensure_path_exists(compressed_file)
+
+        files_all = []
+        for fn in files:
+            processed = self._preprocess_file(fn)
+            # If the file can't be processed, we skip it.
+            if processed is not None:
+                files_all.append(processed)
+
+        # Concat all the files.
+        tmp_concatted = TMP_FILE_NAME % concatted_file
+        if len(files_all) == 0:
+            raise CommandError(
+                'No input files specified in '
+                'MINIFY_BUNDLES["%s"]["%s"] in settings.py!' %
+                (ftype, name)
+            )
+        run_command('cat {files} > {tmp}'.format(
+            files=' '.join(files_all),
+            tmp=tmp_concatted
+        ))
+
+        # Cache bust individual images in the CSS.
+        if ftype == 'css':
+            bundle_hash = self._cachebust(tmp_concatted)
+            self.bundle_hashes['%s:%s' % (ftype, name)] = bundle_hash
+
+        # Compresses the concatenations.
+        is_changed = self._is_changed(concatted_file)
+        self._clean_tmp(concatted_file)
+        if is_changed or not os.path.isfile(compressed_file):
+            self._minify(ftype, concatted_file, compressed_file)
+        else:
+            print(
+                'File unchanged, skipping minification of %s' % (
+                    concatted_file))
+            self.minify_skipped += 1
+
     def handle(self, **options):
         self.force_compress = options.get('force', False)
 
@@ -78,52 +127,7 @@ class Command(BaseCommand):
         # - Minify the concatted files
         for ftype, bundle in six.iteritems(settings.MINIFY_BUNDLES):
             for name, files in six.iteritems(bundle):
-                # Set the paths to the files.
-                concatted_file = os.path.join(
-                    settings.ROOT, 'static',
-                    ftype, '%s-all.%s' % (name, ftype,))
-                compressed_file = os.path.join(
-                    settings.ROOT, 'static',
-                    ftype, '%s-min.%s' % (name, ftype,))
-
-                ensure_path_exists(concatted_file)
-                ensure_path_exists(compressed_file)
-
-                files_all = []
-                for fn in files:
-                    processed = self._preprocess_file(fn)
-                    # If the file can't be processed, we skip it.
-                    if processed is not None:
-                        files_all.append(processed)
-
-                # Concat all the files.
-                tmp_concatted = TMP_FILE_NAME % concatted_file
-                if len(files_all) == 0:
-                    raise CommandError(
-                        'No input files specified in '
-                        'MINIFY_BUNDLES["%s"]["%s"] in settings.py!' %
-                        (ftype, name)
-                    )
-                run_command('cat {files} > {tmp}'.format(
-                    files=' '.join(files_all),
-                    tmp=tmp_concatted
-                ))
-
-                # Cache bust individual images in the CSS.
-                if ftype == 'css':
-                    bundle_hash = self._cachebust(tmp_concatted)
-                    self.bundle_hashes['%s:%s' % (ftype, name)] = bundle_hash
-
-                # Compresses the concatenations.
-                is_changed = self._is_changed(concatted_file)
-                self._clean_tmp(concatted_file)
-                if is_changed or not os.path.isfile(compressed_file):
-                    self._minify(ftype, concatted_file, compressed_file)
-                else:
-                    print(
-                        'File unchanged, skipping minification of %s' % (
-                            concatted_file))
-                    self.minify_skipped += 1
+                self._process_bundle(ftype, name, files)
 
         # Write out the hashes
         self.update_hashes()

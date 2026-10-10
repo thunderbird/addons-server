@@ -214,9 +214,7 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
 
     Adds deny checking and error logging.
     """
-    from olympia.amo.templatetags.jinja_helpers import absolutify
     from olympia.amo.tasks import send_email
-    from olympia.users import notifications
 
     if not recipient_list:
         return True
@@ -226,25 +224,12 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
 
     # Check against user notification settings
     if perm_setting:
-        if isinstance(perm_setting, six.string_types):
-            perm_setting = notifications.NOTIFICATIONS_BY_SHORT[perm_setting]
-        perms = dict(UserNotification.objects
-                                     .filter(user__email__in=recipient_list,
-                                             notification_id=perm_setting.id)
-                                     .values_list('user__email', 'enabled'))
-
-        d = perm_setting.default_checked
-        recipient_list = [e for e in recipient_list
-                          if e and perms.setdefault(e, d)]
+        perm_setting, recipient_list = _filter_by_notification_setting(
+            recipient_list, perm_setting)
 
     # Prune denied emails.
     if use_deny_list:
-        white_list = []
-        for email in recipient_list:
-            if email and email.lower() in settings.EMAIL_DENY_LIST:
-                log.debug('Blacklisted email removed from list: %s' % email)
-            else:
-                white_list.append(email)
+        white_list = _prune_denied_emails(recipient_list)
     else:
         white_list = recipient_list
 
@@ -281,49 +266,92 @@ def send_mail(subject, message, from_email=None, recipient_list=None,
 
     if white_list:
         if perm_setting:
-            html_template = loader.get_template('amo/emails/unsubscribe.html')
-            text_template = loader.get_template('amo/emails/unsubscribe.ltxt')
-            if not manage_url:
-                manage_url = urlparams(absolutify(
-                    reverse('users.edit', add_prefix=False)),
-                    'acct-notify')
-            for recipient in white_list:
-                # Add unsubscribe link to footer.
-                token, code_hash = UnsubscribeCode.create(recipient)
-                unsubscribe_url = absolutify(
-                    reverse('users.unsubscribe',
-                            args=[token, code_hash, perm_setting.short],
-                            add_prefix=False))
-
-                context = {
-                    'message': message,
-                    'manage_url': manage_url,
-                    'unsubscribe_url': unsubscribe_url,
-                    'perm_setting': perm_setting.label,
-                    'SITE_URL': settings.SITE_URL,
-                    'mandatory': perm_setting.mandatory,
-                }
-                # Render this template in the default locale until
-                # bug 635840 is fixed.
-                with translation.override(settings.LANGUAGE_CODE):
-                    message_with_unsubscribe = text_template.render(context)
-
-                if html_message:
-                    context['message'] = html_message
-                    with translation.override(settings.LANGUAGE_CODE):
-                        html_with_unsubscribe = html_template.render(context)
-                        result = send([recipient], message_with_unsubscribe,
-                                      html_message=html_with_unsubscribe,
-                                      attachments=attachments)
-                else:
-                    result = send([recipient], message_with_unsubscribe,
-                                  attachments=attachments)
+            result = _send_with_unsubscribe_links(
+                send, white_list, message, html_message, perm_setting,
+                manage_url, attachments)
         else:
             result = send(recipient_list, message=message,
                           html_message=html_message, attachments=attachments)
     else:
         result = True
 
+    return result
+
+
+def _filter_by_notification_setting(recipient_list, perm_setting):
+    """Resolve perm_setting (a notification or its short name) and drop
+    the recipients who turned that notification off.
+
+    Returns (perm_setting, recipient_list)."""
+    from olympia.users import notifications
+
+    if isinstance(perm_setting, six.string_types):
+        perm_setting = notifications.NOTIFICATIONS_BY_SHORT[perm_setting]
+    perms = dict(UserNotification.objects
+                                 .filter(user__email__in=recipient_list,
+                                         notification_id=perm_setting.id)
+                                 .values_list('user__email', 'enabled'))
+
+    d = perm_setting.default_checked
+    recipient_list = [e for e in recipient_list
+                      if e and perms.setdefault(e, d)]
+    return perm_setting, recipient_list
+
+
+def _prune_denied_emails(recipient_list):
+    """Return recipient_list without the emails in EMAIL_DENY_LIST."""
+    white_list = []
+    for email in recipient_list:
+        if email and email.lower() in settings.EMAIL_DENY_LIST:
+            log.debug('Blacklisted email removed from list: %s' % email)
+        else:
+            white_list.append(email)
+    return white_list
+
+
+def _send_with_unsubscribe_links(send, white_list, message, html_message,
+                                 perm_setting, manage_url, attachments):
+    """Send one email per recipient with an unsubscribe footer, using the
+    send() callable built by send_mail. Returns the last send() result."""
+    from olympia.amo.templatetags.jinja_helpers import absolutify
+
+    html_template = loader.get_template('amo/emails/unsubscribe.html')
+    text_template = loader.get_template('amo/emails/unsubscribe.ltxt')
+    if not manage_url:
+        manage_url = urlparams(absolutify(
+            reverse('users.edit', add_prefix=False)),
+            'acct-notify')
+    for recipient in white_list:
+        # Add unsubscribe link to footer.
+        token, code_hash = UnsubscribeCode.create(recipient)
+        unsubscribe_url = absolutify(
+            reverse('users.unsubscribe',
+                    args=[token, code_hash, perm_setting.short],
+                    add_prefix=False))
+
+        context = {
+            'message': message,
+            'manage_url': manage_url,
+            'unsubscribe_url': unsubscribe_url,
+            'perm_setting': perm_setting.label,
+            'SITE_URL': settings.SITE_URL,
+            'mandatory': perm_setting.mandatory,
+        }
+        # Render this template in the default locale until
+        # bug 635840 is fixed.
+        with translation.override(settings.LANGUAGE_CODE):
+            message_with_unsubscribe = text_template.render(context)
+
+        if html_message:
+            context['message'] = html_message
+            with translation.override(settings.LANGUAGE_CODE):
+                html_with_unsubscribe = html_template.render(context)
+                result = send([recipient], message_with_unsubscribe,
+                              html_message=html_with_unsubscribe,
+                              attachments=attachments)
+        else:
+            result = send([recipient], message_with_unsubscribe,
+                          attachments=attachments)
     return result
 
 
@@ -526,6 +554,38 @@ def raise_required():
     raise ValidationError(Field.default_error_messages['required'])
 
 
+def _strip_block_newlines(tree, html_blocks):
+    # In etree, a tag may have:
+    # - some text content (piece of text before its first child)
+    # - a tail (piece of text just after the tag, and before a sibling)
+    # - children
+    # Eg: "<div>text <b>children's text</b> children's tail</div> tail".
+
+    # Strip new lines directly inside block level elements: first new lines
+    # from the text, and:
+    # - last new lines from the tail of the last child if there's children
+    #   (done in the children loop below).
+    # - or last new lines from the text itself.
+    if tree.tag in html_blocks:
+        if tree.text:
+            tree.text = tree.text.lstrip('\n')
+            if not len(tree):  # No children.
+                tree.text = tree.text.rstrip('\n')
+
+        # Remove the first new line after a block level element.
+        if tree.tail and tree.tail.startswith('\n'):
+            tree.tail = tree.tail[1:]
+
+    for child in tree:  # Recurse down the tree.
+        if tree.tag in html_blocks:
+            # Strip new lines directly inside block level elements: remove
+            # the last new lines from the children's tails.
+            if child.tail:
+                child.tail = child.tail.rstrip('\n')
+        _strip_block_newlines(child, html_blocks)
+    return tree
+
+
 def clean_nl(string):
     """
     This will clean up newlines so that nl2br can properly be called on the
@@ -540,38 +600,8 @@ def clean_nl(string):
     if not string:
         return string
 
-    def parse_html(tree):
-        # In etree, a tag may have:
-        # - some text content (piece of text before its first child)
-        # - a tail (piece of text just after the tag, and before a sibling)
-        # - children
-        # Eg: "<div>text <b>children's text</b> children's tail</div> tail".
-
-        # Strip new lines directly inside block level elements: first new lines
-        # from the text, and:
-        # - last new lines from the tail of the last child if there's children
-        #   (done in the children loop below).
-        # - or last new lines from the text itself.
-        if tree.tag in html_blocks:
-            if tree.text:
-                tree.text = tree.text.lstrip('\n')
-                if not len(tree):  # No children.
-                    tree.text = tree.text.rstrip('\n')
-
-            # Remove the first new line after a block level element.
-            if tree.tail and tree.tail.startswith('\n'):
-                tree.tail = tree.tail[1:]
-
-        for child in tree:  # Recurse down the tree.
-            if tree.tag in html_blocks:
-                # Strip new lines directly inside block level elements: remove
-                # the last new lines from the children's tails.
-                if child.tail:
-                    child.tail = child.tail.rstrip('\n')
-            parse_html(child)
-        return tree
-
-    parse = parse_html(html5lib.parseFragment(string))
+    parse = _strip_block_newlines(
+        html5lib.parseFragment(string), html_blocks)
 
     # Serialize the parsed tree back to html.
     walker = html5lib.treewalkers.getTreeWalker('etree')

@@ -115,11 +115,7 @@ class ES(object):
 
         for action, value in self.steps:
             if action == 'order_by':
-                for key in value:
-                    if key.startswith('-'):
-                        sort.append({key[1:]: 'desc'})
-                    else:
-                        sort.append(key)
+                sort.extend(self._sort_terms(value))
             elif action == 'values':
                 source.extend(value)
                 as_list, as_dict = True, False
@@ -140,6 +136,26 @@ class ES(object):
             else:
                 raise NotImplementedError(action)
 
+        body = self._build_body(
+            query, query_string, sort, source, aggregations)
+
+        self.source, self.as_list, self.as_dict = source, as_list, as_dict
+        return body
+
+    @staticmethod
+    def _sort_terms(keys):
+        """Translate order_by keys ('-field' for descending) into ES sort
+        terms."""
+        terms = []
+        for key in keys:
+            if key.startswith('-'):
+                terms.append({key[1:]: 'desc'})
+            else:
+                terms.append(key)
+        return terms
+
+    def _build_body(self, query, query_string, sort, source, aggregations):
+        """Build the ES request body from the collected query parts."""
         # If we have a raw query string we are going to apply all sorts
         # of boosts and filters to improve relevance scoring.
         #
@@ -171,7 +187,6 @@ class ES(object):
         if aggregations:
             body['aggs'] = aggregations
 
-        self.source, self.as_list, self.as_dict = source, as_list, as_dict
         return body
 
     def _split(self, string):
