@@ -388,7 +388,7 @@ class TestReviewerSubscription(TestCase):
     def test_notifications_setting_persists(self):
         send_notifications(Version, self.version)
         assert ReviewerSubscription.objects.count() == 2
-        mail.outbox = []
+        mail.outbox.clear()
         send_notifications(Version, self.version)
         assert len(mail.outbox) == 2
 
@@ -411,7 +411,7 @@ class TestReviewerSubscription(TestCase):
     def test_signal_create_twice(self):
         v = Version.objects.create(addon=self.addon)
         version_uploaded.send(sender=v)
-        mail.outbox = []
+        mail.outbox.clear()
         v = Version.objects.create(addon=self.addon)
         version_uploaded.send(sender=v)
         assert len(mail.outbox) == 2
