@@ -730,7 +730,6 @@ def upload_detail(request, uuid, format='html'):
     return render(request, 'devhub/validation.html', context)
 
 
-@dev_required
 def _addons_section_form_classes(show_listed, static_theme, content_waffle):
     """The {section: form class} map for addons_section()."""
     models = {}
@@ -800,6 +799,7 @@ def _save_addons_section(request, addon, section, form_class, previews,
     return form, addon, editable, valid_slug
 
 
+@dev_required
 def addons_section(request, addon_id, addon, section, editable=False):
     print('addons_section', request, addon_id, addon)
     show_listed = addon.has_listed_versions()
@@ -1359,7 +1359,6 @@ WIZARD_COLOR_FIELDS = [
 ]
 
 
-@transaction.atomic
 def _create_from_submitted_upload(request, form, addon, channel):
     """Create the new add-on (addon is None) or version from a valid
     NewUploadForm, then nominate/sign/tag it. Returns the redirect URL
@@ -1395,6 +1394,7 @@ def _create_from_submitted_upload(request, form, addon, channel):
     return url_args
 
 
+@transaction.atomic
 def _submit_upload(request, addon, channel, next_view, wizard=False):
     """ If this is a new addon upload `addon` will be None.
 
