@@ -842,6 +842,23 @@ class SortingFilter(BaseFilterBackend):
         'users': '-average_daily_users',
     }
 
+    def _apply_random_sort(self, request, qs, search_query_param):
+        """Return qs with a random score, or raise ValidationError if random
+        sort isn't available for this request."""
+        is_random_sort_available = (
+            AddonFeaturedQueryParam.query_param in request.GET and
+            not search_query_param
+        )
+        if is_random_sort_available:
+            qs = qs.query(
+                'function_score', functions=[query.SF('random_score')])
+        else:
+            raise serializers.ValidationError(
+                'The "sort" parameter "random" can only be specified '
+                'when the "featured" parameter is also present, and '
+                'the "q" parameter absent.')
+        return qs
+
     def filter_queryset(self, request, qs, view):
         search_query_param = request.GET.get('q')
         sort_param = request.GET.get('sort')
@@ -867,18 +884,7 @@ class SortingFilter(BaseFilterBackend):
             # (to prevent clashing with the score functions coming from a
             # search query).
             if sort_param == 'random':
-                is_random_sort_available = (
-                    AddonFeaturedQueryParam.query_param in request.GET and
-                    not search_query_param
-                )
-                if is_random_sort_available:
-                    qs = qs.query(
-                        'function_score', functions=[query.SF('random_score')])
-                else:
-                    raise serializers.ValidationError(
-                        'The "sort" parameter "random" can only be specified '
-                        'when the "featured" parameter is also present, and '
-                        'the "q" parameter absent.')
+                qs = self._apply_random_sort(request, qs, search_query_param)
 
         # The default sort depends on the presence of a query: we sort by
         # relevance if we have a query, otherwise by downloads.

@@ -139,6 +139,20 @@ class TranslationSerializerField(fields.Field):
             return data
         return six.text_type(data)
 
+    def _translations_too_short(self, value):
+        """Check the locales of a {locale: string} dict, in order, until one
+        string is long enough; return False if one was, True otherwise.
+        Raises ValidationError for an unknown locale met before that."""
+        for locale, string in value.items():
+            if locale.lower() not in settings.LANGUAGES_DICT:
+                raise ValidationError(
+                    self.error_messages['unknown_locale'].format(
+                        lang_code=repr(locale)))
+            if self.min_length and string and (
+                    len(string.strip()) >= self.min_length):
+                return False
+        return True
+
     def validate(self, value):
         if not self.flat and not isinstance(value, dict):
             raise ValidationError(
@@ -151,15 +165,7 @@ class TranslationSerializerField(fields.Field):
             if self.min_length and len(value.strip()) >= self.min_length:
                 value_too_short = False
         else:
-            for locale, string in value.items():
-                if locale.lower() not in settings.LANGUAGES_DICT:
-                    raise ValidationError(
-                        self.error_messages['unknown_locale'].format(
-                            lang_code=repr(locale)))
-                if self.min_length and string and (
-                        len(string.strip()) >= self.min_length):
-                    value_too_short = False
-                    break
+            value_too_short = self._translations_too_short(value)
 
         if self.min_length and value_too_short:
             raise ValidationError(

@@ -41,26 +41,41 @@ def _check_memcache_host(host, ip, port):
     return result, error
 
 
+def _check_memcache_hosts(hosts):
+    """Check each memcached host in turn.
+
+    Returns (results, last_error, using_twemproxy): one (ip, port, result)
+    tuple per host, the error message of the last host that failed (or
+    None), and whether any host is 127.0.0.1."""
+    results = []
+    last_error = None
+    using_twemproxy = False
+    for host in hosts:
+        ip, port = host.split(':')
+
+        if ip == '127.0.0.1':
+            using_twemproxy = True
+
+        result, error = _check_memcache_host(host, ip, port)
+        if error:
+            last_error = error
+
+        results.append((ip, port, result))
+    return results, last_error, using_twemproxy
+
+
 def memcache():
     memcache = getattr(settings, 'CACHES', {}).get('default')
     memcache_results = []
     status = ''
     if memcache and 'memcache' in memcache['BACKEND']:
         hosts = memcache['LOCATION']
-        using_twemproxy = False
         if not isinstance(hosts, (tuple, list)):
             hosts = [hosts]
-        for host in hosts:
-            ip, port = host.split(':')
-
-            if ip == '127.0.0.1':
-                using_twemproxy = True
-
-            result, error = _check_memcache_host(host, ip, port)
-            if error:
-                status = error
-
-            memcache_results.append((ip, port, result))
+        memcache_results, last_error, using_twemproxy = (
+            _check_memcache_hosts(hosts))
+        if last_error:
+            status = last_error
         if not using_twemproxy and len(memcache_results) < 2:
             status = ('2+ memcache servers are required.'
                       '%s available') % len(memcache_results)
