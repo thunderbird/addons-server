@@ -553,6 +553,41 @@ class ActivityLog(ModelBase):
         # a string or an unknown int we want to display as-is.
         return arg
 
+    def _apply_arg_to_accumulators(self, arg, arguments, acc):
+        """Process a single argument from self.arguments, updating acc (a
+        dict of addon/rating/version/collection/tag/group/file_/status) in
+        place and removing arg from arguments when consumed.
+
+        Moved out of to_string()'s loop verbatim: being nested inside a for
+        loop multiplies the cognitive complexity of each of these
+        independent if-checks, so hoisting the loop body out into its own
+        (non-nested) method removes that multiplier entirely.
+        """
+        if isinstance(arg, Addon) and not acc['addon']:
+            acc['addon'] = self._format_addon_arg(arg)
+            arguments.remove(arg)
+        if isinstance(arg, Rating) and not acc['rating']:
+            acc['rating'] = self._format_rating_arg(arg)
+            arguments.remove(arg)
+        if isinstance(arg, Version) and not acc['version']:
+            acc['version'] = self._format_version_arg(arg)
+            arguments.remove(arg)
+        if isinstance(arg, Collection) and not acc['collection']:
+            acc['collection'] = self._format_collection_arg(arg)
+            arguments.remove(arg)
+        if isinstance(arg, Tag) and not acc['tag']:
+            acc['tag'] = self._format_tag_arg(arg)
+        if isinstance(arg, Group) and not acc['group']:
+            acc['group'] = arg.name
+            arguments.remove(arg)
+        if isinstance(arg, File) and not acc['file_']:
+            acc['file_'] = self._format_file_arg(arg)
+            arguments.remove(arg)
+        if (self.action == amo.LOG.CHANGE_STATUS.id and
+                not isinstance(arg, Addon)):
+            acc['status'] = self._format_status_arg(arg)
+            arguments.remove(arg)
+
     def to_string(self, type_=None):
         log_type = constants.activity.LOG_BY_ID[self.action]
         if type_ and hasattr(log_type, '%s_format' % type_):
@@ -563,54 +598,33 @@ class ActivityLog(ModelBase):
         # We need to copy arguments so we can remove elements from it
         # while we loop over self.arguments.
         arguments = copy(self.arguments)
-        addon = None
-        rating = None
-        version = None
-        collection = None
-        tag = None
-        group = None
-        file_ = None
-        status = None
+        acc = {
+            'addon': None,
+            'rating': None,
+            'version': None,
+            'collection': None,
+            'tag': None,
+            'group': None,
+            'file_': None,
+            'status': None,
+        }
 
         for arg in self.arguments:
-            if isinstance(arg, Addon) and not addon:
-                addon = self._format_addon_arg(arg)
-                arguments.remove(arg)
-            if isinstance(arg, Rating) and not rating:
-                rating = self._format_rating_arg(arg)
-                arguments.remove(arg)
-            if isinstance(arg, Version) and not version:
-                version = self._format_version_arg(arg)
-                arguments.remove(arg)
-            if isinstance(arg, Collection) and not collection:
-                collection = self._format_collection_arg(arg)
-                arguments.remove(arg)
-            if isinstance(arg, Tag) and not tag:
-                tag = self._format_tag_arg(arg)
-            if isinstance(arg, Group) and not group:
-                group = arg.name
-                arguments.remove(arg)
-            if isinstance(arg, File) and not file_:
-                file_ = self._format_file_arg(arg)
-                arguments.remove(arg)
-            if (self.action == amo.LOG.CHANGE_STATUS.id and
-                    not isinstance(arg, Addon)):
-                status = self._format_status_arg(arg)
-                arguments.remove(arg)
+            self._apply_arg_to_accumulators(arg, arguments, acc)
 
         user = user_link(self.user)
 
         try:
             kw = {
-                'addon': addon,
-                'rating': rating,
-                'version': version,
-                'collection': collection,
-                'tag': tag,
+                'addon': acc['addon'],
+                'rating': acc['rating'],
+                'version': acc['version'],
+                'collection': acc['collection'],
+                'tag': acc['tag'],
                 'user': user,
-                'group': group,
-                'file': file_,
-                'status': status,
+                'group': acc['group'],
+                'file': acc['file_'],
+                'status': acc['status'],
             }
             return self.f(six.text_type(format_str), *arguments, **kw)
         except (AttributeError, KeyError, IndexError):
