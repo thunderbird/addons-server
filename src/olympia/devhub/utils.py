@@ -419,9 +419,10 @@ def extract_theme_properties(addon, channel):
         return {}
     theme_props = parsed_data.get('theme', {})
     # pre-process colors to convert chrome style colors and strip spaces
-    theme_props['colors'] = {k: v for k, v in (
-        process_color_value(prop, color)
-        for prop, color in theme_props.get('colors', {}).items())}
+    theme_props['colors'] = {
+        k: v
+        for prop, color in theme_props.get('colors', {}).items()
+        for k, v in (process_color_value(prop, color),)}
     return theme_props
 
 

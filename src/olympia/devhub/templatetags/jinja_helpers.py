@@ -125,9 +125,8 @@ def display_url(url):
 @library.global_function
 def version_disabled(version):
     """Return True if all the files are disabled."""
-    disabled = [status == amo.STATUS_DISABLED
-                for _id, status in version.statuses]
-    return all(disabled)
+    return all(status == amo.STATUS_DISABLED
+              for _id, status in version.statuses)
 
 
 @library.global_function

@@ -215,8 +215,8 @@ class TestMeasureValidationTime(TestCase):
                                       fuzz=None):
         if fuzz is None:
             fuzz = Decimal(300)
-        assert (actual_ms >= (calculated_ms - fuzz) and
-                actual_ms <= (calculated_ms + fuzz))
+        assert actual_ms >= (calculated_ms - fuzz)
+        assert actual_ms <= (calculated_ms + fuzz)
 
     def handle_upload_validation_result(self,
                                         channel=amo.RELEASE_CHANNEL_LISTED):

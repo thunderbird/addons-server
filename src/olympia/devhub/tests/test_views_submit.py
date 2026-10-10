@@ -479,7 +479,8 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
         path = os.path.join(
             settings.ROOT, 'src/olympia/devhub/tests/addons/static_theme.zip')
         self.upload = self.get_upload(abspath=path)
-        with mock.patch('olympia.devhub.views.auto_sign_file', lambda x: None):
+        with mock.patch(
+                'olympia.devhub.views.auto_sign_file', return_value=None):
             response = self.post(listed=False)
         addon = Addon.unfiltered.get()
         latest_version = addon.find_latest_version(
@@ -544,7 +545,8 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
         path = os.path.join(
             settings.ROOT, 'src/olympia/devhub/tests/addons/static_theme.zip')
         self.upload = self.get_upload(abspath=path)
-        with mock.patch('olympia.devhub.views.auto_sign_file', lambda x: None):
+        with mock.patch(
+                'olympia.devhub.views.auto_sign_file', return_value=None):
             response = self.post(url=url, listed=False)
         addon = Addon.unfiltered.get()
         latest_version = addon.find_latest_version(
@@ -581,7 +583,8 @@ class TestAddonSubmitUpload(UploadTest, TestCase):
             settings.ROOT,
             'src/olympia/devhub/tests/addons/valid_webextension.xpi')
         self.upload = self.get_upload(abspath=path)
-        with mock.patch('olympia.devhub.views.auto_sign_file', lambda x: None):
+        with mock.patch(
+                'olympia.devhub.views.auto_sign_file', return_value=None):
             response = self.post(listed=False)
         addon = Addon.objects.get()
         self.assert3xx(

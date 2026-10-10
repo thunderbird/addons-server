@@ -84,11 +84,12 @@ class TestNewUploadForm(TestCase):
     # Those three patches are so files.utils.parse_addon doesn't fail on a
     # non-existent file even before having a chance to call check_xpi_info.
     @mock.patch('olympia.files.utils.Extractor.parse')
-    @mock.patch('olympia.files.utils.extract_xpi', lambda xpi, path: None)
-    @mock.patch('olympia.files.utils.get_file', lambda xpi: None)
+    @mock.patch('olympia.files.utils.extract_xpi', return_value=None)
+    @mock.patch('olympia.files.utils.get_file', return_value=None)
     # This is the one we want to test.
     @mock.patch('olympia.files.utils.check_xpi_info')
-    def test_check_xpi_called(self, mock_check_xpi_info, mock_parse):
+    def test_check_xpi_called(self, mock_check_xpi_info, mock_get_file,
+                             mock_extract_xpi, mock_parse):
         """Make sure the check_xpi_info helper is called.
 
         There's some important checks made in check_xpi_info, if we ever

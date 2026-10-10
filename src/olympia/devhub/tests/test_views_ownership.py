@@ -366,7 +366,7 @@ class TestEditAuthor(TestOwnership):
         data = self.formset(one.initial, two.initial, initial_count=2)
         response = self.client.post(self.url, data)
         assert response.status_code == 302
-        assert 999 == AddonUser.objects.get(addon=3615).user_id
+        assert AddonUser.objects.get(addon=3615).user_id == 999
 
         # An email has been sent to the authors to warn them.
         author_delete = mail.outbox[1]  # First mail was for the addition.
@@ -383,7 +383,7 @@ class TestEditAuthor(TestOwnership):
         data = self.formset(form.initial, initial_count=1)
         response = self.client.post(self.url, data)
         assert response.status_code == 302
-        assert 999 == AddonUser.objects.get(addon=3615).user_id
+        assert AddonUser.objects.get(addon=3615).user_id == 999
         assert ActivityLog.objects.filter(
             action=amo.LOG.ADD_USER_WITH_ROLE.id).count() == 1
         assert ActivityLog.objects.filter(
