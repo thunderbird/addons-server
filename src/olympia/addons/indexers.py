@@ -311,18 +311,7 @@ class AddonIndexer(BaseSearchIndexer):
         return compatible_apps
 
     @classmethod
-    def extract_document(cls, obj):
-        """Extract indexable attributes from an add-on."""
-        from olympia.addons.models import Preview
-
-        attrs = ('id', 'average_daily_users', 'bayesian_rating',
-                 'contributions', 'created',
-                 'default_locale', 'guid', 'hotness', 'icon_hash', 'icon_type',
-                 'is_disabled', 'is_experimental', 'last_updated',
-                 'modified', 'public_stats', 'requires_payment', 'requires_sensitive_data_access', 'slug',
-                 'status', 'type', 'view_source', 'weekly_downloads')
-        data = {attr: getattr(obj, attr) for attr in attrs}
-
+    def _extract_platform_and_persona_data(cls, obj, data):
         data['colors'] = None
         if obj.type == amo.ADDON_PERSONA:
             # Personas are compatible with all platforms. They don't have files
@@ -363,6 +352,44 @@ class AddonIndexer(BaseSearchIndexer):
                 if first_preview:
                     data['colors'] = first_preview.colors
 
+    @classmethod
+    def _extract_localized_fields(cls, obj, data):
+        from olympia.addons.models import Preview
+
+        # Handle localized fields.
+        # First, deal with the 3 fields that need everything:
+        for field in ('description', 'name', 'summary'):
+            data.update(cls.extract_field_api_translations(obj, field))
+            data.update(cls.extract_field_search_translation(
+                obj, field, obj.default_locale))
+            data.update(cls.extract_field_analyzed_translations(obj, field))
+
+        # Then add fields that only need to be returned to the API without
+        # contributing to search relevancy.
+        for field in ('developer_comments', 'homepage', 'support_email',
+                      'support_url'):
+            data.update(cls.extract_field_api_translations(obj, field))
+        if obj.type != amo.ADDON_STATICTHEME:
+            # Also do that for preview captions, which are set on each preview
+            # object.
+            attach_trans_dict(Preview, obj.current_previews)
+            for i, preview in enumerate(obj.current_previews):
+                data['previews'][i].update(
+                    cls.extract_field_api_translations(preview, 'caption'))
+
+    @classmethod
+    def extract_document(cls, obj):
+        """Extract indexable attributes from an add-on."""
+        attrs = ('id', 'average_daily_users', 'bayesian_rating',
+                 'contributions', 'created',
+                 'default_locale', 'guid', 'hotness', 'icon_hash', 'icon_type',
+                 'is_disabled', 'is_experimental', 'last_updated',
+                 'modified', 'public_stats', 'requires_payment', 'requires_sensitive_data_access', 'slug',
+                 'status', 'type', 'view_source', 'weekly_downloads')
+        data = {attr: getattr(obj, attr) for attr in attrs}
+
+        cls._extract_platform_and_persona_data(obj, data)
+
         data['app'] = [app.id for app in obj.compatible_apps.keys()]
         # Boost by the number of users on a logarithmic scale.
         data['boost'] = float(data['average_daily_users'] ** .2)
@@ -402,26 +429,7 @@ class AddonIndexer(BaseSearchIndexer):
         # transformer that sets it (attach_tags).
         data['tags'] = getattr(obj, 'tag_list', [])
 
-        # Handle localized fields.
-        # First, deal with the 3 fields that need everything:
-        for field in ('description', 'name', 'summary'):
-            data.update(cls.extract_field_api_translations(obj, field))
-            data.update(cls.extract_field_search_translation(
-                obj, field, obj.default_locale))
-            data.update(cls.extract_field_analyzed_translations(obj, field))
-
-        # Then add fields that only need to be returned to the API without
-        # contributing to search relevancy.
-        for field in ('developer_comments', 'homepage', 'support_email',
-                      'support_url'):
-            data.update(cls.extract_field_api_translations(obj, field))
-        if obj.type != amo.ADDON_STATICTHEME:
-            # Also do that for preview captions, which are set on each preview
-            # object.
-            attach_trans_dict(Preview, obj.current_previews)
-            for i, preview in enumerate(obj.current_previews):
-                data['previews'][i].update(
-                    cls.extract_field_api_translations(preview, 'caption'))
+        cls._extract_localized_fields(obj, data)
 
         return data
 

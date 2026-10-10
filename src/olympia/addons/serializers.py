@@ -364,27 +364,33 @@ class AddonSerializer(serializers.ModelSerializer):
             'weekly_downloads'
         )
 
+    def _wrap_outgoing_links(self, data):
+        if ('request' in self.context and
+                'wrap_outgoing_links' in self.context['request'].GET):
+            for key in ('homepage', 'support_url', 'contributions_url'):
+                if key in data:
+                    data[key] = self.outgoingify(data[key])
+
+    def _adjust_persona_data(self, data, obj):
+        if 'weekly_downloads' in data:
+            # weekly_downloads don't make sense for lightweight themes.
+            data.pop('weekly_downloads')
+
+        if ('average_daily_users' in data and
+                not self.is_broken_persona(obj)):
+            # In addition, their average_daily_users number must come from
+            # the popularity field of the attached Persona.
+            data['average_daily_users'] = obj.persona.popularity
+
     def to_representation(self, obj):
         data = super(AddonSerializer, self).to_representation(obj)
         request = self.context.get('request', None)
 
         if 'theme_data' in data and data['theme_data'] is None:
             data.pop('theme_data')
-        if ('request' in self.context and
-                'wrap_outgoing_links' in self.context['request'].GET):
-            for key in ('homepage', 'support_url', 'contributions_url'):
-                if key in data:
-                    data[key] = self.outgoingify(data[key])
+        self._wrap_outgoing_links(data)
         if obj.type == amo.ADDON_PERSONA:
-            if 'weekly_downloads' in data:
-                # weekly_downloads don't make sense for lightweight themes.
-                data.pop('weekly_downloads')
-
-            if ('average_daily_users' in data and
-                    not self.is_broken_persona(obj)):
-                # In addition, their average_daily_users number must come from
-                # the popularity field of the attached Persona.
-                data['average_daily_users'] = obj.persona.popularity
+            self._adjust_persona_data(data, obj)
         if request and is_gate_active(request, 'del-addons-created-field'):
             data.pop('created', None)
         return data

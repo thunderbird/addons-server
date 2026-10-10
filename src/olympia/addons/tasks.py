@@ -241,6 +241,94 @@ def save_persona_image(src, full_dst, **kw):
     return True
 
 
+def _min_id_for_compat_range(addon_id, range_min):
+    if range_min == '0':
+        versions = (Version.objects.filter(addon=addon_id)
+                    .order_by('id')
+                    .values_list('id', flat=True)[:1])
+        return versions[0] if versions else None
+    try:
+        return Version.objects.get(addon=addon_id, version=range_min).id
+    except Version.DoesNotExist:
+        return None
+
+
+def _max_id_for_compat_range(addon_id, range_max):
+    if range_max == '*':
+        versions = (Version.objects.filter(addon=addon_id)
+                    .order_by('-id')
+                    .values_list('id', flat=True)[:1])
+        return versions[0] if versions else None
+    try:
+        return Version.objects.get(addon=addon_id, version=range_max).id
+    except Version.DoesNotExist:
+        return None
+
+
+def _app_ranges_for_compat_range(version, range):
+    if range.min == '0' and range.max == '*':
+        # Wildcard range, add all app ranges
+        return list(range.apps)
+
+    # Since we can't rely on add-on version numbers, get the min
+    # and max ID values and find versions whose ID is within those
+    # ranges, being careful with wildcards.
+    min_id = _min_id_for_compat_range(version.addon_id, range.min)
+    max_id = _max_id_for_compat_range(version.addon_id, range.max)
+
+    if min_id and max_id and min_id <= version.id <= max_id:
+        return list(range.apps)
+    return []
+
+
+def _compute_app_ranges(version, compat):
+    app_ranges = []
+    for range in compat.collapsed_ranges():
+        app_ranges.extend(_app_ranges_for_compat_range(version, range))
+    return app_ranges
+
+
+def _create_incompatible_versions(version, version_id, app_ranges):
+    for app_range in app_ranges:
+        IncompatibleVersions.objects.create(version=version,
+                                            app=app_range.app.id,
+                                            min_app_version=app_range.min,
+                                            max_app_version=app_range.max)
+        log.info('Added incompatible version for version ID [%d]: '
+                 'app:%d, %s -> %s' % (version_id, app_range.app.id,
+                                       app_range.min, app_range.max))
+
+
+def _update_incompatible_appversions_for_one_version(version_id):
+    """Process a single version_id for update_incompatible_appversions().
+
+    Returns the addon_id touched, or None if the version or its compat
+    override could not be found (in which case the caller must abort
+    processing the rest of the batch, matching the original behavior).
+    """
+    # This is here to handle both post_save and post_delete hooks.
+    IncompatibleVersions.objects.filter(version=version_id).delete()
+
+    try:
+        version = Version.objects.get(pk=version_id)
+    except Version.DoesNotExist:
+        log.info('Version ID [%d] not found. Incompatible versions were '
+                 'cleared.' % version_id)
+        return None
+
+    try:
+        compat = CompatOverride.objects.get(addon=version.addon)
+    except CompatOverride.DoesNotExist:
+        log.info('Compat override for addon with version ID [%d] not '
+                 'found. Incompatible versions were cleared.' % version_id)
+        return None
+
+    app_ranges = _compute_app_ranges(version, compat)
+    _create_incompatible_versions(version, version_id, app_ranges)
+
+    return version.addon_id
+
+
 @task
 def update_incompatible_appversions(data, **kw):
     """Updates the incompatible_versions table for this version."""
@@ -249,75 +337,11 @@ def update_incompatible_appversions(data, **kw):
     addon_ids = set()
 
     for version_id in data:
-        # This is here to handle both post_save and post_delete hooks.
-        IncompatibleVersions.objects.filter(version=version_id).delete()
-
-        try:
-            version = Version.objects.get(pk=version_id)
-        except Version.DoesNotExist:
-            log.info('Version ID [%d] not found. Incompatible versions were '
-                     'cleared.' % version_id)
+        addon_id = _update_incompatible_appversions_for_one_version(
+            version_id)
+        if addon_id is None:
             return
-
-        addon_ids.add(version.addon_id)
-
-        try:
-            compat = CompatOverride.objects.get(addon=version.addon)
-        except CompatOverride.DoesNotExist:
-            log.info('Compat override for addon with version ID [%d] not '
-                     'found. Incompatible versions were cleared.' % version_id)
-            return
-
-        app_ranges = []
-        ranges = compat.collapsed_ranges()
-
-        for range in ranges:
-            if range.min == '0' and range.max == '*':
-                # Wildcard range, add all app ranges
-                app_ranges.extend(range.apps)
-            else:
-                # Since we can't rely on add-on version numbers, get the min
-                # and max ID values and find versions whose ID is within those
-                # ranges, being careful with wildcards.
-                min_id = max_id = None
-
-                if range.min == '0':
-                    versions = (Version.objects.filter(addon=version.addon_id)
-                                .order_by('id')
-                                .values_list('id', flat=True)[:1])
-                    if versions:
-                        min_id = versions[0]
-                else:
-                    try:
-                        min_id = Version.objects.get(addon=version.addon_id,
-                                                     version=range.min).id
-                    except Version.DoesNotExist:
-                        pass
-
-                if range.max == '*':
-                    versions = (Version.objects.filter(addon=version.addon_id)
-                                .order_by('-id')
-                                .values_list('id', flat=True)[:1])
-                    if versions:
-                        max_id = versions[0]
-                else:
-                    try:
-                        max_id = Version.objects.get(addon=version.addon_id,
-                                                     version=range.max).id
-                    except Version.DoesNotExist:
-                        pass
-
-                if min_id and max_id and min_id <= version.id <= max_id:
-                    app_ranges.extend(range.apps)
-
-        for app_range in app_ranges:
-            IncompatibleVersions.objects.create(version=version,
-                                                app=app_range.app.id,
-                                                min_app_version=app_range.min,
-                                                max_app_version=app_range.max)
-            log.info('Added incompatible version for version ID [%d]: '
-                     'app:%d, %s -> %s' % (version_id, app_range.app.id,
-                                           app_range.min, app_range.max))
+        addon_ids.add(addon_id)
 
     # Increment namespace cache of compat versions.
     for addon_id in addon_ids:
@@ -988,14 +1012,43 @@ def extract_colors_from_static_themes(ids, **kw):
     if extracted:
         index_addons.delay(extracted)
 
+def _check_addon_for_sensitive_data_access(addon, sensitive_data_access,
+                                           can_skip_review):
+    """Determine sensitive_data_access/can_skip_review for a single addon.
+
+    Mirrors the original function's quirk: if the addon has no versions
+    with files, the previous addon's sensitive_data_access/can_skip_review
+    values are returned unchanged (they are not reset per addon).
+    """
+    from olympia.constants.base import SENSITIVE_DATA_ACCESS_PERMISSIONS, SENSITIVE_DATA_ACCESS_SKIP_PERMISSIONS
+
+    for index, version in enumerate(addon.versions.all()):
+        # We ignore versions without files
+        if not version or not version.all_files[0]:
+            continue
+
+        permissions = version.all_files[0].webext_permissions_list
+
+        # For the current version only, look for the skip flag
+        if index == 0:
+            can_skip_review = any(i in SENSITIVE_DATA_ACCESS_SKIP_PERMISSIONS for i in permissions)
+
+        # Look for any sensitive data access permissions
+        sensitive_data_access = any(i in SENSITIVE_DATA_ACCESS_PERMISSIONS for i in permissions)
+
+        # We found our sensitive data access, so break!
+        if sensitive_data_access:
+            break
+
+    return sensitive_data_access, can_skip_review
+
+
 @task
 @use_primary_db
 def migrate_addons_that_require_sensitive_data_access(ids):
     """
     Adds requires sensitive data access to addons that use/used sensitive data permissions
     """
-    from olympia.constants.base import SENSITIVE_DATA_ACCESS_PERMISSIONS, SENSITIVE_DATA_ACCESS_SKIP_PERMISSIONS
-
     sensitive_data_access = False
     can_skip_review = False
 
@@ -1003,23 +1056,9 @@ def migrate_addons_that_require_sensitive_data_access(ids):
     sda_addons = []
 
     for addon in addons:
-        for index, version in enumerate(addon.versions.all()):
-            # We ignore versions without files
-            if not version or not version.all_files[0]:
-                continue
-
-            permissions = version.all_files[0].webext_permissions_list
-
-            # For the current version only, look for the skip flag
-            if index == 0:
-                can_skip_review = any(i in SENSITIVE_DATA_ACCESS_SKIP_PERMISSIONS for i in permissions)
-
-            # Look for any sensitive data access permissions
-            sensitive_data_access = any(i in SENSITIVE_DATA_ACCESS_PERMISSIONS for i in permissions)
-
-            # We found our sensitive data access, so break!
-            if sensitive_data_access:
-                break
+        sensitive_data_access, can_skip_review = (
+            _check_addon_for_sensitive_data_access(
+                addon, sensitive_data_access, can_skip_review))
 
         if sensitive_data_access:
             addon.update(requires_sensitive_data_access=True)

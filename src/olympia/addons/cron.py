@@ -162,6 +162,20 @@ def unhide_disabled_files():
                           exc_info=True)
 
 
+def _update_addon_hotness(addon, thisweek, threeweek):
+    this, three = thisweek.get(addon.id, 0), threeweek.get(addon.id, 0)
+
+    # Update the hotness score but only update hotness if necessary.
+    # We don't want to cause unnecessary re-indexes
+    if this > 1000 and three > 1:
+        hotness = (this - three) / float(three)
+        if addon.hotness != hotness:
+            addon.update(hotness=(this - three) / float(three))
+    else:
+        if addon.hotness != 0:
+            addon.update(hotness=0)
+
+
 def deliver_hotness():
     """
     Calculate hotness of all add-ons.
@@ -186,17 +200,7 @@ def deliver_hotness():
         thisweek = dict(qs.filter(date__gte=one_week))
         threeweek = dict(qs.filter(date__range=(four_weeks, one_week)))
         for addon in addons:
-            this, three = thisweek.get(addon.id, 0), threeweek.get(addon.id, 0)
-
-            # Update the hotness score but only update hotness if necessary.
-            # We don't want to cause unnecessary re-indexes
-            if this > 1000 and three > 1:
-                hotness = (this - three) / float(three)
-                if addon.hotness != hotness:
-                    addon.update(hotness=(this - three) / float(three))
-            else:
-                if addon.hotness != 0:
-                    addon.update(hotness=0)
+            _update_addon_hotness(addon, thisweek, threeweek)
 
         # Let the database catch its breath.
         time.sleep(10)
