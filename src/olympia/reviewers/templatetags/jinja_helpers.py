@@ -165,13 +165,13 @@ def all_distinct_files(context, version):
             hashes_to_file[file_.original_hash][1] += ' / ' + display_name
         else:
             hashes_to_file[file_.original_hash] = [file_, display_name]
-    return new_context(dict(
+    return new_context({
         # We don't need the hashes in the template.
-        distinct_files=hashes_to_file.values(),
-        amo=context.get('amo'),
-        addon=context.get('addon'),
-        show_diff=context.get('show_diff'),
-        version=version))
+        'distinct_files': hashes_to_file.values(),
+        'amo': context.get('amo'),
+        'addon': context.get('addon'),
+        'show_diff': context.get('show_diff'),
+        'version': version})
 
 
 @library.global_function

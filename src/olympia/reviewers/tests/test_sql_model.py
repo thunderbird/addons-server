@@ -65,7 +65,7 @@ class ProductDetail(RawSQLModel):
 class TestSQLModel(TestCase):
 
     @pytest.fixture(autouse=True)
-    def setup(self, request):
+    def setup(self):
         sql = """
         create table if not exists sql_model_test_product (
             id int(11) not null auto_increment primary key,
@@ -114,7 +114,9 @@ class TestSQLModel(TestCase):
 
         execute_all(sql)
 
-        request.addfinalizer(teardown)
+        yield
+
+        teardown()
 
     def test_all(self):
         assert sorted([s.category for s in Summary.objects.all()]) == (
@@ -163,15 +165,18 @@ class TestSQLModel(TestCase):
         assert sorted([c.category for c in qs]) == ['apparel', 'safety']
 
     def test_slice5(self):
-        assert ['defilbrilator'] == [
+        assert [
             c.product for c in
-            ProductDetail.objects.all().order_by('product')[0:1]]
-        assert ['life jacket'] == [
+            ProductDetail.objects.all().order_by('product')[0:1]
+        ] == ['defilbrilator']
+        assert [
             c.product for c in
-            ProductDetail.objects.all().order_by('product')[1:2]]
-        assert ['snake skin jacket'] == [
+            ProductDetail.objects.all().order_by('product')[1:2]
+        ] == ['life jacket']
+        assert [
             c.product for c in
-            ProductDetail.objects.all().order_by('product')[2:3]]
+            ProductDetail.objects.all().order_by('product')[2:3]
+        ] == ['snake skin jacket']
 
     def test_negative_slices_not_supported(self):
         with self.assertRaises(IndexError):

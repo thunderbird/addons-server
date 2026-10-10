@@ -53,4 +53,3 @@ class Command(BaseCommand):
             else:
                 log.error('Already awarded points for "%s" action on %s %s',
                           action.short, addon, version)
-                continue

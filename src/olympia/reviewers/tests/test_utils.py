@@ -979,8 +979,8 @@ class TestReviewHelper(TestCase):
         assert self.check_log_count(amo.LOG.REJECT_VERSION.id) == 1
 
     @patch('olympia.reviewers.utils.sign_file',
-           lambda *a, **kw: None)
-    def test_nomination_to_public_webextension(self):
+           return_value=None)
+    def test_nomination_to_public_webextension(self, _mock_sign_file):
         self.file.update(is_webextension=True)
         self.setup_data(amo.STATUS_NOMINATED)
         self.helper.handler.process_public()
@@ -989,8 +989,9 @@ class TestReviewHelper(TestCase):
             set(['firefox57']))
 
     @patch('olympia.reviewers.utils.sign_file',
-           lambda *a, **kw: None)
-    def test_nomination_to_public_mozilla_signed_extension(self):
+           return_value=None)
+    def test_nomination_to_public_mozilla_signed_extension(
+            self, _mock_sign_file):
         """Test that the firefox57 tag is applied to mozilla signed add-ons"""
         self.file.update(is_mozilla_signed_extension=True)
         self.setup_data(amo.STATUS_NOMINATED)
@@ -1000,8 +1001,9 @@ class TestReviewHelper(TestCase):
             set(['firefox57']))
 
     @patch('olympia.reviewers.utils.sign_file',
-           lambda *a, **kw: None)
-    def test_public_to_public_already_had_webextension_tag(self):
+           return_value=None)
+    def test_public_to_public_already_had_webextension_tag(
+            self, _mock_sign_file):
         self.file.update(is_webextension=True)
         Tag(tag_text='firefox57').save_tag(self.addon)
         assert (

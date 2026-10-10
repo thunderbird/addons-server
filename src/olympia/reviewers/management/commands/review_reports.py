@@ -135,10 +135,10 @@ class Command(BaseCommand):
 
             table_html = '<table>\n'
             table_html += '<tr><th>' + '</th><th>'.join(
-                [header for header in section[1]]) + '</th></tr>\n'
+                section[1]) + '</th></tr>\n'
             for row in section[2]:
                 table_html += '<tr><td>' + '</td><td>'.join(
-                    [entry for entry in row]) + '</td></tr>\n'
+                    row) + '</td></tr>\n'
             table_html += '</table>\n'
             all_html += table_html
 

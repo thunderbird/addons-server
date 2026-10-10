@@ -40,6 +40,7 @@ PENDING_STATUSES = (amo.STATUS_DISABLED, amo.STATUS_NULL,
 
 NAME_LINK_FORMAT = u'<a href="%s">%s <em>%s</em></a>'
 SENDING_EMAIL_FOR_LOG_MESSAGE = u'Sending email for %s'
+REVIEWERS_REVIEW_URL_NAME = 'reviewers.review'
 
 
 class ItemStateTable(object):
@@ -65,7 +66,7 @@ class ReviewerQueueTable(tables.Table, ItemStateTable):
         orderable = True
 
     def render_addon_name(self, record):
-        url = reverse('reviewers.review', args=[record.addon_slug])
+        url = reverse(REVIEWERS_REVIEW_URL_NAME, args=[record.addon_slug])
         self.increment_item()
         return NAME_LINK_FORMAT % (
             url, jinja2.escape(record.addon_name),
@@ -127,7 +128,7 @@ class ViewUnlistedAllListTable(tables.Table, ItemStateTable):
         model = ViewUnlistedAllList
 
     def render_addon_name(self, record):
-        url = reverse('reviewers.review', args=[
+        url = reverse(REVIEWERS_REVIEW_URL_NAME, args=[
             'unlisted',
             record.addon_slug if record.addon_slug is not None else record.id,
         ])
@@ -204,7 +205,7 @@ class ModernAddonQueueTable(ReviewerQueueTable):
         return super(ModernAddonQueueTable, self).render_flags(record)
 
     def _get_addon_name_url(self, record):
-        return reverse('reviewers.review', args=[record.slug])
+        return reverse(REVIEWERS_REVIEW_URL_NAME, args=[record.slug])
 
     def render_addon_name(self, record):
         url = self._get_addon_name_url(record)
@@ -260,7 +261,8 @@ class ContentReviewTable(AutoApprovedTable):
         orderable = False
 
     def _get_addon_name_url(self, record):
-        return reverse('reviewers.review', args=['content', record.slug])
+        return reverse(
+            REVIEWERS_REVIEW_URL_NAME, args=['content', record.slug])
 
 
 class ReviewHelper(object):
@@ -577,7 +579,7 @@ class ReviewBase(object):
                 'reviewer': self.user.name,
                 'addon_url': absolutify(addon_url),
                 'dev_versions_url': absolutify(dev_ver_url),
-                'review_url': absolutify(reverse('reviewers.review',
+                'review_url': absolutify(reverse(REVIEWERS_REVIEW_URL_NAME,
                                                  kwargs=review_url_kw,
                                                  add_prefix=False)),
                 'comments': self.data.get('comments'),
