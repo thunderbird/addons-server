@@ -553,16 +553,7 @@ class ActivityLog(ModelBase):
         # a string or an unknown int we want to display as-is.
         return arg
 
-    def _apply_arg_to_accumulators(self, arg, arguments, acc):
-        """Process a single argument from self.arguments, updating acc (a
-        dict of addon/rating/version/collection/tag/group/file_/status) in
-        place and removing arg from arguments when consumed.
-
-        Moved out of to_string()'s loop verbatim: being nested inside a for
-        loop multiplies the cognitive complexity of each of these
-        independent if-checks, so hoisting the loop body out into its own
-        (non-nested) method removes that multiplier entirely.
-        """
+    def _apply_arg_isinstance_checks_1(self, arg, arguments, acc):
         if isinstance(arg, Addon) and not acc['addon']:
             acc['addon'] = self._format_addon_arg(arg)
             arguments.remove(arg)
@@ -575,6 +566,8 @@ class ActivityLog(ModelBase):
         if isinstance(arg, Collection) and not acc['collection']:
             acc['collection'] = self._format_collection_arg(arg)
             arguments.remove(arg)
+
+    def _apply_arg_isinstance_checks_2(self, arg, arguments, acc):
         if isinstance(arg, Tag) and not acc['tag']:
             acc['tag'] = self._format_tag_arg(arg)
         if isinstance(arg, Group) and not acc['group']:
@@ -583,10 +576,28 @@ class ActivityLog(ModelBase):
         if isinstance(arg, File) and not acc['file_']:
             acc['file_'] = self._format_file_arg(arg)
             arguments.remove(arg)
+
+    def _apply_arg_change_status(self, arg, arguments, acc):
         if (self.action == amo.LOG.CHANGE_STATUS.id and
                 not isinstance(arg, Addon)):
             acc['status'] = self._format_status_arg(arg)
             arguments.remove(arg)
+
+    def _apply_arg_to_accumulators(self, arg, arguments, acc):
+        """Process a single argument from self.arguments, updating acc (a
+        dict of addon/rating/version/collection/tag/group/file_/status) in
+        place and removing arg from arguments when consumed.
+
+        Moved out of to_string()'s loop verbatim, then split further into
+        three sub-helpers (4 isinstance checks, 3 isinstance checks, and the
+        CHANGE_STATUS check) since being nested inside a for loop multiplies
+        the cognitive complexity of each independent if-check, and even
+        after hoisting the whole block out once, 8 checks in a single
+        non-nested method was still over the allowed threshold.
+        """
+        self._apply_arg_isinstance_checks_1(arg, arguments, acc)
+        self._apply_arg_isinstance_checks_2(arg, arguments, acc)
+        self._apply_arg_change_status(arg, arguments, acc)
 
     def to_string(self, type_=None):
         log_type = constants.activity.LOG_BY_ID[self.action]
