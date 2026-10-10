@@ -313,7 +313,6 @@ def feed(request, addon_id=None):
 
 @dev_required
 def edit(request, addon_id, addon):
-    print('EDIT', request, addon_id, addon)
     try:
         whiteboard = Whiteboard.objects.get(pk=addon.pk)
     except Whiteboard.DoesNotExist:
@@ -727,7 +726,6 @@ def upload_detail(request, uuid, format='html'):
 
 @dev_required
 def addons_section(request, addon_id, addon, section, editable=False):
-    print('addons_section', request, addon_id, addon)
     show_listed = addon.has_listed_versions()
     static_theme = addon.type == amo.ADDON_STATICTHEME
     models = {}
@@ -759,7 +757,6 @@ def addons_section(request, addon_id, addon, section, editable=False):
     if section == 'describe' and show_listed:
         category_form_class = (forms.SingleCategoryForm if static_theme else
                                addon_forms.CategoryFormSet)
-        print('category_form_class', category_form_class)
         cat_form = category_form_class(
             request.POST or None, addon=addon, request=request)
 
@@ -839,7 +836,6 @@ def addons_section(request, addon_id, addon, section, editable=False):
         'valid_slug': valid_slug,
         'supported_image_types': amo.SUPPORTED_IMAGE_TYPES,
     }
-    print(data)
 
     return render(request, 'devhub/addons/edit/%s.html' % section, data)
 
