@@ -100,7 +100,7 @@ def featured_collection(request):
         pk = 0
     c = get_object_or_404(Collection, pk=pk)
     return render(request, 'zadmin/featured_collection.html',
-                  dict(collection=c))
+                  {'collection': c})
 
 
 @admin_required
@@ -114,7 +114,7 @@ def features(request):
 
         messages.success(request, 'Changes successfully saved.')
         return redirect('zadmin.features')
-    return render(request, 'zadmin/features.html', dict(form=form))
+    return render(request, 'zadmin/features.html', {'form': form})
 
 
 @admin_required
@@ -124,7 +124,7 @@ def monthly_pick(request):
         form.save()
         messages.success(request, 'Changes successfully saved.')
         return redirect('zadmin.monthly_pick')
-    return render(request, 'zadmin/monthly_pick.html', dict(form=form))
+    return render(request, 'zadmin/monthly_pick.html', {'form': form})
 
 
 @admin_required
@@ -153,7 +153,7 @@ def mail(request):
     if request.method == 'POST':
         backend.clear()
         return redirect('zadmin.mail')
-    return render(request, 'zadmin/mail.html', dict(mail=backend.view_all()))
+    return render(request, 'zadmin/mail.html', {'mail': backend.view_all()})
 
 
 @permission_required(amo.permissions.ANY_ADMIN)
@@ -193,12 +193,13 @@ def general_search(request, app_id, model_id):
 
     limit = 10
     obj = admin.site._registry[model]
-    ChangeList = obj.get_changelist(request)
+    change_list_class = obj.get_changelist(request)
     # This is a hideous api, but uses the builtin admin search_fields API.
     # Expecting this to get replaced by ES so soon, that I'm not going to lose
     # too much sleep about it.
-    cl = ChangeList(request, obj.model, [], [], [], [], obj.search_fields, [],
-                    obj.list_max_show_all, limit, [], obj)
+    cl = change_list_class(
+        request, obj.model, [], [], [], [], obj.search_fields, [],
+        obj.list_max_show_all, limit, [], obj)
     qs = cl.get_queryset(request)
     # Override search_fields_response on the ModelAdmin object
     # if you'd like to pass something else back to the front end.
@@ -235,7 +236,7 @@ def addon_manage(request, addon):
         return redirect('zadmin.addon_manage', addon.slug)
 
     # Build a map from file.id to form in formset for precise form display
-    form_map = dict((form.instance.id, form) for form in formset.forms)
+    form_map = {form.instance.id: form for form in formset.forms}
     # A version to file map to avoid an extra query in the template
     file_map = {}
     for file in files:
