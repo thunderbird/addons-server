@@ -6,10 +6,13 @@ from django.core import management
 from django.db import connection
 from django.test.testcases import TransactionTestCase
 
+import mock
 import six
 
+from olympia.addons import indexers as addons_indexers
 from olympia.amo.tests import (
-    ESTestCase, addon_factory, create_switch, owns_es_index)
+    ESTestCase, addon_factory, create_switch, owns_es_index,
+    setup_es_test_data)
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import urlparams
 from olympia.lib.es.utils import is_reindexing_amo, unflag_reindexing_amo
@@ -22,6 +25,17 @@ class TestIndexCommand(ESTestCase):
             unflag_reindexing_amo()
 
         self.url = reverse('search.search')
+
+        # Start every test from fresh indices with the aliases pointing at
+        # them. The class sets them up only once, and each test's reindex
+        # moves the alias to a new index that tearDown below then deletes,
+        # so a second test in this class on the same worker would otherwise
+        # start with an alias pointing at nothing. The one-addon test gets
+        # away with that because indexing its add-on makes Elasticsearch
+        # auto-create an index under the alias name; the zero-addon test
+        # fails with a 404 as soon as it refreshes the alias while the
+        # reindex is held. See thunderbird/addons-server#457.
+        setup_es_test_data(self.es)
 
         # We store previously existing indices in order to delete the ones
         # created during this test run.
@@ -134,38 +148,40 @@ class TestIndexCommand(ESTestCase):
                     # dying is only visible as 'Reindexation done' missing
                     # from stdout further down, which says nothing about why.
                     self.exception = exc
+
+        # Hold the reindex at a known point until the foreground work below
+        # is done. Tests run Celery eagerly, so the whole task chain runs
+        # inside the thread and the database is only flagged from
+        # flag_database to unflag_database: with zero or one add-on that is
+        # an index creation and an alias update, a few tens of milliseconds.
+        # Polling for the flag could miss that window and the rest of the
+        # thread's life, leaving nothing indexed in the foreground, and how
+        # often it did depended on the poll interval and runner load.
+        # Blocking right after the new index is created, while the database
+        # is flagged and the alias still points at the old index, makes the
+        # overlap this test is about always happen.
+        # See thunderbird/addons-server#457.
+        release_reindex = threading.Event()
+        real_create_new_index = addons_indexers.create_new_index
+
+        def create_new_index_then_wait(index_name=None):
+            real_create_new_index(index_name)
+            # Bounded, so a failure in the main thread cannot hang the run.
+            release_reindex.wait(60)
+
+        patcher = mock.patch.object(
+            addons_indexers, 'create_new_index',
+            side_effect=create_new_index_then_wait)
+        patcher.start()
         t = ReindexThread()
-        t.start()
+        try:
+            t.start()
+            self._index_in_foreground(t)
+        finally:
+            release_reindex.set()
+            t.join()  # Wait for the thread to finish.
+            patcher.stop()
 
-        # Wait for the reindex in the thread to flag the database.
-        # The database transaction isn't shared with the thread, so force the
-        # commit.
-        # No sleep here on purpose: the reindexing flag is only set for the
-        # few milliseconds between flag_database and unflag_database when the
-        # fixture has zero or one add-on, and a 0.1s poll interval misses that
-        # window on most CI runs (thunderbird/addons-server#457). The tight
-        # loop is what the original test relied on; a deterministic
-        # hold-and-release follows separately.
-        while t.is_alive() and not is_reindexing_amo():
-            connection._commit()
-            connection.clean_savepoints()
-
-        # We should still be able to search in the foreground while the reindex
-        # is being done in the background. We should also be able to index new
-        # documents, and they should not be lost.
-        old_addons_count = len(self.expected)
-        while t.is_alive() and len(self.expected) < old_addons_count + 3:
-            self.expected.append(addon_factory())
-            connection._commit()
-            connection.clean_savepoints()
-            self.refresh()
-            self.check_results(self.expected)
-
-        if len(self.expected) == old_addons_count:
-            raise AssertionError('Could not index objects in foreground while '
-                                 'reindexing in the background.')
-
-        t.join()  # Wait for the thread to finish.
         if t.exception is not None:
             raise AssertionError(
                 'The reindex command raised in its thread: %r' % t.exception)
@@ -185,6 +201,38 @@ class TestIndexCommand(ESTestCase):
         assert old_indices != new_indices, (stdout, old_indices, new_indices)
 
         self.check_settings(new_indices)
+
+    def _index_in_foreground(self, t):
+        # Wait for the reindex in the thread to flag the database.
+        # The database transaction isn't shared with the thread, so force the
+        # commit.
+        # The reindex is held after creating its new index (see
+        # _test_reindexation), so the flag stays set until this method
+        # returns and the loop cannot miss it.
+        while t.is_alive() and not is_reindexing_amo():
+            connection._commit()
+            connection.clean_savepoints()
+
+        # We should still be able to search in the foreground while the reindex
+        # is being done in the background. We should also be able to index new
+        # documents, and they should not be lost.
+        old_addons_count = len(self.expected)
+        while t.is_alive() and len(self.expected) < old_addons_count + 3:
+            self.expected.append(addon_factory())
+            connection._commit()
+            connection.clean_savepoints()
+            self.refresh()
+            self.check_results(self.expected)
+
+        if len(self.expected) == old_addons_count:
+            # The thread has exited. If the command raised before reaching
+            # the hold, that is the real cause, so report it first.
+            if t.exception is not None:
+                raise AssertionError(
+                    'The reindex command raised in its thread: %r'
+                    % t.exception)
+            raise AssertionError('Could not index objects in foreground while '
+                                 'reindexing in the background.')
 
     def test_reindexation_starting_from_zero_addons(self):
         self._test_reindexation()
