@@ -11,7 +11,8 @@ import six
 
 from olympia.addons import indexers as addons_indexers
 from olympia.amo.tests import (
-    ESTestCase, addon_factory, create_switch, owns_es_index)
+    ESTestCase, addon_factory, create_switch, owns_es_index,
+    setup_es_test_data)
 from olympia.amo.urlresolvers import reverse
 from olympia.amo.utils import urlparams
 from olympia.lib.es.utils import is_reindexing_amo, unflag_reindexing_amo
@@ -24,6 +25,17 @@ class TestIndexCommand(ESTestCase):
             unflag_reindexing_amo()
 
         self.url = reverse('search.search')
+
+        # Start every test from fresh indices with the aliases pointing at
+        # them. The class sets them up only once, and each test's reindex
+        # moves the alias to a new index that tearDown below then deletes,
+        # so a second test in this class on the same worker would otherwise
+        # start with an alias pointing at nothing. The one-addon test gets
+        # away with that because indexing its add-on makes Elasticsearch
+        # auto-create an index under the alias name; the zero-addon test
+        # fails with a 404 as soon as it refreshes the alias while the
+        # reindex is held. See thunderbird/addons-server#457.
+        setup_es_test_data(self.es)
 
         # We store previously existing indices in order to delete the ones
         # created during this test run.
