@@ -801,7 +801,6 @@ def _save_addons_section(request, addon, section, form_class, previews,
 
 @dev_required
 def addons_section(request, addon_id, addon, section, editable=False):
-    print('addons_section', request, addon_id, addon)
     show_listed = addon.has_listed_versions()
     static_theme = addon.type == amo.ADDON_STATICTHEME
     content_waffle = waffle.switch_is_active('content-optimization')
