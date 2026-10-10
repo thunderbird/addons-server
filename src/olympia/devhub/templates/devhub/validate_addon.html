@@ -18,8 +18,8 @@
   {% endtrans %}
   </p>
   <section id="upload-file" class="validate-addon">
-    <div class="list-addon">
-      <label>{{ _('Do you want your add-on to be distributed on this site?') }}</label>
+    <div class="list-addon" role="radiogroup" aria-labelledby="validate-addon-channel-label">
+      <label id="validate-addon-channel-label">{{ _('Do you want your add-on to be distributed on this site?') }}</label>
       {{ new_addon_form.channel }}
     </div>
     <input type="file" id="upload-addon" aria-labelledby="validate-addon-heading"
