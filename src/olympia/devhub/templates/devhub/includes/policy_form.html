@@ -11,7 +11,7 @@
     {{ policy_form.has_eula.label_tag() }}
     <div class="eula {{ 'hidden' if not policy_form.initial.has_eula }}">
       {{ policy_form.eula.errors }}
-      <label data-for="eula" class="above-the-field">
+      <label data-for="eula" for="id_eula_0" class="above-the-field">
         {{ policy_form.eula.label }}
       </label>
       {{ policy_form.eula }}
@@ -29,7 +29,7 @@
     {{ policy_form.has_priv.label_tag() }}
     <div class="priv {{ 'hidden' if not policy_form.initial.has_priv }}">
       {{ policy_form.privacy_policy.errors }}
-      <label data-for="privacy_policy" class="above-the-field">
+      <label data-for="privacy_policy" for="id_privacy_policy_0" class="above-the-field">
         {{ policy_form.privacy_policy.label }}
       </label>
       {{ policy_form.privacy_policy }}
