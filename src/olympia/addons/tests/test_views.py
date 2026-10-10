@@ -409,20 +409,20 @@ class TestDetailPage(TestCase):
         m = 'meta[content=noindex]'
 
         assert self.addon.status == amo.STATUS_PUBLIC
-        settings.ENGAGE_ROBOTS = True
-        doc = pq(self.client.get(url).content)
-        assert not doc(m)
-        settings.ENGAGE_ROBOTS = False
-        doc = pq(self.client.get(url).content)
-        assert doc(m)
+        with override_settings(ENGAGE_ROBOTS=True):
+            doc = pq(self.client.get(url).content)
+            assert not doc(m)
+        with override_settings(ENGAGE_ROBOTS=False):
+            doc = pq(self.client.get(url).content)
+            assert doc(m)
 
         self.addon.update(status=amo.STATUS_NOMINATED)
-        settings.ENGAGE_ROBOTS = False
-        doc = pq(self.client.get(url).content)
-        assert doc(m)
-        settings.ENGAGE_ROBOTS = True
-        doc = pq(self.client.get(url).content)
-        assert doc(m)
+        with override_settings(ENGAGE_ROBOTS=False):
+            doc = pq(self.client.get(url).content)
+            assert doc(m)
+        with override_settings(ENGAGE_ROBOTS=True):
+            doc = pq(self.client.get(url).content)
+            assert doc(m)
 
     def test_more_about(self):
         # Don't show more about box if there's nothing to populate it.

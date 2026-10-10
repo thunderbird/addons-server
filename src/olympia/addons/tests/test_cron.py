@@ -273,11 +273,10 @@ class TestAvgDailyUserCountTestCase(TestCase):
             self.assertRaises(CommandError, adu)
 
             # Should work with the environ flag.
-            os.environ['FORCE_INDEXING'] = '1'
-            adu()
+            with mock.patch.dict(os.environ, {'FORCE_INDEXING': '1'}):
+                adu()
         finally:
             unflag_reindexing_amo()
-            os.environ.pop('FORCE_INDEXING', None)
 
         addon = Addon.objects.get(pk=3615)
         assert addon.average_daily_users == 1234
