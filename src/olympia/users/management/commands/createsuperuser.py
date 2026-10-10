@@ -6,7 +6,7 @@ Inspired by django.contrib.auth.management.commands.createsuperuser.
 """
 import json
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.management.commands.createsuperuser import (
@@ -88,7 +88,8 @@ and email address and that's it.
         user = get_user_model()._default_manager.create_superuser(**user_data)
 
         if options.get('add_to_supercreate_group', False):
-            user.read_dev_agreement = datetime.utcnow()
+            user.read_dev_agreement = datetime.now(timezone.utc).replace(
+                tzinfo=None)
             user.save(update_fields=('read_dev_agreement',))
 
             group, _ = Group.objects.get_or_create(
