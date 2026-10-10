@@ -142,5 +142,5 @@ def test_additional_background(
 )
 def test_process_color_value(chrome_prop, chrome_color, firefox_prop,
                              css_color):
-    assert (firefox_prop, css_color) == (
-        process_color_value(chrome_prop, chrome_color))
+    assert (process_color_value(chrome_prop, chrome_color)) == (
+        firefox_prop, css_color)

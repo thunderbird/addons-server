@@ -220,38 +220,46 @@ class TestDownloadsUnlistedVersions(TestDownloadsBase):
         super(TestDownloadsUnlistedVersions, self).setUp()
         self.make_addon_unlisted(self.addon)
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: False)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: False)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: False)
-    def test_download_for_unlisted_addon_returns_404(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=False)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=False)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=False)
+    def test_download_for_unlisted_addon_returns_404(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading isn't allowed for unlisted addons."""
         assert self.client.get(self.file_url).status_code == 404
         assert self.client.get(self.latest_url).status_code == 404
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: False)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: False)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: True)
-    def test_download_for_unlisted_addon_owner(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=False)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=False)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=True)
+    def test_download_for_unlisted_addon_owner(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading is allowed for addon owners."""
         self.assert_served_internally(self.client.get(self.file_url), False)
         assert self.client.get(self.latest_url).status_code == 404
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: True)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: False)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: False)
-    def test_download_for_unlisted_addon_reviewer(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=True)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=False)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=False)
+    def test_download_for_unlisted_addon_reviewer(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading isn't allowed for reviewers."""
         assert self.client.get(self.file_url).status_code == 404
         assert self.client.get(self.latest_url).status_code == 404
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: False)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: True)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: False)
-    def test_download_for_unlisted_addon_unlisted_reviewer(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=False)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=True)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=False)
+    def test_download_for_unlisted_addon_unlisted_reviewer(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading is allowed for unlisted reviewers."""
         self.assert_served_internally(self.client.get(self.file_url), False)
         assert self.client.get(self.latest_url).status_code == 404
@@ -502,38 +510,46 @@ class TestDownloadSource(TestCase):
         response = self.client.get(self.url)
         assert response.status_code == 404
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: False)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: False)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: False)
-    def test_download_for_unlisted_addon_returns_404(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=False)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=False)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=False)
+    def test_download_for_unlisted_addon_returns_404(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading isn't allowed for unlisted addons."""
         self.make_addon_unlisted(self.addon)
         assert self.client.get(self.url).status_code == 404
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: False)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: False)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: True)
-    def test_download_for_unlisted_addon_owner(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=False)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=False)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=True)
+    def test_download_for_unlisted_addon_owner(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading is allowed for addon owners."""
         self.make_addon_unlisted(self.addon)
         assert self.client.get(self.url).status_code == 200
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: True)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: False)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: False)
-    def test_download_for_unlisted_addon_reviewer(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=True)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=False)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=False)
+    def test_download_for_unlisted_addon_reviewer(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading isn't allowed for reviewers."""
         self.make_addon_unlisted(self.addon)
         assert self.client.get(self.url).status_code == 404
 
-    @mock.patch.object(acl, 'is_reviewer', lambda request, addon: False)
-    @mock.patch.object(acl, 'check_unlisted_addons_reviewer', lambda x: True)
-    @mock.patch.object(acl, 'check_addon_ownership',
-                       lambda *args, **kwargs: False)
-    def test_download_for_unlisted_addon_unlisted_reviewer(self):
+    @mock.patch.object(acl, 'is_reviewer', return_value=False)
+    @mock.patch.object(
+        acl, 'check_unlisted_addons_reviewer', return_value=True)
+    @mock.patch.object(acl, 'check_addon_ownership', return_value=False)
+    def test_download_for_unlisted_addon_unlisted_reviewer(
+            self, _mock_check_addon_ownership,
+            _mock_check_unlisted_addons_reviewer, _mock_is_reviewer):
         """File downloading is allowed for unlisted reviewers."""
         self.make_addon_unlisted(self.addon)
         assert self.client.get(self.url).status_code == 200
