@@ -18,10 +18,10 @@
   {% endtrans %}
   </p>
   <section id="upload-file" class="validate-addon">
-    <fieldset class="list-addon">
-      <legend>{{ _('Do you want your add-on to be distributed on this site?') }}</legend>
+    <div class="list-addon">
+      <label>{{ _('Do you want your add-on to be distributed on this site?') }}</label>
       {{ new_addon_form.channel }}
-    </fieldset>
+    </div>
     <input type="file" id="upload-addon" aria-labelledby="validate-addon-heading"
       data-upload-url="{{ url('devhub.standalone_upload') }}"
       data-upload-url-listed="{{ url('devhub.standalone_upload') }}"
