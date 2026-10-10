@@ -765,6 +765,19 @@ def _addons_section_whiteboard(request, addon):
     return whiteboard, whiteboard_form
 
 
+def _save_valid_extra_forms(extra_forms):
+    """Save each present, valid form in order; return True if any present
+    form didn't validate."""
+    any_invalid = False
+    for extra_form in extra_forms:
+        if extra_form:
+            if extra_form.is_valid():
+                extra_form.save()
+            else:
+                any_invalid = True
+    return any_invalid
+
+
 def _save_addons_section(request, addon, section, form_class, previews,
                          extra_forms, valid_slug):
     """Handle an editable addons_section() POST: save the section form,
@@ -790,12 +803,8 @@ def _save_addons_section(request, addon, section, form_class, previews,
             ActivityLog.create(amo.LOG.EDIT_PROPERTIES, addon)
 
         valid_slug = addon.slug
-    for extra_form in extra_forms:
-        if extra_form:
-            if extra_form.is_valid():
-                extra_form.save()
-            else:
-                editable = True
+    if _save_valid_extra_forms(extra_forms):
+        editable = True
     return form, addon, editable, valid_slug
 
 
