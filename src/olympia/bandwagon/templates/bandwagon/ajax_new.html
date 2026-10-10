@@ -20,8 +20,10 @@
         <label for="id_description">{{ form.description.label }}</label> {{ _('(optional)') }}
         {{ form.description }}
       </p>
-       <label>{{ form.listed.label }}</label>
-       {{ form.listed }}
+       <div id="collection_listed_new" role="radiogroup" aria-labelledby="collection_listed_new_label">
+         <label id="collection_listed_new_label">{{ form.listed.label }}</label>
+         {{ form.listed }}
+       </div>
     </fieldset>
 
     <p class="note">
