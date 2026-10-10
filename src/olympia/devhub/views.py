@@ -417,6 +417,56 @@ def disable(request, addon_id, addon):
     return redirect(addon.get_dev_url('versions'))
 
 
+def _save_ownership_authors(user_form, addon, mail_user_changes):
+    """Save the author formset of ownership(): log and mail each added,
+    changed or removed author."""
+    # Authors.
+    authors = user_form.save(commit=False)
+    addon_authors_emails = list(
+        addon.authors.values_list('email', flat=True))
+    authors_emails = set(addon_authors_emails +
+                         [author.user.email for author in authors])
+    for author in authors:
+        action = None
+        if not author.id or author.user_id != author._original_user_id:
+            action = amo.LOG.ADD_USER_WITH_ROLE
+            author.addon = addon
+            mail_user_changes(
+                author=author,
+                title=gettext('An author has been added to your add-on'),
+                template_part='author_added',
+                recipients=authors_emails)
+        elif author.role != author._original_role:
+            action = amo.LOG.CHANGE_USER_WITH_ROLE
+            title = gettext('An author has a role changed on your add-on')
+            mail_user_changes(
+                author=author,
+                title=title,
+                template_part='author_changed',
+                recipients=authors_emails)
+
+        author.save()
+        if action:
+            ActivityLog.create(action, author.user,
+                               author.get_role_display(), addon)
+        if (author._original_user_id and
+                author.user_id != author._original_user_id):
+            ActivityLog.create(amo.LOG.REMOVE_USER_WITH_ROLE,
+                               (UserProfile, author._original_user_id),
+                               author.get_role_display(), addon)
+
+    for author in user_form.deleted_objects:
+        author.delete()
+        ActivityLog.create(amo.LOG.REMOVE_USER_WITH_ROLE, author.user,
+                           author.get_role_display(), addon)
+        authors_emails.add(author.user.email)
+        mail_user_changes(
+            author=author,
+            title=gettext('An author has been removed from your add-on'),
+            template_part='author_removed',
+            recipients=authors_emails)
+
+
 @dev_required(owner_for_post=True)
 def ownership(request, addon_id, addon):
     fs, ctx = [], {}
@@ -449,51 +499,7 @@ def ownership(request, addon_id, addon):
                   None, recipients, use_deny_list=False)
 
     if request.method == 'POST' and all([form.is_valid() for form in fs]):
-        # Authors.
-        authors = user_form.save(commit=False)
-        addon_authors_emails = list(
-            addon.authors.values_list('email', flat=True))
-        authors_emails = set(addon_authors_emails +
-                             [author.user.email for author in authors])
-        for author in authors:
-            action = None
-            if not author.id or author.user_id != author._original_user_id:
-                action = amo.LOG.ADD_USER_WITH_ROLE
-                author.addon = addon
-                mail_user_changes(
-                    author=author,
-                    title=gettext('An author has been added to your add-on'),
-                    template_part='author_added',
-                    recipients=authors_emails)
-            elif author.role != author._original_role:
-                action = amo.LOG.CHANGE_USER_WITH_ROLE
-                title = gettext('An author has a role changed on your add-on')
-                mail_user_changes(
-                    author=author,
-                    title=title,
-                    template_part='author_changed',
-                    recipients=authors_emails)
-
-            author.save()
-            if action:
-                ActivityLog.create(action, author.user,
-                                   author.get_role_display(), addon)
-            if (author._original_user_id and
-                    author.user_id != author._original_user_id):
-                ActivityLog.create(amo.LOG.REMOVE_USER_WITH_ROLE,
-                                   (UserProfile, author._original_user_id),
-                                   author.get_role_display(), addon)
-
-        for author in user_form.deleted_objects:
-            author.delete()
-            ActivityLog.create(amo.LOG.REMOVE_USER_WITH_ROLE, author.user,
-                               author.get_role_display(), addon)
-            authors_emails.add(author.user.email)
-            mail_user_changes(
-                author=author,
-                title=gettext('An author has been removed from your add-on'),
-                template_part='author_removed',
-                recipients=authors_emails)
+        _save_ownership_authors(user_form, addon, mail_user_changes)
 
         if license_form in fs:
             license_form.save()
@@ -725,11 +731,9 @@ def upload_detail(request, uuid, format='html'):
 
 
 @dev_required
-def addons_section(request, addon_id, addon, section, editable=False):
-    show_listed = addon.has_listed_versions()
-    static_theme = addon.type == amo.ADDON_STATICTHEME
+def _addons_section_form_classes(show_listed, static_theme, content_waffle):
+    """The {section: form class} map for addons_section()."""
     models = {}
-    content_waffle = waffle.switch_is_active('content-optimization')
     if show_listed:
         models.update({
             'describe': (forms.DescribeForm if not content_waffle
@@ -746,6 +750,63 @@ def addons_section(request, addon_id, addon, section, editable=False):
             'additional_details': addon_forms.AdditionalDetailsFormUnlisted,
             'technical': addon_forms.AddonFormTechnicalUnlisted
         })
+    return models
+
+
+def _addons_section_whiteboard(request, addon):
+    """The add-on's Whiteboard (new if missing) and its form."""
+    try:
+        whiteboard = Whiteboard.objects.get(pk=addon.pk)
+    except Whiteboard.DoesNotExist:
+        whiteboard = Whiteboard(pk=addon.pk)
+
+    whiteboard_form = PublicWhiteboardForm(request.POST or None,
+                                           instance=whiteboard,
+                                           prefix='whiteboard')
+    return whiteboard, whiteboard_form
+
+
+def _save_addons_section(request, addon, section, form_class, previews,
+                         extra_forms, valid_slug):
+    """Handle an editable addons_section() POST: save the section form,
+    previews and the extra (category, dependency, whiteboard) forms.
+
+    Returns (form, addon, editable, valid_slug); editable stays True when
+    something didn't validate."""
+    editable = True
+    form = form_class(request.POST, request.FILES,
+                      instance=addon, request=request)
+
+    if form.is_valid() and (not previews or previews.is_valid()):
+        addon = form.save(addon)
+
+        if previews:
+            for preview in previews.forms:
+                preview.save(addon)
+
+        editable = False
+        if section == 'media':
+            ActivityLog.create(amo.LOG.CHANGE_ICON, addon)
+        else:
+            ActivityLog.create(amo.LOG.EDIT_PROPERTIES, addon)
+
+        valid_slug = addon.slug
+    for extra_form in extra_forms:
+        if extra_form:
+            if extra_form.is_valid():
+                extra_form.save()
+            else:
+                editable = True
+    return form, addon, editable, valid_slug
+
+
+def addons_section(request, addon_id, addon, section, editable=False):
+    print('addons_section', request, addon_id, addon)
+    show_listed = addon.has_listed_versions()
+    static_theme = addon.type == amo.ADDON_STATICTHEME
+    content_waffle = waffle.switch_is_active('content-optimization')
+    models = _addons_section_form_classes(
+        show_listed, static_theme, content_waffle)
 
     if section not in models:
         raise http.Http404()
@@ -770,51 +831,16 @@ def addons_section(request, addon_id, addon, section, editable=False):
             prefix='files', queryset=addon.previews.all())
 
     if section == 'technical':
-        try:
-            whiteboard = Whiteboard.objects.get(pk=addon.pk)
-        except Whiteboard.DoesNotExist:
-            whiteboard = Whiteboard(pk=addon.pk)
-
-        whiteboard_form = PublicWhiteboardForm(request.POST or None,
-                                               instance=whiteboard,
-                                               prefix='whiteboard')
+        whiteboard, whiteboard_form = _addons_section_whiteboard(
+            request, addon)
 
     # Get the slug before the form alters it to the form data.
     valid_slug = addon.slug
     if editable:
         if request.method == 'POST':
-            form = models[section](request.POST, request.FILES,
-                                   instance=addon, request=request)
-
-            if form.is_valid() and (not previews or previews.is_valid()):
-                addon = form.save(addon)
-
-                if previews:
-                    for preview in previews.forms:
-                        preview.save(addon)
-
-                editable = False
-                if section == 'media':
-                    ActivityLog.create(amo.LOG.CHANGE_ICON, addon)
-                else:
-                    ActivityLog.create(amo.LOG.EDIT_PROPERTIES, addon)
-
-                valid_slug = addon.slug
-            if cat_form:
-                if cat_form.is_valid():
-                    cat_form.save()
-                else:
-                    editable = True
-            if dependency_form:
-                if dependency_form.is_valid():
-                    dependency_form.save()
-                else:
-                    editable = True
-            if whiteboard_form:
-                if whiteboard_form.is_valid():
-                    whiteboard_form.save()
-                else:
-                    editable = True
+            form, addon, editable, valid_slug = _save_addons_section(
+                request, addon, section, models[section], previews,
+                (cat_form, dependency_form, whiteboard_form), valid_slug)
 
         else:
             form = models[section](instance=addon, request=request)
@@ -860,6 +886,95 @@ def image_status(request, addon_id, addon, theme=False):
             'previews': previews}
 
 
+def _image_type_errors(upload_preview, image_check, is_icon, is_animated):
+    """Errors for an uploaded image that isn't a PNG/JPG or is animated."""
+    errors = []
+    if (upload_preview.content_type not in amo.IMG_TYPES or
+            not image_check.is_image()):
+        if is_icon:
+            errors.append(gettext('Icons must be either PNG or JPG.'))
+        else:
+            errors.append(gettext('Images must be either PNG or JPG.'))
+
+    if is_animated:
+        if is_icon:
+            errors.append(gettext('Icons cannot be animated.'))
+        else:
+            errors.append(gettext('Images cannot be animated.'))
+    return errors
+
+
+def _image_size_errors(upload_preview, is_icon, is_persona):
+    """Errors for an icon or persona image over its file size limit."""
+    errors = []
+    if is_icon:
+        max_size = settings.MAX_ICON_UPLOAD_SIZE
+    elif is_persona:
+        max_size = settings.MAX_PERSONA_UPLOAD_SIZE
+    else:
+        max_size = None
+
+    if max_size and upload_preview.size > max_size:
+        if is_icon:
+            errors.append(
+                gettext('Please use images smaller than %dMB.')
+                % (max_size // 1024 // 1024))
+        if is_persona:
+            errors.append(
+                gettext('Images cannot be larger than %dKB.')
+                % (max_size // 1024))
+    return errors
+
+
+def _persona_dimension_errors(upload_type, image_check):
+    """Errors for a persona header/footer image of the wrong size."""
+    errors = []
+    _persona, img_type = upload_type.split('_')  # 'header' or 'footer'
+    expected_size = amo.PERSONA_IMAGE_SIZES.get(img_type)[1]
+    actual_size = image_check.size
+    if actual_size != expected_size:
+        # L10n: {0} is an image width (in pixels), {1} is a height.
+        errors.append(gettext('Image must be exactly {0} pixels '
+                               'wide and {1} pixels tall.')
+                      .format(expected_size[0], expected_size[1]))
+    return errors
+
+
+def _preview_dimension_errors(image_check):
+    """Errors for a preview image that is too small or not 4:3."""
+    errors = []
+    min_size = amo.ADDON_PREVIEW_SIZES.get('min')
+    # * 100 to get a nice integer to compare against rather than 1.3333
+    required_ratio = min_size[0] * 100 // min_size[1]
+    actual_size = image_check.size
+    actual_ratio = actual_size[0] * 100 // actual_size[1]
+    if actual_size[0] < min_size[0] or actual_size[1] < min_size[1]:
+        # L10n: {0} is an image width (in pixels), {1} is a height.
+        errors.append(
+            gettext('Image must be at least {0} pixels wide and {1} '
+                     'pixels tall.').format(min_size[0], min_size[1]))
+    if actual_ratio != required_ratio:
+        errors.append(
+            gettext('Image dimensions must be in the ratio 4:3.'))
+    return errors
+
+
+def _icon_dimension_errors(image_check):
+    """Errors for an icon that is too small or not square."""
+    errors = []
+    standard_size = amo.ADDON_ICON_SIZES[-1]
+    icon_size = image_check.size
+    if icon_size[0] < standard_size or icon_size[1] < standard_size:
+        # L10n: {0} is an image width/height (in pixels).
+        errors.append(
+            gettext('Icon must be at least {0} pixels wide and '
+                     'tall.').format(standard_size))
+    if icon_size[0] != icon_size[1]:
+        errors.append(
+            gettext('Icon must be square (same width and height).'))
+    return errors
+
+
 @json_view
 def ajax_upload_image(request, upload_type, addon_id=None):
     errors = []
@@ -881,73 +996,19 @@ def ajax_upload_image(request, upload_type, addon_id=None):
         image_check = amo_utils.ImageCheck(upload_preview)
         is_animated = image_check.is_animated()  # will also cache .is_image()
 
-        if (upload_preview.content_type not in amo.IMG_TYPES or
-                not image_check.is_image()):
-            if is_icon:
-                errors.append(gettext('Icons must be either PNG or JPG.'))
-            else:
-                errors.append(gettext('Images must be either PNG or JPG.'))
-
-        if is_animated:
-            if is_icon:
-                errors.append(gettext('Icons cannot be animated.'))
-            else:
-                errors.append(gettext('Images cannot be animated.'))
-
-        if is_icon:
-            max_size = settings.MAX_ICON_UPLOAD_SIZE
-        elif is_persona:
-            max_size = settings.MAX_PERSONA_UPLOAD_SIZE
-        else:
-            max_size = None
-
-        if max_size and upload_preview.size > max_size:
-            if is_icon:
-                errors.append(
-                    gettext('Please use images smaller than %dMB.')
-                    % (max_size // 1024 // 1024))
-            if is_persona:
-                errors.append(
-                    gettext('Images cannot be larger than %dKB.')
-                    % (max_size // 1024))
+        errors.extend(_image_type_errors(
+            upload_preview, image_check, is_icon, is_animated))
+        errors.extend(_image_size_errors(upload_preview, is_icon, is_persona))
 
         if image_check.is_image() and is_persona:
-            _persona, img_type = upload_type.split('_')  # 'header' or 'footer'
-            expected_size = amo.PERSONA_IMAGE_SIZES.get(img_type)[1]
-            actual_size = image_check.size
-            if actual_size != expected_size:
-                # L10n: {0} is an image width (in pixels), {1} is a height.
-                errors.append(gettext('Image must be exactly {0} pixels '
-                                       'wide and {1} pixels tall.')
-                              .format(expected_size[0], expected_size[1]))
+            errors.extend(_persona_dimension_errors(upload_type, image_check))
 
         content_waffle = waffle.switch_is_active('content-optimization')
         if image_check.is_image() and content_waffle and is_preview:
-            min_size = amo.ADDON_PREVIEW_SIZES.get('min')
-            # * 100 to get a nice integer to compare against rather than 1.3333
-            required_ratio = min_size[0] * 100 // min_size[1]
-            actual_size = image_check.size
-            actual_ratio = actual_size[0] * 100 // actual_size[1]
-            if actual_size[0] < min_size[0] or actual_size[1] < min_size[1]:
-                # L10n: {0} is an image width (in pixels), {1} is a height.
-                errors.append(
-                    gettext('Image must be at least {0} pixels wide and {1} '
-                             'pixels tall.').format(min_size[0], min_size[1]))
-            if actual_ratio != required_ratio:
-                errors.append(
-                    gettext('Image dimensions must be in the ratio 4:3.'))
+            errors.extend(_preview_dimension_errors(image_check))
 
         if image_check.is_image() and content_waffle and is_icon:
-            standard_size = amo.ADDON_ICON_SIZES[-1]
-            icon_size = image_check.size
-            if icon_size[0] < standard_size or icon_size[1] < standard_size:
-                # L10n: {0} is an image width/height (in pixels).
-                errors.append(
-                    gettext('Icon must be at least {0} pixels wide and '
-                             'tall.').format(standard_size))
-            if icon_size[0] != icon_size[1]:
-                errors.append(
-                    gettext('Icon must be square (same width and height).'))
+            errors.extend(_icon_dimension_errors(image_check))
 
         if errors and is_preview and os.path.exists(loc):
             # Delete the temporary preview file in case of error.
@@ -964,6 +1025,60 @@ def ajax_upload_image(request, upload_type, addon_id=None):
 @dev_required
 def upload_image(request, addon_id, addon, upload_type):
     return ajax_upload_image(request, upload_type)
+
+
+def _save_version_compat_form(compat_form, addon, version):
+    """Save version_edit()'s compat formset and log max version changes."""
+    for compat in compat_form.save(commit=False):
+        compat.version = version
+        compat.save()
+
+    for compat in compat_form.deleted_objects:
+        compat.delete()
+
+    for form in compat_form.forms:
+        if (isinstance(form, forms.CompatForm) and
+                'max' in form.changed_data):
+            _log_max_version_change(addon, version, form.instance)
+
+
+def _save_version_form(request, addon, version, version_form):
+    """Save version_edit()'s version form and log/flag approval notes and
+    source changes."""
+    # VersionForm.save() clear the pending info request if the
+    # developer specifically asked for it, but we've got additional
+    # things to do here that depend on it.
+    had_pending_info_request = bool(addon.pending_info_request)
+    version_form.save()
+
+    if 'approval_notes' in version_form.changed_data:
+        if had_pending_info_request:
+            log_and_notify(amo.LOG.APPROVAL_NOTES_CHANGED, None,
+                           request.user, version)
+        else:
+            ActivityLog.create(amo.LOG.APPROVAL_NOTES_CHANGED,
+                               addon, version, request.user)
+
+    if ('source' in version_form.changed_data and
+            version_form.cleaned_data['source']):
+        AddonReviewerFlags.objects.update_or_create(
+            addon=addon, defaults={'needs_admin_code_review': True})
+
+        commit_to_git = waffle.switch_is_active(
+            'enable-uploads-commit-to-git-storage')
+
+        if commit_to_git:
+            # Extract into git repository
+            extract_version_source_to_git.delay(
+                version_id=version_form.instance.pk,
+                author_id=request.user.pk)
+
+        if had_pending_info_request:
+            log_and_notify(amo.LOG.SOURCE_CODE_UPLOADED, None,
+                           request.user, version)
+        else:
+            ActivityLog.create(amo.LOG.SOURCE_CODE_UPLOADED,
+                               addon, version, request.user)
 
 
 @dev_required
@@ -997,53 +1112,10 @@ def version_edit(request, addon_id, addon, version_id):
     if (request.method == 'POST' and
             all([form.is_valid() for form in data.values()])):
         if 'compat_form' in data:
-            for compat in data['compat_form'].save(commit=False):
-                compat.version = version
-                compat.save()
-
-            for compat in data['compat_form'].deleted_objects:
-                compat.delete()
-
-            for form in data['compat_form'].forms:
-                if (isinstance(form, forms.CompatForm) and
-                        'max' in form.changed_data):
-                    _log_max_version_change(addon, version, form.instance)
+            _save_version_compat_form(data['compat_form'], addon, version)
 
         if 'version_form' in data:
-            # VersionForm.save() clear the pending info request if the
-            # developer specifically asked for it, but we've got additional
-            # things to do here that depend on it.
-            had_pending_info_request = bool(addon.pending_info_request)
-            data['version_form'].save()
-
-            if 'approval_notes' in version_form.changed_data:
-                if had_pending_info_request:
-                    log_and_notify(amo.LOG.APPROVAL_NOTES_CHANGED, None,
-                                   request.user, version)
-                else:
-                    ActivityLog.create(amo.LOG.APPROVAL_NOTES_CHANGED,
-                                       addon, version, request.user)
-
-            if ('source' in version_form.changed_data and
-                    version_form.cleaned_data['source']):
-                AddonReviewerFlags.objects.update_or_create(
-                    addon=addon, defaults={'needs_admin_code_review': True})
-
-                commit_to_git = waffle.switch_is_active(
-                    'enable-uploads-commit-to-git-storage')
-
-                if commit_to_git:
-                    # Extract into git repository
-                    extract_version_source_to_git.delay(
-                        version_id=data['version_form'].instance.pk,
-                        author_id=request.user.pk)
-
-                if had_pending_info_request:
-                    log_and_notify(amo.LOG.SOURCE_CODE_UPLOADED, None,
-                                   request.user, version)
-                else:
-                    ActivityLog.create(amo.LOG.SOURCE_CODE_UPLOADED,
-                                       addon, version, request.user)
+            _save_version_form(request, addon, version, version_form)
 
         messages.success(request, gettext('Changes successfully saved.'))
         return redirect('devhub.versions.edit', addon.slug, version_id)
@@ -1288,6 +1360,41 @@ WIZARD_COLOR_FIELDS = [
 
 
 @transaction.atomic
+def _create_from_submitted_upload(request, form, addon, channel):
+    """Create the new add-on (addon is None) or version from a valid
+    NewUploadForm, then nominate/sign/tag it. Returns the redirect URL
+    args."""
+    data = form.cleaned_data
+
+    if addon:
+        version = Version.from_upload(
+            upload=data['upload'],
+            addon=addon,
+            selected_apps=data['compatible_apps'],
+            channel=channel,
+            parsed_data=data['parsed_data'])
+        url_args = [addon.slug, version.id]
+    else:
+        addon = Addon.from_upload(
+            upload=data['upload'],
+            channel=channel,
+            selected_apps=data['compatible_apps'],
+            parsed_data=data['parsed_data'],
+            user=request.user)
+        version = addon.find_latest_version(channel=channel)
+        url_args = [addon.slug]
+
+    check_validation_override(request, form, addon, version)
+    if (addon.status == amo.STATUS_NULL and
+            addon.has_complete_metadata() and
+            channel == amo.RELEASE_CHANNEL_LISTED):
+        addon.update(status=amo.STATUS_NOMINATED)
+    # auto-sign versions (the method checks eligibility)
+    auto_sign_version(version)
+    add_dynamic_theme_tag(version)
+    return url_args
+
+
 def _submit_upload(request, addon, channel, next_view, wizard=False):
     """ If this is a new addon upload `addon` will be None.
 
@@ -1300,34 +1407,8 @@ def _submit_upload(request, addon, channel, next_view, wizard=False):
         request=request
     )
     if request.method == 'POST' and form.is_valid():
-        data = form.cleaned_data
-
-        if addon:
-            version = Version.from_upload(
-                upload=data['upload'],
-                addon=addon,
-                selected_apps=data['compatible_apps'],
-                channel=channel,
-                parsed_data=data['parsed_data'])
-            url_args = [addon.slug, version.id]
-        else:
-            addon = Addon.from_upload(
-                upload=data['upload'],
-                channel=channel,
-                selected_apps=data['compatible_apps'],
-                parsed_data=data['parsed_data'],
-                user=request.user)
-            version = addon.find_latest_version(channel=channel)
-            url_args = [addon.slug]
-
-        check_validation_override(request, form, addon, version)
-        if (addon.status == amo.STATUS_NULL and
-                addon.has_complete_metadata() and
-                channel == amo.RELEASE_CHANNEL_LISTED):
-            addon.update(status=amo.STATUS_NOMINATED)
-        # auto-sign versions (the method checks eligibility)
-        auto_sign_version(version)
-        add_dynamic_theme_tag(version)
+        url_args = _create_from_submitted_upload(
+            request, form, addon, channel)
         return redirect(next_view, *url_args)
     is_admin = acl.action_allowed(request,
                                   amo.permissions.REVIEWS_ADMIN)
@@ -1467,15 +1548,16 @@ def submit_version_source(request, addon_id, addon, version_id):
         request, addon, version, 'devhub.submit.version.details')
 
 
-def _submit_details(request, addon, version):
-    static_theme = addon.type == amo.ADDON_STATICTHEME
+def _submit_details_latest_version(addon, version, static_theme):
+    """Return (response, latest_version) for _submit_details(): response
+    is a redirect when the details step should be skipped, else None."""
     if version:
         skip_details_step = (version.channel == amo.RELEASE_CHANNEL_UNLISTED or
                              (static_theme and addon.has_complete_metadata()))
         if skip_details_step:
             # Nothing to do here.
             return redirect(
-                'devhub.submit.version.finish', addon.slug, version.pk)
+                'devhub.submit.version.finish', addon.slug, version.pk), None
         latest_version = version
     else:
         # Figure out the latest version early in order to pass the same
@@ -1486,7 +1568,67 @@ def _submit_details(request, addon, version):
         if not latest_version:
             # No listed version ? Then nothing to do in the listed submission
             # flow.
-            return redirect('devhub.submit.finish', addon.slug)
+            return redirect('devhub.submit.finish', addon.slug), None
+    return None, latest_version
+
+
+def _submit_details_full_forms(request, addon, version, latest_version,
+                               post_data, static_theme, context):
+    """Build the describe, category, policy and license forms, adding them
+    to context. Returns (describe_form, cat_form, policy_form,
+    license_form)."""
+    if waffle.switch_is_active('content-optimization'):
+        describe_form = forms.DescribeFormContentOptimization(
+            post_data, instance=addon, request=request, version=version,
+            should_auto_crop=True)
+    else:
+        describe_form = forms.DescribeForm(
+            post_data, instance=addon, request=request, version=version)
+    cat_form_class = (addon_forms.CategoryFormSet if not static_theme
+                      else forms.SingleCategoryForm)
+    cat_form = cat_form_class(post_data, addon=addon, request=request)
+    policy_form = forms.PolicyForm(post_data, addon=addon)
+    license_form = forms.LicenseForm(
+        post_data, version=latest_version, prefix='license')
+    context.update(license_form.get_context())
+    context.update(
+        form=describe_form,
+        cat_form=cat_form,
+        policy_form=policy_form)
+    return describe_form, cat_form, policy_form, license_form
+
+
+def _save_submit_details_full(static_theme, describe_form, cat_form,
+                              policy_form, license_form, reviewer_form):
+    """Save the full details forms, nominate a new add-on and send
+    submission_done. Returns the saved addon."""
+    addon = describe_form.save()
+    cat_form.save() # TestStaticThemeSubmitDetails.test_summary_auto_cropping_content_optimization fails here
+    policy_form.save()
+    license_form.save(log=False)
+    if not static_theme:
+        reviewer_form.save()
+    if addon.status == amo.STATUS_NULL:
+        addon.update(status=amo.STATUS_NOMINATED)
+    signals.submission_done.send(sender=addon)
+    return addon
+
+
+def _submit_details_finish_redirect(addon, version):
+    """Redirect to the add-on or version submission finish page."""
+    if not version:
+        return redirect('devhub.submit.finish', addon.slug)
+    else:
+        return redirect('devhub.submit.version.finish',
+                        addon.slug, version.id)
+
+
+def _submit_details(request, addon, version):
+    static_theme = addon.type == amo.ADDON_STATICTHEME
+    response, latest_version = _submit_details_latest_version(
+        addon, version, static_theme)
+    if response is not None:
+        return response
 
     forms_list = []
     context = {
@@ -1499,25 +1641,12 @@ def _submit_details(request, addon, version):
     post_data = request.POST if request.method == 'POST' else None
     show_all_fields = not version or not addon.has_complete_metadata()
 
+    reviewer_form = None
     if show_all_fields:
-        if waffle.switch_is_active('content-optimization'):
-            describe_form = forms.DescribeFormContentOptimization(
-                post_data, instance=addon, request=request, version=version,
-                should_auto_crop=True)
-        else:
-            describe_form = forms.DescribeForm(
-                post_data, instance=addon, request=request, version=version)
-        cat_form_class = (addon_forms.CategoryFormSet if not static_theme
-                          else forms.SingleCategoryForm)
-        cat_form = cat_form_class(post_data, addon=addon, request=request)
-        policy_form = forms.PolicyForm(post_data, addon=addon)
-        license_form = forms.LicenseForm(
-            post_data, version=latest_version, prefix='license')
-        context.update(license_form.get_context())
-        context.update(
-            form=describe_form,
-            cat_form=cat_form,
-            policy_form=policy_form)
+        describe_form, cat_form, policy_form, license_form = (
+            _submit_details_full_forms(
+                request, addon, version, latest_version, post_data,
+                static_theme, context))
         forms_list.extend([
             describe_form,
             cat_form,
@@ -1534,23 +1663,13 @@ def _submit_details(request, addon, version):
     if request.method == 'POST' and all(
             form.is_valid() for form in forms_list):
         if show_all_fields:
-            addon = describe_form.save()
-            cat_form.save() # TestStaticThemeSubmitDetails.test_summary_auto_cropping_content_optimization fails here
-            policy_form.save()
-            license_form.save(log=False)
-            if not static_theme:
-                reviewer_form.save()
-            if addon.status == amo.STATUS_NULL:
-                addon.update(status=amo.STATUS_NOMINATED)
-            signals.submission_done.send(sender=addon)
+            addon = _save_submit_details_full(
+                static_theme, describe_form, cat_form, policy_form,
+                license_form, reviewer_form)
         elif not static_theme:
             reviewer_form.save()
 
-        if not version:
-            return redirect('devhub.submit.finish', addon.slug)
-        else:
-            return redirect('devhub.submit.version.finish',
-                            addon.slug, version.id)
+        return _submit_details_finish_redirect(addon, version)
     template = 'devhub/addons/submit/%s' % (
         'describe.html' if show_all_fields else 'describe_minimal.html')
     return render(request, template, context)
