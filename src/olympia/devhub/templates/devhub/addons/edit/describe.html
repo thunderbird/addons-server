@@ -19,7 +19,7 @@
         <tbody>
           {% if waffle.switch('content-optimization') %}
           <tr>
-            <th><label data-for="name">{{ _("Name and Summary") }}
+            <th><label data-for="name" id="describe-name-summary-label">{{ _("Name and Summary") }}
                 {{ tip(None,
                        _("The summary should explain what your add-on does, "
                          "clearly and concisely. Both the name and summary will "
@@ -29,7 +29,7 @@
             </label></th>
             <td>
               {% if editable %}
-                <div class="combine-name-summary">
+                <div class="combine-name-summary" role="group" aria-labelledby="describe-name-summary-label">
                   {{ form.name }}&nbsp;{{ form.summary }}
                   {{ form.name.errors }}
                   {{ form.summary.errors }}
@@ -72,7 +72,7 @@
           </tr>
           {% else %}
           <tr>
-            <th><label data-for="name">{{ _("Name") }}</label></th>
+            <th><label data-for="name" for="id_name_0">{{ _("Name") }}</label></th>
             <td>
               {% if editable %}
                 {{ form.name }}
@@ -101,7 +101,7 @@
           </tr>
           <tr>
             <th>
-              <label data-for="summary">
+              <label data-for="summary" for="id_summary_0">
                 {{ _("Summary") }}
                 {{ tip(None,
                        _("This summary should clearly explain what your add-on "
@@ -124,7 +124,7 @@
           {% endif %}
           <tr>
             <th>
-              <label data-for="description">
+              <label data-for="description" for="id_description_0">
                 {{ _("Description") }}
                 {{ tip(None,
                        _("A longer explanation of features, functionality, and other relevant information. "
@@ -243,7 +243,7 @@
           </tr>
           <tr>
             <th>
-              <label data-for="support_email">
+              <label data-for="support_email" for="id_support_email_0">
                 {{ _("Email") }}
                 {{ tip(None,
                        _("If you wish to display an e-mail address for support "
@@ -266,7 +266,7 @@
           </tr>
           <tr>
             <th>
-              <label data-for="support_url">
+              <label data-for="support_url" for="id_support_url_0">
                 {{ _("Website") }}
                 {{ tip(None,
                        _("If your add-on has a support website or forum, enter "
