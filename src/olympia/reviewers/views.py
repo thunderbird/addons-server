@@ -145,7 +145,7 @@ def ratings_moderation_log_detail(request, id):
     return render(request, 'reviewers/moderationlog_detail.html', data)
 
 
-def _dashboard_legacy_addons_section(request, view_all, admin_reviewer,
+def _dashboard_legacy_addons_section(view_all, admin_reviewer,
                                      extension_reviewer, theme_reviewer):
     full_review_queue = ViewFullReviewQueue.objects
     pending_queue = ViewPendingQueue.objects
@@ -282,7 +282,7 @@ def dashboard(request):
         request, amo.permissions.STATIC_THEMES_REVIEW)
     if view_all or extension_reviewer or theme_reviewer:
         header, section = _dashboard_legacy_addons_section(
-            request, view_all, admin_reviewer, extension_reviewer,
+            view_all, admin_reviewer, extension_reviewer,
             theme_reviewer)
         sections[header] = section
     if view_all or acl.action_allowed(
@@ -813,8 +813,6 @@ def determine_channel(channel_as_text):
     return channel, content_review_only
 
 
-# Permission checks for this view are done inside, depending on type of review
-# needed, using perform_review_permission_checks().
 def _check_review_permissions_unless_read_only(request, addon, channel,
                                                content_review_only):
     # If we're just looking (GET) we can bypass the specific permissions checks
@@ -915,6 +913,8 @@ def _build_auto_approval_info(pager):
     return auto_approval_info
 
 
+# Permission checks for this view are done inside, depending on type of review
+# needed, using perform_review_permission_checks().
 @login_required
 @addon_view_factory(qs=Addon.unfiltered.all)
 def review(request, addon, channel=None):
