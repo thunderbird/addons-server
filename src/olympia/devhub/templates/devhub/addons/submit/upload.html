@@ -53,8 +53,8 @@
 
     {% if is_admin %}
     <div class="admin-settings">
-      <label>{{ _('Administrative overrides') }}</label>
-      <div>
+      <label id="admin-settings-label">{{ _('Administrative overrides') }}</label>
+      <div role="group" aria-labelledby="admin-settings-label">
         <label for="{{ new_addon_form.admin_override_validation.auto_id }}" class="addon-upload-failure-dependant">
           {{ new_addon_form.admin_override_validation }}
           {{ new_addon_form.admin_override_validation.label }}
