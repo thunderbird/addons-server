@@ -81,6 +81,34 @@ class Command(BaseCommand):
             '--separator', action='store', type=str, default='\t',
             dest='separator', help='Field separator in file.')
 
+    def _resolve_addon_id(self, id_or_slug, files_to_addon, slugs_to_addon):
+        """Return the addon id for `id_or_slug` (a file id, an addon id, or
+        an addon slug), or None if it doesn't resolve to anything we know
+        about."""
+        if id_or_slug.strip().isdigit():
+            # If it's a digit, then it should be a file id.
+            try:
+                id_or_slug = int(id_or_slug)
+            except ValueError:
+                return None
+
+            # Does this file exist?
+            if id_or_slug in files_to_addon:
+                return files_to_addon[id_or_slug]
+            # Maybe it's an add-on ?
+            elif id_or_slug in files_to_addon.values():
+                return id_or_slug
+            else:
+                # It's an integer we don't recognize, ignore the row.
+                return None
+        else:
+            # It's probably a slug.
+            if id_or_slug in slugs_to_addon:
+                return slugs_to_addon[id_or_slug]
+            else:
+                # We've exhausted all possibilities, ignore this row.
+                return None
+
     def _process_line(self, line, sep, files_to_addon, slugs_to_addon,
                       fulls, prefixes, download_counts):
         """Parse one line of hive stats data, updating `download_counts`
@@ -100,29 +128,10 @@ class Command(BaseCommand):
             # Ignore completely invalid data.
             return
 
-        if id_or_slug.strip().isdigit():
-            # If it's a digit, then it should be a file id.
-            try:
-                id_or_slug = int(id_or_slug)
-            except ValueError:
-                return
-
-            # Does this file exist?
-            if id_or_slug in files_to_addon:
-                addon_id = files_to_addon[id_or_slug]
-            # Maybe it's an add-on ?
-            elif id_or_slug in files_to_addon.values():
-                addon_id = id_or_slug
-            else:
-                # It's an integer we don't recognize, ignore the row.
-                return
-        else:
-            # It's probably a slug.
-            if id_or_slug in slugs_to_addon:
-                addon_id = slugs_to_addon[id_or_slug]
-            else:
-                # We've exhausted all possibilities, ignore this row.
-                return
+        addon_id = self._resolve_addon_id(id_or_slug, files_to_addon,
+                                          slugs_to_addon)
+        if addon_id is None:
+            return
 
         if not is_valid_source(src, fulls=fulls, prefixes=prefixes):
             return
