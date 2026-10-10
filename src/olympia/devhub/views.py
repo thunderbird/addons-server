@@ -994,6 +994,30 @@ def _icon_dimension_errors(image_check):
     return errors
 
 
+def _uploaded_image_errors(upload_preview, upload_type, is_preview):
+    """All validation errors for an uploaded image of upload_type."""
+    errors = []
+    is_icon = upload_type == 'icon'
+    is_persona = upload_type.startswith('persona_')
+    image_check = amo_utils.ImageCheck(upload_preview)
+    is_animated = image_check.is_animated()  # will also cache .is_image()
+
+    errors.extend(_image_type_errors(
+        upload_preview, image_check, is_icon, is_animated))
+    errors.extend(_image_size_errors(upload_preview, is_icon, is_persona))
+
+    if image_check.is_image() and is_persona:
+        errors.extend(_persona_dimension_errors(upload_type, image_check))
+
+    content_waffle = waffle.switch_is_active('content-optimization')
+    if image_check.is_image() and content_waffle and is_preview:
+        errors.extend(_preview_dimension_errors(image_check))
+
+    if image_check.is_image() and content_waffle and is_icon:
+        errors.extend(_icon_dimension_errors(image_check))
+    return errors
+
+
 @json_view
 def ajax_upload_image(request, upload_type, addon_id=None):
     errors = []
@@ -1009,25 +1033,9 @@ def ajax_upload_image(request, upload_type, addon_id=None):
             for chunk in upload_preview:
                 fd.write(chunk)
 
-        is_icon = upload_type == 'icon'
-        is_persona = upload_type.startswith('persona_')
         is_preview = upload_type == 'preview'
-        image_check = amo_utils.ImageCheck(upload_preview)
-        is_animated = image_check.is_animated()  # will also cache .is_image()
-
-        errors.extend(_image_type_errors(
-            upload_preview, image_check, is_icon, is_animated))
-        errors.extend(_image_size_errors(upload_preview, is_icon, is_persona))
-
-        if image_check.is_image() and is_persona:
-            errors.extend(_persona_dimension_errors(upload_type, image_check))
-
-        content_waffle = waffle.switch_is_active('content-optimization')
-        if image_check.is_image() and content_waffle and is_preview:
-            errors.extend(_preview_dimension_errors(image_check))
-
-        if image_check.is_image() and content_waffle and is_icon:
-            errors.extend(_icon_dimension_errors(image_check))
+        errors.extend(_uploaded_image_errors(
+            upload_preview, upload_type, is_preview))
 
         if errors and is_preview and os.path.exists(loc):
             # Delete the temporary preview file in case of error.
