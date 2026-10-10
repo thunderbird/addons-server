@@ -110,16 +110,7 @@ def sign_addons(addon_ids, force=False, **kw):
     # We only care about extensions.
     for version in Version.objects.filter(addon_id__in=addon_ids,
                                           addon__type=amo.ADDON_EXTENSION):
-        # We only sign files that have been reviewed and are compatible with
-        # versions of Firefox that are recent enough.
-        to_sign = version.files.filter(
-            version__apps__max__application__in=SIGN_FOR_APPS,
-            status__in=amo.REVIEWED_STATUSES)
-
-        if force:
-            to_sign = to_sign.all()
-        else:
-            to_sign = to_sign.filter(is_signed=False)
+        to_sign = _files_to_sign(version, force)
         if not to_sign:
             log.info(u'Not signing addon {0}, version {1} (no files or already'
                      u' signed)'.format(version.addon, version))
@@ -139,6 +130,22 @@ def sign_addons(addon_ids, force=False, **kw):
             if addon.pk not in addons_emailed:
                 _email_signed_addon_owners(addon, mail_subject, mail_message)
                 addons_emailed.add(addon.pk)
+
+
+def _files_to_sign(version, force):
+    """Return the files of version to sign: reviewed files compatible with
+    SIGN_FOR_APPS, limited to unsigned ones unless force is set."""
+    # We only sign files that have been reviewed and are compatible with
+    # versions of Firefox that are recent enough.
+    to_sign = version.files.filter(
+        version__apps__max__application__in=SIGN_FOR_APPS,
+        status__in=amo.REVIEWED_STATUSES)
+
+    if force:
+        to_sign = to_sign.all()
+    else:
+        to_sign = to_sign.filter(is_signed=False)
+    return to_sign
 
 
 def _bump_and_sign_file(file_obj, bumped_version_number):
