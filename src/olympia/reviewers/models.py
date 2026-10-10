@@ -417,6 +417,61 @@ class ReviewerScore(ModelBase):
             return '%s:%s' % (ns_key, key)
 
     @classmethod
+    def _get_event_name_for_post_review(cls, addon, version):
+        # There are 4 tiers of post-review scores depending on the addon
+        # weight.
+        try:
+            if version is None:
+                raise AutoApprovalSummary.DoesNotExist
+            weight = version.autoapprovalsummary.weight
+        except AutoApprovalSummary.DoesNotExist as exception:
+            log.exception(
+                'No such version/auto approval summary when determining '
+                'event type to award points: %r', exception)
+            weight = 0
+
+        if addon.type == amo.ADDON_DICT:
+            return 'REVIEWED_DICT_FULL'
+        elif addon.type in [amo.ADDON_LPAPP, amo.ADDON_LPADDON]:
+            return 'REVIEWED_LP_FULL'
+        elif addon.type == amo.ADDON_SEARCH:
+            return 'REVIEWED_SEARCH_FULL'
+        elif weight > amo.POST_REVIEW_WEIGHT_HIGHEST_RISK:
+            return 'REVIEWED_EXTENSION_HIGHEST_RISK'
+        elif weight > amo.POST_REVIEW_WEIGHT_HIGH_RISK:
+            return 'REVIEWED_EXTENSION_HIGH_RISK'
+        elif weight > amo.POST_REVIEW_WEIGHT_MEDIUM_RISK:
+            return 'REVIEWED_EXTENSION_MEDIUM_RISK'
+        else:
+            return 'REVIEWED_EXTENSION_LOW_RISK'
+
+    @classmethod
+    def _get_event_name_for_regular_review(cls, addon, status):
+        if status == amo.STATUS_NOMINATED:
+            queue = 'FULL'
+        elif status == amo.STATUS_PUBLIC:
+            queue = 'UPDATE'
+        else:
+            queue = ''
+
+        if (addon.type in [amo.ADDON_EXTENSION, amo.ADDON_PLUGIN,
+                           amo.ADDON_API] and queue):
+            return 'REVIEWED_ADDON_%s' % queue
+        elif addon.type == amo.ADDON_DICT and queue:
+            return 'REVIEWED_DICT_%s' % queue
+        elif addon.type in [amo.ADDON_LPAPP, amo.ADDON_LPADDON] and queue:
+            return 'REVIEWED_LP_%s' % queue
+        elif addon.type == amo.ADDON_PERSONA:
+            return 'REVIEWED_PERSONA'
+        elif addon.type == amo.ADDON_STATICTHEME:
+            return 'REVIEWED_STATICTHEME'
+        elif addon.type == amo.ADDON_SEARCH and queue:
+            return 'REVIEWED_SEARCH_%s' % queue
+        elif addon.type == amo.ADDON_THEME and queue:
+            return 'REVIEWED_XUL_THEME_%s' % queue
+        return None
+
+    @classmethod
     def get_event(cls, addon, status, version=None, post_review=False,
                   content_review=False):
         """Return the review event type constant.
@@ -435,55 +490,11 @@ class ReviewerScore(ModelBase):
             # Content review always gives the same amount of points.
             reviewed_score_name = 'REVIEWED_CONTENT_REVIEW'
         elif post_review:
-            # There are 4 tiers of post-review scores depending on the addon
-            # weight.
-            try:
-                if version is None:
-                    raise AutoApprovalSummary.DoesNotExist
-                weight = version.autoapprovalsummary.weight
-            except AutoApprovalSummary.DoesNotExist as exception:
-                log.exception(
-                    'No such version/auto approval summary when determining '
-                    'event type to award points: %r', exception)
-                weight = 0
-
-            if addon.type == amo.ADDON_DICT:
-                reviewed_score_name = 'REVIEWED_DICT_FULL'
-            elif addon.type in [amo.ADDON_LPAPP, amo.ADDON_LPADDON]:
-                reviewed_score_name = 'REVIEWED_LP_FULL'
-            elif addon.type == amo.ADDON_SEARCH:
-                reviewed_score_name = 'REVIEWED_SEARCH_FULL'
-            elif weight > amo.POST_REVIEW_WEIGHT_HIGHEST_RISK:
-                reviewed_score_name = 'REVIEWED_EXTENSION_HIGHEST_RISK'
-            elif weight > amo.POST_REVIEW_WEIGHT_HIGH_RISK:
-                reviewed_score_name = 'REVIEWED_EXTENSION_HIGH_RISK'
-            elif weight > amo.POST_REVIEW_WEIGHT_MEDIUM_RISK:
-                reviewed_score_name = 'REVIEWED_EXTENSION_MEDIUM_RISK'
-            else:
-                reviewed_score_name = 'REVIEWED_EXTENSION_LOW_RISK'
+            reviewed_score_name = cls._get_event_name_for_post_review(
+                addon, version)
         else:
-            if status == amo.STATUS_NOMINATED:
-                queue = 'FULL'
-            elif status == amo.STATUS_PUBLIC:
-                queue = 'UPDATE'
-            else:
-                queue = ''
-
-            if (addon.type in [amo.ADDON_EXTENSION, amo.ADDON_PLUGIN,
-                               amo.ADDON_API] and queue):
-                reviewed_score_name = 'REVIEWED_ADDON_%s' % queue
-            elif addon.type == amo.ADDON_DICT and queue:
-                reviewed_score_name = 'REVIEWED_DICT_%s' % queue
-            elif addon.type in [amo.ADDON_LPAPP, amo.ADDON_LPADDON] and queue:
-                reviewed_score_name = 'REVIEWED_LP_%s' % queue
-            elif addon.type == amo.ADDON_PERSONA:
-                reviewed_score_name = 'REVIEWED_PERSONA'
-            elif addon.type == amo.ADDON_STATICTHEME:
-                reviewed_score_name = 'REVIEWED_STATICTHEME'
-            elif addon.type == amo.ADDON_SEARCH and queue:
-                reviewed_score_name = 'REVIEWED_SEARCH_%s' % queue
-            elif addon.type == amo.ADDON_THEME and queue:
-                reviewed_score_name = 'REVIEWED_XUL_THEME_%s' % queue
+            reviewed_score_name = cls._get_event_name_for_regular_review(
+                addon, status)
 
         if reviewed_score_name:
             return getattr(amo, reviewed_score_name)

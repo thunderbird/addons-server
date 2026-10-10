@@ -174,40 +174,51 @@ def all_distinct_files(context, version):
         'version': version})
 
 
+def _persona_position(addon):
+    qs = (Addon.objects.filter(status=amo.STATUS_PENDING,
+                               type=amo.ADDON_PERSONA)
+          .no_transforms().order_by('created')
+          .values_list('id', flat=True))
+    id_ = addon.id
+    position = 0
+    for idx, addon_id in enumerate(qs, start=1):
+        if addon_id == id_:
+            position = idx
+            break
+    total = qs.count()
+    return {'pos': position, 'total': total}
+
+
+def _regular_position(addon):
+    # Look at all add-on versions which have files awaiting review.
+    qs = Version.objects.filter(addon__disabled_by_user=False,
+                                files__status=amo.STATUS_AWAITING_REVIEW,
+                                addon__status=addon.status)
+    if addon.type == amo.ADDON_STATICTHEME:
+        qs = qs.filter(addon__type=amo.ADDON_STATICTHEME)
+    else:
+        qs = qs.exclude(addon__type=amo.ADDON_STATICTHEME)
+    qs = (qs.order_by('nomination', 'created').distinct()
+          .no_transforms().values_list('addon_id', flat=True))
+    position = 0
+    for idx, addon_id in enumerate(qs, start=1):
+        if addon_id == addon.id:
+            position = idx
+            break
+    total = qs.count()
+    if position:
+        return {'pos': position, 'total': total}
+    return None
+
+
 @library.global_function
 def get_position(addon):
     if addon.is_persona() and addon.is_pending():
-        qs = (Addon.objects.filter(status=amo.STATUS_PENDING,
-                                   type=amo.ADDON_PERSONA)
-              .no_transforms().order_by('created')
-              .values_list('id', flat=True))
-        id_ = addon.id
-        position = 0
-        for idx, addon_id in enumerate(qs, start=1):
-            if addon_id == id_:
-                position = idx
-                break
-        total = qs.count()
-        return {'pos': position, 'total': total}
+        return _persona_position(addon)
     elif addon.status in amo.VALID_ADDON_STATUSES:
-        # Look at all add-on versions which have files awaiting review.
-        qs = Version.objects.filter(addon__disabled_by_user=False,
-                                    files__status=amo.STATUS_AWAITING_REVIEW,
-                                    addon__status=addon.status)
-        if addon.type == amo.ADDON_STATICTHEME:
-            qs = qs.filter(addon__type=amo.ADDON_STATICTHEME)
-        else:
-            qs = qs.exclude(addon__type=amo.ADDON_STATICTHEME)
-        qs = (qs.order_by('nomination', 'created').distinct()
-              .no_transforms().values_list('addon_id', flat=True))
-        position = 0
-        for idx, addon_id in enumerate(qs, start=1):
-            if addon_id == addon.id:
-                position = idx
-                break
-        total = qs.count()
-        if position:
-            return {'pos': position, 'total': total}
+        result = _regular_position(addon)
+        if result:
+            return result
 
     return False
 

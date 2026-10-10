@@ -145,6 +145,128 @@ def ratings_moderation_log_detail(request, id):
     return render(request, 'reviewers/moderationlog_detail.html', data)
 
 
+def _dashboard_legacy_addons_section(view_all, admin_reviewer,
+                                     extension_reviewer, theme_reviewer):
+    full_review_queue = ViewFullReviewQueue.objects
+    pending_queue = ViewPendingQueue.objects
+    if not admin_reviewer:
+        full_review_queue = filter_admin_review_for_legacy_queue(
+            full_review_queue)
+        pending_queue = filter_admin_review_for_legacy_queue(
+            pending_queue)
+    if not view_all:
+        full_review_queue = filter_static_themes(
+            full_review_queue, extension_reviewer, theme_reviewer)
+        pending_queue = filter_static_themes(
+            pending_queue, extension_reviewer, theme_reviewer)
+
+    if extension_reviewer and theme_reviewer:
+        header = gettext('Static Themes and Legacy Add-ons')
+    elif theme_reviewer:
+        header = gettext('Static Themes')
+    else:
+        header = gettext('Legacy Add-ons')
+    section = [(
+        gettext('New ({0})').format(full_review_queue.count()),
+        reverse('reviewers.queue_nominated')
+    ), (
+        gettext('Updates ({0})').format(pending_queue.count()),
+        reverse('reviewers.queue_pending')
+    ), (
+        gettext('Performance'),
+        reverse(PERFORMANCE_URL_NAME)
+    ), (
+        gettext('Review Log'),
+        reverse('reviewers.reviewlog')
+    )]
+    if view_all or extension_reviewer:
+        section.append(
+            (gettext('Add-on Review Guide'),
+             REVIEWERS_GUIDE_URL))
+    if view_all or theme_reviewer:
+        section.append(
+            (gettext('Theme Review Guide'),
+             'https://wiki.mozilla.org/Add-ons/Reviewers/Themes/'
+             'Guidelines'))
+    return header, section
+
+
+def _dashboard_auto_approved_section(admin_reviewer):
+    return gettext('Auto-Approved Add-ons'), [(
+        gettext('Auto Approved Add-ons ({0})').format(
+            AutoApprovalSummary.get_auto_approved_queue(
+                admin_reviewer=admin_reviewer).count()),
+        reverse('reviewers.queue_auto_approved')
+    ), (
+        gettext('Performance'),
+        reverse(PERFORMANCE_URL_NAME)
+    ), (
+        gettext('Add-on Review Log'),
+        reverse('reviewers.reviewlog')
+    ), (
+        gettext('Review Guide'),
+        REVIEWERS_GUIDE_URL
+    )]
+
+
+def _dashboard_content_review_section(admin_reviewer):
+    return gettext('Content Review'), [(
+        gettext('Content Review ({0})').format(
+            AutoApprovalSummary.get_content_review_queue(
+                admin_reviewer=admin_reviewer).count()),
+        reverse('reviewers.queue_content_review')
+    ), (
+        gettext('Performance'),
+        reverse(PERFORMANCE_URL_NAME)
+    )]
+
+
+def _dashboard_ratings_moderation_section():
+    return gettext('User Ratings Moderation'), [(
+        gettext('Ratings Awaiting Moderation ({0})').format(
+            Rating.objects.all().to_moderate().count()),
+        reverse('reviewers.queue_moderated')
+    ), (
+        gettext('Moderated Review Log'),
+        reverse('reviewers.ratings_moderation_log')
+    ), (
+        gettext('Moderation Guide'),
+        'https://wiki.mozilla.org/Add-ons/Reviewers/Guide/Moderation'
+    )]
+
+
+def _dashboard_unlisted_addons_section():
+    return gettext('Unlisted Add-ons'), [(
+        gettext('All Unlisted Add-ons'),
+        reverse(UNLISTED_QUEUE_ALL_URL_NAME)
+    ), (
+        gettext('Review Guide'),
+        REVIEWERS_GUIDE_URL
+    )]
+
+
+def _dashboard_announcement_section():
+    return gettext('Announcement'), [(
+        gettext('Update message of the day'),
+        reverse('reviewers.motd')
+    )]
+
+
+def _dashboard_admin_tools_section():
+    expired = (
+        Addon.objects.filter(
+            addonreviewerflags__pending_info_request__lt=datetime.now(),
+            status__in=(amo.STATUS_NOMINATED, amo.STATUS_PUBLIC),
+            disabled_by_user=False)
+        .order_by('addonreviewerflags__pending_info_request'))
+
+    return gettext('Admin Tools'), [(
+        gettext('Expired Information Requests ({0})'.format(
+            expired.count())),
+        reverse('reviewers.queue_expired_info_requests')
+    )]
+
+
 @any_reviewer_or_moderator_required
 def dashboard(request):
     # The dashboard is divided into sections that depend on what the reviewer
@@ -159,117 +281,34 @@ def dashboard(request):
     theme_reviewer = acl.action_allowed(
         request, amo.permissions.STATIC_THEMES_REVIEW)
     if view_all or extension_reviewer or theme_reviewer:
-        full_review_queue = ViewFullReviewQueue.objects
-        pending_queue = ViewPendingQueue.objects
-        if not admin_reviewer:
-            full_review_queue = filter_admin_review_for_legacy_queue(
-                full_review_queue)
-            pending_queue = filter_admin_review_for_legacy_queue(
-                pending_queue)
-        if not view_all:
-            full_review_queue = filter_static_themes(
-                full_review_queue, extension_reviewer, theme_reviewer)
-            pending_queue = filter_static_themes(
-                pending_queue, extension_reviewer, theme_reviewer)
-
-        if extension_reviewer and theme_reviewer:
-            header = gettext('Static Themes and Legacy Add-ons')
-        elif theme_reviewer:
-            header = gettext('Static Themes')
-        else:
-            header = gettext('Legacy Add-ons')
-        sections[header] = [(
-            gettext('New ({0})').format(full_review_queue.count()),
-            reverse('reviewers.queue_nominated')
-        ), (
-            gettext('Updates ({0})').format(pending_queue.count()),
-            reverse('reviewers.queue_pending')
-        ), (
-            gettext('Performance'),
-            reverse(PERFORMANCE_URL_NAME)
-        ), (
-            gettext('Review Log'),
-            reverse('reviewers.reviewlog')
-        )]
-        if view_all or extension_reviewer:
-            sections[header].append(
-                (gettext('Add-on Review Guide'),
-                 REVIEWERS_GUIDE_URL))
-        if view_all or theme_reviewer:
-            sections[header].append(
-                (gettext('Theme Review Guide'),
-                 'https://wiki.mozilla.org/Add-ons/Reviewers/Themes/'
-                 'Guidelines'))
+        header, section = _dashboard_legacy_addons_section(
+            view_all, admin_reviewer, extension_reviewer,
+            theme_reviewer)
+        sections[header] = section
     if view_all or acl.action_allowed(
             request, amo.permissions.ADDONS_POST_REVIEW):
-        sections[gettext('Auto-Approved Add-ons')] = [(
-            gettext('Auto Approved Add-ons ({0})').format(
-                AutoApprovalSummary.get_auto_approved_queue(
-                    admin_reviewer=admin_reviewer).count()),
-            reverse('reviewers.queue_auto_approved')
-        ), (
-            gettext('Performance'),
-            reverse(PERFORMANCE_URL_NAME)
-        ), (
-            gettext('Add-on Review Log'),
-            reverse('reviewers.reviewlog')
-        ), (
-            gettext('Review Guide'),
-            REVIEWERS_GUIDE_URL
-        )]
+        header, section = _dashboard_auto_approved_section(admin_reviewer)
+        sections[header] = section
     if view_all or acl.action_allowed(
             request, amo.permissions.ADDONS_CONTENT_REVIEW):
-        sections[gettext('Content Review')] = [(
-            gettext('Content Review ({0})').format(
-                AutoApprovalSummary.get_content_review_queue(
-                    admin_reviewer=admin_reviewer).count()),
-            reverse('reviewers.queue_content_review')
-        ), (
-            gettext('Performance'),
-            reverse(PERFORMANCE_URL_NAME)
-        )]
+        header, section = _dashboard_content_review_section(admin_reviewer)
+        sections[header] = section
     if view_all or acl.action_allowed(
             request, amo.permissions.RATINGS_MODERATE):
-        sections[gettext('User Ratings Moderation')] = [(
-            gettext('Ratings Awaiting Moderation ({0})').format(
-                Rating.objects.all().to_moderate().count()),
-            reverse('reviewers.queue_moderated')
-        ), (
-            gettext('Moderated Review Log'),
-            reverse('reviewers.ratings_moderation_log')
-        ), (
-            gettext('Moderation Guide'),
-            'https://wiki.mozilla.org/Add-ons/Reviewers/Guide/Moderation'
-        )]
+        header, section = _dashboard_ratings_moderation_section()
+        sections[header] = section
     if view_all or acl.action_allowed(
             request, amo.permissions.ADDONS_REVIEW_UNLISTED):
-        sections[gettext('Unlisted Add-ons')] = [(
-            gettext('All Unlisted Add-ons'),
-            reverse(UNLISTED_QUEUE_ALL_URL_NAME)
-        ), (
-            gettext('Review Guide'),
-            REVIEWERS_GUIDE_URL
-        )]
+        header, section = _dashboard_unlisted_addons_section()
+        sections[header] = section
     if view_all or acl.action_allowed(
             request, amo.permissions.ADDON_REVIEWER_MOTD_EDIT):
-        sections[gettext('Announcement')] = [(
-            gettext('Update message of the day'),
-            reverse('reviewers.motd')
-        )]
+        header, section = _dashboard_announcement_section()
+        sections[header] = section
     if view_all or acl.action_allowed(
             request, amo.permissions.REVIEWS_ADMIN):
-        expired = (
-            Addon.objects.filter(
-                addonreviewerflags__pending_info_request__lt=datetime.now(),
-                status__in=(amo.STATUS_NOMINATED, amo.STATUS_PUBLIC),
-                disabled_by_user=False)
-            .order_by('addonreviewerflags__pending_info_request'))
-
-        sections[gettext('Admin Tools')] = [(
-            gettext('Expired Information Requests ({0})'.format(
-                expired.count())),
-            reverse('reviewers.queue_expired_info_requests')
-        )]
+        header, section = _dashboard_admin_tools_section()
+        sections[header] = section
     return render(request, 'reviewers/dashboard.html', base_context(**{
         # base_context includes motd.
         'sections': sections
@@ -457,11 +496,7 @@ def filter_static_themes(qs, extension_reviewer, theme_reviewer):
             if types_to_include else qs)
 
 
-def _queue(request, table_obj, tab, qs=None, unlisted=False,
-           search_form_class=QueueSearchForm):
-    if qs is None:
-        qs = table_obj.Meta.model.objects.all()
-
+def _setup_queue_search_form(request, qs, search_form_class):
     if search_form_class:
         if request.GET:
             search_form = search_form_class(request.GET)
@@ -473,8 +508,11 @@ def _queue(request, table_obj, tab, qs=None, unlisted=False,
     else:
         search_form = None
         is_searching = False
-    admin_reviewer = is_admin_reviewer(request)
+    return qs, search_form, is_searching
 
+
+def _apply_queue_raw_sql_restrictions(request, qs, is_searching,
+                                      admin_reviewer, unlisted):
     # Those restrictions will only work with our RawSQLModel, so we need to
     # make sure we're not dealing with a regular Django ORM queryset first.
     if hasattr(qs, 'sql_model'):
@@ -498,11 +536,10 @@ def _queue(request, table_obj, tab, qs=None, unlisted=False,
                 Q(**{'addons_addonreviewerflags.auto_approval_disabled': True}) |
                 Q(**{'addons_addonreviewerflags.needs_sensitive_data_access_review': True})
             )
+    return qs
 
-    order_by = request.GET.get('sort', table_obj.default_order_by())
-    if hasattr(table_obj, 'translate_sort_cols'):
-        order_by = table_obj.translate_sort_cols(order_by)
-    table = table_obj(data=qs, order_by=order_by)
+
+def _normalize_queue_per_page(request):
     per_page = request.GET.get('per_page', REVIEWS_PER_PAGE)
     try:
         per_page = int(per_page)
@@ -510,6 +547,26 @@ def _queue(request, table_obj, tab, qs=None, unlisted=False,
         per_page = REVIEWS_PER_PAGE
     if per_page <= 0 or per_page > REVIEWS_PER_PAGE_MAX:
         per_page = REVIEWS_PER_PAGE
+    return per_page
+
+
+def _queue(request, table_obj, tab, qs=None, unlisted=False,
+           search_form_class=QueueSearchForm):
+    if qs is None:
+        qs = table_obj.Meta.model.objects.all()
+
+    qs, search_form, is_searching = _setup_queue_search_form(
+        request, qs, search_form_class)
+    admin_reviewer = is_admin_reviewer(request)
+
+    qs = _apply_queue_raw_sql_restrictions(
+        request, qs, is_searching, admin_reviewer, unlisted)
+
+    order_by = request.GET.get('sort', table_obj.default_order_by())
+    if hasattr(table_obj, 'translate_sort_cols'):
+        order_by = table_obj.translate_sort_cols(order_by)
+    table = table_obj(data=qs, order_by=order_by)
+    per_page = _normalize_queue_per_page(request)
     page = paginate(request, table.rows, per_page=per_page)
     table.set_page(page)
     return render(request, 'reviewers/queue.html',
@@ -692,6 +749,19 @@ def _get_comments_for_hard_deleted_versions(addon):
     return list(comment_versions.values())
 
 
+def _check_regular_review_permission(request, was_auto_approved):
+    # Was the add-on auto-approved?
+    if was_auto_approved and not acl.action_allowed(
+            request, amo.permissions.ADDONS_POST_REVIEW):
+        raise PermissionDenied
+
+    # Finally, if it wasn't auto-approved, check for legacy reviewer
+    # permission.
+    if not was_auto_approved and not acl.action_allowed(
+            request, amo.permissions.ADDONS_REVIEW):
+        raise PermissionDenied
+
+
 def perform_review_permission_checks(
         request, addon, channel, content_review_only=False):
     """Perform the permission checks needed by the review() view or anything
@@ -725,16 +795,7 @@ def perform_review_permission_checks(
                 request, amo.permissions.STATIC_THEMES_REVIEW):
             raise PermissionDenied
     else:
-        # Was the add-on auto-approved?
-        if was_auto_approved and not acl.action_allowed(
-                request, amo.permissions.ADDONS_POST_REVIEW):
-            raise PermissionDenied
-
-        # Finally, if it wasn't auto-approved, check for legacy reviewer
-        # permission.
-        if not was_auto_approved and not acl.action_allowed(
-                request, amo.permissions.ADDONS_REVIEW):
-            raise PermissionDenied
+        _check_regular_review_permission(request, was_auto_approved)
 
 
 def determine_channel(channel_as_text):
@@ -752,28 +813,8 @@ def determine_channel(channel_as_text):
     return channel, content_review_only
 
 
-# Permission checks for this view are done inside, depending on type of review
-# needed, using perform_review_permission_checks().
-@login_required
-@addon_view_factory(qs=Addon.unfiltered.all)
-def review(request, addon, channel=None):
-    channel_param = ('?channel=%s' % channel) if channel else ''
-    eula_url = reverse(
-        'reviewers.eula',
-        args=(addon.slug if addon.slug else addon.pk,)) + (channel_param)
-    privacy_url = reverse(
-        'reviewers.privacy',
-        args=(addon.slug if addon.slug else addon.pk,)) + (channel_param)
-    whiteboard_url = reverse(
-        'reviewers.whiteboard',
-        args=(channel or 'listed', addon.slug if addon.slug else addon.pk))
-    channel, content_review_only = determine_channel(channel)
-
-    was_auto_approved = (
-        channel == amo.RELEASE_CHANNEL_LISTED and
-        addon.current_version and addon.current_version.was_auto_approved)
-    is_static_theme = addon.type == amo.ADDON_STATICTHEME
-
+def _check_review_permissions_unless_read_only(request, addon, channel,
+                                               content_review_only):
     # If we're just looking (GET) we can bypass the specific permissions checks
     # if we have ReviewerTools:View.
     bypass_more_specific_permissions_because_read_only = (
@@ -784,23 +825,9 @@ def review(request, addon, channel=None):
         perform_review_permission_checks(
             request, addon, channel, content_review_only=content_review_only)
 
-    version = addon.find_latest_version(channel=channel, exclude=())
 
-    if not settings.ALLOW_SELF_REVIEWS and addon.has_author(request.user):
-        amo.messages.warning(
-            request, gettext('Self-reviews are not allowed.'))
-        return redirect(reverse('reviewers.queue'))
-
-    # Get the current info request state to set as the default.
-    form_initial = {'info_request': addon.pending_info_request}
-
-    form_helper = ReviewHelper(
-        request=request, addon=addon, version=version,
-        content_review_only=content_review_only)
-    form = ReviewForm(request.POST if request.method == 'POST' else None,
-                      helper=form_helper, initial=form_initial)
-    is_admin = acl.action_allowed(request, amo.permissions.REVIEWS_ADMIN)
-
+def _gather_channel_review_info(addon, channel, was_auto_approved,
+                                content_review_only, form):
     approvals_info = None
     reports = None
     user_ratings = None
@@ -830,14 +857,10 @@ def review(request, addon, channel=None):
         redirect_url = reverse('reviewers.queue_%s' % queue_type)
     else:
         redirect_url = reverse(UNLISTED_QUEUE_ALL_URL_NAME)
+    return approvals_info, reports, user_ratings, redirect_url
 
-    if request.method == 'POST' and form.is_valid():
-        form.helper.process()
-        amo.messages.success(
-            request, gettext('Review successfully processed.'))
-        clear_reviewing_cache(addon.id)
-        return redirect(redirect_url)
 
+def _kick_off_validation_tasks(version):
     # Kick off validation tasks for any files in this version which don't have
     # cached validation, since reviewers will almost certainly need to access
     # them. But only if we're not running in eager mode, since that could mean
@@ -847,11 +870,11 @@ def review(request, addon, channel=None):
             if not file_.has_been_validated:
                 devhub_tasks.validate(file_)
 
-    actions = form.helper.actions.items()
 
+def _find_show_diff_version(addon, version, channel):
     try:
         # Find the previously approved version to compare to.
-        show_diff = version and (
+        return version and (
             addon.versions.exclude(id=version.id).filter(
                 # We're looking for a version that was either manually approved
                 # (either it has no auto approval summary, or it has one but
@@ -868,7 +891,86 @@ def review(request, addon, channel=None):
                 created__lt=version.created,
                 files__status=amo.STATUS_PUBLIC).latest())
     except Version.DoesNotExist:
-        show_diff = None
+        return None
+
+
+def _build_auto_approval_info(pager):
+    auto_approval_info = {}
+    # Now that we've paginated the versions queryset, iterate on them to
+    # generate auto approvals info. Note that the variable should not clash
+    # the already existing 'version'.
+    for a_version in pager.object_list:
+        if not a_version.is_ready_for_auto_approval:
+            continue
+        try:
+            summary = a_version.autoapprovalsummary
+        except AutoApprovalSummary.DoesNotExist:
+            auto_approval_info[a_version.pk] = None
+            continue
+        # Call calculate_verdict() again, it will use the data already stored.
+        verdict_info = summary.calculate_verdict(pretty=True)
+        auto_approval_info[a_version.pk] = verdict_info
+    return auto_approval_info
+
+
+# Permission checks for this view are done inside, depending on type of review
+# needed, using perform_review_permission_checks().
+@login_required
+@addon_view_factory(qs=Addon.unfiltered.all)
+def review(request, addon, channel=None):
+    channel_param = ('?channel=%s' % channel) if channel else ''
+    eula_url = reverse(
+        'reviewers.eula',
+        args=(addon.slug if addon.slug else addon.pk,)) + (channel_param)
+    privacy_url = reverse(
+        'reviewers.privacy',
+        args=(addon.slug if addon.slug else addon.pk,)) + (channel_param)
+    whiteboard_url = reverse(
+        'reviewers.whiteboard',
+        args=(channel or 'listed', addon.slug if addon.slug else addon.pk))
+    channel, content_review_only = determine_channel(channel)
+
+    was_auto_approved = (
+        channel == amo.RELEASE_CHANNEL_LISTED and
+        addon.current_version and addon.current_version.was_auto_approved)
+    is_static_theme = addon.type == amo.ADDON_STATICTHEME
+
+    _check_review_permissions_unless_read_only(
+        request, addon, channel, content_review_only)
+
+    version = addon.find_latest_version(channel=channel, exclude=())
+
+    if not settings.ALLOW_SELF_REVIEWS and addon.has_author(request.user):
+        amo.messages.warning(
+            request, gettext('Self-reviews are not allowed.'))
+        return redirect(reverse('reviewers.queue'))
+
+    # Get the current info request state to set as the default.
+    form_initial = {'info_request': addon.pending_info_request}
+
+    form_helper = ReviewHelper(
+        request=request, addon=addon, version=version,
+        content_review_only=content_review_only)
+    form = ReviewForm(request.POST if request.method == 'POST' else None,
+                      helper=form_helper, initial=form_initial)
+    is_admin = acl.action_allowed(request, amo.permissions.REVIEWS_ADMIN)
+
+    approvals_info, reports, user_ratings, redirect_url = (
+        _gather_channel_review_info(
+            addon, channel, was_auto_approved, content_review_only, form))
+
+    if request.method == 'POST' and form.is_valid():
+        form.helper.process()
+        amo.messages.success(
+            request, gettext('Review successfully processed.'))
+        clear_reviewing_cache(addon.id)
+        return redirect(redirect_url)
+
+    _kick_off_validation_tasks(version)
+
+    actions = form.helper.actions.items()
+
+    show_diff = _find_show_diff_version(addon, version, channel)
 
     # The actions we shouldn't show a minimal form for.
     actions_full = [
@@ -897,21 +999,7 @@ def review(request, addon, channel=None):
     num_pages = pager.paginator.num_pages
     count = pager.paginator.count
 
-    auto_approval_info = {}
-    # Now that we've paginated the versions queryset, iterate on them to
-    # generate auto approvals info. Note that the variable should not clash
-    # the already existing 'version'.
-    for a_version in pager.object_list:
-        if not a_version.is_ready_for_auto_approval:
-            continue
-        try:
-            summary = a_version.autoapprovalsummary
-        except AutoApprovalSummary.DoesNotExist:
-            auto_approval_info[a_version.pk] = None
-            continue
-        # Call calculate_verdict() again, it will use the data already stored.
-        verdict_info = summary.calculate_verdict(pretty=True)
-        auto_approval_info[a_version.pk] = verdict_info
+    auto_approval_info = _build_auto_approval_info(pager)
 
     flags = get_flags(addon, version) if version else []
 
