@@ -299,6 +299,33 @@ class ActivityLogManager(ManagerBase):
                    % (table, 'log_activity')])
 
 
+def _create_log_entry_for_arg(arg, al, kw):
+    """Create the appropriate *Log row linking al to a single argument."""
+    if isinstance(arg, tuple):
+        class_ = arg[0]
+        id_ = arg[1]
+    else:
+        class_ = arg.__class__
+        id_ = arg.id if isinstance(arg, ModelBase) else None
+
+    if class_ == Addon:
+        AddonLog.objects.create(
+            addon_id=id_, activity_log=al,
+            created=kw.get('created', timezone.now()))
+    elif class_ == Version:
+        VersionLog.objects.create(
+            version_id=id_, activity_log=al,
+            created=kw.get('created', timezone.now()))
+    elif class_ == UserProfile:
+        UserLog.objects.create(
+            user_id=id_, activity_log=al,
+            created=kw.get('created', timezone.now()))
+    elif class_ == Group:
+        GroupLog.objects.create(
+            group_id=id_, activity_log=al,
+            created=kw.get('created', timezone.now()))
+
+
 class SafeFormatter(string.Formatter):
     """A replacement for str.format that escapes interpolated values."""
 
@@ -332,19 +359,11 @@ class ActivityLog(ModelBase):
         return jinja2.Markup(self.formatter.format(*args, **kw))
 
     @classmethod
-    def arguments_builder(cls, activities):
-        # We need to do 2 passes on each log:
-        # - The first time, gather the references to every instance we need
-        # - The second time, we built querysets for all instances of the same
-        #   type, pick data from that queryset.
-        #
-        # Because it relies on in_bulk(), this method needs the pks to be of a
-        # consistent type, which doesn't appear to be guaranteed in our
-        # existing data. For this reason, it forces a conversion to int. If we
-        # ever want to store ActivityLog items pointing to models using a non
-        # integer PK field, we'll need to make this a little smarter.
+    def _collect_instances_to_load(cls, activities):
+        """First pass: parse each activity's raw arguments and collect the
+        pks of every referenced model instance we need to load, grouped by
+        model name."""
         instances_to_load = defaultdict(list)
-        instances = {}
 
         for activity in activities:
             try:
@@ -366,6 +385,14 @@ class ActivityLog(ModelBase):
                     # call .in_bulk() later.
                     instances_to_load[name].append(int(pk))
 
+        return instances_to_load
+
+    @classmethod
+    def _load_instances(cls, instances_to_load):
+        """Second pass: build querysets for all instances of the same type
+        and pick data from that queryset, keyed by original model name."""
+        instances = {}
+
         # At this point, instances_to_load is a dict of "names" that
         # each have a bunch of pks we want to load.
         for name, pks in instances_to_load.items():
@@ -384,10 +411,16 @@ class ActivityLog(ModelBase):
                 qs = qs.only_translations()
             instances[key] = qs.in_bulk(pks)
 
-        # instances is now a dict of "model names" that each have a dict of
+        return instances
+
+    @classmethod
+    def _assign_arguments(cls, activities, instances):
+        """Third pass: build the "arguments" property from the preloaded
+        instances cache, in the correct order, for each activity."""
+        # instances is a dict of "model names" that each have a dict of
         # {pk: instance}. We do our second pass on the logs to build the
-        # "arguments" property from that data, which is a list of the instances
-        # that each particular log has, in the correct order.
+        # "arguments" property from that data, which is a list of the
+        # instances that each particular log has, in the correct order.
         for activity in activities:
             objs = []
             # We preloaded that property earlier
@@ -403,6 +436,22 @@ class ActivityLog(ModelBase):
                     objs.append(instances[name].get(int(pk)))
             # Override the arguments cached_property with what we got.
             activity.arguments = objs
+
+    @classmethod
+    def arguments_builder(cls, activities):
+        # We need to do 2 passes on each log:
+        # - The first time, gather the references to every instance we need
+        # - The second time, we built querysets for all instances of the same
+        #   type, pick data from that queryset.
+        #
+        # Because it relies on in_bulk(), this method needs the pks to be of a
+        # consistent type, which doesn't appear to be guaranteed in our
+        # existing data. For this reason, it forces a conversion to int. If we
+        # ever want to store ActivityLog items pointing to models using a non
+        # integer PK field, we'll need to make this a little smarter.
+        instances_to_load = cls._collect_instances_to_load(activities)
+        instances = cls._load_instances(instances_to_load)
+        cls._assign_arguments(activities, instances)
 
     @cached_property
     def arguments(self):
@@ -456,6 +505,54 @@ class ActivityLog(ModelBase):
     def log(self):
         return constants.activity.LOG_BY_ID[self.action]
 
+    def _format_addon_arg(self, arg):
+        if arg.has_listed_versions():
+            return self.f(LINK_FORMAT, arg.get_url_path(), arg.name)
+        return self.f(u'{0}', arg.name)
+
+    def _format_rating_arg(self, arg):
+        return self.f(LINK_FORMAT, arg.get_url_path(), gettext('Review'))
+
+    def _format_version_arg(self, arg):
+        text = gettext('Version {0}')
+        if arg.channel == amo.RELEASE_CHANNEL_LISTED:
+            return self.f(u'<a href="{1}">%s</a>' % text,
+                          arg.version, arg.get_url_path())
+        return self.f(text, arg.version)
+
+    def _format_collection_arg(self, arg):
+        return self.f(LINK_FORMAT, arg.get_url_path(), arg.name)
+
+    def _format_tag_arg(self, arg):
+        if arg.can_reverse():
+            return self.f(LINK_FORMAT, arg.get_url_path(), arg.tag_text)
+        return self.f('{0}', arg.tag_text)
+
+    def _format_file_arg(self, arg):
+        validation = 'passed'
+        if self.action in (
+                amo.LOG.UNLISTED_SIGNED.id,
+                amo.LOG.UNLISTED_SIGNED_VALIDATION_FAILED.id):
+            validation = 'ignored'
+
+        return self.f(u'<a href="{0}">{1}</a> (validation {2})',
+                      reverse('files.list', args=[arg.pk]),
+                      arg.filename,
+                      validation)
+
+    def _format_status_arg(self, arg):
+        # Unfortunately, this action has been abused in the past and
+        # the non-addon argument could be a string or an int. If it's
+        # an int, we want to retrieve the string and translate it.
+        # Note that we use STATUS_CHOICES_PERSONA because it's a
+        # superset of STATUS_CHOICES_ADDON, and we need to handle all
+        # statuses.
+        if isinstance(arg, int) and arg in amo.STATUS_CHOICES_PERSONA:
+            return gettext(amo.STATUS_CHOICES_PERSONA[arg])
+        # It's not an int or not one of the choices, so assume it's
+        # a string or an unknown int we want to display as-is.
+        return arg
+
     def to_string(self, type_=None):
         log_type = constants.activity.LOG_BY_ID[self.action]
         if type_ and hasattr(log_type, '%s_format' % type_):
@@ -477,63 +574,28 @@ class ActivityLog(ModelBase):
 
         for arg in self.arguments:
             if isinstance(arg, Addon) and not addon:
-                if arg.has_listed_versions():
-                    addon = self.f(LINK_FORMAT,
-                                   arg.get_url_path(), arg.name)
-                else:
-                    addon = self.f(u'{0}', arg.name)
+                addon = self._format_addon_arg(arg)
                 arguments.remove(arg)
             if isinstance(arg, Rating) and not rating:
-                rating = self.f(LINK_FORMAT,
-                                arg.get_url_path(), gettext('Review'))
+                rating = self._format_rating_arg(arg)
                 arguments.remove(arg)
             if isinstance(arg, Version) and not version:
-                text = gettext('Version {0}')
-                if arg.channel == amo.RELEASE_CHANNEL_LISTED:
-                    version = self.f(u'<a href="{1}">%s</a>' % text,
-                                     arg.version, arg.get_url_path())
-                else:
-                    version = self.f(text, arg.version)
+                version = self._format_version_arg(arg)
                 arguments.remove(arg)
             if isinstance(arg, Collection) and not collection:
-                collection = self.f(LINK_FORMAT,
-                                    arg.get_url_path(), arg.name)
+                collection = self._format_collection_arg(arg)
                 arguments.remove(arg)
             if isinstance(arg, Tag) and not tag:
-                if arg.can_reverse():
-                    tag = self.f(LINK_FORMAT,
-                                 arg.get_url_path(), arg.tag_text)
-                else:
-                    tag = self.f('{0}', arg.tag_text)
+                tag = self._format_tag_arg(arg)
             if isinstance(arg, Group) and not group:
                 group = arg.name
                 arguments.remove(arg)
             if isinstance(arg, File) and not file_:
-                validation = 'passed'
-                if self.action in (
-                        amo.LOG.UNLISTED_SIGNED.id,
-                        amo.LOG.UNLISTED_SIGNED_VALIDATION_FAILED.id):
-                    validation = 'ignored'
-
-                file_ = self.f(u'<a href="{0}">{1}</a> (validation {2})',
-                               reverse('files.list', args=[arg.pk]),
-                               arg.filename,
-                               validation)
+                file_ = self._format_file_arg(arg)
                 arguments.remove(arg)
             if (self.action == amo.LOG.CHANGE_STATUS.id and
                     not isinstance(arg, Addon)):
-                # Unfortunately, this action has been abused in the past and
-                # the non-addon argument could be a string or an int. If it's
-                # an int, we want to retrieve the string and translate it.
-                # Note that we use STATUS_CHOICES_PERSONA because it's a
-                # superset of STATUS_CHOICES_ADDON, and we need to handle all
-                # statuses.
-                if isinstance(arg, int) and arg in amo.STATUS_CHOICES_PERSONA:
-                    status = gettext(amo.STATUS_CHOICES_PERSONA[arg])
-                else:
-                    # It's not an int or not one of the choices, so assume it's
-                    # a string or an unknown int we want to display as-is.
-                    status = arg
+                status = self._format_status_arg(arg)
                 arguments.remove(arg)
 
         user = user_link(self.user)
@@ -593,29 +655,7 @@ class ActivityLog(ModelBase):
                 created=kw.get('created', timezone.now()))
 
         for arg in args:
-            if isinstance(arg, tuple):
-                class_ = arg[0]
-                id_ = arg[1]
-            else:
-                class_ = arg.__class__
-                id_ = arg.id if isinstance(arg, ModelBase) else None
-
-            if class_ == Addon:
-                AddonLog.objects.create(
-                    addon_id=id_, activity_log=al,
-                    created=kw.get('created', timezone.now()))
-            elif class_ == Version:
-                VersionLog.objects.create(
-                    version_id=id_, activity_log=al,
-                    created=kw.get('created', timezone.now()))
-            elif class_ == UserProfile:
-                UserLog.objects.create(
-                    user_id=id_, activity_log=al,
-                    created=kw.get('created', timezone.now()))
-            elif class_ == Group:
-                GroupLog.objects.create(
-                    group_id=id_, activity_log=al,
-                    created=kw.get('created', timezone.now()))
+            _create_log_entry_for_arg(arg, al, kw)
 
         # Index by every user
         UserLog.objects.create(
