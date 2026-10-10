@@ -7,6 +7,24 @@ import settings
 log = olympia.core.logger.getLogger('z.task')
 
 
+def _clean_translation_outgoing_url(translation, outgoing_url,
+                                    known_old_outgoing_url):
+    """Clean one translation; return 'skipped', 'cleaned' or 'failed'."""
+    # Ignore already cleaned urls
+    if outgoing_url and outgoing_url in translation.localized_string_clean:
+        return 'skipped'
+
+    # Clean the old outgoing url from the translation
+    translation.clean()
+
+    if outgoing_url and outgoing_url in translation.localized_string_clean:
+        return 'cleaned'
+    elif not outgoing_url and known_old_outgoing_url not in translation.localized_string_clean:  # No real way to check for this
+        return 'cleaned'
+    else:
+        return 'failed'
+
+
 @task
 @use_primary_db
 def clean_outgoing_urls(ids, meta_type, dry_run=True, **kw):
@@ -32,20 +50,10 @@ def clean_outgoing_urls(ids, meta_type, dry_run=True, **kw):
         return
 
     for translation in translations:
-        # Ignore already cleaned urls
-        if outgoing_url and outgoing_url in translation.localized_string_clean:
-            stats['skipped'] += 1
-            continue
-
-        # Clean the old outgoing url from the translation
-        translation.clean()
-
-        if outgoing_url and outgoing_url in translation.localized_string_clean:
-            stats['cleaned'] += 1
-        elif not outgoing_url and known_old_outgoing_url not in translation.localized_string_clean:  # No real way to check for this
-            stats['cleaned'] += 1
-        else:
-            stats['failed'] += 1
+        outcome = _clean_translation_outgoing_url(
+            translation, outgoing_url, known_old_outgoing_url)
+        stats[outcome] += 1
+        if outcome != 'cleaned':
             continue
 
         if not dry_run:

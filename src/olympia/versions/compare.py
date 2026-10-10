@@ -40,6 +40,17 @@ def num(vint):
     return '{major}.{minor1}.{minor2}.{minor3}'.format(**dict_from_int(vint))
 
 
+def _version_part_value(name, value):
+    """Convert one matched numeric version part ('*', digits or None)."""
+    # We only support triple digits on major versions right now.
+    if value == '*' and name == "major":
+        return 999
+    elif value == '*':
+        return 99
+    else:
+        return int(value) if value else None
+
+
 def version_dict(version):
     """Turn a version string into a dict with major/minor/... info."""
     match = version_re.match(version or '')
@@ -50,13 +61,7 @@ def version_dict(version):
         for letter in letters:
             d[letter] = d[letter] if d[letter] else None
         for num in numbers:
-            # We only support triple digits on major versions right now.
-            if d[num] == '*' and num == "major":
-                d[num] = 999
-            elif d[num] == '*':
-                d[num] = 99
-            else:
-                d[num] = int(d[num]) if d[num] else None
+            d[num] = _version_part_value(num, d[num])
     else:
         d = dict.fromkeys(numbers)
         d.update((k, None) for k in letters)

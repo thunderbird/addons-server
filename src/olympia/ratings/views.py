@@ -245,6 +245,23 @@ class RatingReplyThrottle(RatingThrottle):
     rate = '1/5second'
 
 
+def _int_param(value, error_message):
+    """int(value), raising ParseError(error_message) if it isn't one."""
+    try:
+        return int(value)
+    except ValueError:
+        raise ParseError(error_message)
+
+
+def _int_list_param(value, error_message):
+    """The comma-separated integers in value, raising
+    ParseError(error_message) if any isn't one."""
+    try:
+        return [int(item) for item in value.split(',')]
+    except ValueError:
+        raise ParseError(error_message)
+
+
 class RatingViewSet(AddonChildMixin, ModelViewSet):
     serializer_class = RatingSerializer
     permission_classes = [
@@ -366,16 +383,13 @@ class RatingViewSet(AddonChildMixin, ModelViewSet):
             if addon_identifier:
                 qs = qs.filter(addon=self.get_addon_object())
             if user_identifier:
-                try:
-                    user_identifier = int(user_identifier)
-                except ValueError:
-                    raise ParseError('user parameter should be an integer.')
+                user_identifier = _int_param(
+                    user_identifier, 'user parameter should be an integer.')
                 qs = qs.filter(user=user_identifier)
             if version_identifier:
-                try:
-                    version_identifier = int(version_identifier)
-                except ValueError:
-                    raise ParseError('version parameter should be an integer.')
+                version_identifier = _int_param(
+                    version_identifier,
+                    'version parameter should be an integer.')
                 qs = qs.filter(version=version_identifier)
             elif addon_identifier:
                 # When filtering on addon but not on version, only return the
@@ -394,22 +408,17 @@ class RatingViewSet(AddonChildMixin, ModelViewSet):
                 # having posted a new rating, and needs accurate results.
                 self.pagination_class = OneOrZeroPageNumberPagination
             if score_filter:
-                try:
-                    scores = [int(score) for score in score_filter.split(',')]
-                except ValueError:
-                    raise ParseError(
-                        'score parameter should be an integer or a list of '
-                        'integers (separated by a comma).')
+                scores = _int_list_param(
+                    score_filter,
+                    'score parameter should be an integer or a list of '
+                    'integers (separated by a comma).')
                 qs = qs.filter(rating__in=scores)
             if exclude_ratings:
-                try:
-                    exclude_ratings = [
-                        int(rating) for rating in exclude_ratings.split(',')
-                    ]
-                except ValueError:
-                    raise ParseError('exclude_ratings parameter should be an '
-                                     'integer or a list of integers '
-                                     '(separated by a comma).')
+                exclude_ratings = _int_list_param(
+                    exclude_ratings,
+                    'exclude_ratings parameter should be an '
+                    'integer or a list of integers '
+                    '(separated by a comma).')
                 qs = qs.exclude(pk__in=exclude_ratings)
         return super(RatingViewSet, self).filter_queryset(qs)
 
