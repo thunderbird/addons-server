@@ -248,11 +248,12 @@ The copy carries every production MySQL account with its production password. Lo
 of them except the master user and the RDS-managed accounts, without naming them here:
 
 ```sh
-k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" --batch --skip-column-names -e "SELECT CONCAT(\"ALTER USER \x27\", user, \"\x27@\x27\", host, \"\x27 ACCOUNT LOCK;\") FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"bootstrap\", \"rdsadmin\", \"rdsrepladmin\")" | mysql -h"$DB_HOST" -u"$DB_USER"'
+k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" --batch --skip-column-names -e "SELECT CONCAT(\"ALTER USER \", QUOTE(user), \"@\", QUOTE(host), \" ACCOUNT LOCK;\") FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"bootstrap\", \"rdsadmin\", \"rdsrepladmin\")" | mysql -h"$DB_HOST" -u"$DB_USER"'
 k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" -e "SELECT COUNT(*) AS unlocked FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"bootstrap\", \"rdsadmin\", \"rdsrepladmin\")"'
 ```
 
-Expected: `unlocked` is `0`. The schema has no routines, views or triggers, so locking breaks
+Expected: `unlocked` is `0`. (The rehearsals locked the three non-RDS accounts by name; this
+query form was written afterwards for the public runbook and is untested.) The schema has no routines, views or triggers, so locking breaks
 no DEFINER. `rdsadmin` / `rdsrepladmin` are RDS-managed: leave them. Max: 1 min.
 
 ### 11. Before-inventory
