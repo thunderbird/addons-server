@@ -207,7 +207,9 @@ class Command(BaseCommand):
         """Run the proper minifier on the file."""
         if ftype == 'js' and hasattr(settings, 'UGLIFY_BIN'):
             opts = {'method': 'UglifyJS', 'bin': settings.UGLIFY_BIN}
-            run_command('{uglify} -v -o {target} {source} -m'.format(
+            # No -v: uglify-js 3.17 reads it as --version and exits 0
+            # without writing the target.
+            run_command('{uglify} -o {target} {source} -m'.format(
                 uglify=opts['bin'],
                 target=file_out,
                 source=file_in))
