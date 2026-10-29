@@ -58,6 +58,28 @@ RUN apt-get update && apt-get install -y --allow-downgrades \
         libmaxminddb-dev                 \
     && rm -rf /var/lib/apt/lists/*
 
+# pygit2 0.28.2 ships a manylinux wheel with libgit2 bundled for x86_64 only.
+# On arm64 it builds from source against libgit2 0.28, which stretch does not
+# package (stretch has 0.24, stretch-backports 0.27), so build it here.
+# No-op on amd64. See docs/arm64-image.md.
+ARG TARGETARCH
+ENV LIBGIT2_VERSION=0.28.2
+ENV LIBGIT2_SHA256=42b5f1e9b9159d66d86fff0394215c5733b6ef8f9b9d054cdd8c73ad47177fc3
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        apt-get update && apt-get install -y cmake \
+        && curl -fsSL -o /tmp/libgit2.tar.gz https://github.com/libgit2/libgit2/archive/refs/tags/v${LIBGIT2_VERSION}.tar.gz \
+        && echo "${LIBGIT2_SHA256}  /tmp/libgit2.tar.gz" | sha256sum -c - \
+        && tar -xzf /tmp/libgit2.tar.gz -C /tmp \
+        && mkdir /tmp/libgit2-build && cd /tmp/libgit2-build \
+        && cmake /tmp/libgit2-${LIBGIT2_VERSION} \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_CLAR=OFF -DCMAKE_INSTALL_PREFIX=/usr/local \
+        && make -j"$(nproc)" install \
+        && cd / \
+        && ldconfig \
+        && apt-get purge -y cmake && apt-get autoremove -y \
+        && rm -rf /tmp/libgit2* /var/lib/apt/lists/*; \
+    fi
+
 # Compile required locale
 RUN localedef -i en_US -f UTF-8 en_US.UTF-8
 ENV LANG en_US.UTF-8
