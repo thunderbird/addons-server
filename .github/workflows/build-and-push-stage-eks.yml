@@ -1,0 +1,155 @@
+# Build and push the linux/arm64 image for stage-eks (thunderbird/addons-server#570)
+#
+# Builds Dockerfile.python3.deploy natively on a GitHub-hosted arm64 runner
+# and pushes it to the tb-dev ECR repository that mzla-eks-tb-dev01 pulls from.
+# This is separate from build-and-push.yml, which serves the legacy Fargate
+# stage from the `stage` branch; leave that file alone.
+#
+# On pull_request to stage-eks: build + smoke test (no AWS credentials, no push).
+# On push to stage-eks: build + smoke test + push of the tested image, tagged
+# with the commit sha and `stage-eks`.
+# Smoke test: .github/scripts/smoke-stage-eks-image.sh, shared by both jobs.
+#
+# Authentication: GitHub OIDC
+#   Role trust condition:
+#     "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+#     "token.actions.githubusercontent.com:sub": "repo:thunderbird/addons-server:ref:refs/heads/stage-eks"
+#   Role permissions: ecr:GetAuthorizationToken plus push actions on the one
+#   repository named in ECR_REPOSITORY_TB_DEV. See docs/arm64-image.md.
+#
+# Repository variables:
+#   AWS_ROLE_ARN_TB_DEV    - ARN of the OIDC role in mzla-tb-dev
+#   ECR_REPOSITORY_TB_DEV  - optional, defaults to atn/addons-server
+#
+# Publishing needs BOTH a push to stage-eks AND vars.AWS_ROLE_ARN_TB_DEV set;
+# otherwise the build job runs instead and nothing is pushed.
+
+name: Build and Push stage-eks (arm64)
+
+on:
+  push:
+    branches:
+      - stage-eks
+  pull_request:
+    branches:
+      - stage-eks
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY_TB_DEV || 'atn/addons-server' }}
+  DOCKERFILE: ./Dockerfile.python3.deploy
+  PLATFORM: linux/arm64
+  LOCAL_IMAGE: addons-server:ci
+
+jobs:
+  # Build + smoke test without credentials, whenever the publish job does not run.
+  build:
+    name: Build (arm64)
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/stage-eks' || vars.AWS_ROLE_ARN_TB_DEV == ''
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publishing not configured
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/stage-eks'
+        run: echo "::notice::Publish skipped - set the AWS_ROLE_ARN_TB_DEV repository variable (see workflow header)"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          # Docker Hub rate-limits anonymous pulls per runner IP; route the
+          # base image through Google's read-through mirror, as ci-tests.yml does.
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE }}
+          platforms: ${{ env.PLATFORM }}
+          push: false
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}
+          cache-from: type=gha,scope=stage-eks-arm64
+          cache-to: type=gha,scope=stage-eks-arm64,mode=max
+
+      - name: Smoke test
+        run: .github/scripts/smoke-stage-eks-image.sh "$LOCAL_IMAGE"
+
+  # Build, smoke test, then push the same image that was tested.
+  publish:
+    name: Build, test and push (arm64)
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/stage-eks' && vars.AWS_ROLE_ARN_TB_DEV != ''
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    concurrency:
+      group: ecr-stage-eks-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write  # OIDC, only granted on the publishing job
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Write version.json
+        run: |
+          cat > version.json <<EOF
+          {
+            "commit": "${{ github.sha }}",
+            "version": "${{ github.ref_name }}",
+            "source": "https://github.com/${{ github.repository }}",
+            "build": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          cat version.json
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE }}
+          platforms: ${{ env.PLATFORM }}
+          push: false
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}
+          cache-from: type=gha,scope=stage-eks-arm64
+          cache-to: type=gha,scope=stage-eks-arm64,mode=max
+
+      - name: Smoke test
+        run: .github/scripts/smoke-stage-eks-image.sh "$LOCAL_IMAGE"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_TB_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push tested image
+        env:
+          REPO: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+        run: |
+          for tag in "$GITHUB_SHA" stage-eks; do
+            docker tag "$LOCAL_IMAGE" "$REPO:$tag"
+            docker push "$REPO:$tag"
+          done
+          echo "Pushed $REPO:$GITHUB_SHA ($(docker inspect --format '{{index .RepoDigests 0}}' "$REPO:$GITHUB_SHA"))"

@@ -11,6 +11,8 @@ import mock
 import pytest
 import six
 
+from olympia.amo.management.commands.compress_assets import Command
+
 
 def sample_cron_job(*args):
     pass
@@ -127,3 +129,27 @@ def test_generate_jsi18n_files():
     with open(filename) as f:
         content = f.read()
         assert 'Choisir une date' in content
+
+
+@pytest.mark.parametrize('ftype', ['js', 'css'])
+@mock.patch('olympia.amo.management.commands.compress_assets.run_command')
+def test_compress_assets_minify_fails_on_minifier_error(
+        run_command, settings, ftype):
+    settings.UGLIFY_BIN = 'uglifyjs'
+    settings.CLEANCSS_BIN = 'cleancss'
+    run_command.return_value = 1
+    command = Command()
+    with pytest.raises(CommandError):
+        command._minify(ftype, 'in-all.' + ftype, 'in-min.' + ftype)
+
+
+@mock.patch('olympia.amo.management.commands.compress_assets.run_command')
+def test_compress_assets_minify_commands(run_command, settings):
+    settings.UGLIFY_BIN = 'uglifyjs'
+    settings.CLEANCSS_BIN = 'cleancss'
+    run_command.return_value = 0
+    Command()._minify('js', 'in-all.js', 'in-min.js')
+    # No -v: uglify-js 3.17 reads it as --version and writes nothing.
+    run_command.assert_called_with('uglifyjs -o in-min.js in-all.js -m')
+    Command()._minify('css', 'in-all.css', 'in-min.css')
+    run_command.assert_called_with('cleancss -o in-min.css in-all.css')
