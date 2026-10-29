@@ -16,7 +16,7 @@ spec:
     - name: toolbox
       image: public.ecr.aws/docker/library/mysql:8.0
       # python3-six: the repo schematic does `import six`.
-      command: ["sh", "-c", "microdnf install -y python3 python3-six bc >/tmp/install.log 2>&1; touch /tmp/ready; sleep infinity"]
+      command: ["sh", "-c", "microdnf install -y python3 python3-six bc >/tmp/install.log 2>&1 && touch /tmp/ready || echo install-failed >/tmp/install-failed; sleep infinity"]
       env:
         - name: DB_HOST
           value: REPLACE_ENDPOINT

@@ -253,11 +253,18 @@ k create configmap atn-399-kit --from-file=docs/runbooks/atn-migration/inventory
 rm -f pw modify.json
 sed -e 's#REPLACE_ENDPOINT#<endpoint from step 7>#' -e "s#REPLACE_MASTER_USER#$MASTER_USER#" \
   docs/runbooks/atn-migration/toolbox.yaml | k apply -f -
+k wait --for=condition=Ready pod/atn-399-toolbox --timeout=180s
+until k exec atn-399-toolbox -- test -f /tmp/ready; do
+  k exec atn-399-toolbox -- test -f /tmp/install-failed && { echo 'tool install failed, see /tmp/install.log'; break; }
+  sleep 5
+done
 k cp docs/runbooks/atn-migration/drive.sh atn-399-toolbox:/work/drive.sh
 ```
 
 Expected: `mig/` holds 31 `.sql` files (1049-1079), `schematic` and `schematic_settings.py`;
-the pod is `Running` and `/tmp/ready` exists after about 30 s. Max: 5 min.
+the pod is `Running` and `/tmp/ready` exists after about 30 s. If `/tmp/install-failed`
+appears instead, the package install failed (no egress or repo outage): read
+`/tmp/install.log`, delete the pod and retry. Max: 5 min.
 
 The runner is the public `mysql:8.0` image (client 8.0.46) plus `python3` and
 `python3-six`, running the **repo's own `schematic`** with a Django-free settings stub

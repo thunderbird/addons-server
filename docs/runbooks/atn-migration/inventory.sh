@@ -6,7 +6,7 @@ M="mysql --batch --skip-column-names -h$DB_HOST -u$DB_USER $DB_NAME"
 $M -e "SELECT version FROM schema_version" > $L/schema_version 2>&1
 : > $L/counts.tsv
 while read t; do
-  e=$($M -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$t'")
+  e=$($M -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$t'") || { echo "lookup failed for $t" >&2; exit 1; }
   if [ "$e" = 1 ]; then
     s=$(date +%s.%N); n=$($M -e "SELECT COUNT(*) FROM \`$t\`"); d=$(echo "$(date +%s.%N) - $s" | bc 2>/dev/null || echo na)
     sz=$($M -e "SELECT ROUND((data_length+index_length)/1048576,1) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$t'")
