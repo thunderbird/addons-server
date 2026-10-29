@@ -205,20 +205,25 @@ class Command(BaseCommand):
 
     def _minify(self, ftype, file_in, file_out):
         """Run the proper minifier on the file."""
+        returncode = 0
         if ftype == 'js' and hasattr(settings, 'UGLIFY_BIN'):
             opts = {'method': 'UglifyJS', 'bin': settings.UGLIFY_BIN}
             # No -v: uglify-js 3.17 reads it as --version and exits 0
             # without writing the target.
-            run_command('{uglify} -o {target} {source} -m'.format(
+            returncode = run_command('{uglify} -o {target} {source} -m'.format(
                 uglify=opts['bin'],
                 target=file_out,
                 source=file_in))
         elif ftype == 'css' and hasattr(settings, 'CLEANCSS_BIN'):
             opts = {'method': 'clean-css', 'bin': settings.CLEANCSS_BIN}
-            run_command('{cleancss} -o {target} {source}'.format(
+            returncode = run_command('{cleancss} -o {target} {source}'.format(
                 cleancss=opts['bin'],
                 target=file_out,
                 source=file_in))
+
+        if returncode:
+            raise CommandError('%s failed (exit %s) minifying %s' % (
+                opts['method'], returncode, file_in))
 
         self.stdout.write(
             'Minifying %s (using %s)\n' % (file_in, opts['method']))
