@@ -8,11 +8,15 @@ The 31 migration files `src/olympia/migrations/1049-*.sql` .. `1079-*.sql` are t
 one-way door of the Python 3 / EKS move: 1049, 1053, 1060, 1061, 1062, 1066, 1078 and
 1079 drop columns or tables. **Rollback means restoring the pre-migration snapshot.**
 
+**No command in this runbook connects to or writes to the production instance.** The only
+production-account actions are copying an existing automated snapshot, sharing that copy
+with the rehearsal account and deleting it again (steps 2-5).
+
 ## TL;DR
 
 | | Run 1 | Run 2 |
 |---|---|---|
-| Source snapshot | `rds:amo-tb-database-master-prod-2026-10-29-03-04` | same (tb-dev copy `atn-399-prod-2026-10-29`) |
+| Source snapshot | `rds:<PROD_DB_INSTANCE>-2026-10-29-03-04` | same (tb-dev copy `atn-399-prod-2026-10-29`) |
 | Restore to `available` | 10 min 32 s | 10 min 10 s |
 | Warm-up (affected tables) | 17 min | 14 min 55 s |
 | 1049-1067 (file by file) | 4 min 52 s | 4 min 41 s |
@@ -41,14 +45,15 @@ The procedure is therefore:
 
 | Thing | Value |
 |---|---|
-| Production DB (never touched) | `amo-tb-database-master-prod`, mzla-tb-legacy 768512802988, us-west-2 |
-| Rehearsal account | mzla-tb-dev 718959508124, eu-central-1, cluster `mzla-eks-tb-dev01` |
+| Production DB (never touched) | `<PROD_DB_INSTANCE>`, mzla-tb-legacy `<LEGACY_ACCOUNT_ID>`, us-west-2 |
+| Rehearsal account | mzla-tb-dev `<TB_DEV_ACCOUNT_ID>`, eu-central-1, cluster `mzla-eks-tb-dev01` |
 | Snapshot names | legacy manual copy and tb-dev copy are both `atn-399-prod-<DATE>` |
 | Rehearsal instance | `atn-399-rehearsal-<DATE>` (run 2: `atn-399-rehearsal2-<DATE>`) |
-| Rehearsal network | subnet group `atn-399-rehearsal` (private 1a/1b), SG `atn-399-rehearsal-mysql` (3306 from the cluster SG `sg-08c51d43c4a250a81` only) |
-| Parameter group | `atn-399-rehearsal-gtid`, mysql8.0, the 7 user overrides of prod `amo-tb-prod-gtid` |
+| Rehearsal network | subnet group `atn-399-rehearsal` (private 1a/1b), SG `atn-399-rehearsal-mysql` (3306 from the cluster SG `<CLUSTER_SG_ID>` only) |
+| Parameter group | `atn-399-rehearsal-gtid`, mysql8.0, the 7 user overrides of the prod parameter group `<PROD_PARAMETER_GROUP>` |
 | Tag on everything | `atn-issue=399` |
 | Runner | namespace `atn-399-rehearsal` on mzla-eks-tb-dev01, pod spec `docs/runbooks/atn-migration/toolbox.yaml` |
+| Out of bounds | `amo-py3upgrade-test` (the existing Fargate stage database): do not touch, read or restore over it |
 
 Every AWS-bound string in this procedure is plain ASCII (no em dashes): RDS and EC2
 descriptions reject anything else.
@@ -62,19 +67,32 @@ investigate before continuing.
 Set once per shell (zsh does not word-split variables; write commands literally):
 
 ```sh
-DATE=2026-10-29   # date of the automated snapshot you will use
+DATE=2026-10-29                    # date of the automated snapshot you will use
+SNAP_HHMM=03-04                    # time part of that snapshot's name (<HH>-<MM>)
+PROD_DB_INSTANCE=<PROD_DB_INSTANCE>
+LEGACY_ACCOUNT_ID=<LEGACY_ACCOUNT_ID>
+TB_DEV_ACCOUNT_ID=<TB_DEV_ACCOUNT_ID>
+VPC_ID=<VPC_ID>                    # mzla-eks-tb-dev01 VPC
+SUBNET_ID_A=<SUBNET_ID_A>          # tb-dev private subnet, eu-central-1a
+SUBNET_ID_B=<SUBNET_ID_B>          # tb-dev private subnet, eu-central-1b
+CLUSTER_SG_ID=<CLUSTER_SG_ID>      # describe-cluster .resourcesVpcConfig.clusterSecurityGroupId
+MASTER_USER=<MASTER_USER>          # master user carried over in the snapshot
 ```
+
+The real values are in the issue and in the platform-infrastructure repository; they are
+kept out of this public file.
 
 ### 1. Identify the newest automated prod snapshot (legacy, read-only)
 
 ```sh
 AWS_PROFILE=mzla-tb-legacy aws rds describe-db-snapshots --region us-west-2 \
-  --db-instance-identifier amo-tb-database-master-prod --snapshot-type automated \
+  --db-instance-identifier $PROD_DB_INSTANCE --snapshot-type automated \
   --query 'reverse(sort_by(DBSnapshots,&SnapshotCreateTime))[0].[DBSnapshotIdentifier,Status,Encrypted,AllocatedStorage,EngineVersion]' \
   --output text
 ```
 
-Expected: `rds:amo-tb-database-master-prod-<DATE>-03-04  available  False  1000  8.0.45`.
+Expected: `rds:<PROD_DB_INSTANCE>-<DATE>-<HH>-<MM>  available  False  1000  8.0.45`
+(automated snapshots of this instance were taken at 03:04 UTC, so `<HH>-<MM>` was `03-04`).
 Max: 1 min. The snapshots are **unencrypted**, which is what makes the cross-account,
 cross-region copy below possible without sharing a KMS key.
 
@@ -85,7 +103,7 @@ never the instance. Do not use `--copy-tags` (prod's `Env=prod` tags must not fo
 
 ```sh
 AWS_PROFILE=mzla-tb-legacy aws rds copy-db-snapshot --region us-west-2 \
-  --source-db-snapshot-identifier rds:amo-tb-database-master-prod-$DATE-03-04 \
+  --source-db-snapshot-identifier rds:$PROD_DB_INSTANCE-$DATE-$SNAP_HHMM \
   --target-db-snapshot-identifier atn-399-prod-$DATE \
   --tags Key=project,Value=atn Key=atn-issue,Value=399
 AWS_PROFILE=mzla-tb-legacy aws rds wait db-snapshot-available --region us-west-2 \
@@ -99,22 +117,22 @@ Expected: `creating`, then the wait returns. Observed: about 90 s. Max: 15 min.
 ```sh
 AWS_PROFILE=mzla-tb-legacy aws rds modify-db-snapshot-attribute --region us-west-2 \
   --db-snapshot-identifier atn-399-prod-$DATE --attribute-name restore \
-  --values-to-add 718959508124
+  --values-to-add $TB_DEV_ACCOUNT_ID
 ```
 
-Expected: `AttributeValues` is exactly `["718959508124"]`. **Never `all`.** Max: 1 min.
+Expected: `AttributeValues` is exactly `["<TB_DEV_ACCOUNT_ID>"]`. **Never `all`.** Max: 1 min.
 
 ### 4. Cross-region copy into tb-dev, encrypted (tb-dev)
 
 ```sh
 AWS_PROFILE=mzla-tb-dev aws rds copy-db-snapshot --region eu-central-1 --source-region us-west-2 \
-  --source-db-snapshot-identifier arn:aws:rds:us-west-2:768512802988:snapshot:atn-399-prod-$DATE \
+  --source-db-snapshot-identifier arn:aws:rds:us-west-2:$LEGACY_ACCOUNT_ID:snapshot:atn-399-prod-$DATE \
   --target-db-snapshot-identifier atn-399-prod-$DATE \
   --kms-key-id alias/aws/rds \
   --tags Key=atn-issue,Value=399 Key=project,Value=atn
 ```
 
-Expected: `creating  True  arn:aws:kms:eu-central-1:718959508124:key/ff71ec35-...`.
+Expected: `creating  True  arn:aws:kms:<REGION>:<TB_DEV_ACCOUNT_ID>:key/<KEY_ID>`.
 Poll `describe-db-snapshots ... --query 'DBSnapshots[0].[Status,PercentProgress]'` until
 `available 100`. Observed: **32.5 min** (17:48 to 18:20 UTC; first cross-region copy is
 always full). Max: 3 h (AWS may queue cross-region copies with no progress shown).
@@ -130,7 +148,7 @@ Only once step 4 shows `available`.
 ```sh
 AWS_PROFILE=mzla-tb-legacy aws rds modify-db-snapshot-attribute --region us-west-2 \
   --db-snapshot-identifier atn-399-prod-$DATE --attribute-name restore \
-  --values-to-remove 718959508124
+  --values-to-remove $TB_DEV_ACCOUNT_ID
 AWS_PROFILE=mzla-tb-legacy aws rds delete-db-snapshot --region us-west-2 \
   --db-snapshot-identifier atn-399-prod-$DATE
 ```
@@ -144,11 +162,11 @@ After this, nothing of the rehearsal exists in the legacy account.
 export AWS_PROFILE=mzla-tb-dev AWS_REGION=eu-central-1
 aws rds create-db-subnet-group --db-subnet-group-name atn-399-rehearsal \
   --db-subnet-group-description "ATN 399 rehearsal - tb-dev private subnets" \
-  --subnet-ids subnet-044e18f3022fb9ee1 subnet-01084662e5e16dce9 \
+  --subnet-ids $SUBNET_ID_A $SUBNET_ID_B \
   --tags Key=atn-issue,Value=399 Key=project,Value=atn
 aws rds create-db-parameter-group --db-parameter-group-name atn-399-rehearsal-gtid \
   --db-parameter-group-family mysql8.0 \
-  --description "ATN 399 rehearsal - mirrors prod amo-tb-prod-gtid overrides" \
+  --description "ATN 399 rehearsal - mirrors the prod parameter group overrides" \
   --tags Key=atn-issue,Value=399 Key=project,Value=atn
 aws rds modify-db-parameter-group --db-parameter-group-name atn-399-rehearsal-gtid --parameters \
   ParameterName=enforce_gtid_consistency,ParameterValue=ON,ApplyMethod=pending-reboot \
@@ -160,15 +178,15 @@ aws rds modify-db-parameter-group --db-parameter-group-name atn-399-rehearsal-gt
   ParameterName=slow_query_log,ParameterValue=1,ApplyMethod=immediate
 aws ec2 create-security-group --group-name atn-399-rehearsal-mysql \
   --description "ATN 399 rehearsal MySQL - 3306 from tb-dev01 nodes only" \
-  --vpc-id vpc-0e0f4b8d603d463e0 \
+  --vpc-id $VPC_ID \
   --tag-specifications 'ResourceType=security-group,Tags=[{Key=atn-issue,Value=399},{Key=project,Value=atn},{Key=Name,Value=atn-399-rehearsal-mysql}]'
 aws ec2 authorize-security-group-ingress --group-id <SG_ID> \
-  --ip-permissions 'IpProtocol=tcp,FromPort=3306,ToPort=3306,UserIdGroupPairs=[{GroupId=sg-08c51d43c4a250a81,Description=MySQL from tb-dev01 nodes and non-SGP pods}]'
+  --ip-permissions "IpProtocol=tcp,FromPort=3306,ToPort=3306,UserIdGroupPairs=[{GroupId=$CLUSTER_SG_ID,Description=MySQL from tb-dev01 nodes and non-SGP pods}]"
 ```
 
 Expected: subnet group `Complete`, the SG id, `True`. Max: 5 min.
 
-`sg-08c51d43c4a250a81` is the EKS-created cluster SG that every tb-dev01 node carries
+`<CLUSTER_SG_ID>` is the EKS-created cluster SG that every tb-dev01 node carries
 (`describe-cluster` reports it as `clusterSecurityGroupId`). The rule is on the rehearsal SG
 only; no shared SG is modified.
 
@@ -194,6 +212,11 @@ response shows `default.mysql8.0`; RDS swaps in the custom group (with one reboo
 the instance becomes available. Observed: 10 min 32 s and 10 min 10 s. Max: 45 min (the
 `wait` times out after 30 min; run it twice).
 
+- `--copy-tags-to-snapshot` is what actually ran (the Phase A2 plan said
+  `--no-copy-tags-to-snapshot`). It copies the rehearsal instance's own tags
+  (`atn-issue=399`) to its automated snapshots, which is what let step 17's tag query
+  find the one RDS took during run 2. Production tags never reach the copy, because step 2
+  copies the snapshot without `--copy-tags`.
 - `--backup-retention-period 1` keeps the binlog on, as on prod (which feeds a replica);
   retention 0 would make DDL faster than prod and the timings would lie.
 - 1000 GiB is the minimum: a restore cannot be smaller than the snapshot's allocation.
@@ -218,8 +241,8 @@ been enabled`. Max: 10 min.
 ### 9. Runner namespace, kit and toolbox (tb-dev01)
 
 ```sh
-alias k='kubectl --context arn:aws:eks:eu-central-1:718959508124:cluster/mzla-eks-tb-dev01 -n atn-399-rehearsal'
-kubectl --context arn:aws:eks:eu-central-1:718959508124:cluster/mzla-eks-tb-dev01 create ns atn-399-rehearsal
+alias k="kubectl --context arn:aws:eks:eu-central-1:$TB_DEV_ACCOUNT_ID:cluster/mzla-eks-tb-dev01 -n atn-399-rehearsal"
+kubectl --context arn:aws:eks:eu-central-1:$TB_DEV_ACCOUNT_ID:cluster/mzla-eks-tb-dev01 create ns atn-399-rehearsal
 k create secret generic atn-399-db --from-file=MYSQL_PWD=pw
 mkdir mig && cp src/olympia/migrations/10[4-7]?-*.sql mig/ && rm mig/104[0-8]-*.sql && cp schematic mig/
 cp docs/runbooks/atn-migration/schematic_settings.py mig/
@@ -227,7 +250,9 @@ k create configmap atn-399-mig --from-file=mig/
 k create configmap atn-399-kit --from-file=docs/runbooks/atn-migration/inventory.sh \
   --from-file=docs/runbooks/atn-migration/warm.sh --from-file=docs/runbooks/atn-migration/migrate_one.sh \
   --from-file=docs/runbooks/atn-migration/tables.txt
-sed 's#REPLACE_ENDPOINT#<endpoint from step 7>#' docs/runbooks/atn-migration/toolbox.yaml | k apply -f -
+rm -f pw modify.json
+sed -e 's#REPLACE_ENDPOINT#<endpoint from step 7>#' -e "s#REPLACE_MASTER_USER#$MASTER_USER#" \
+  docs/runbooks/atn-migration/toolbox.yaml | k apply -f -
 k cp docs/runbooks/atn-migration/drive.sh atn-399-toolbox:/work/drive.sh
 ```
 
@@ -248,12 +273,15 @@ The copy carries every production MySQL account with its production password. Lo
 of them except the master user and the RDS-managed accounts, without naming them here:
 
 ```sh
-k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" --batch --skip-column-names -e "SELECT CONCAT(\"ALTER USER \", QUOTE(user), \"@\", QUOTE(host), \" ACCOUNT LOCK;\") FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"bootstrap\", \"rdsadmin\", \"rdsrepladmin\")" | mysql -h"$DB_HOST" -u"$DB_USER"'
-k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" -e "SELECT COUNT(*) AS unlocked FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"bootstrap\", \"rdsadmin\", \"rdsrepladmin\")"'
+k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" --batch --skip-column-names -e "SELECT CONCAT(\"ALTER USER \", QUOTE(user), \"@\", QUOTE(host), \" ACCOUNT LOCK;\") FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"$DB_USER\", \"rdsadmin\", \"rdsrepladmin\")" | mysql -h"$DB_HOST" -u"$DB_USER"'
+k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" -e "SELECT COUNT(*) AS unlocked FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"$DB_USER\", \"rdsadmin\", \"rdsrepladmin\")"'
 ```
 
-Expected: `unlocked` is `0`. (The rehearsals locked the three non-RDS accounts by name; this
-query form was written afterwards for the public runbook and is untested.) The schema has no routines, views or triggers, so locking breaks
+**Untested:** both rehearsals locked the three non-RDS accounts by name. This query form
+was written afterwards so the public runbook names no production account; run the second
+command and confirm `0` before continuing, and fall back to locking by name if it is not.
+
+Expected: `unlocked` is `0`. The schema has no routines, views or triggers, so locking breaks
 no DEFINER. `rdsadmin` / `rdsrepladmin` are RDS-managed: leave them. Max: 1 min.
 
 ### 11. Before-inventory
@@ -390,13 +418,15 @@ aws rds delete-db-snapshot --db-snapshot-identifier atn-399-prod-$DATE
 aws rds delete-db-parameter-group --db-parameter-group-name atn-399-rehearsal-gtid
 aws rds delete-db-subnet-group --db-subnet-group-name atn-399-rehearsal
 aws ec2 delete-security-group --group-id <SG_ID>
-kubectl --context arn:aws:eks:eu-central-1:718959508124:cluster/mzla-eks-tb-dev01 delete ns atn-399-rehearsal
+kubectl --context arn:aws:eks:eu-central-1:$TB_DEV_ACCOUNT_ID:cluster/mzla-eks-tb-dev01 delete ns atn-399-rehearsal
 aws resourcegroupstaggingapi get-resources --tag-filters Key=atn-issue,Values=399 \
   --query 'ResourceTagMappingList[].ResourceARN'
 ```
 
 Expected: the last command returns `[]` (the tagging API can lag a few minutes behind
-deletes; re-run). Keep the tb-dev snapshot only if another run is planned within days.
+deletes; re-run). The instance is deleted **without a final snapshot** (`--skip-final-snapshot`):
+it is a disposable copy. Deleting the tb-dev snapshot copy is the **default**; keep it only if
+another run is planned within days.
 Max: 20 min (instance deletion is about 5-8 min).
 
 ## Gotchas
@@ -421,7 +451,7 @@ Max: 20 min (instance deletion is about 5-8 min).
    group is applied (with a reboot) before `available`. Check `in-sync` before step 8.
 9. **Cold reads are slow:** cold `COUNT(*)` on `translations` takes 154-180 s; warm the
    tables (step 12) before timing anything.
-10. **The copy contains production credentials and PII.** Step 8 replaces `bootstrap`,
+10. **The copy contains production credentials and PII.** Step 8 replaces the `<MASTER_USER>` password,
     step 10 locks the application accounts. The SG admits only tb-dev01 nodes.
 
 ## Cost of the rehearsal (2026-10-29)
@@ -441,6 +471,9 @@ everything was deleted the same day. Figures are from list prices and timestamps
 invoice will show the data-transfer line within a day.
 
 ## Production cutover notes
+
+**Not part of the rehearsal.** The cutover changes the real target database and needs its own
+plan and a separate go on its issue before anything here is run.
 
 The cutover runs the same steps 11-15 against the target database. Budget, from the
 rehearsal: about 5 minutes of DDL on warm data, 20 minutes as the stop-and-investigate

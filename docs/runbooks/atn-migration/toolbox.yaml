@@ -1,7 +1,7 @@
 # Rehearsal toolbox for the ATN schema migration (thunderbird/addons-server#399).
-# Runs on mzla-eks-tb-dev01 nodes; the node SG sg-08c51d43c4a250a81 is the only
+# Runs on mzla-eks-tb-dev01 nodes; the cluster SG <CLUSTER_SG_ID> is the only
 # source admitted on 3306 by the rehearsal DB security group.
-# Fill REPLACE_ENDPOINT before applying (see docs/runbooks/atn-migration.md).
+# Fill REPLACE_ENDPOINT and REPLACE_MASTER_USER before applying (see docs/runbooks/atn-migration.md).
 apiVersion: v1
 kind: Pod
 metadata:
@@ -21,7 +21,7 @@ spec:
         - name: DB_HOST
           value: REPLACE_ENDPOINT
         - name: DB_USER
-          value: bootstrap
+          value: REPLACE_MASTER_USER
         - name: DB_NAME
           value: addons_mozilla_org
         - name: MYSQL_PWD
