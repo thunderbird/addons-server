@@ -244,13 +244,16 @@ cross-account pull policy.
 
 ### 10. Lock the production MySQL accounts on the copy
 
+The copy carries every production MySQL account with its production password. Lock all
+of them except the master user and the RDS-managed accounts, without naming them here:
+
 ```sh
-k exec atn-399-toolbox -- sh -c "mysql -h\$DB_HOST -u\$DB_USER -e \"ALTER USER 'addonsro'@'%' ACCOUNT LOCK; ALTER USER 'addonsrw'@'%' ACCOUNT LOCK; ALTER USER 'repl_user'@'10.32.8.6' ACCOUNT LOCK; SELECT user, account_locked FROM mysql.user\""
+k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" --batch --skip-column-names -e "SELECT CONCAT(\"ALTER USER \x27\", user, \"\x27@\x27\", host, \"\x27 ACCOUNT LOCK;\") FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"bootstrap\", \"rdsadmin\", \"rdsrepladmin\")" | mysql -h"$DB_HOST" -u"$DB_USER"'
+k exec atn-399-toolbox -- sh -c 'mysql -h"$DB_HOST" -u"$DB_USER" -e "SELECT COUNT(*) AS unlocked FROM mysql.user WHERE account_locked = \"N\" AND user NOT IN (\"bootstrap\", \"rdsadmin\", \"rdsrepladmin\")"'
 ```
 
-Expected: `addonsro`, `addonsrw`, `repl_user` show `Y`; `bootstrap` `N`. The schema has no
-routines, views or triggers, so locking breaks no DEFINER. `rdsadmin` / `rdsrepladmin` are
-RDS-managed: leave them. Max: 1 min.
+Expected: `unlocked` is `0`. The schema has no routines, views or triggers, so locking breaks
+no DEFINER. `rdsadmin` / `rdsrepladmin` are RDS-managed: leave them. Max: 1 min.
 
 ### 11. Before-inventory
 
