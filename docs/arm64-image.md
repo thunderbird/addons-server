@@ -5,7 +5,9 @@ Tracking issue: [thunderbird/addons-server#570](https://github.com/thunderbird/a
 The `stage-eks` image is `Dockerfile.python3.deploy` built for `linux/arm64`
 (mzla-eks-tb-dev01 runs Graviton nodes). The same Dockerfile still builds for
 `linux/amd64`; every arm64-specific step is gated on `TARGETARCH` and is a
-no-op on x86.
+no-op on x86. `TARGETARCH` is set by BuildKit (`docker buildx build`, or
+`docker build` on Docker 23+); the legacy builder leaves it empty, which
+skips the arm64 steps.
 
 ## Build
 
@@ -60,6 +62,21 @@ nothing, which `compress_assets` would also have hidden. The `-v` is dropped.
 The x86 build of the unchanged `stage-eks` tree shows the same three uglify
 failures (`common-all.js`, `impala-all.js`, `debug-all.js`), so this is an
 existing `stage-eks` bug and not arm64-specific.
+
+`compress_assets` now also checks the minifier's exit code and raises
+`CommandError` when uglify-js or clean-css fails, so a bundle that does not
+minify fails the image build instead of shipping without its `-min` file
+(closes [thunderbird/addons-server#459](https://github.com/thunderbird/addons-server/issues/459)).
+Checked end to end: with uglify-js 3.8.1 swapped back in, `compress_assets`
+exits 1 with `UglifyJS failed (exit 1) minifying .../common-all.js`.
+
+## CI smoke test
+
+`.github/scripts/smoke-stage-eks-image.sh <image>` runs `manage.py check`,
+imports `olympia.lib.es`, MySQLdb, lxml, Pillow and pygit2, and fails if any
+`*-all.js` bundle has no `*-min.js`. The workflow runs it on every build; the
+publish job builds with `load: true`, smoke-tests that image and then pushes
+that same image, so nothing reaches ECR untested.
 
 ## Smoke results
 

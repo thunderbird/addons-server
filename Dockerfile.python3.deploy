@@ -63,8 +63,8 @@ RUN apt-get update && apt-get install -y --allow-downgrades \
 # package (stretch has 0.24, stretch-backports 0.27), so build it here.
 # No-op on amd64. See docs/arm64-image.md.
 ARG TARGETARCH
-ENV LIBGIT2_VERSION=0.28.2
-ENV LIBGIT2_SHA256=42b5f1e9b9159d66d86fff0394215c5733b6ef8f9b9d054cdd8c73ad47177fc3
+ARG LIBGIT2_VERSION=0.28.2
+ARG LIBGIT2_SHA256=42b5f1e9b9159d66d86fff0394215c5733b6ef8f9b9d054cdd8c73ad47177fc3
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
         apt-get update && apt-get install -y cmake \
         && curl -fsSL -o /tmp/libgit2.tar.gz https://github.com/libgit2/libgit2/archive/refs/tags/v${LIBGIT2_VERSION}.tar.gz \
