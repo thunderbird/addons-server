@@ -138,8 +138,9 @@ def test_compress_assets_minify_fails_on_minifier_error(
     settings.UGLIFY_BIN = 'uglifyjs'
     settings.CLEANCSS_BIN = 'cleancss'
     run_command.return_value = 1
+    command = Command()
     with pytest.raises(CommandError):
-        Command()._minify(ftype, 'in-all.' + ftype, 'in-min.' + ftype)
+        command._minify(ftype, 'in-all.' + ftype, 'in-min.' + ftype)
 
 
 @mock.patch('olympia.amo.management.commands.compress_assets.run_command')
