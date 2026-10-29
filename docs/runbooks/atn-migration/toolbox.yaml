@@ -1,0 +1,59 @@
+# Rehearsal toolbox for the ATN schema migration (thunderbird/addons-server#399).
+# Runs on mzla-eks-tb-dev01 nodes; the cluster SG <CLUSTER_SG_ID> is the only
+# source admitted on 3306 by the rehearsal DB security group.
+# Fill REPLACE_ENDPOINT and REPLACE_MASTER_USER before applying (see docs/runbooks/atn-migration.md).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: atn-399-toolbox
+  namespace: atn-399-rehearsal
+  labels:
+    atn-issue: "399"
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  containers:
+    - name: toolbox
+      image: public.ecr.aws/docker/library/mysql:8.0
+      # python3-six: the repo schematic does `import six`.
+      command: ["sh", "-c", "microdnf install -y python3 python3-six bc >/tmp/install.log 2>&1 && touch /tmp/ready || echo install-failed >/tmp/install-failed; sleep infinity"]
+      env:
+        - name: DB_HOST
+          value: REPLACE_ENDPOINT
+        - name: DB_USER
+          value: REPLACE_MASTER_USER
+        - name: DB_NAME
+          value: addons_mozilla_org
+        - name: MYSQL_PWD
+          valueFrom:
+            secretKeyRef:
+              name: atn-399-db
+              key: MYSQL_PWD
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+          ephemeral-storage: 1Gi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+          ephemeral-storage: 2Gi
+      volumeMounts:
+        - name: kit
+          mountPath: /kit
+        - name: mig
+          mountPath: /mig
+        - name: work
+          mountPath: /work
+  volumes:
+    - name: kit
+      configMap:
+        name: atn-399-kit
+        defaultMode: 0755
+    - name: mig
+      configMap:
+        name: atn-399-mig
+        defaultMode: 0755
+    - name: work
+      emptyDir:
+        sizeLimit: 1Gi
